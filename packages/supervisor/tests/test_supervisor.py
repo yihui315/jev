@@ -183,6 +183,48 @@ def test_append_shadow_tolerates_an_already_open_transaction(tmp_path):
     assert len(rows) == 2
 
 
+def test_production_write_path_reaches_append_shadow_outside_a_transaction(tmp_path, monkeypatch):
+    """The E-5 cross-process guard must survive the REAL wiring, not just direct calls.
+
+    ``append_shadow`` skips ``BEGIN IMMEDIATE`` when the caller already owns a
+    transaction — correct, because a nested ``BEGIN`` raises (see the test above).
+    The flip side is that the cross-process protection exists ONLY as long as the
+    connection handed to it is NOT already inside a transaction. If
+    ``StateStore.transaction()`` ever opened one first (or a statement sneaked in
+    ahead of it), ``in_transaction`` would be True, the ``BEGIN`` would be
+    silently skipped, and the chain-fork guard would simply disappear with
+    NOTHING failing. The ordering test above cannot catch that: it calls
+    ``append_shadow`` directly on a fresh connection.
+
+    So assert the precondition the guard depends on, on the real production path
+    (``Sentinel`` -> ``store.transaction()`` -> ``append_shadow``).
+    """
+    store = _store(tmp_path)
+    s = _sentinel(store)
+
+    seen = {}
+    real_append = shadow_store.append_shadow
+
+    def _spy(conn, *, record):
+        seen["in_transaction_at_entry"] = conn.in_transaction
+        return real_append(conn, record=record)
+
+    monkeypatch.setattr(shadow_store, "append_shadow", _spy)
+    s.arbitrate_and_record(assessment=_assessment(), event_id="e1", agent="generic")
+    monkeypatch.undo()
+
+    assert "in_transaction_at_entry" in seen, (
+        "the production write path never reached shadow_store.append_shadow — this "
+        "test would otherwise pass vacuously"
+    )
+    assert seen["in_transaction_at_entry"] is False, (
+        "append_shadow entered with an OPEN transaction, so its BEGIN IMMEDIATE was "
+        "skipped and the cross-process chain-fork guard (E-5) is silently gone"
+    )
+    # non-vacuous: the watched path really did persist a row
+    assert len(_rows(store)) == 1
+
+
 # --------------------------------------------------------------------------- #
 # #54 regression: rows must ACTUALLY land in the real store (non-vacuous D-40)
 # --------------------------------------------------------------------------- #
