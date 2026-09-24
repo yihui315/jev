@@ -565,3 +565,64 @@ def test_priority_escalate_beats_everything():
         needs_human=False, band=3, score=0.99, provider_verified=True, evidence_complete=False,
     )
     assert D.arbitrate(s).action is DirectiveAction.ESCALATE
+
+
+def _abstaining_assessment(**over) -> Assessment:
+    """A provider that DECLARES non-scoring abstention and supplies no channels.
+
+    Mirrors ``DisabledProvider`` (Errata E-3): empty probabilities, falsy score,
+    no signal booleans, ``raw["provider_abstained"] is True``, ``verified=True``.
+    """
+    kwargs = dict(
+        agent=AgentName.GENERIC,
+        session_id="s",
+        timestamp=1.0,
+        probabilities={},
+        risk_score=0.0,
+        band="disabled",
+        provider_verified=True,
+        raw={"provider_abstained": True},
+    )
+    kwargs.update(over)
+    return Assessment(**kwargs)
+
+
+def test_provider_abstention_scoping():
+    """Errata E-3 / spec §6.16: a DECLARED non-scoring abstention (no numeric
+    channels) is *incomplete evidence* -> VERIFY (row 5), NOT an exact blocker;
+    an UNDECLARED absence and an UNVERIFIED provider still ESCALATE."""
+    # (a) declared abstention + no numeric channels -> scoped away -> VERIFY
+    abstaining = _abstaining_assessment()
+    sig = D.normalize(abstaining)
+    assert D.find_blockers(sig, abstaining) == (), "E-3 must scope the absence blockers"
+    res = D.arbitrate(sig, assessment=abstaining)
+    assert res.action is DirectiveAction.VERIFY
+    assert res.blocked is False
+    assert res.matched_rows[0] == 4, "VERIFY is row 5 (index 4)"
+
+    # (b) the SAME signals, UNDECLARED -> the absence IS an exact blocker
+    undeclared = abstaining.model_copy(update={"raw": {}})
+    sig2 = D.normalize(undeclared)
+    reasons2 = D.find_blockers(sig2, undeclared)
+    assert D.BLOCKER_REQUIRED_SIGNAL_UNKNOWN in reasons2
+    assert D.BLOCKER_RISK_LEVEL_UNKNOWN in reasons2
+    assert D.arbitrate(sig2, assessment=undeclared).action is DirectiveAction.ESCALATE
+
+    # (c) declared abstention but UNVERIFIED -> provider_unverified is NOT scoped
+    unverified = abstaining.model_copy(update={"provider_verified": False})
+    sig3 = D.normalize(unverified)
+    assert D.BLOCKER_PROVIDER_UNVERIFIED in D.find_blockers(sig3, unverified)
+    assert D.arbitrate(sig3, assessment=unverified).action is DirectiveAction.ESCALATE
+
+    # (d) a DECLARATION that DID supply a numeric channel is not an abstention
+    scoring = abstaining.model_copy(
+        update={"probabilities": {"risk": 0.2}, "risk_score": 0.2}
+    )
+    sig4 = D.normalize(scoring)
+    assert D.BLOCKER_RISK_LEVEL_UNKNOWN in D.find_blockers(sig4, scoring), (
+        "a provider that supplied evidence (but no band) is not scoped"
+    )
+
+    # (e) a declaration that is NOT a real boolean does not count (fail closed)
+    sneaky = abstaining.model_copy(update={"raw": {"provider_abstained": "true"}})
+    assert D.arbitrate(D.normalize(sneaky), assessment=sneaky).action is DirectiveAction.ESCALATE

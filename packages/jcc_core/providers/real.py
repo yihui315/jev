@@ -34,8 +34,11 @@ class RealProvider(JevProvider):
         self.base_url = base_url
 
     def assess(self, event: AEPEnvelope, session: SessionState) -> Assessment:
-        # UNVERIFIED stub: would call the external scorer here. Until verified,
-        # refuse to fabricate a score — degrade to a VERIFY-leaning assessment.
+        # UNVERIFIED stub: would call the external scorer here. Until verified it
+        # supplies NO signals and stays unverified, so the kernel fails closed to
+        # EXACT_BLOCKER -> ESCALATE via `provider_unverified` (ADR-0008 F2 / D-35).
+        # It must NOT declare `raw["provider_abstained"]`: an *abstention* is
+        # VERIFY (Errata E-3), whereas an *unverified* provider is ESCALATE.
         agent = event.agent.value if hasattr(event.agent, "value") else event.agent
         return Assessment(
             agent=AgentName(agent) if not isinstance(event.agent, AgentName) else event.agent,
@@ -45,8 +48,13 @@ class RealProvider(JevProvider):
             provider=self.name,
             probabilities={},
             risk_score=0.0,
-            band="unverified",
+            band="unverified",   # not a real band -> coerces to UNKNOWN risk
             needs_verify=True,
+            # D-31: propagate this provider's verification state onto the record.
+            # `real` is UNVERIFIED, so this is False -> `provider_unverified`
+            # fires -> EXACT_BLOCKER -> ESCALATE (frozen F2). Behaviour-invariant
+            # with the prior default, but made explicit per spec §2.3.
+            provider_verified=self.verified,
             raw={"note": "RealProvider is UNVERIFIED scaffolding; no external call made."},
         )
 

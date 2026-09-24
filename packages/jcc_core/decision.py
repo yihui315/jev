@@ -454,6 +454,42 @@ def _numeric_channel_conflict(assessment: Any) -> bool:
     return abs(left - right) > _SELF_CONSISTENCY_EPSILON
 
 
+def _declares_non_scoring_abstention(assessment: Any, signals: Signals) -> bool:
+    """True iff the provider EXPLICITLY declares non-scoring abstention (Errata E-3).
+
+    ADR-0008 *Errata E-3* / spec §2.3: ``required_signal_unknown`` and
+    ``risk_level_unknown`` fire **only for a provider that supplied evidence**
+    (a required member UNKNOWN, or a provider claiming to score that supplied
+    nothing). A provider that **declares** non-scoring abstention and supplies
+    **no numeric channels** is merely *incomplete*, which is VERIFY (row 5), not
+    an exact blocker.
+
+    Both must hold:
+
+    * the declaration rides in the free-form ``raw`` map as a real boolean —
+      ``raw["provider_abstained"] is True`` (a string ``"true"`` or ``1`` does
+      NOT count; anything ambiguous fails closed to ESCALATE), AND
+    * **no numeric channels** were supplied: ``probabilities`` is empty/absent
+      AND the normalised ``score`` is falsy/absent.
+
+    Deliberately touches ONLY the two absence-based blockers (see
+    ``find_blockers``); ``provider_unverified``, ``probability_out_of_range``,
+    ``contradictory_signals`` and ``score_unknown`` are all left intact, so an
+    unverified or *undeclared* provider still fails closed to ``ESCALATE``.
+    """
+    if not isinstance(assessment, Assessment):
+        return False
+    raw = getattr(assessment, "raw", None)
+    if not isinstance(raw, Mapping) or raw.get("provider_abstained") is not True:
+        return False
+    probabilities = getattr(assessment, "probabilities", None)
+    if probabilities:  # a supplied numeric channel
+        return False
+    if signals.score:  # truthy score => a numeric channel was supplied
+        return False
+    return True
+
+
 def find_blockers(
     signals: Signals,
     assessment: Any = _UNSET,
@@ -500,13 +536,26 @@ def find_blockers(
             if _numeric_channel_conflict(assessment):
                 reasons.append(BLOCKER_CONTRADICTORY_SIGNALS)
 
-    for name in REQUIRED_SIGNAL_FIELDS:
-        if getattr(signals, name) is None:
-            reasons.append(BLOCKER_REQUIRED_SIGNAL_UNKNOWN)
+    # Errata E-3 (ADR-0008): a DECLARED non-scoring abstention that supplied no
+    # numeric channels is *incomplete evidence* -> VERIFY (row 5), NOT an exact
+    # blocker. Scope ONLY these two absence-based blockers; EVERY other blocker
+    # (incl. provider_unverified) is untouched, so an undeclared absence or an
+    # unverified provider still fail closed to ESCALATE.
+    abstained = assessment is not _UNSET and _declares_non_scoring_abstention(
+        assessment, signals
+    )
 
-    if signals.band is None:
-        reasons.append(BLOCKER_RISK_LEVEL_UNKNOWN)
+    if not abstained:
+        for name in REQUIRED_SIGNAL_FIELDS:
+            if getattr(signals, name) is None:
+                reasons.append(BLOCKER_REQUIRED_SIGNAL_UNKNOWN)
+
+        if signals.band is None:
+            reasons.append(BLOCKER_RISK_LEVEL_UNKNOWN)
+
     if signals.score is None:
+        # Deliberately NOT scoped by E-3: an absent score channel is still
+        # `score_unknown` even for a declared-abstaining provider (fail-closed).
         reasons.append(BLOCKER_SCORE_UNKNOWN)
 
     _ = thresholds  # accepted for symmetry; must never influence the result
@@ -543,9 +592,12 @@ def _r4(s: Signals, t: Thresholds, blockers: Tuple[str, ...]) -> bool:
 
 
 def _r5(s: Signals, t: Thresholds, blockers: Tuple[str, ...]) -> bool:
-    # VERIFY is evidence/uncertainty only (R6-2/R6-3): no risk band. The
-    # ``band is None`` (risk_level unknown) branch is unreachable because row 1
-    # already absorbed it; it is kept for verbatim fidelity with §1.4.
+    # VERIFY is evidence/uncertainty only (R6-2/R6-3): no risk band.
+    # ``band is None`` fires here only when row 1 did NOT absorb it — i.e. exactly
+    # the Errata-E-3 case: a DECLARED non-scoring abstention (no numeric channels)
+    # whose unknown risk is *incomplete evidence*, not an exact blocker. Any other
+    # ``band is None`` still appends risk_level_unknown and is absorbed by row 1
+    # first, so this branch never weakens the default fail-closed path.
     return s.needs_verification is True or s.evidence_complete is False or s.band is None
 
 

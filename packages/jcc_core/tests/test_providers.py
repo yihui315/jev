@@ -5,6 +5,7 @@ from jcc_core import config as cfg_mod
 from jcc_core.providers import build_provider
 from jcc_core.providers.disabled import DisabledProvider
 from jcc_core.providers.mock import DeterministicMockProvider
+from jcc_core.providers.real import RealProvider
 from jcc_core.schemas import AEPEnvelope, AgentName, DirectiveAction, SessionState, SessionStatus
 
 
@@ -69,12 +70,39 @@ def test_mock_high_risk_escalates():
     assert decision.decide_action(found) is DirectiveAction.ESCALATE
 
 
-def test_disabled_is_verify_leaning():
+def test_disabled_declares_abstention_and_emits_no_signals():
+    """Errata E-3 / spec §6.16: `disabled` is a DECLARED non-scoring abstention.
+
+    It supplies NO numeric channels and NONE of the six required booleans (D-32:
+    a provider must not choose a directive); the kernel resolves it to VERIFY
+    (incomplete evidence -> row 5), never ESCALATE.
+    """
     p = DisabledProvider()
     a = p.assess(_env(evidence={"x": 1}), None)
-    assert a.needs_verify is True
-    assert a.risk_score == 0.0
     assert p.is_available() is False
+    # the declaration, and only the declaration
+    assert a.raw.get("provider_abstained") is True
+    # no numeric channel, no signal booleans
+    assert a.probabilities == {}
+    assert not a.risk_score
+    assert "signals" not in a.raw
+    assert a.needs_verify is False          # not one of the six, and not emitted
+    # still the safe default -> VERIFY, and provably NOT a blocker
+    assert decision.decide_action(a) is DirectiveAction.VERIFY
+    assert decision.find_blockers(decision.normalize(a), a) == ()
+
+
+def test_real_provider_escalates_not_verify():
+    """Frozen F2 / Errata E-3: `real` is UNVERIFIED and **not** declared-abstaining,
+    so its absent signals ARE an EXACT_BLOCKER -> ESCALATE (contrast `disabled`)."""
+    p = RealProvider(api_key="dummy")
+    a = p.assess(_env(evidence={"x": 1}), None)
+    assert a.provider_verified is False
+    assert "provider_abstained" not in a.raw
+    assert decision.BLOCKER_PROVIDER_UNVERIFIED in decision.find_blockers(
+        decision.normalize(a), a
+    )
+    assert decision.decide_action(a) is DirectiveAction.ESCALATE
 
 
 def test_build_provider_default_is_mock():
