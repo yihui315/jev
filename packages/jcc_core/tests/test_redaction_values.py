@@ -30,11 +30,17 @@ for p in (str(PACKAGES), str(_INTEG_COMMON)):
         sys.path.insert(0, p)
 
 from jcc_core.adapters import ClaudeAdapter
-from jcc_core.adapters._common import redact, scrub_str, scrub_value_secrets
+from jcc_core.adapters._common import (
+    DEPTH_LIMIT_MARK,
+    redact,
+    scrub_str,
+    scrub_value_secrets,
+)
 from jcc_core.actuator import Actuator
 from jcc_core.config import load_config
 from jcc_core.core import CoreEngine
 from jcc_core.providers import build_provider
+from jcc_core.schemas import AEPEnvelope
 from jcc_core.state_store import StateStore
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
@@ -221,3 +227,70 @@ def test_codex_notify_garbled_payload_does_not_leak_to_spool(tmp_path):
     assert "sk-aegis2PLANT-7f3a9c1e5b2d8f04" not in written, "bearer secret leaked to spool!"
     assert "AKIAIOSFODNN7EXAMPLE" not in written, "aws key leaked to spool!"
     assert "<redacted:" in written
+
+
+# --------------------------------------------------------------------------- #
+# 6) Depth cap (P2 gate F-1): a secret nested deeper than MAX_SCRUB_DEPTH must
+#    be COLLAPSED to the depth-limit marker, never passed through raw.
+#    Reachable over POST /api/assess (no adapter in path -> only ingest's scrub).
+# --------------------------------------------------------------------------- #
+def _nest(depth: int, leaf: str) -> dict:
+    """Build a dict nested ``depth`` levels deep whose final leaf holds ``leaf``."""
+    root = {"k": "v"}
+    node = root
+    for _ in range(depth):
+        node["child"] = {"k": "v"}
+        node = node["child"]
+    node["leak"] = leaf
+    return root
+
+
+def test_depth_cap_returns_marker_not_raw():
+    """Structural proof the cap COLLAPSES (recursion stops) instead of leaking."""
+    secret = "sk-deepcap-STRUCTURAL0123456789abcdef"
+    for depth in (9, 12, 50, 200):
+        out = scrub_value_secrets(_nest(depth, "Bearer " + secret))
+        flat = json.dumps(out)
+        assert secret not in flat, f"secret survived at depth {depth}"
+        assert DEPTH_LIMIT_MARK in flat, f"expected a depth-limit marker at depth {depth}"
+
+
+def test_depth_cap_marker_present_at_first_collapsed_level():
+    """The marker replaces the sub-tree at the first level past the cap (8)."""
+    out = scrub_value_secrets(_nest(12, "Bearer sk-x"))
+    node = out
+    for _ in range(8):
+        node = node["child"]                                # descend to depth 8
+    assert node["child"] == DEPTH_LIMIT_MARK                # depth 9 collapsed
+
+
+@pytest.mark.parametrize("depth", [10, 12])
+def test_deep_nested_secret_never_persisted(depth):
+    """In-process (no adapter): secret below the cap must not reach the DB bytes.
+
+    Mirrors the POST /api/assess path, where ``engine.ingest``'s scrub is the
+    ONLY protection (no adapter/``redact()`` in the path).
+    """
+    secret = "sk-deepcap-PLANTED" + "0123456789abcdef01234567"
+    with tempfile.TemporaryDirectory(prefix="jcc_f1_") as tmp:
+        engine = _engine(tmp)
+        deep = _nest(depth, "Bearer " + secret)
+        env = AEPEnvelope(
+            event_id=f"ev_deep_{depth}",
+            delivery_id=f"dl_deep_{depth}",
+            session_id=f"sess-deep-{depth}",
+            agent="workbuddy",
+            project="demo",
+            cwd="/tmp",
+            event_type="tool_call",
+            payload=deep,
+            evidence={"deep": deep},
+        )
+        engine.ingest(env)
+
+        blob = _db_bytes(tmp)
+        assert secret.encode() not in blob, f"depth-{depth} secret leaked into jcc.db!"
+        # event still recorded; identity intact
+        assert engine.store.get_session(env.session_id) is not None
+        ok, n = engine.store.verify_audit()
+        assert ok is True and n >= 1

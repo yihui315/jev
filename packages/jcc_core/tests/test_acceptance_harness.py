@@ -297,6 +297,42 @@ def run_acceptance() -> int:
               r.status_code == 200 and r.json().get("assessment", {}).get("needs_verify") is True,
               str(r.json()))
 
+        # (j) F-1 depth cap over REAL HTTP: a secret nested deeper than the scrub
+        #     cap must NOT be persisted. /api/assess does AEPEnvelope(**body) +
+        #     engine.ingest() with NO adapter in the path, so the scrub inside
+        #     ingest() is the ONLY protection -- before the fix, _depth>8 returned
+        #     the raw sub-tree and the secret landed in jcc.db.
+        deep_secret = "sk-deepcap-PLANTED" + uuid.uuid4().hex
+        deep = {"k": "v"}
+        node = deep
+        for _ in range(12):
+            node["child"] = {"k": "v"}
+            node = node["child"]
+        node["leak"] = "Bearer " + deep_secret
+        body3 = {"event_id": "e3", "delivery_id": "d3", "session_id": "sess-deep",
+                 "agent": "workbuddy", "project": "demo", "cwd": "/tmp",
+                 "event_type": "tool_call", "payload": deep, "evidence": {"deep": deep}}
+        r = httpx.post(f"{BASE}/api/assess", json=body3, headers={"X-JCC-Token": TOKEN}, timeout=5.0)
+        check("deep-secret-post-200", r.status_code == 200, f"{r.status_code} {r.text[:200]}")
+        # raw DB bytes (load-bearing check)
+        blob = b""
+        for suffix in ("", "-wal", "-shm"):
+            try:
+                with open(db_path + suffix, "rb") as fh:
+                    blob += fh.read()
+            except OSError:
+                pass
+        check("deep-secret-absent-from-db", deep_secret.encode() not in blob,
+              "depth>8 secret leaked into jcc.db!")
+        # cheap regression guard: /api/audit returns rows only (no payload)
+        r = httpx.get(f"{BASE}/api/audit", timeout=5.0)
+        check("deep-secret-absent-from-audit", deep_secret not in r.text, "deep secret in audit")
+        # no functional break: the request recorded a session
+        r = httpx.get(f"{BASE}/api/sessions/sess-deep", timeout=5.0)
+        check("deep-session-recorded",
+              r.status_code == 200 and r.json().get("session_id") == "sess-deep",
+              f"{r.status_code}")
+
         # (i) WS gating: wrong token must NOT receive projection data;
         #     correct token MUST receive the live snapshot (gate is real).
         try:

@@ -40,6 +40,12 @@ _FREETEXT_KEY_RE = re.compile(
 
 MAX_TEXT_LEN = 240
 
+#: Recursion cap for the scrub/redact passes. Beyond this depth a sub-tree is
+#: replaced by ``DEPTH_LIMIT_MARK`` (fail-safe: never passed through raw). The
+#: two functions share this constant so their behaviour is identical.
+MAX_SCRUB_DEPTH = 8
+DEPTH_LIMIT_MARK = "[DEPTH_LIMIT]"
+
 
 # --------------------------------------------------------------------------- #
 # Value-pattern secret scrubbing (P2 security gate finding C1)
@@ -142,9 +148,19 @@ def scrub_str(text: str) -> str:
 
 
 def scrub_value_secrets(value: Any, *, _depth: int = 0) -> Any:
-    """Recursively scrub every STRING leaf (dict keys are preserved)."""
-    if _depth > 8:
-        return value
+    """Recursively scrub every STRING leaf (dict keys are preserved).
+
+    Fail-safe depth cap: at ``_depth > MAX_SCRUB_DEPTH`` the sub-tree is replaced
+    by ``DEPTH_LIMIT_MARK`` (the SAME marker ``redact()`` uses) instead of being
+    passed through raw. This closes the P2 gate F-1 path where a secret nested
+    deeper than the cap was persisted unscrubbed -- the cap is a *collapsing*
+    guard, never a raw passthrough. A legitimately deeper-than-cap payload is
+    therefore collapsed to the marker (data loss, but fail-safe and identical to
+    the adapter path's ``redact()`` behaviour). Cost is flat: recursion stops at
+    the cap, so nothing beyond it is walked.
+    """
+    if _depth > MAX_SCRUB_DEPTH:
+        return DEPTH_LIMIT_MARK
     if isinstance(value, str):
         return scrub_str(value)
     if isinstance(value, dict):
@@ -170,10 +186,12 @@ def redact(value: Any, *, _depth: int = 0) -> Any:
     * EVERY string leaf additionally gets a value-pattern scrub
       (:func:`scrub_str`) so a secret embedded in free-form text is masked too
     * free-text keys -> truncated to ``MAX_TEXT_LEN`` chars + ``sha256:`` tag
+    * deeper than ``MAX_SCRUB_DEPTH`` -> collapsed to ``DEPTH_LIMIT_MARK``
+      (fail-safe; same marker as :func:`scrub_value_secrets`)
     * never raises; unknown types are coerced to ``str`` (truncated)
     """
-    if _depth > 8:
-        return "[DEPTH_LIMIT]"
+    if _depth > MAX_SCRUB_DEPTH:
+        return DEPTH_LIMIT_MARK
     if value is None or isinstance(value, (bool, int, float)):
         return value
     if isinstance(value, str):
