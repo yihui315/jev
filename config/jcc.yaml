@@ -52,14 +52,18 @@ p3:                         # ADR-0008 P3 shadow supervision (Sentinel + Metric)
       cost_units: 500
       cost_units_per_hour: 2000
       directives_per_minute: 600
-    thresholds:             # D-24 as corrected in Round 5: the LIVE threshold surface.
+    thresholds:             # D-24 as corrected in Round 6: the LIVE threshold surface.
       #  shape is {default, per_agent}. There is NO `enabled` toggle and NO
       #  "defer to provider flags" mode: `decision.arbitrate` is ALWAYS the
       #  mapping authority and derives the action from assessment.risk_score
-      #  using per_agent[agent] else default. (Exact key set pending the
-      #  Round-6 ruling on 3 vs 4 risk cuts.)
-      default: {escalate_risk: 0.8, pause_risk: 0.6, verify_risk: 0.4}
-      per_agent:            # per-agent overrides (absent => default)
+      #  using per_agent[agent] else default.
+      #  R6-2: the cut set is exactly the 4 keys below. `verify_risk` is
+      #  RETIRED — VERIFY is evidence-driven, never a risk band — and the
+      #  kernel REJECTS a config that still carries it (decision.py
+      #  RETIRED_THRESHOLD_KEYS). Only an explicit, per-agent override may
+      #  appear under each agent; an empty node inherits `default` wholesale.
+      default: {escalate_risk: 0.8, pause_risk: 0.6, steer_risk: 0.4, finish_risk: 0.1}
+      per_agent:            # per-agent overrides (empty => default)
         workbuddy: {}
         claude: {}
         codex: {}
