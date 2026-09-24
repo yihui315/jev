@@ -1,0 +1,15 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-ON-HOST",
+    "origin": "installed CLI doc: .../web-ui/docs/en/cli/hooks.md (Notification Input)",
+    "note": "Notification with permission_prompt MUST be telemetry only in P2 (no PermissionRequest decision hook)"
+  },
+  "_delivery_id": "wb-notif-1",
+  "session_id": "sess-wb-0001",
+  "cwd": "F:\\jev",
+  "permission_mode": "default",
+  "hook_event_name": "Notification",
+  "message": "CodeBuddy needs your permission to use Bash",
+  "notification_type": "permission_prompt"
+}

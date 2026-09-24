@@ -1,0 +1,18 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-ON-HOST",
+    "origin": "installed Hermes v0.4.0: gateway/hooks.py docstring + website/docs/user-guide/features/hooks.md (agent:step context keys)",
+    "note": "handler receives (event_type, context); JCC hook forwards {event, context, _delivery_id}"
+  },
+  "_delivery_id": "hm-step-1",
+  "event": "agent:step",
+  "context": {
+    "platform": "telegram",
+    "user_id": "u-0001",
+    "session_id": "hermes-sess-0001",
+    "session_key": "telegram:u-0001:main",
+    "iteration": 3,
+    "tool_names": ["bash", "read_file"]
+  }
+}

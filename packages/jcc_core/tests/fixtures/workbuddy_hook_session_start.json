@@ -1,0 +1,15 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-ON-HOST",
+    "origin": "installed CLI doc: F:/WorkBuddy/resources/app.asar.unpacked/cli/dist/web-ui/docs/en/cli/hooks.md (SessionStart Input)",
+    "note": "WorkBuddy CLI == CodeBuddy Code; hook input is JSON on stdin; session_id is primary identity"
+  },
+  "_delivery_id": "wb-sess-start-1",
+  "session_id": "sess-wb-0001",
+  "transcript_path": "C:\\Users\\Administrator\\.workbuddy\\projects\\F--jev\\sess-wb-0001.jsonl",
+  "cwd": "F:\\jev",
+  "permission_mode": "default",
+  "hook_event_name": "SessionStart",
+  "source": "startup"
+}

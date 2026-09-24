@@ -1,0 +1,23 @@
+{
+  "_source": "session_file",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.workbuddy/sessions/<pid>.json",
+    "observed_on": "this host (Windows)",
+    "redaction": "hostname replaced; paths kept (non-secret); pid kept (non-secret)"
+  },
+  "pid": 30084,
+  "lastHeartbeat": 1787921806920,
+  "sessionId": "interactive-30084",
+  "cwd": "C:\\Windows\\TEMP\\workbuddy-host-cli\\__workbuddy_cli_host__-0-REDACTED",
+  "startedAt": 1787921776817,
+  "kind": "interactive",
+  "url": "http://127.0.0.1:64510",
+  "endpoint": "http://127.0.0.1:64510",
+  "mode": "local",
+  "version": "2.115.0",
+  "os": "win32",
+  "arch": "x64",
+  "hostname": "REDACTED-HOST",
+  "updatedAt": 1787921806921
+}

@@ -37,8 +37,41 @@ policy:
     verify_risk: 0.4
 
 agents:
-  capabilities:             # UNVERIFIED until P2 implements real probes
-    workbuddy: {aep: false, verified: false}
-    claude:    {aep: false, verified: false}
-    codex:     {aep: false, verified: false}
-    hermes:    {aep: false, verified: false}
+  # P2 REAL probe results (read-only) on this Windows host, 2026.
+  # status: CONNECTED | DEGRADED | ADAPTER_DISABLED | UNVERIFIED
+  # aep: normalizer maps the agent's native event -> AEP v0.1 (verified by contract tests)
+  # actuation stays DISABLED for every agent (P0-P2, ADR-0004).
+  capabilities:
+    workbuddy:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "5.5.6"
+      config_path: "C:/Users/Administrator/.workbuddy/settings.json"  # effective (CODEBUDDY_CONFIG_DIR)
+      hook_schema_kind: codebuddy-hooks
+      permission_request_hooked: false   # P2: native GUI permission flow untouched
+    claude:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "2.1.196"
+      config_path: "C:/Users/Administrator/.claude/settings.json"
+      hook_schema_kind: claude-hooks
+      preserves_user_hooks: true         # separate JCC marker
+    codex:
+      aep: true              # observation via rollout jsonl is verified
+      verified: true
+      status: DEGRADED       # push (notify) UNVERIFIED + user-owned notify preserved
+      config_path: "C:/Users/Administrator/.codex/config.toml"
+      hook_schema_kind: codex-native-hooks+notify
+      push_verified: false
+      app_server_steering: false         # P0-P2: OFF
+    hermes:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "0.4.0"
+      config_path: "C:/Users/Administrator/.hermes/config.yaml"
+      hook_schema_kind: hermes-hooks
+      transport: signed-outbound-hook     # HMAC + timestamp + delivery_id receiver
+

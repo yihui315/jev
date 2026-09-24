@@ -1,0 +1,20 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-COMPAT",
+    "origin": "Claude Code hooks schema (same family as the on-host CodeBuddy hooks.md; stdin JSON with session_id + hook_event_name)",
+    "note": "kept aligned with the observed Claude transcript/telemetry fields (sessionId/session_id)"
+  },
+  "_delivery_id": "cl-pre-1",
+  "session_id": "f7fdc56a-0d08-46b4-b661-c775c1aeb2c9",
+  "transcript_path": "C:\\Users\\Administrator\\.claude\\projects\\p\\f7fdc56a-0d08-46b4-b661-c775c1aeb2c9.jsonl",
+  "cwd": "F:\\jev",
+  "permission_mode": "default",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Bash",
+  "tool_input": {
+    "command": "git status",
+    "description": "Show working tree status",
+    "api_key": "sk-REDACTED"
+  }
+}

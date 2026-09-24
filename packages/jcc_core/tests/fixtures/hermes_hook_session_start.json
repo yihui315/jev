@@ -1,0 +1,16 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-ON-HOST",
+    "origin": "installed Hermes v0.4.0 hooks doc (session:start context keys)",
+    "note": "session_id is primary identity; platform/user_id are metadata"
+  },
+  "_delivery_id": "hm-sess-1",
+  "event": "session:start",
+  "context": {
+    "platform": "discord",
+    "user_id": "u-0002",
+    "session_id": "hermes-sess-0002",
+    "session_key": "discord:guild1:chan2"
+  }
+}

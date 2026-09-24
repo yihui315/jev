@@ -1,0 +1,13 @@
+{
+  "_source": "notify",
+  "_provenance": {
+    "kind": "EVIDENCE-GRADE (binary strings)",
+    "origin": "codex.exe strings: 'agent-turn-complete' + 'turn-id' + 'input-messages' + 'last-assistant-message' (hooks/src/legacy_notify.rs)",
+    "note": "NOT empirically observed firing in P2. Carries NO session_id -> adapter raises UnidentifiableEvent unless _session_id is supplied by the transport.",
+    "turn_id": "019d89b3-1ee4-7cc0-9454-a4642aeb85fc"
+  },
+  "type": "agent-turn-complete",
+  "turn-id": "019d89b3-1ee4-7cc0-9454-a4642aeb85fc",
+  "input-messages": ["REDACTED-USER-MESSAGE"],
+  "last-assistant-message": "REDACTED-ASSISTANT-MESSAGE"
+}

@@ -1,0 +1,17 @@
+{
+  "_source": "gateway_state",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.hermes/gateway_state.json",
+    "observed_on": "this host (Windows), Hermes Agent v0.4.0",
+    "redaction": "argv path kept (non-secret); no secrets present"
+  },
+  "pid": 23252,
+  "kind": "hermes-gateway",
+  "argv": ["C:/Users/Administrator/evolution_labs/hermes-agent-camel/gateway/run.py"],
+  "start_time": null,
+  "gateway_state": "running",
+  "exit_reason": null,
+  "platforms": {},
+  "updated_at": "2026-04-28T22:06:06.391524+00:00"
+}

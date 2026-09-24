@@ -1,0 +1,28 @@
+{
+  "_source": "telemetry",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.claude/telemetry/1p_failed_events.<session>.<uuid>.json",
+    "observed_on": "this host (Windows), Claude Code 2.1.196",
+    "redaction": "base64 'process'/'additional_metadata' blobs dropped; device_id hashed-out; session_id kept (identity is required)"
+  },
+  "event_type": "ClaudeCodeInternalEvent",
+  "event_data": {
+    "event_name": "tengu_started",
+    "client_timestamp": "2026-08-12T14:27:16.666Z",
+    "model": "MiniMax-M2.71",
+    "session_id": "f7fdc56a-0d08-46b4-b661-c775c1aeb2c9",
+    "user_type": "external",
+    "env": {
+      "platform": "win32",
+      "version": "2.1.196",
+      "arch": "x64",
+      "shell": "bash"
+    },
+    "entrypoint": "sdk-cli",
+    "is_interactive": false,
+    "client_type": "sdk-cli",
+    "event_id": "dee862aa-01bb-4c7b-96b0-be7f9db32c13",
+    "device_id": "REDACTED-DEVICE-HASH"
+  }
+}

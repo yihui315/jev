@@ -1,0 +1,22 @@
+{
+  "_source": "rollout",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.codex/sessions/2026/04/14/rollout-2026-04-14T09-55-07-019d89b3-1219-7233-866e-9e9717cd8218.jsonl (line 1)",
+    "observed_on": "this host (Windows), codex-cli present; record written by Codex Desktop 0.119.0-alpha.28",
+    "redaction": "base_instructions (large prompt) dropped; session_id/cwd kept (identity + metadata)"
+  },
+  "timestamp": "2026-04-14T01:55:16.833Z",
+  "ordinal": 0,
+  "type": "session_meta",
+  "payload": {
+    "session_id": "019d89b3-1219-7233-866e-9e9717cd8218",
+    "id": "019d89b3-1219-7233-866e-9e9717cd8218",
+    "timestamp": "2026-04-14T01:55:07.432Z",
+    "cwd": "D:\\ai解说",
+    "originator": "Codex Desktop",
+    "cli_version": "0.119.0-alpha.28",
+    "source": "vscode",
+    "model_provider": "openai"
+  }
+}

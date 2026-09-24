@@ -1,0 +1,27 @@
+{
+  "_source": "transcript_jsonl",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.claude/projects/D--------image-gen-studio/f7fdc56a-0d08-46b4-b661-c775c1aeb2c9.jsonl",
+    "observed_on": "this host (Windows), Claude Code 2.1.196",
+    "redaction": "prompt/message content replaced with REDACTED; uuid/promptId kept (non-secret)"
+  },
+  "parentUuid": null,
+  "isSidechain": false,
+  "promptId": "72e11768-f2a5-4e72-b96b-a674506d7b9a",
+  "type": "user",
+  "message": {
+    "role": "user",
+    "content": "REDACTED-PROMPT-TEXT"
+  },
+  "uuid": "16186702-3f75-4291-90fa-e395cb9c1431",
+  "timestamp": "2026-08-12T14:27:19.362Z",
+  "permissionMode": "acceptEdits",
+  "promptSource": "sdk",
+  "userType": "external",
+  "entrypoint": "sdk-cli",
+  "cwd": "D:\\数字人项目\\image-gen-studio",
+  "sessionId": "f7fdc56a-0d08-46b4-b661-c775c1aeb2c9",
+  "version": "2.1.196",
+  "gitBranch": "stage4g/web-generate-edit-b1"
+}

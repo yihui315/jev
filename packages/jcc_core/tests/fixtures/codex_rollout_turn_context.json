@@ -1,0 +1,22 @@
+{
+  "_source": "rollout",
+  "_provenance": {
+    "kind": "OBSERVED",
+    "origin": "C:/Users/Administrator/.codex/sessions/2026/04/14/rollout-...jsonl (turn_context line)",
+    "observed_on": "this host (Windows)",
+    "redaction": "developer_instructions dropped"
+  },
+  "_session_id": "019d89b3-1219-7233-866e-9e9717cd8218",
+  "timestamp": "2026-04-14T01:55:16.834Z",
+  "ordinal": 4,
+  "type": "turn_context",
+  "payload": {
+    "turn_id": "019d89b3-1ee4-7cc0-9454-a4642aeb85fc",
+    "cwd": "D:\\ai解说",
+    "current_date": "2026-04-14",
+    "timezone": "Asia/Shanghai",
+    "approval_policy": "on-request",
+    "model": "gpt-5.4",
+    "collaboration_mode": { "mode": "plan" }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "_source": "hook",
+  "_provenance": {
+    "kind": "DOCUMENTED-ON-HOST",
+    "origin": "installed CLI doc: .../web-ui/docs/en/cli/hooks.md (PreToolUse Input)",
+    "note": "matcher = tool name; tool_input redacted of secrets"
+  },
+  "_delivery_id": "wb-pretool-1",
+  "session_id": "sess-wb-0001",
+  "transcript_path": "C:\\Users\\Administrator\\.workbuddy\\projects\\F--jev\\sess-wb-0001.jsonl",
+  "cwd": "F:\\jev",
+  "permission_mode": "acceptEdits",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Write",
+  "tool_input": {
+    "file_path": "F:\\jev\\packages\\jcc_core\\adapters\\workbuddy.py",
+    "content": "REDACTED-CONTENT"
+  }
+}
