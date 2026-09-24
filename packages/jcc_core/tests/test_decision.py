@@ -626,3 +626,12 @@ def test_provider_abstention_scoping():
     # (e) a declaration that is NOT a real boolean does not count (fail closed)
     sneaky = abstaining.model_copy(update={"raw": {"provider_abstained": "true"}})
     assert D.arbitrate(D.normalize(sneaky), assessment=sneaky).action is DirectiveAction.ESCALATE
+
+    # (f) spec §2.3 clause (ii): a declared abstention whose score channel is
+    # ABSENT (`None`, not falsy 0.0) is NOT scoped — `score_unknown` is not an
+    # E-3 blocker, so it still ESCALATEs. Fail-closed; `disabled` emits 0.0.
+    no_score = abstaining.model_copy(update={"probabilities": {}, "risk_score": None})
+    sig5 = D.normalize(no_score)
+    assert sig5.score is None
+    assert D.BLOCKER_SCORE_UNKNOWN in D.find_blockers(sig5, no_score)
+    assert D.arbitrate(sig5, assessment=no_score).action is DirectiveAction.ESCALATE
