@@ -1,7 +1,7 @@
 # ADR-0008 — P3 Jev Shadow Supervision (Sentinel + Metric)
 
-- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), re-opened narrowly and re-frozen in *Round 5* (interpretation & precision), and again in *Round 6* (lead-authorized **internal-consistency repair only**). Range of decisions: **D-1…D-41** — Rounds 5 & 6 add **no** new decision.
-- **Date:** 2026-09-24 (frozen 2026-09-24; Round-5 re-freeze 2026-09-24; Round-6 re-freeze 2026-09-24)
+- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), re-opened narrowly and re-frozen in *Round 5* (interpretation & precision), again in *Round 6* (lead-authorized **internal-consistency repair only**), and carried forward by a lead-authorized **precision addendum** (Add A / Add B / 8→7). Range of decisions: **D-1…D-41** — Rounds 5 & 6 and the addendum add **no** new decision.
+- **Date:** 2026-09-24 (frozen 2026-09-24; Round-5 re-freeze 2026-09-24; Round-6 re-freeze 2026-09-24; precision addendum 2026-09-24)
 - **Owner:** Atlas-2 (jcc-protocol-architect)
 - **Supersedes:** none
 - **Superseded by:** none
@@ -9,7 +9,7 @@
 - **Baseline:** P2 frozen at product commit `7f62f57c72a6146e0d75b0138bc889af22beb886`; docs closeout `a4e7916`; ADR-0007 **ACCEPTED**.
 - **Implementing spec:** `artifacts/acceptance/P3_ARCHITECTURE_SPEC.md`
 - **Inputs folded:** `artifacts/acceptance/P3_METRIC_EVAL_DESIGN.md` (G-1…G-12), `artifacts/acceptance/P3_SENTINEL_DESIGN_INPUT.md` (Sentinel conflicts), lead rulings A–I + attach-point ruling.
-- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only). See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, and *Round 6 — internal-consistency repair*.
+- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only), and the **precision addendum** (Add A / Add B / 8→7) was lead-authorized contract-recording only. See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, *Round 6 — internal-consistency repair*, and *Addenda — precision / contract-recording*.
 
 ## Context
 
@@ -121,7 +121,12 @@ All schema changes are **additive with defaults**: `Directive` gains optional `s
 ### D-26 (HIGH, finding F1) — provider-exception boundary closes an audit-tape hole
 `CoreEngine.ingest` persists the event at `core.py:105` **before** calling the provider at `core.py:125`, and appends the audit row at `:166`. `provider.assess` is **uncaught**, so a provider exception leaves an event persisted with **no assessment/directive/audit row** — a hole in the authoritative tape. Decision: wrap `provider.assess` at the boundary; on exception synthesize an **EXACT_BLOCKER** assessment (`blocker_kind=EXACT`, `blocker_reasons=["provider_error"]`) → ESCALATE, and **still append the audit row**. The record is never dropped. (VERIFIED: `core.py:105,125,166`.)
 
-**Extended (Round 5) — same hole class at the server boundary.** `AEPEnvelope(**body)` at `server.py:133-136` can raise an **unhandled `ValidationError`** → HTTP 500 with **no audit row** (found by Sentinel; lead verified the shape). Decision: **no unhandled 500 on the ingest boundary** — a malformed/unauthorised envelope MUST produce a **blocked/EXACT** record (or a structured 4xx) that **still writes its audit row**, never a silent 500. Same rule as the provider boundary: the record is never dropped. (VERIFIED: `server.py:133-136`.)
+**Extended (Round 5) — same hole class at the server boundary.** `AEPEnvelope(**body)` at `server.py:133-136` can raise an **unhandled `ValidationError`** → HTTP 500 with **no audit row** (found by Sentinel; lead verified the shape). Decision: **no unhandled 500 on the ingest boundary** — a malformed/unauthorised envelope MUST produce a **blocked/EXACT** record that **still writes its audit row**, never a silent 500. Same rule as the provider boundary: the record is never dropped. (VERIFIED: `server.py:133-136`.)
+
+**Mechanism frozen — Add A (lead-authorized precision).** The two boundaries are **deliberately different** and MUST NOT be conflated:
+- **Provider boundary** (body already accepted, session known): synthesise an **EXACT_BLOCKER assessment → ESCALATE** (absorbing, above), and still audit.
+- **Server boundary** (body rejected before any session/decision exists): return a **structured `422` + write an audit row, and synthesise NO directive** — there is no session/decision to attribute the rejected body to.
+- **Only the server boundary uses a `4xx` + audit; only the provider boundary uses `EXACT_BLOCKER → ESCALATE`.** `422` is the ratified shape (forge `e77037d`; zero prior hits in the ADR/spec). This removes the earlier ambiguous "(or a structured 4xx)".
 
 ### D-27 (HIGH, finding §4.2) — shadow by CONSTRUCTION, not by accident
 Today `core.py:143` calls `actuator.execute` on **every** ingest; INV-SHADOW holds only because the actuator happens to be disabled. Decision: on the ingest path the engine MUST NOT call `Actuator.execute`. It dispatches through `jcc_core.ports.ActuationPort` whose P3 implementation is **verify-only** (`actuator.verify_envelope`, side-effect-free) and sets `acted=False`, `executable=False`, `actuation_reason="shadow_mode"`. This refines D-3: the single seam stays `ActuationPort`, but the P3 port verifies and records — it never executes. `Actuator.execute` is unreachable from ingest in P3.
@@ -272,6 +277,18 @@ Lead-authorized **internal-consistency repair only**; **no new decision**, desig
 **R6-2 rationale (the load-bearing argument).** Because `policy.decide` becomes a thin wrapper over the kernel, a `0.4 → VERIFY` reading would change the **live engine's** mapping (STEER→VERIFY for `0.4 ≤ risk < 0.6`) — a behaviour change to P1/P2-verified code introduced by a *shadow* phase. **P3 is shadow-only; it must not alter the live engine's decision mapping.** The 4-key form makes "thin wrapper ⇒ equivalence by construction" and "nothing re-opens P0–P2" true **simultaneously**.
 
 **Round-6 confirmations:** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 FROZEN again**. This round's decision text changes are confined to **D-24** (plus spec cross-references); no decision was added or removed.
+
+## Addenda — precision / contract-recording (lead-authorized; range unchanged D-1…D-41)
+
+Lead-authorized **precision / contract-recording only** (carried in the lead's post-Round-6 follow-ups). **No new decision**, design intent unchanged, nothing re-opens P0–P2. Range stays **D-1…D-41**.
+
+| # | Item | Decision | What changed | Why |
+|---|---|---|---|---|
+| **Add A** | server-boundary **mechanism** frozen | **D-26** (text above) | Server boundary = **structured `422` + audit row, NO synthesised directive**; provider boundary keeps **EXACT_BLOCKER → ESCALATE**; only the server boundary uses `4xx`+audit. `422` is the ratified shape (forge `e77037d`). | `422` had **zero hits** across the ADR/spec; the mechanism was left as an ambiguous "blocked/EXACT record (or a structured 4xx)". |
+| **Add B** | shadow-path **provider contract** (spec-only) | D-31 / D-26 (mirrored in spec) | A provider MUST emit all **seven** required signals and set `provider_verified` from its own `verified` attribute. Omission ⇒ **EXACT_BLOCKER → ESCALATE** is **designed fail-closed behaviour, not a defect**. Recorded in `P3_ARCHITECTURE_SPEC.md` §2.3 (subsection) + §5 matrix row. | The provider contract was implicit; a gate could misread fail-closed ESCALATE as a bug. |
+| **8→7** | signal-count typo (Sentinel doc) | D-31 / D-35 (`P3_SENTINEL_DESIGN_INPUT.md`) | `P3_SENTINEL_DESIGN_INPUT.md:84/:152/:394/:401` "8 fields/signals" → **7** — matches §1.2 `:51-62` (7 **boolean** signals + `risk_level`/`band`/`score`). (`:393`'s "8 existing tests" is a different eight — untouched.) | Internal contradiction: §1.2 lists 7 boolean signals. |
+
+**Addenda confirmations:** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 unchanged**.
 
 ## Consequences
 
