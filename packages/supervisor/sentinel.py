@@ -14,6 +14,11 @@ Invariants enforced here, all falsifiable:
   the directive is never resuming and never executable.
 * **Signing is honest** (D-33): no key ⇒ ``signed=False``, never a fake
   signature; ``require_signature`` with no key ⇒ ESCALATE.
+* **Store access is PUBLIC-only** (spec §2.6): persistence goes through the
+  store's ``append_shadow`` delegate, else its public ``connection()`` accessor.
+  The Sentinel never touches ``store._conn`` (a *method*, not a connection) — the
+  ``getattr(store, "_conn", None)`` idiom is the #54 defect that silently
+  recorded ZERO rows.
 """
 from __future__ import annotations
 
@@ -222,33 +227,23 @@ class Sentinel:
         directive.signature_status = "signed_verified" if verified else "unsigned"
 
     # -- persistence ---------------------------------------------------------
-    def _store_connection(self):
-        """Resolve the store's sqlite connection, tolerating a callable accessor.
+    def _append_via_public_connection(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Fallback append via the store's PUBLIC connection accessor (spec §2.6).
 
-        WHY THIS EXISTS: ``StateStore._conn`` is a **method** (``state_store.py:107``),
-        not a property, and it returns a FRESH connection per call. An earlier
-        version did ``conn = getattr(store, "_conn", None)`` and passed ``conn``
-        straight to ``executescript`` — which received a *bound method*, raised
-        ``AttributeError``, and was swallowed by ``on_event``, so against the REAL
-        store the shadow plane recorded **zero rows** (a silent no-op). Prefer a
-        public ``conn`` accessor if the store grows one; otherwise invoke ``_conn``
-        when it is callable, and use it verbatim when it is a plain attribute /
-        property (the test double).
+        Taken only when the store has not grown the ``append_shadow`` delegate.
+        The Sentinel MUST NOT reach for a RAW connection: it MUST NOT touch
+        ``store._conn`` **or** use the ``getattr(store, "_conn", None)`` idiom.
+        That idiom yields a truthy *bound method* (``_conn`` is a **method**
+        returning a fresh connection, ``state_store.py:110``), whose later use
+        raised ``AttributeError`` — swallowed by ``on_event`` — so the shadow
+        plane silently recorded **ZERO** rows against the real store (the #54
+        defect). Only a public accessor is acceptable.
         """
-        for name in ("conn", "_conn"):
-            accessor = getattr(self.store, name, None)
-            if accessor is None:
-                continue
-            return accessor() if callable(accessor) else accessor
-        return None
-
-    def _ensure_schema(self) -> None:
-        if self._schema_ready:
-            return
-        conn = self._store_connection()
-        if conn is not None:
-            shadow_store.ensure_schema(conn)
-        self._schema_ready = True
+        with self.store.connection() as conn:
+            if not self._schema_ready:
+                shadow_store.ensure_schema(conn)
+                self._schema_ready = True
+            return shadow_store.append_shadow(conn, record=record)
 
     def _record(self, *, assessment, directive, result, thresholds, session_id, event_id,
                 agent, project, evidence_hash, session_status, blocked, blocker_code,
@@ -319,15 +314,30 @@ class Sentinel:
         )
 
     def _append_shadow(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        if hasattr(self.store, "append_shadow"):
-            return self.store.append_shadow(**record)
-        conn = self._store_connection()
-        if conn is not None:
-            self._ensure_schema()
-            return shadow_store.append_shadow(conn, record=record)
-        # No persistence available: keep an in-memory trace (tests / degraded).
-        # This is a DEGRADED mode — the caller should treat "no store handle" as
-        # "shadow plane not durable", not as success.
-        log.warning("no store connection resolvable; shadow record kept in memory only")
+        """Persist one shadow record through the store's PUBLIC surface (§2.6).
+
+        Order (normative, ADR-0008 spec §2.6):
+
+        1. ``store.append_shadow(**record)`` — the store-side **delegate**. This
+           is the intended surface: the store owns its lock and connection,
+           exactly like ``StateStore.append_audit``.
+        2. ``store.connection()`` — the store's public connection *context
+           manager*, for a store that has not grown the delegate.
+
+        Never a private ``_conn`` poke (see ``_append_via_public_connection``).
+        With neither surface the record is kept in memory and logged **LOUDLY**:
+        "not durable" must never be mistaken for success.
+        """
+        append = getattr(self.store, "append_shadow", None)
+        if callable(append):
+            return append(**record)
+        connection = getattr(self.store, "connection", None)
+        if callable(connection):
+            return self._append_via_public_connection(record)
+        log.warning(
+            "store %r exposes neither append_shadow() nor connection(); shadow "
+            "record kept IN MEMORY ONLY (plane is NOT durable)",
+            type(self.store).__name__,
+        )
         self._memory.append(record)
         return record
