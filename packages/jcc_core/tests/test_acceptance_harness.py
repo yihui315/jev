@@ -20,9 +20,11 @@ from __future__ import annotations
 import asyncio
 import os
 from pathlib import Path
+import socket
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import uuid
 
@@ -115,6 +117,62 @@ def _stop(proc, logf):
         pass
 
 
+def _non_loopback_ipv4_addrs() -> list[str]:
+    """Best-effort list of this host's non-loopback IPv4 addresses."""
+    addrs: list[str] = []
+    try:
+        _, _, ips = socket.gethostbyname_ex(socket.gethostname())
+    except Exception:  # noqa: BLE001
+        return addrs
+    for ip in ips:
+        if ip and not ip.startswith("127.") and ip not in addrs:
+            addrs.append(ip)
+    return addrs
+
+
+def _tcp_reachable(host: str, port: int, timeout: float = 1.0) -> bool:
+    """Raw-socket TCP reachability probe. Cannot be intercepted by a proxy."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(timeout)
+    try:
+        return s.connect_ex((host, port)) == 0
+    finally:
+        s.close()
+
+
+def probe_bind_scope(port: int, loopback: str = "127.0.0.1",
+                     timeout: float = 1.0) -> tuple[str, str]:
+    """Proxy-immune proof that a listener on ``port`` is loopback-only.
+
+    Why not HTTP: on Windows ``connect()`` to ``0.0.0.0`` is interpreted as the
+    local machine, so ``httpx.get("http://0.0.0.0:PORT/...")`` reaches a
+    ``127.0.0.1``-only listener and returns 200 (false FAIL); with ``HTTP_PROXY``
+    set it is routed through the proxy instead (false PASS). Raw TCP
+    ``connect_ex()`` cannot be proxied, so it is meaningful in both directions.
+
+    Controls:
+      1. positive: loopback MUST be reachable (else the server is down -> genuine failure)
+      2. negative: every non-loopback IPv4 of this host MUST refuse
+
+    Returns ``(verdict, detail)`` where verdict is one of:
+      "loopback-only"  -> loopback reachable + all non-loopback refused (CORRECT bind)
+      "all-interfaces" -> a non-loopback IPv4 is reachable (GENUINE 0.0.0.0 bind)
+      "loopback-down"  -> loopback unreachable (GENUINE failure)
+      "inconclusive"   -> host exposes no non-loopback IPv4 to probe (NEITHER)
+    """
+    if not _tcp_reachable(loopback, port, timeout):
+        return "loopback-down", f"loopback {loopback}:{port} not reachable"
+
+    non_loop = _non_loopback_ipv4_addrs()
+    if not non_loop:
+        return "inconclusive", "no non-loopback IPv4 to probe"
+
+    reachable = [ip for ip in non_loop if _tcp_reachable(ip, port, timeout)]
+    if reachable:
+        return "all-interfaces", f"reachable on non-loopback {reachable}"
+    return "loopback-only", f"refused on non-loopback {non_loop}"
+
+
 def run_acceptance() -> int:
     failures: list[str] = []
 
@@ -138,11 +196,17 @@ def run_acceptance() -> int:
         with open(log_path, "r", encoding="utf-8", errors="replace") as f:
             log_text = f.read()
         check("bind-no-0.0.0.0-in-log", "0.0.0.0" not in log_text, log_text[-400:])
-        try:
-            r = httpx.get("http://0.0.0.0:4778/api/health", timeout=2.0)
-            check("no-0.0.0.0-bind", r.status_code != 200, f"0.0.0.0 returned {r.status_code}")
-        except Exception:
-            check("no-0.0.0.0-bind", True, "0.0.0.0 refused (expected)")
+        # Raw-socket proof (proxy-immune). HTTP probes of 0.0.0.0 are meaningless
+        # on Windows (0.0.0.0 -> loopback) and when HTTP_PROXY is set (-> proxy).
+        verdict, detail = probe_bind_scope(PORT)
+        if verdict == "loopback-only":
+            check("no-0.0.0.0-bind", True, detail)
+        elif verdict == "inconclusive":
+            # Visible SKIP: NOT a silent PASS; cannot mask a real bind, because a
+            # real 0.0.0.0 bind requires a non-loopback address to be observed.
+            print(f"SKIP  no-0.0.0.0-bind  ({detail} — INCONCLUSIVE)")
+        else:  # "all-interfaces" (genuine 0.0.0.0 bind) or "loopback-down"
+            check("no-0.0.0.0-bind", False, f"{verdict}: {detail}")
 
         # (b) readonly health 200 without token
         r = httpx.get(f"{BASE}/api/health", timeout=5.0)
@@ -268,6 +332,55 @@ def run_acceptance() -> int:
 
 def test_acceptance_harness():
     assert run_acceptance() == 0
+
+
+def test_bind_check_detects_real_0_0_0_0_bind():
+    """Meta-test: prove ``probe_bind_scope()`` can actually FAIL.
+
+    Without this, the acceptance check would be a toothless assertion that
+    passes regardless of the product. We bind a throwaway listener to 0.0.0.0
+    on an ephemeral port and assert the helper DOES report reachability beyond
+    loopback (verdict "all-interfaces").
+    """
+    import pytest  # local import keeps the module import-safe for `python -m`
+
+    if not _non_loopback_ipv4_addrs():
+        pytest.skip("host exposes no non-loopback IPv4; detection cannot be exercised")
+
+    srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    srv.bind(("0.0.0.0", 0))
+    srv.listen(8)
+    port = srv.getsockname()[1]
+
+    stop = threading.Event()
+
+    def _accept_loop():
+        srv.settimeout(0.2)
+        while not stop.is_set():
+            try:
+                conn, _ = srv.accept()
+            except socket.timeout:
+                continue
+            except OSError:
+                break
+            try:
+                conn.close()
+            except OSError:
+                pass
+
+    t = threading.Thread(target=_accept_loop, daemon=True)
+    t.start()
+    try:
+        verdict, detail = probe_bind_scope(port)
+        assert verdict == "all-interfaces", (
+            f"helper failed to detect a real 0.0.0.0 bind on port {port}: "
+            f"verdict={verdict!r} detail={detail!r}"
+        )
+    finally:
+        stop.set()
+        t.join(timeout=2.0)
+        srv.close()
 
 
 if __name__ == "__main__":
