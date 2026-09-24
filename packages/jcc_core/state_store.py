@@ -148,6 +148,42 @@ class StateStore:
         finally:
             conn.close()
 
+    @contextmanager
+    def transaction(self) -> Iterator[sqlite3.Connection]:
+        """Yield a connection while HOLDING the store lock; commit then close.
+
+        Public, **lock-scoped** accessor for a caller that must run a whole
+        read-modify-write atomically (spec §2.6 item 1, Errata **E-5**). The
+        shadow plane's append is exactly that: ``shadow_store.append_shadow``
+        does a non-atomic ``SELECT … ORDER BY seq DESC LIMIT 1`` then ``INSERT``
+        (``shadow_store.py:102-116``); two concurrent appends could therefore
+        read the same ``prev_hash`` and **fork the hash chain**. ``connection()``
+        is lock-free by design and does NOT cover that — this does.
+
+        Discipline mirrors ``append_audit`` (``state_store.py:393-399``: take
+        ``self._lock``, fresh conn, close in ``finally``) but it **yields** the
+        connection instead of delegating to a sibling module — deliberately,
+        because ``shadow_store`` lives in ``packages/supervisor`` and a
+        ``jcc_core`` -> ``supervisor`` import would violate ADR-0008 **D-2**.
+        The lock spans the caller's whole ``with`` body, so keep it SHORT and do
+        not call back into ``StateStore`` from inside (``_lock`` is a
+        non-reentrant ``threading.Lock``).
+
+        Commits on clean exit; on an exception it closes without committing
+        (fail-closed — no partial state is published). In-process only: the lock
+        is a ``threading.Lock``, the same guarantee ``append_audit`` already
+        relies on (cross-process serialisation is out of scope).
+
+        Use ``connection()`` for lock-free READS; use this for the write.
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                yield conn
+                conn.commit()
+            finally:
+                conn.close()
+
     @property
     def is_wal(self) -> bool:
         with self._lock:

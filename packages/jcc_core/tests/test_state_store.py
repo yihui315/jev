@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import tempfile
+import threading
 import time
 
 from jcc_core.schemas import (
@@ -115,6 +116,69 @@ def test_connection_is_public_fresh_and_closed_on_exit():
         assert conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table' AND name='sessions'"
         ).fetchone() is not None
+    os.remove(path)
+
+
+def test_transaction_is_public_lock_scoped_and_commits():
+    """spec §2.6 item 1 / Errata E-5: `transaction()` is the WRITE accessor.
+
+    It must commit on clean exit, close its connection, and differ from the
+    lock-free `connection()`.
+    """
+    s, path = _tmp_store()
+    with s.transaction() as conn:
+        assert isinstance(conn, sqlite3.Connection)
+        conn.execute("CREATE TABLE probe (v INTEGER)")
+        conn.execute("INSERT INTO probe(v) VALUES (1)")
+    # committed (visible on a brand-new handle) ...
+    with s.connection() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM probe").fetchone()[0] == 1
+    # ... and closed on exit (proves the finally: close())
+    try:
+        conn.execute("SELECT 1")
+        raise AssertionError("transaction() did not close its connection on exit")
+    except sqlite3.ProgrammingError:
+        pass
+    os.remove(path)
+
+
+def test_transaction_serialises_concurrent_read_modify_write():
+    """The E-5 guarantee: the store lock spans the whole read-modify-write.
+
+    Mirrors `shadow_store.append_shadow`'s non-atomic
+    `SELECT MAX(seq) ... ` then `INSERT`. Without the lock two writers read the
+    same predecessor and the chain FORKS (a lost update). With `transaction()`
+    every writer must observe a distinct predecessor.
+    """
+    s, path = _tmp_store()
+    with s.transaction() as conn:
+        conn.execute("CREATE TABLE chain (seq INTEGER PRIMARY KEY, prev INTEGER)")
+
+    N = 48
+    errors = []
+
+    def worker():
+        try:
+            with s.transaction() as conn:
+                prev = conn.execute(
+                    "SELECT COALESCE(MAX(seq), -1) FROM chain"
+                ).fetchone()[0]
+                conn.execute("INSERT INTO chain(seq, prev) VALUES (?, ?)", (prev + 1, prev))
+        except Exception as exc:  # noqa: BLE001 — surfaced below
+            errors.append(exc)
+
+    threads = [threading.Thread(target=worker) for _ in range(N)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert not errors, errors
+    with s.connection() as conn:
+        rows = conn.execute("SELECT seq, prev FROM chain ORDER BY seq").fetchall()
+    # contiguous 0..N-1 exactly: no gap AND no duplicate => no fork / lost update
+    assert [r[0] for r in rows] == list(range(0, N)), "lost update: the lock did not serialise"
+    assert all(r[1] == r[0] - 1 for r in rows), "chain link broken"
     os.remove(path)
 
 
