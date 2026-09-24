@@ -63,6 +63,9 @@ from jcc_receiver import (  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PLANTED_SECRET = "sk-live-PLANTEDSECRETdeadbeef0123456789"
+#: a secret that is NOT under a secret KEY -- it sits inside a free-form value
+#: (aegis-2's P2 security-gate case). Must be masked by the value-pattern pass.
+VALUE_PLANTED_SECRET = "sk-live-VALUEEMBEDDED0011223344556677889900"
 
 
 def _tmpdir(prefix: str) -> "tempfile.TemporaryDirectory[str]":
@@ -375,9 +378,15 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
                 res = emit_event(agent, raw, url=base + "/api/assess", token=TOKEN)
                 assert res["status"] == "sent", f"{agent}: {res}"
 
-            # plant a secret through a 5th (claude) event and confirm it is absent
+            # plant secrets through a 5th (claude) event and confirm they are absent.
+            # Two shapes: a named secret KEY, and a secret embedded in a free-form
+            # VALUE (aegis-2's P2 security-gate case).
             sraw = _raw("claude", "claude_hook_pre_tool_use.json")
-            sraw["tool_input"] = {"api_key": PLANTED_SECRET}
+            sraw["tool_input"] = {
+                "api_key": PLANTED_SECRET,
+                "command": "curl -H 'Authorization: Bearer " + VALUE_PLANTED_SECRET
+                           + "' https://api.example.com/v1",
+            }
             sraw["session_id"] = "http-secret-session"
             emit_event("claude", sraw, url=base + "/api/assess", token=TOKEN)
 
@@ -389,6 +398,8 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
             with urllib.request.urlopen(base + "/api/audit?limit=500", timeout=5) as r:
                 audit = r.read().decode()
             assert PLANTED_SECRET not in audit, "secret leaked into the audit endpoint"
+            assert VALUE_PLANTED_SECRET not in audit, "value-embedded secret leaked into the audit endpoint"
+            assert "Bearer " + VALUE_PLANTED_SECRET not in audit
 
             # no cwd collision among the four agent sessions
             four_sids = set()
@@ -407,6 +418,8 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
                 if f.exists():
                     blob += f.read_bytes()
             assert PLANTED_SECRET.encode() not in blob, "secret leaked into the HTTP state store"
+            assert VALUE_PLANTED_SECRET.encode() not in blob, \
+                "value-embedded secret leaked into the HTTP state store"
         finally:
             _stop_server(proc, logf, tmp)
 

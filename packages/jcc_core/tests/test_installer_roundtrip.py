@@ -211,3 +211,27 @@ def test_codex_notify_restore_is_byte_exact(tmp_path, body):
     assert cfg.read_bytes() != before
     codex_cfg.uninstall(cfg)
     assert cfg.read_bytes() == before, "uninstall is not byte-exact reversible"
+
+
+# --------------------------------------------------------------------------- #
+# 4) BOM tolerance (P2 security gate finding C2)
+# --------------------------------------------------------------------------- #
+def test_settings_load_accepts_utf8_bom(tmp_path):
+    """A BOM'd settings.json must not break install (was JSONDecodeError)."""
+    settings = tmp_path / "settings.json"
+    payload = json.dumps({"hooks": {"SessionStart": [dict(USER_HOOK)]}})
+    settings.write_bytes(b"\xef\xbb\xbf" + payload.encode("utf-8"))  # UTF-8 BOM
+
+    res = jcc_settings.install("claude", settings, str(ROOT))  # must not raise
+    assert res["user_hooks_preserved"] is True
+    data = json.loads(settings.read_text(encoding="utf-8-sig"))
+    assert data["hooks"]["SessionStart"][0]["hooks"][0]["command"] == "echo user-hook"
+    assert any(jcc_settings._entry_is_jcc(e) for e in data["hooks"]["SessionStart"])
+
+    st = jcc_settings.status("claude", settings)
+    assert st["exists"] is True and st["jcc_installed"] is True
+
+    # and uninstall still round-trips to the user hook
+    jcc_settings.uninstall("claude", settings)
+    after = json.loads(settings.read_text(encoding="utf-8-sig"))
+    assert after["hooks"]["SessionStart"] == [USER_HOOK]

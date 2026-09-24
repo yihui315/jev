@@ -89,7 +89,9 @@ def _load(path: Path) -> Dict[str, Any]:
         return {}
     # newline="" -> never translate CRLF/LF; we must not silently rewrite a
     # user's line endings on install/uninstall.
-    with open(path, "r", encoding="utf-8", newline="") as fh:
+    # utf-8-sig -> accept a UTF-8 BOM (some editors write one) instead of
+    # failing with JSONDecodeError (P2 security gate finding C2).
+    with open(path, "r", encoding="utf-8-sig", newline="") as fh:
         text = fh.read().strip()
     if not text:
         return {}

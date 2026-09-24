@@ -34,6 +34,16 @@ writes to any agent config; installers do that (see each `integrations/<agent>/`
 
 Headers: `X-JCC-Agent`, `X-JCC-Timestamp`, `X-JCC-Delivery-Id`, `X-JCC-Signature: sha256=<hex>`.
 Signature = `HMAC_SHA256(secret, f"{timestamp}.{delivery_id}.{agent}." + raw_body)`.
+
+> **Trust boundary (important):** all four agents share **one** webhook secret
+> (`JCC_WEBHOOK_SECRET`). The HMAC therefore proves only that a sender knows the
+> shared secret — it does **not** make per-agent identity a cryptographic
+> boundary: the `X-JCC-Agent` header is self-declared by the sender. What bounds
+> cross-agent influence is the per-source **session isolation** (`session_isolation`
+> rejection) plus the hash-chained audit tape, not the signature. Treat agent
+> identity as untrusted until per-agent keys (or asymmetric signing) are
+> introduced.
+
 Rejections (fail-closed, reason only — never the body/secret): `payload_too_large`,
 `missing_header`, `timestamp_out_of_window`, `bad_signature`, `replay`, `bad_json`,
 `unsupported_agent`, `session_isolation`, `unidentifiable`.

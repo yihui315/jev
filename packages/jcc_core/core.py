@@ -22,6 +22,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from . import policy
 from .actuator import Actuator
+from .adapters._common import scrub_value_secrets
 from .config import Config
 from .providers.base import JevProvider
 from .schemas import (
@@ -75,6 +76,15 @@ class CoreEngine:
                 "session_id": event.session_id,
                 "event_id": event.event_id,
             }
+
+        # 0) Value-pattern scrub BEFORE anything is persisted (defense in depth):
+        #    adapters already key-name-redact, but a secret embedded inside a
+        #    free-form string under a non-secret key must also be masked. This is
+        #    the single chokepoint all ingest paths (HTTP + in-process) pass
+        #    through, so no adapter can bypass it.
+        event.payload = scrub_value_secrets(event.payload)
+        if event.evidence is not None:
+            event.evidence = scrub_value_secrets(event.evidence)
 
         now = time.time()
         existing = self.store.get_session(event.session_id)

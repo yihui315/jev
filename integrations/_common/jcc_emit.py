@@ -39,7 +39,7 @@ if _PACKAGES not in sys.path:
     sys.path.insert(0, _PACKAGES)
 
 from jcc_core.adapters.discovery import adapter_for  # noqa: E402
-from jcc_core.adapters._common import UnidentifiableEvent  # noqa: E402
+from jcc_core.adapters._common import UnidentifiableEvent, scrub_value_secrets  # noqa: E402
 
 
 def _spool_dir() -> Path:
@@ -65,6 +65,12 @@ def normalize_event(agent: str, raw: Dict[str, Any]) -> Dict[str, Any]:
     env = asyncio.run(adapter.normalize(raw))
     data = env.model_dump_api()
     data.pop("_provenance", None)
+    # Value-pattern scrub (P2 gate C1) so the dry-run print, the HTTP body and
+    # the on-failure spool are all clean even for secrets embedded in free-form
+    # strings (core.ingest scrubs again before persistence — both boundaries).
+    data["payload"] = scrub_value_secrets(data.get("payload") or {})
+    if data.get("evidence") is not None:
+        data["evidence"] = scrub_value_secrets(data["evidence"])
     return data
 
 

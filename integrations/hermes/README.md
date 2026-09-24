@@ -37,6 +37,11 @@ powershell -ExecutionPolicy Bypass -File F:\jev\integrations\hermes\uninstall.ps
   `SecureWebhookReceiver.sender_headers` and POSTs to `JCC_HOOKS_URL`; the JCC
   receiver enforces **HMAC-SHA256 + timestamp window + delivery_id replay cache +
   body size limit + per-source session isolation** (see `../_common/README.md`).
+  **Not mounted:** the JCC core server exposes **no** inbound receiver route
+  (`/api/hooks` → 404); `SecureWebhookReceiver` is a hardened library used
+  in-process/tests today. Signed mode therefore requires the deployment to host
+  the receiver (wiring it into the server is a later phase) — do not assume a
+  live JCC endpoint exists.
 
 ## Rollback
 
