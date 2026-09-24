@@ -57,6 +57,24 @@ class Actuator:
         # explicitly enabled + allowed. Deliberately absent in P1.
         return self._deny(directive, "real_actuation_not_implemented")
 
+    # -- engine actuation port (ADR-0008 D-27 / D-41) -----------------------
+    def dispatch(self, directive: Directive) -> dict:
+        """Implement ``jcc_core.ports.ActuationPort`` — the ENGINE seam.
+
+        PERMANENTLY INERT (D-27 / D-41): verify-only, never a side-effect,
+        and never an attach point (a real actuator attaches at
+        ``Sentinel._dispatch`` instead). ``CoreEngine.ingest`` step 6 calls
+        this, NOT :meth:`execute`; the ingest path can no longer reach
+        ``execute`` at all. Always returns ``acted=False`` with
+        ``reason="shadow_mode"`` regardless of ``enabled``.
+        """
+        return {
+            "acted": False,
+            "executable": False,
+            "reason": "shadow_mode",
+            "directive_id": directive.directive_id,
+        }
+
     def _deny(self, directive: Directive, reason: str) -> dict:
         msg = (
             f"DENIED actuation action={directive.action.value} "

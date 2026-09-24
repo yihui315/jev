@@ -27,6 +27,7 @@ from .providers.base import JevProvider
 from .redaction import scrub_value_secrets
 from .schemas import (
     AEPEnvelope,
+    Assessment,
     Directive,
     DirectiveAction,
     EvidenceSnapshot,
@@ -77,6 +78,8 @@ class CoreEngine:
                 "event_id": event.event_id,
             }
 
+        ingest_started = time.time()
+
         # 0) Value-pattern scrub BEFORE anything is persisted (defense in depth):
         #    the agent-side normalizers already key-name-redact, but a secret
         #    embedded inside a free-form string under a non-secret key must also
@@ -122,8 +125,35 @@ class CoreEngine:
             evidence_hash = fp
             sess.evidence_count += 1
 
-        # 4) Jev assessment (probabilities only).
-        assessment = self.provider.assess(event, sess)
+        # 4) Jev assessment (probabilities only). A provider exception must NOT
+        #    leave the event persisted with no assessment/directive/audit row
+        #    (ADR-0008 D-26): synthesize an EXACT_BLOCKER assessment -> ESCALATE,
+        #    and the audit row at step 8 is still appended (no tape hole).
+        try:
+            assessment = self.provider.assess(event, sess)
+        except Exception as exc:  # noqa: BLE001
+            assessment = Assessment(
+                agent=event.agent,
+                session_id=event.session_id,
+                timestamp=now,
+                model="n/a",
+                provider="error",
+                band="unknown",
+                needs_verify=True,
+                escalate=True,
+                blocker_kind="EXACT",
+                blocker_reasons=["provider_error"],
+                raw={"error": str(exc)[:200]},
+            )
+
+        # 4b) Latency + strict-join keys (ADR-0008 D-17 / D-22). The ingest
+        #     bound is owned by core; the jev_* keys are owned by the provider
+        #     and MUST NOT be clobbered.
+        if assessment.raw is None:
+            assessment.raw = {}
+        timing = assessment.raw.setdefault("timing", {})
+        timing["ingest_started_at"] = ingest_started
+        assessment.raw.setdefault("event_id", event.event_id)
 
         # 5) Deterministic policy -> single directive action.
         action = policy.decide(assessment, sess.status)
@@ -140,10 +170,15 @@ class CoreEngine:
             signature=None,
         )
 
-        # 6) Actuate (disabled in P1 -> acted=False, reason=actuation_disabled).
-        result = self.actuator.execute(directive)
+        # 6) Engine actuation port (ADR-0008 D-27 / D-41): PERMANENTLY INERT.
+        #    The ingest path now dispatches through jcc_core.ports.ActuationPort
+        #    (here: the disabled Actuator) and can no longer reach
+        #    Actuator.execute. Always acted=False, executable=False,
+        #    reason="shadow_mode".
+        result = self.actuator.dispatch(directive)
         directive.acted = bool(result.get("acted", False))
         directive.actuation_reason = result.get("reason")
+        directive.executable = bool(result.get("executable", False))
 
         # 7) Update normalized session state.
         if action == DirectiveAction.ESCALATE:
@@ -184,6 +219,9 @@ class CoreEngine:
             "evidence_hash": evidence_hash,
             "acted": directive.acted,
             "actuation_reason": directive.actuation_reason,
+            # ADR-0008 §4: let an observe-only subscriber (Sentinel) arbitrate
+            # without re-reading the store.
+            "session_status": sess.status.value,
         }
 
         # 9) Live projection.

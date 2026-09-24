@@ -122,6 +122,12 @@ class Assessment(BaseModel):
     retry: bool = False
     finished: bool = False
     raw: Dict[str, Any] = Field(default_factory=dict)
+    # -- P3 additive (ADR-0008 D-12/D-20/D-31/D-35; all defaulted) ----------
+    confidence: Optional[float] = None          # D-20: Metric G-8
+    confidence_kind: str = "none"               # D-20: none | heuristic | model
+    provider_verified: bool = False             # D-31: explicit, replaces magic band
+    blocker_kind: str = "NONE"                  # D-35: NONE | EXACT
+    blocker_reasons: List[str] = Field(default_factory=list)  # D-35: sorted+deduped
 
 
 class Directive(BaseModel):
@@ -137,6 +143,19 @@ class Directive(BaseModel):
     evidence_hash: Optional[str] = None
     acted: bool = False
     actuation_reason: Optional[str] = None
+    # -- P3 additive (ADR-0008 D-12/D-33; all defaulted). Signing columns
+    #    already exist in the `directives` table (state_store.py:88-89). ----
+    signing_alg: Optional[str] = None                     # e.g. "hmac-sha256"
+    signature_status: str = "unsigned"                    # unsigned|signed_verified|unavailable:no_key|required_missing
+    issued_at: Optional[float] = None                     # D-33: inside the signed payload
+    ttl_s: Optional[float] = None                         # D-33: inside the signed payload
+    nonce: Optional[str] = None                           # D-33: inside the signed payload
+    policy_table_version: Optional[str] = None            # D-33
+    executable: bool = False                              # D-41: always inert in P3
+    requires_human: bool = False                          # D-34/D-35
+    verify_reason: Optional[str] = None                   # D-33
+    shadow: bool = True                                   # D-33
+    human_approval: Optional[str] = None                  # D-33
 
 
 class AuditEntry(BaseModel):

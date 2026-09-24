@@ -265,9 +265,11 @@ def run_acceptance() -> int:
         check("control-with-token-200", r.status_code == 200, f"{r.status_code}")
         ingested = r.json()
 
-        # (e) actuator refuses real action
+        # (e) actuator refuses real action. NOTE (ADR-0008 D-27, metric ruling b):
+        # the engine ingest path is now verify-only and reports the inert engine
+        # port reason "shadow_mode" (was "actuation_disabled"); acted stays False.
         check("actuator-refuses",
-              ingested.get("acted") is False and ingested.get("actuation_reason") == "actuation_disabled",
+              ingested.get("acted") is False and ingested.get("actuation_reason") == "shadow_mode",
               str(ingested))
 
         # (f) normalized + persisted to state store + audit tape

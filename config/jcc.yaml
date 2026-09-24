@@ -31,10 +31,37 @@ actuation:
 policy:
   version: p1.0.0
   priority: [ESCALATE, PAUSE, VERIFY, STEER, RETRY, FINISH, CONTINUE]
-  thresholds:
-    escalate_risk: 0.8
-    pause_risk: 0.6
+  thresholds:               # ADR-0008 D-24: RETIRED / INERT — superseded by
+    escalate_risk: 0.8      #   p3.shadow.thresholds. Kept for config back-compat
+    pause_risk: 0.6         #   ONLY; editing these has NO effect.
     verify_risk: 0.4
+
+p3:                         # ADR-0008 P3 shadow supervision (Sentinel + Metric).
+  shadow:
+    # enabled stays FALSE until packages/supervisor + jcc_core.decision/signing
+    # land (sentinel, task #45). Flipping to true activates the run.py wiring.
+    enabled: false
+    budget:                 # D-34: limits are DERIVED from persisted state.
+      assess_calls: 200
+      scorer_tokens: 200000
+      events: 2000
+      directives: 200
+      retries: 5
+      escalations: 3
+      wall_clock_s: 28800
+      cost_units: 500
+      cost_units_per_hour: 2000
+      directives_per_minute: 600
+    thresholds:             # D-24: the LIVE per-agent threshold surface.
+      enabled: false        #   false => arbitrate defers to provider flags (== policy.decide)
+      default: {escalate_risk: 0.8, pause_risk: 0.6, verify_risk: 0.4}
+      workbuddy: {}
+      claude: {}
+      codex: {}
+      hermes: {}
+    signing:                # D-33: key is env-only, NEVER in this file.
+      key_env: JCC_DIRECTIVE_SIGNING_KEY
+      required: false       #   true => refuse to record an unsigned shadow directive
 
 agents:
   # P2 REAL probe results (read-only) on this Windows host, 2026.

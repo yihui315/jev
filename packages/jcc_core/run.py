@@ -148,6 +148,46 @@ def _write_marker(config) -> Path:
     return marker
 
 
+def _wire_shadow(engine, store, config) -> None:
+    """Composition-root wiring for the P3 shadow plane (ADR-0008 spec §4).
+
+    ``jcc_core`` never imports ``supervisor`` (D-2); this is the ONLY place the
+    two planes meet, and it is observe-only (``engine.subscribe``). Inert while
+    ``config.raw["p3"]["shadow"]["enabled"]`` is false, so the core server runs
+    unchanged before the supervisor package lands.
+    """
+    sh = (config.raw.get("p3") or {}).get("shadow") or {}
+    if not sh.get("enabled"):
+        log.info("p3.shadow disabled -- shadow plane not wired")
+        return
+
+    # Imported HERE (composition root only) so core never depends on supervisor.
+    from supervisor.budget import BudgetGovernor, BudgetLimits
+    from supervisor.ports import ShadowActuationPort
+    from supervisor.sentinel import Sentinel
+    from supervisor.signing import DirectiveSigner, load_signing_key
+
+    from jcc_core.decision import ThresholdsConfig
+
+    signing = sh.get("signing") or {}
+    thresholds = sh.get("thresholds") or {}
+    signer = DirectiveSigner(
+        load_signing_key(signing.get("key_env", "JCC_DIRECTIVE_SIGNING_KEY"))
+    )
+    budget = BudgetGovernor(BudgetLimits(**(sh.get("budget") or {})))
+    sentinel = Sentinel(
+        store,
+        signer=signer,
+        budget=budget,
+        dispatch_port=ShadowActuationPort(),          # D-41: the Sentinel seam
+        thresholds=ThresholdsConfig.from_config(thresholds),
+        policy_version=config.policy.version,
+        require_signature=bool(signing.get("required", False)),
+    )
+    engine.subscribe(sentinel.on_event)
+    log.info("p3.shadow ENABLED -- Sentinel subscribed (observe-only)")
+
+
 def main() -> None:
     config = load_config()
     if config.server.host != BIND_HOST:
@@ -160,6 +200,7 @@ def main() -> None:
         allowed_actions=config.actuation.allowed_actions,
     )
     engine = CoreEngine(store, provider, actuator, config)
+    _wire_shadow(engine, store, config)
     app = create_app(engine, config)
 
     # Reconcile any orphaned marker from a previous abrupt kill BEFORE we claim

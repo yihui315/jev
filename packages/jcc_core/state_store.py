@@ -325,7 +325,8 @@ class StateStore:
                     rows = conn.execute(
                         "SELECT directive_id, session_id, timestamp, action, "
                         "target_actuator, params, policy_version, signed, "
-                        "evidence_hash, acted, actuation_reason FROM directives "
+                        "signature, evidence_hash, acted, actuation_reason "
+                        "FROM directives "
                         "WHERE session_id=? ORDER BY timestamp ASC",
                         (session_id,),
                     ).fetchall()
@@ -333,7 +334,8 @@ class StateStore:
                     rows = conn.execute(
                         "SELECT directive_id, session_id, timestamp, action, "
                         "target_actuator, params, policy_version, signed, "
-                        "evidence_hash, acted, actuation_reason FROM directives "
+                        "signature, evidence_hash, acted, actuation_reason "
+                        "FROM directives "
                         "ORDER BY timestamp ASC"
                     ).fetchall()
             finally:
@@ -351,9 +353,10 @@ class StateStore:
             "params": json.loads(r[5]) if r[5] else {},
             "policy_version": r[6],
             "signed": bool(r[7]),
-            "evidence_hash": r[8],
-            "acted": bool(r[9]),
-            "actuation_reason": r[10],
+            "signature": r[8],
+            "evidence_hash": r[9],
+            "acted": bool(r[10]),
+            "actuation_reason": r[11],
         }
 
     # -- audit tape (delegates to audit.py) ----------------------------------
