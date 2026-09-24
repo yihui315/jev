@@ -22,9 +22,9 @@ from typing import Any, Callable, Dict, List, Optional
 
 from . import policy
 from .actuator import Actuator
-from .adapters._common import scrub_value_secrets
 from .config import Config
 from .providers.base import JevProvider
+from .redaction import scrub_value_secrets
 from .schemas import (
     AEPEnvelope,
     Directive,
@@ -78,10 +78,11 @@ class CoreEngine:
             }
 
         # 0) Value-pattern scrub BEFORE anything is persisted (defense in depth):
-        #    adapters already key-name-redact, but a secret embedded inside a
-        #    free-form string under a non-secret key must also be masked. This is
-        #    the single chokepoint all ingest paths (HTTP + in-process) pass
-        #    through, so no adapter can bypass it.
+        #    the agent-side normalizers already key-name-redact, but a secret
+        #    embedded inside a free-form string under a non-secret key must also
+        #    be masked. This is the single chokepoint all ingest paths (HTTP +
+        #    in-process) pass through, so no producer can bypass it.
+        #    Kernel: jcc_core.redaction (ADR-0007 D-3).
         event.payload = scrub_value_secrets(event.payload)
         if event.evidence is not None:
             event.evidence = scrub_value_secrets(event.evidence)

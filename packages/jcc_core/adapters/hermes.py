@@ -29,6 +29,7 @@ import subprocess
 from pathlib import Path
 from typing import Any, Dict
 
+from ..redaction import redact
 from ..schemas import AEPEnvelope, AgentName, EventType
 from ._common import (
     STATUS_ADAPTER_DISABLED,
@@ -39,7 +40,6 @@ from ._common import (
     evidence_bundle,
     now_ts,
     pick,
-    redact,
     stable_event_id,
 )
 from .base import AgentAdapter

@@ -39,7 +39,8 @@ if _PACKAGES not in sys.path:
     sys.path.insert(0, _PACKAGES)
 
 from jcc_core.adapters.discovery import adapter_for  # noqa: E402
-from jcc_core.adapters._common import UnidentifiableEvent, scrub_value_secrets  # noqa: E402
+from jcc_core.adapters._common import UnidentifiableEvent  # noqa: E402
+from jcc_core.redaction import scrub_value_secrets  # noqa: E402
 
 
 def _spool_dir() -> Path:

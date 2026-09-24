@@ -1,11 +1,11 @@
 """Adapter package: four-agent contract (P2: real probes + normalizers)."""
+from ..redaction import redact
 from ._common import (
     STATUS_ADAPTER_DISABLED,
     STATUS_CONNECTED,
     STATUS_DEGRADED,
     STATUS_UNVERIFIED,
     UnidentifiableEvent,
-    redact,
 )
 from .base import AgentAdapter
 from .claude import ClaudeAdapter

@@ -30,7 +30,7 @@ for p in (str(PACKAGES), str(_INTEG_COMMON)):
         sys.path.insert(0, p)
 
 from jcc_core.adapters import ClaudeAdapter
-from jcc_core.adapters._common import (
+from jcc_core.redaction import (
     DEPTH_LIMIT_MARK,
     redact,
     scrub_str,
