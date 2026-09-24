@@ -5,9 +5,26 @@ Two sandbox / user-profile hazards are neutralised here:
 1. Base temp dir. The default pytest basetemp lives under the system TEMP dir
    (pytest-of-<user>); pytest prunes the previous run's numbered dirs there by
    bulk-deleting them. In this sandbox a >50-file bulk delete trips the
-   SAFE_DELETE guard, which raises AFTER the run, making pytest exit 1 even when
+   SAFE_DELETE guard, which raises after the run, making pytest exit 1 even when
    every test passed. ``pytest_configure`` redirects basetemp into a
-   project-owned, gitignored directory.
+   single, stable directory *inside the OS temp dir*.
+
+   The location is NOT optional and NOT cosmetic -- it is load-bearing:
+   the safe-delete shim (``sitecustomize.py``) short-circuits every delete that
+   resolves under ``tempfile.gettempdir()`` (see ``_is_under_os_tmp_dir`` /
+   ``_should_bypass_safe_delete``) and only routes *other* paths through the
+   bulk-delete guard helper. A basetemp anywhere else -- including the
+   project tree and including ``C:\\Windows\\TEMP`` on hosts where
+   ``tempfile.gettempdir()`` is the per-user ``AppData\\Local\\Temp`` -- is
+   guarded, so pytest's scratch cleanup aborts the run with
+   ``SAFE_DELETE_BULK_CONFIRM_REQUIRED`` (observed: ``count:171,
+   threshold:50``) and every ``tmp_path`` fixture errors out.
+
+   The target is therefore derived from ``tempfile.gettempdir()`` at runtime
+   rather than hard-coded, so it stays correct when TEMP/TMP differ per host or
+   per shell. It is deliberately stable (no timestamp): pytest ``rm_rf``s a
+   user-supplied basetemp on entry, which keeps scratch from accumulating
+   across runs.
 
 2. Spool dir. ``jcc_emit.spool()`` defaults to ``~/.jcc/spool``
    (``JCC_SPOOL_DIR`` unset) and writes there whenever delivery fails -- which
@@ -19,7 +36,7 @@ Two sandbox / user-profile hazards are neutralised here:
 from __future__ import annotations
 
 import os
-import time
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -28,10 +45,11 @@ import pytest
 def pytest_configure(config) -> None:
     if config.option.basetemp:  # explicit --basetemp wins
         return
-    root = Path(__file__).resolve().parents[1] / "runtime" / "pytest-tmp"
+    # MUST live under tempfile.gettempdir(): that is the only path prefix the
+    # safe-delete shim exempts from the bulk-delete guard. See module docstring.
+    root = Path(tempfile.gettempdir()) / "jev-pytest"
     root.mkdir(parents=True, exist_ok=True)
-    stamp = time.strftime("%Y%m%dT%H%M%S", time.gmtime())
-    config.option.basetemp = str(root / f"{stamp}-{os.getpid()}")
+    config.option.basetemp = str(root)
 
 
 @pytest.fixture(autouse=True, scope="session")
