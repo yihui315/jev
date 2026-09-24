@@ -170,9 +170,16 @@ class StateStore:
         non-reentrant ``threading.Lock``).
 
         Commits on clean exit; on an exception it closes without committing
-        (fail-closed — no partial state is published). In-process only: the lock
-        is a ``threading.Lock``, the same guarantee ``append_audit`` already
-        relies on (cross-process serialisation is out of scope).
+        (fail-closed — no partial state is published).
+
+        **IN-PROCESS ONLY.** ``_lock`` is a single-instance ``threading.Lock``,
+        so it serialises threads in ONE process. Closing the chain-fork across
+        *processes* needs a SECOND mechanism owned by the writer: the sibling
+        write must issue an explicit ``BEGIN IMMEDIATE`` as the **first**
+        statement on its connection (spec §2.6 item 1 / Errata E-5). Ordering is
+        load-bearing — a ``BEGIN`` issued after any DML on this module's
+        default-isolation connection raises ``OperationalError: cannot start a
+        transaction within a transaction`` (verified empirically).
 
         Use ``connection()`` for lock-free READS; use this for the write.
         """
