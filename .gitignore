@@ -1,0 +1,24 @@
+# JCC local VCS baseline — SECONDARY rollback (ADR-0006). Artifact-snapshot is PRIMARY.
+jev-cascade/
+.workbuddy/
+_bootstrap/
+node_modules/
+runtime/
+*.db
+artifacts/
+build/
+dist/
+*.log
+.env
+.env.*
+*.key
+*.pem
+*.pfx
+*.p12
+*.keystore
+*.jks
+credentials*
+auth.json
+.sandbox-secrets
+id_rsa
+id_ed25519
