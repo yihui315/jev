@@ -90,6 +90,27 @@ class Sentinel:
         self._memory: list = []
         self._schema_ready = False
 
+        # -- persistence telemetry (task #54 F4) -----------------------------
+        # "The shadow plane recorded nothing" must be ASSERTABLE, not inferred
+        # from a log line. ``persistence_attempts`` counts records we tried to
+        # store; ``persistence_failures`` counts records that are NOT durably
+        # stored (a store error, or the in-memory degraded fallback);
+        # ``persistence_durable_writes`` counts confirmed writes. A healthy run
+        # has ``failures == 0`` AND ``durable_writes == attempts`` AND
+        # ``attempts > 0`` — the last clause is what stops the D-40 "every
+        # recorded row is inert" check from passing over an EMPTY set.
+        self.persistence_attempts = 0
+        self.persistence_failures = 0
+        self.persistence_durable_writes = 0
+
+    @property
+    def persistence_ok(self) -> bool:
+        """True iff every attempted shadow record was durably stored."""
+        return (
+            self.persistence_failures == 0
+            and self.persistence_durable_writes == self.persistence_attempts
+        )
+
     # -- engine subscriber (D-2) --------------------------------------------
     def on_event(self, out: Dict[str, Any]) -> Optional[ShadowDecision]:
         """Broadcast handler. Must never raise into the engine's loop."""
@@ -98,8 +119,12 @@ class Sentinel:
         except Exception:  # noqa: BLE001 — observe-only: never break ingest
             # Never break ingest (the engine's broadcast also swallows), but do
             # NOT fail silently: a shadow plane that records nothing must be
-            # visible, or the D-40 "acted == false" falsifiers pass VACUOUSLY
-            # (zero rows trivially satisfy "every recorded row is inert").
+            # visible — and COUNTED — or the D-40 "acted == false" falsifiers
+            # pass VACUOUSLY (zero rows trivially satisfy "every recorded row is
+            # inert"). This is the ONE place a lost record is counted on the
+            # broadcast path; ``_append_shadow`` deliberately does NOT also count
+            # the raise path, so a failure is never double-counted.
+            self.persistence_failures += 1
             log.exception("shadow record failed for event_id=%s", out.get("event_id"))
             return None
 
@@ -326,18 +351,28 @@ class Sentinel:
 
         Never a private ``_conn`` poke (see ``_append_via_public_connection``).
         With neither surface the record is kept in memory and logged **LOUDLY**:
-        "not durable" must never be mistaken for success.
+        "not durable" must never be mistaken for success. Every outcome is
+        counted (``persistence_attempts`` / ``persistence_failures`` /
+        ``persistence_durable_writes``) so a silent no-op is `assert`-able.
         """
+        self.persistence_attempts += 1
         append = getattr(self.store, "append_shadow", None)
         if callable(append):
-            return append(**record)
+            stored = append(**record)  # a raise is counted once by on_event
+            self.persistence_durable_writes += 1
+            return stored
         connection = getattr(self.store, "connection", None)
         if callable(connection):
-            return self._append_via_public_connection(record)
-        log.warning(
+            stored = self._append_via_public_connection(record)  # raise -> on_event
+            self.persistence_durable_writes += 1
+            return stored
+        # Degraded: no persistence surface at all. This does NOT raise, so it
+        # counts its own failure here (on_event never sees it).
+        self.persistence_failures += 1
+        log.error(
             "store %r exposes neither append_shadow() nor connection(); shadow "
-            "record kept IN MEMORY ONLY (plane is NOT durable)",
-            type(self.store).__name__,
+            "record kept IN MEMORY ONLY (session_id=%s) — NOT durable",
+            type(self.store).__name__, record.get("session_id"),
         )
         self._memory.append(record)
         return record

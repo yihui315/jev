@@ -177,6 +177,63 @@ def test_engine_ingest_records_shadow_row_against_real_store(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
+# #55 (F4): persistence-failure count — "recorded nothing" must be assertable
+# --------------------------------------------------------------------------- #
+def test_persistence_counters_are_non_vacuous_on_a_healthy_run(tmp_path):
+    """A healthy run must prove it WROTE: attempts > 0 and failures == 0.
+
+    Without ``attempts`` the D-40 "every recorded row is inert" check passes over
+    an EMPTY table, which is exactly how #54 hid.
+    """
+    store = _store(tmp_path)
+    s = _sentinel(store)
+    for i in range(3):
+        s.arbitrate_and_record(assessment=_assessment(), event_id=f"e{i}", agent="generic")
+    assert s.persistence_attempts == 3
+    assert s.persistence_durable_writes == 3
+    assert s.persistence_failures == 0
+    assert s.persistence_ok is True
+    assert len(_rows(store)) == 3
+
+
+def test_persistence_failure_is_counted_when_the_store_raises(tmp_path):
+    """A store error must be COUNTED (not only logged) and must not break ingest."""
+
+    class _FailingStore(StateStore):
+        """The REAL store with a failing accessor — fault injection, not a fake."""
+
+        def connection(self):  # noqa: D102
+            raise RuntimeError("disk full")
+
+    s = _sentinel(_FailingStore(str(tmp_path / "jcc.db")))
+    recorded = s.on_event({
+        "session_id": "s-1", "event_id": "e1",
+        "assessment": _assessment().model_dump(mode="json"), "session_status": "active",
+    })
+    assert recorded is None                      # failed record => no ShadowDecision
+    assert s.persistence_attempts == 1
+    assert s.persistence_failures == 1           # counted exactly once (on_event)
+    assert s.persistence_durable_writes == 0
+    assert s.persistence_ok is False
+
+
+def test_degraded_store_memory_fallback_is_counted(tmp_path):
+    """No persistence surface ⇒ NOT durable, and the counter says so out loud."""
+
+    class _NoSurfaceStore:
+        """Defines NOTHING (no append_shadow, no connection) — the degraded branch."""
+
+    s = _sentinel(_NoSurfaceStore())
+    d = s.arbitrate_and_record(assessment=_assessment(), event_id="e1", agent="generic")
+    assert s.persistence_attempts == 1
+    assert s.persistence_failures == 1
+    assert s.persistence_durable_writes == 0
+    assert s.persistence_ok is False
+    assert d.acted is False                      # degraded still never actuates
+    assert len(s._memory) == 1
+
+
+# --------------------------------------------------------------------------- #
 # D-41: the port is inert
 # --------------------------------------------------------------------------- #
 def test_shadow_port_never_acts():
