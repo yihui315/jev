@@ -147,6 +147,7 @@ class Directive(BaseModel):
     #    already exist in the `directives` table (state_store.py:88-89). ----
     signing_alg: Optional[str] = None                     # e.g. "hmac-sha256"
     signature_status: str = "unsigned"                    # unsigned|signed_verified|unavailable:no_key|required_missing
+    signature_verified: bool = False                      # D-33: self-verify result at issuance
     issued_at: Optional[float] = None                     # D-33: inside the signed payload
     ttl_s: Optional[float] = None                         # D-33: inside the signed payload
     nonce: Optional[str] = None                           # D-33: inside the signed payload
@@ -170,6 +171,63 @@ class AuditEntry(BaseModel):
     evidence_hash: Optional[str] = None
     prev_hash: str
     entry_hash: str
+
+
+class RuleTrace(BaseModel):
+    """One row of the arbitration rule table, as evaluated (spec §3)."""
+
+    rule: str                     # e.g. "exact_blocker", "needs_human", "floor"
+    value: Any = None             # the observed value that decided the match
+    matched: bool = False
+
+
+class ShadowDecision(BaseModel):
+    """A recorded shadow decision (mirrors ``shadow_decisions``; D-7/D-15/D-18).
+
+    This is a *record*, never an authorisation: ``acted`` is always False in P3
+    and ``would_have_acted_in_p4`` documents intent for the future P4 actuator
+    without granting it.
+    """
+
+    decision_id: str
+    session_id: str
+    event_id: str
+    observed_at: float
+    event_seq: int = 0
+    progress_seq: int = 0
+    stall_events: int = 0
+    action: DirectiveAction
+    rationale: List[RuleTrace] = Field(default_factory=list)
+    trace_hash: str = ""
+    blocked: bool = False
+    blocker_code: Optional[str] = None
+    needs_human: bool = False
+    directive_id: Optional[str] = None
+    signed: bool = False
+    signature: Optional[str] = None
+    signing_alg: Optional[str] = None
+    signature_verified: bool = False
+    signature_status: str = "unsigned"
+    acted: bool = False
+    actuation_reason: Optional[str] = None
+    would_have_acted_in_p4: Optional[str] = None
+    policy_version: Optional[str] = None
+    policy_table_version: Optional[str] = None
+    policy_config_hash: Optional[str] = None
+    prev_hash: Optional[str] = None
+    entry_hash: Optional[str] = None
+
+
+class ShadowLabel(BaseModel):
+    """Mutable child-table row (D-13): labels live OUTSIDE the immutable tape."""
+
+    decision_id: str
+    label_source: str                        # oracle_next_event | human | ...
+    label_value: str
+    label_numeric: Optional[float] = None
+    label_window_events: Optional[int] = None
+    labeler: Optional[str] = None
+    labeled_at: float = 0.0
 
 
 # Convenience ordered list of actions (used by tests + docs).

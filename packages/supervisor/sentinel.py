@@ -1,0 +1,304 @@
+"""The Sentinel: supervisor-plane orchestrator and sole actuation seam owner.
+
+ADR-0008 D-2/D-3/D-7/D-34/D-35/D-41. It subscribes to the engine's observe-only
+broadcast, re-arbitrates through the *same* kernel (D-32), signs, dispatches
+through the single ``_dispatch`` seam, and appends a hash-chained shadow record.
+
+Invariants enforced here, all falsifiable:
+* **Never actuates.** The injected ``DispatchPort`` (P3: ``ShadowActuationPort``)
+  always returns ``acted=False``; the directive is recorded with
+  ``executable=False``.
+* **Budget exhaustion replaces, never suppresses** (D-34): the action becomes
+  ESCALATE with a budget blocker, and the record is still written.
+* **EXACT_BLOCKER is absorbing** (D-35): once blocked, the action is ESCALATE and
+  the directive is never resuming and never executable.
+* **Signing is honest** (D-33): no key ⇒ ``signed=False``, never a fake
+  signature; ``require_signature`` with no key ⇒ ESCALATE.
+"""
+from __future__ import annotations
+
+import secrets
+import time
+import uuid
+from enum import Enum
+from typing import Any, Callable, Dict, Optional
+
+from jcc_core import signing as signing_kernel
+from jcc_core.decision import Thresholds, ThresholdsConfig
+from jcc_core.schemas import Assessment, Directive, DirectiveAction, SessionStatus, ShadowDecision
+
+from . import arbitration, shadow_store
+from .ports import DispatchPort, ShadowActuationPort
+
+#: Default directive TTL when the caller does not supply one (design §3.6.1).
+DEFAULT_TTL_S = 120.0
+
+
+class BlockerCode(str, Enum):
+    NONE = "NONE"
+    EXACT_BLOCKER = "EXACT_BLOCKER"
+    BUDGET_EXHAUSTED = "BUDGET_EXHAUSTED"
+    SIGNING_REQUIRED_UNAVAILABLE = "SIGNING_REQUIRED_UNAVAILABLE"
+    AUDIT_CHAIN_BROKEN = "AUDIT_CHAIN_BROKEN"
+    CONTRADICTORY_EVIDENCE = "CONTRADICTORY_EVIDENCE"
+
+
+#: Actions that would "resume" work — never permitted while blocked (D-35).
+_RESUMING = frozenset({
+    DirectiveAction.CONTINUE, DirectiveAction.STEER,
+    DirectiveAction.RETRY, DirectiveAction.FINISH, DirectiveAction.PAUSE,
+})
+
+
+class Sentinel:
+    """Observe-only shadow orchestrator; owns ``_dispatch`` (the P4 seam)."""
+
+    def __init__(
+        self,
+        store: Any,
+        *,
+        signer: Any,
+        budget: Any,
+        dispatch_port: Optional[DispatchPort] = None,
+        thresholds: Optional[ThresholdsConfig] = None,
+        policy_version: str = "p3.0.0",
+        policy_table_version: Optional[str] = None,
+        require_signature: bool = False,
+        ttl_s: float = DEFAULT_TTL_S,
+        clock: Callable[[], float] = time.time,
+        nonce_factory: Callable[[], str] = lambda: secrets.token_hex(16),
+    ) -> None:
+        self.store = store
+        self.signer = signer
+        self.budget = budget
+        self.dispatch_port: DispatchPort = dispatch_port or ShadowActuationPort()
+        self.thresholds = thresholds or ThresholdsConfig()
+        self.policy_version = policy_version
+        self.policy_table_version = policy_table_version or arbitration.decision.POLICY_TABLE_VERSION
+        self.require_signature = bool(require_signature)
+        self.ttl_s = float(ttl_s)
+        self._clock = clock
+        self._nonce_factory = nonce_factory
+        self._memory: list = []
+        self._schema_ready = False
+
+    # -- engine subscriber (D-2) --------------------------------------------
+    def on_event(self, out: Dict[str, Any]) -> Optional[ShadowDecision]:
+        """Broadcast handler. Must never raise into the engine's loop."""
+        try:
+            return self._on_event_inner(out)
+        except Exception as exc:  # noqa: BLE001 — observe-only: never break ingest
+            # The engine swallows subscriber errors (core.py:64-68); we still
+            # avoid leaking a stack, but record nothing rather than half a row.
+            return None
+
+    def _on_event_inner(self, out: Dict[str, Any]) -> ShadowDecision:
+        raw_assessment = out.get("assessment") or {}
+        assessment = raw_assessment if isinstance(raw_assessment, Assessment) else Assessment(**raw_assessment)
+        agent = getattr(assessment.agent, "value", assessment.agent)
+        return self.arbitrate_and_record(
+            assessment=assessment,
+            event_id=out.get("event_id", ""),
+            agent=agent,
+            project=out.get("project", ""),
+            evidence_hash=out.get("evidence_hash"),
+            session_status=out.get("session_status"),
+        )
+
+    # -- core orchestration --------------------------------------------------
+    def arbitrate_and_record(
+        self,
+        *,
+        assessment: Assessment,
+        event_id: str = "",
+        agent: Optional[str] = None,
+        project: str = "",
+        evidence_hash: Optional[str] = None,
+        session_status: Optional[str] = None,
+    ) -> ShadowDecision:
+        session_id = assessment.session_id
+        agent_name = agent or getattr(assessment.agent, "value", assessment.agent)
+        thresholds: Thresholds = self.thresholds.for_agent(agent_name)
+
+        # 1) Fail-closed gates that REPLACE the action with ESCALATE.
+        blocker_code = BlockerCode.NONE
+        forced_escalate = False
+        budget_code: Optional[str] = None
+
+        if self.require_signature and not getattr(self.signer, "available", False):
+            forced_escalate = True
+            blocker_code = BlockerCode.SIGNING_REQUIRED_UNAVAILABLE
+
+        budget_decision = self.budget.check(session_id, kind="directive", units=0)
+        if not budget_decision.allowed:
+            forced_escalate = True
+            budget_code = budget_decision.code
+            if blocker_code is BlockerCode.NONE:
+                blocker_code = BlockerCode.BUDGET_EXHAUSTED
+
+        # 2) Arbitration through the ONE kernel.
+        result = arbitration.arbitrate(assessment, thresholds)
+        action = DirectiveAction.ESCALATE if forced_escalate else result.action
+        if result.blocked and blocker_code is BlockerCode.NONE:
+            blocker_code = BlockerCode.EXACT_BLOCKER
+        blocked = bool(result.blocked or forced_escalate)
+
+        # 3) Build + sign the directive (never executable in P3).
+        now = self._clock()
+        directive = Directive(
+            directive_id=f"shadow_{session_id}_{event_id or uuid.uuid4().hex[:12]}",
+            session_id=session_id,
+            timestamp=now,
+            action=action,
+            target_actuator="noop",
+            params={
+                "reason_code": result.reason_code,
+                "blocker_code": blocker_code.value,
+                "arbitration_inputs_hash": result.trace_hash,
+            },
+            policy_version=self.policy_version,
+            policy_table_version=self.policy_table_version,
+            evidence_hash=evidence_hash,
+            issued_at=now,
+            ttl_s=self.ttl_s,
+            nonce=self._nonce_factory(),
+            executable=False,
+            requires_human=bool(blocked or action is DirectiveAction.ESCALATE),
+            shadow=True,
+        )
+        self._apply_signature(directive)
+
+        # 4) The ONE seam: dispatch through the injected port.
+        dispatch_result = self._dispatch(directive)
+        directive.acted = bool(dispatch_result.get("acted", False))
+        directive.actuation_reason = dispatch_result.get("reason")
+        directive.executable = bool(dispatch_result.get("executable", False))
+
+        if not forced_escalate:
+            self.budget.commit(session_id, kind="directive", units=0, action=action)
+
+        # 5) Record (hash-chained).
+        decision = self._record(
+            assessment=assessment, directive=directive, result=result,
+            thresholds=thresholds, session_id=session_id, event_id=event_id,
+            agent=agent_name, project=project, evidence_hash=evidence_hash,
+            session_status=session_status, blocked=blocked,
+            blocker_code=blocker_code, budget_code=budget_code,
+        )
+        return decision
+
+    # -- THE seam (D-3/D-41) -------------------------------------------------
+    def _dispatch(self, directive: Directive):
+        """The only actuation call site in the supervisor plane.
+
+        A P4 actuator attaches by swapping the injected ``DispatchPort``; this
+        method itself never changes. In P3 the port returns ``acted=False``.
+        """
+        return self.dispatch_port.dispatch(directive)
+
+    # -- signing -------------------------------------------------------------
+    def _apply_signature(self, directive: Directive) -> None:
+        if not getattr(self.signer, "available", False):
+            directive.signed = False
+            directive.signature = None
+            directive.signing_alg = None
+            directive.signature_verified = False
+            directive.signature_status = (
+                "required_missing" if self.require_signature else "unavailable:no_key"
+            )
+            return
+        signature = self.signer.sign(directive)
+        directive.signed = signature is not None
+        directive.signature = signature
+        directive.signing_alg = getattr(self.signer, "SIGN_ALG", signing_kernel.SIGN_ALG)
+        verified = bool(signature is not None and self.signer.verify(directive, signature))
+        directive.signature_verified = verified
+        directive.signature_status = "signed_verified" if verified else "unsigned"
+
+    # -- persistence ---------------------------------------------------------
+    def _ensure_schema(self) -> None:
+        if self._schema_ready:
+            return
+        conn = getattr(self.store, "_conn", None)
+        if conn is not None:
+            shadow_store.ensure_schema(conn)
+        self._schema_ready = True
+
+    def _record(self, *, assessment, directive, result, thresholds, session_id, event_id,
+                agent, project, evidence_hash, session_status, blocked, blocker_code,
+                budget_code) -> ShadowDecision:
+        signals = arbitration.build_signals(assessment)
+        record = {
+            "decision_id": f"sd_{directive.directive_id}",
+            "session_id": session_id,
+            "event_id": event_id,
+            "agent": agent,
+            "project": project,
+            "observed_at": directive.timestamp,
+            "model": getattr(assessment, "model", None),
+            "provider": getattr(assessment, "provider", None),
+            "assessment_probabilities": getattr(assessment, "probabilities", None),
+            "assessment_band": getattr(assessment, "band", None),
+            "assessment_flags": signals.as_dict(),
+            "session_status": session_status,
+            "evidence_complete": signals.evidence_complete,
+            "event_seq": 0,
+            "progress_seq": 0,
+            "stall_events": 0,
+            "budget_snapshot": None,
+            "thresholds_snapshot": thresholds.as_dict(),
+            "policy_version": self.policy_version,
+            "policy_config_hash": self.thresholds.config_hash(),
+            "action": directive.action.value,
+            "rationale": [{"rule": t.rule, "value": t.value, "matched": t.matched} for t in result.rationale],
+            "trace_hash": result.trace_hash,
+            "arbitration_inputs_hash": result.trace_hash,
+            "blocked": blocked,
+            "blocker_code": blocker_code.value if blocked else None,
+            "needs_human": directive.requires_human,
+            "directive_id": directive.directive_id,
+            "signed": directive.signed,
+            "signature": directive.signature,
+            "signing_alg": directive.signing_alg,
+            "signature_verified": directive.signature_verified,
+            "acted": directive.acted,
+            "actuation_reason": directive.actuation_reason,
+            "would_have_acted_in_p4": None if blocked else directive.action.value,
+        }
+        stored = self._append_shadow(record)
+        return ShadowDecision(
+            decision_id=record["decision_id"],
+            session_id=session_id,
+            event_id=event_id,
+            observed_at=directive.timestamp,
+            action=directive.action,
+            trace_hash=result.trace_hash,
+            blocked=blocked,
+            blocker_code=(record["blocker_code"] or None),
+            needs_human=directive.requires_human,
+            directive_id=directive.directive_id,
+            signed=directive.signed,
+            signature=directive.signature,
+            signing_alg=directive.signing_alg,
+            signature_verified=directive.signature_verified,
+            signature_status=directive.signature_status,
+            acted=directive.acted,
+            actuation_reason=directive.actuation_reason,
+            would_have_acted_in_p4=record["would_have_acted_in_p4"],
+            policy_version=self.policy_version,
+            policy_table_version=self.policy_table_version,
+            policy_config_hash=record["policy_config_hash"],
+            prev_hash=stored.get("prev_hash"),
+            entry_hash=stored.get("entry_hash"),
+        )
+
+    def _append_shadow(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        if hasattr(self.store, "append_shadow"):
+            return self.store.append_shadow(**record)
+        conn = getattr(self.store, "_conn", None)
+        if conn is not None:
+            self._ensure_schema()
+            return shadow_store.append_shadow(conn, record=record)
+        # No persistence available: keep an in-memory trace (tests / degraded).
+        self._memory.append(record)
+        return record

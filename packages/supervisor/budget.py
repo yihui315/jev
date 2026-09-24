@@ -1,0 +1,249 @@
+"""Budget governor (ADR-0008 D-34, revising D-5).
+
+Design choice that matters
+--------------------------
+Counters are **DERIVED from persisted state**, not kept in memory, so a restart
+cannot silently reset an escalation (ADR-0006). The governor asks the store for
+a snapshot (``store.budget_snapshot(session_id)``) when a store is wired. When no
+store is available it falls back to an in-memory ledger — which is **restart-
+unsafe by definition** and therefore only acceptable for unit tests; the wiring
+in ``run.py`` always passes the store.
+
+Fail-closed rules (all from D-34):
+* Any exhausted dimension ⇒ ``allowed=False`` with a code. The caller **replaces**
+  the action with ``ESCALATE`` — never suppresses it, never ``CONTINUE``.
+* A counter read that raises ⇒ exhausted with ``budget_check_error``.
+* There is **no** ``budget.enabled`` off-switch. A flippable off-switch is how a
+  budget becomes decorative.
+"""
+from __future__ import annotations
+
+import time
+from dataclasses import dataclass, field
+from typing import Any, Callable, Dict, Optional, Tuple
+
+from jcc_core.schemas import DirectiveAction
+
+#: Static cost table (D-34). The ONLY place action→cost is defined.
+COST_UNITS: Dict[DirectiveAction, float] = {
+    DirectiveAction.CONTINUE: 0.0,
+    DirectiveAction.VERIFY: 1.0,
+    DirectiveAction.FINISH: 1.0,
+    DirectiveAction.STEER: 2.0,
+    DirectiveAction.RETRY: 3.0,
+    DirectiveAction.PAUSE: 5.0,
+    DirectiveAction.ESCALATE: 10.0,
+}
+
+CODE_ASSESS_CALLS = "assess_calls"
+CODE_SCORER_TOKENS = "scorer_tokens"
+CODE_EVENTS = "events"
+CODE_DIRECTIVES = "directives"
+CODE_RETRIES = "retries"
+CODE_ESCALATIONS = "escalations"
+CODE_WALL_CLOCK = "wall_clock_s"
+CODE_COST_UNITS = "cost_units"
+CODE_RATE = "directives_per_minute"
+CODE_CHECK_ERROR = "budget_check_error"
+
+
+class BudgetExhausted(Exception):
+    """Raised only where callers opt into exceptions; ``check`` returns instead."""
+
+    def __init__(self, code: str):
+        super().__init__(code)
+        self.code = code
+
+
+@dataclass(frozen=True)
+class BudgetLimits:
+    """D-34 defaults. Field names match ``config/jcc.yaml`` ``p3.shadow.budget``."""
+
+    assess_calls: int = 200
+    scorer_tokens: int = 200_000
+    events: int = 2000
+    directives: int = 200
+    retries: int = 5
+    escalations: int = 3
+    wall_clock_s: float = 28800.0
+    cost_units: float = 500.0
+    cost_units_per_hour: float = 2000.0
+    directives_per_minute: int = 600
+
+
+@dataclass(frozen=True)
+class BudgetSnapshot:
+    assessments_used: int
+    directives_used: int
+    rate_used: int
+    model_units_used: float
+    limits: BudgetLimits
+    exhausted_code: Optional[str] = None
+
+    @property
+    def healthy(self) -> bool:
+        return self.exhausted_code is None
+
+
+@dataclass(frozen=True)
+class BudgetDecision:
+    allowed: bool
+    code: Optional[str]
+    snapshot: BudgetSnapshot
+
+
+#: Deterministic check order — first violated dimension wins.
+_CHECK_ORDER: Tuple[str, ...] = (
+    CODE_ASSESS_CALLS, CODE_SCORER_TOKENS, CODE_EVENTS, CODE_DIRECTIVES,
+    CODE_RETRIES, CODE_ESCALATIONS, CODE_WALL_CLOCK, CODE_COST_UNITS, CODE_RATE,
+)
+
+
+class BudgetGovernor:
+    """Derive-and-check budget governor.
+
+    Parameters
+    ----------
+    limits
+        The frozen limit set.
+    store
+        Optional object exposing ``budget_snapshot(session_id) -> dict`` with the
+        derived counters. Without it, an in-memory (restart-unsafe) ledger is used.
+    clock
+        Monotonic clock used for the wall-clock dimension. Injectable for tests.
+    """
+
+    def __init__(
+        self,
+        limits: Optional[BudgetLimits] = None,
+        *,
+        store: Any = None,
+        clock: Callable[[], float] = time.monotonic,
+    ) -> None:
+        self.limits = limits if limits is not None else BudgetLimits()
+        self.store = store
+        self._clock = clock
+        self._ledger: Dict[str, Dict[str, float]] = {}
+
+    # -- counter source ------------------------------------------------------
+    def _ledger_row(self, session_id: str) -> Dict[str, float]:
+        row = self._ledger.get(session_id)
+        if row is None:
+            row = {
+                "assessments_used": 0.0,
+                "directives_used": 0.0,
+                "retries_used": 0.0,
+                "escalations_used": 0.0,
+                "model_units_used": 0.0,
+                "cost_units_used": 0.0,
+                "events_used": 0.0,
+                "rate_used": 0.0,
+                "first_seen": self._clock(),
+            }
+            self._ledger[session_id] = row
+        return row
+
+    def _counters(self, session_id: str) -> Dict[str, float]:
+        """Derive the counter set. A read failure is surfaced, not swallowed."""
+        if self.store is not None and hasattr(self.store, "budget_snapshot"):
+            raw = self.store.budget_snapshot(session_id)
+            if not isinstance(raw, dict):
+                raise TypeError("budget_snapshot must return a dict")
+            return {k: float(v) for k, v in raw.items()}
+        return dict(self._ledger_row(session_id))
+
+    # -- evaluation ----------------------------------------------------------
+    def check(self, session_id: str, *, kind: str, units: int = 0) -> BudgetDecision:
+        """Return whether a further ``kind`` step is allowed under ``session_id``."""
+        try:
+            counters = self._counters(session_id)
+        except Exception:  # noqa: BLE001 — a counter read that raises is exhausted
+            snap = BudgetSnapshot(
+                assessments_used=0, directives_used=0, rate_used=0,
+                model_units_used=0.0, limits=self.limits, exhausted_code=CODE_CHECK_ERROR,
+            )
+            return BudgetDecision(allowed=False, code=CODE_CHECK_ERROR, snapshot=snap)
+
+        observed = self._observed(counters, kind, units)
+        exhausted = self._first_exhausted(observed)
+        snap = BudgetSnapshot(
+            assessments_used=int(counters.get("assessments_used", 0)),
+            directives_used=int(counters.get("directives_used", 0)),
+            rate_used=int(counters.get("rate_used", 0)),
+            model_units_used=float(counters.get("model_units_used", 0.0)),
+            limits=self.limits,
+            exhausted_code=exhausted,
+        )
+        return BudgetDecision(allowed=exhausted is None, code=exhausted, snapshot=snap)
+
+    def _observed(self, counters: Dict[str, float], kind: str, units: int) -> Dict[str, float]:
+        """Project the counters onto the limit dimensions, *prospectively*.
+
+        The counts are read **before** the current step is recorded (the D-34
+        off-by-one note): ``units`` is the cost of the step we are about to take.
+        """
+        elapsed = self._clock() - float(counters.get("first_seen", self._clock()))
+        return {
+            CODE_ASSESS_CALLS: counters.get("assessments_used", 0) + (1 if kind == "assessment" else 0),
+            CODE_SCORER_TOKENS: counters.get("model_units_used", 0.0),
+            CODE_EVENTS: counters.get("events_used", 0.0),
+            CODE_DIRECTIVES: counters.get("directives_used", 0) + (1 if kind == "directive" else 0),
+            CODE_RETRIES: counters.get("retries_used", 0.0),
+            CODE_ESCALATIONS: counters.get("escalations_used", 0.0),
+            CODE_WALL_CLOCK: elapsed,
+            CODE_COST_UNITS: counters.get("cost_units_used", 0.0) + float(units),
+            CODE_RATE: counters.get("rate_used", 0.0),
+        }
+
+    def _first_exhausted(self, observed: Dict[str, float]) -> Optional[str]:
+        for code in _CHECK_ORDER:
+            limit = getattr(self.limits, code)
+            if float(observed.get(code, 0.0)) > float(limit):
+                return code
+        return None
+
+    # -- mutation ------------------------------------------------------------
+    def commit(self, session_id: str, units: int = 0, *, kind: Optional[str] = None,
+               action: Optional[DirectiveAction] = None) -> BudgetSnapshot:
+        """Record a completed step. Returns the post-commit snapshot.
+
+        Also satisfies ``jcc_core.ports.AssessmentBudgetGuard.commit`` (which is
+        called with ``(session_id, units)`` and ignores the return value).
+        """
+        row = self._ledger_row(session_id)
+        if kind == "assessment":
+            row["assessments_used"] += 1
+            row["model_units_used"] += float(units)
+        elif kind == "directive":
+            row["directives_used"] += 1
+            row["rate_used"] += 1
+            if action is not None:
+                row["cost_units_used"] += COST_UNITS.get(action, 0.0)
+            if action is DirectiveAction.RETRY:
+                row["retries_used"] += 1
+            if action is DirectiveAction.ESCALATE:
+                row["escalations_used"] += 1
+        row["cost_units_used"] += float(units)
+        return self.snapshot(session_id)
+
+    def snapshot(self, session_id: str) -> BudgetSnapshot:
+        try:
+            counters = self._counters(session_id)
+            code = self._first_exhausted(self._observed(counters, kind="none", units=0))
+            return BudgetSnapshot(
+                assessments_used=int(counters.get("assessments_used", 0)),
+                directives_used=int(counters.get("directives_used", 0)),
+                rate_used=int(counters.get("rate_used", 0)),
+                model_units_used=float(counters.get("model_units_used", 0.0)),
+                limits=self.limits,
+                exhausted_code=code,
+            )
+        except Exception:  # noqa: BLE001
+            return BudgetSnapshot(0, 0, 0, 0.0, self.limits, CODE_CHECK_ERROR)
+
+    # -- AssessmentBudgetGuard shim (jcc_core.ports) -------------------------
+    def allow(self, session_id: str, units: int = 0) -> bool:
+        return self.check(session_id, kind="assessment", units=units).allowed
+
+    def as_guard(self) -> "BudgetGovernor":
+        return self
