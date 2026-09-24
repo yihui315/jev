@@ -29,7 +29,7 @@ actuation:
   allowed_actions: []       # none permitted in P1
 
 policy:
-  version: p1.0.0
+  version: p3.0.0           # ADR-0008 D-37: p1.0.0 -> p3.0.0 (R6 threshold surface)
   priority: [ESCALATE, PAUSE, VERIFY, STEER, RETRY, FINISH, CONTINUE]
   thresholds:               # ADR-0008 D-24: RETIRED / INERT — superseded by
     escalate_risk: 0.8      #   p3.shadow.thresholds. Kept for config back-compat

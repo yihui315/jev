@@ -19,6 +19,16 @@ from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
+#: Internal DOMAIN-MODEL version (ADR-0008 D-37). Names the shape of the internal
+#: models (``Assessment`` / ``Directive`` / ...) so a reader of a persisted row can
+#: tell which internal schema wrote it. Deliberately separate from
+#: ``decision.POLICY_TABLE_VERSION`` (the mapping kernel's version, which is part
+#: of the signed payload).
+#:
+#: NOT a wire version: the wire contract is ``AEPEnvelope.version == "aep/v0.1"``
+#: and is FROZEN (D-25 / D-38) -- never bump it through this constant.
+SCHEMA_INTERNAL_VERSION = "p3.0.0"
+
 
 class AgentName(str, Enum):
     WORKBUDDY = "workbuddy"
@@ -137,7 +147,7 @@ class Directive(BaseModel):
     action: DirectiveAction
     target_actuator: str = "noop"
     params: Dict[str, Any] = Field(default_factory=dict)
-    policy_version: str = "p1.0.0"
+    policy_version: str = "p3.0.0"   # ADR-0008 D-37 (was p1.0.0 through P2)
     signed: bool = False            # P4/P5 signing; UNSIGNED in P1
     signature: Optional[str] = None
     evidence_hash: Optional[str] = None

@@ -61,7 +61,7 @@ class ActuationConfig:
 
 @dataclass
 class PolicyConfig:
-    version: str = "p1.0.0"
+    version: str = "p3.0.0"          # ADR-0008 D-37 (was p1.0.0 through P2)
     priority: List[str] = field(
         default_factory=lambda: [
             "ESCALATE", "PAUSE", "VERIFY", "STEER", "RETRY", "FINISH", "CONTINUE"
