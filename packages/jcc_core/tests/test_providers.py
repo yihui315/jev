@@ -1,10 +1,11 @@
 import os
 
+from jcc_core import decision
 from jcc_core import config as cfg_mod
 from jcc_core.providers import build_provider
 from jcc_core.providers.disabled import DisabledProvider
 from jcc_core.providers.mock import DeterministicMockProvider
-from jcc_core.schemas import AEPEnvelope, AgentName, SessionState, SessionStatus
+from jcc_core.schemas import AEPEnvelope, AgentName, DirectiveAction, SessionState, SessionStatus
 
 
 def _env(**kw):
@@ -20,14 +21,37 @@ def test_mock_deterministic():
     a2 = p.assess(e, None)
     assert a1.risk_score == a2.risk_score
     assert a1.band == a2.band
-    assert (a1.escalate, a1.pause, a1.steer) == (a2.escalate, a2.pause, a2.steer)
+    # D-32: the deterministic contract is now carried by the SIGNALS (the P2
+    # directive-shaped booleans escalate/pause/steer are no longer emitted).
+    assert a1.raw["signals"] == a2.raw["signals"]
+    assert decision.decide_action(a1) is decision.decide_action(a2)
+
+
+def test_mock_emits_the_full_provider_contract():
+    """D-32 / Add B: 6 required booleans + definite band + score + verified."""
+    p = DeterministicMockProvider()
+    a = p.assess(_env(evidence={"ok": True}), None)
+    signals = a.raw["signals"]
+    for field in decision.REQUIRED_SIGNAL_FIELDS:
+        assert field in signals, f"provider omitted required signal {field!r}"
+        assert signals[field] is not None
+    assert "work_off_track" in signals          # recorded-only, carried anyway
+    assert a.band in ("low", "medium", "high", "critical"), a.band
+    assert a.band != "unknown"
+    assert a.provider_verified is True
+    assert a.risk_score == a.probabilities["risk"]   # one numeric channel
+    # and it no longer chooses the directive
+    assert "escalate" not in a.raw.get("signals", {})
 
 
 def test_mock_unknown_evidence_routes_to_verify():
     p = DeterministicMockProvider()
     a = p.assess(_env(), None)  # no evidence field
     assert a.needs_verify is True
-    assert a.band == "unknown"
+    assert a.raw["signals"]["needs_verification"] is True
+    # The band stays DEFINITE (never "unknown"): an unknown band would be read
+    # as band is None and escalate at EVERY risk level (ADR-0008 Add B).
+    assert a.band in ("low", "medium", "high", "critical")
 
 
 def test_mock_high_risk_escalates():
@@ -40,7 +64,9 @@ def test_mock_high_risk_escalates():
             found = a
             break
     assert found is not None, "expected a deterministic high-risk seed"
-    assert found.escalate is True
+    # D-32: the mock no longer sets escalate=True; the KERNEL derives it.
+    assert found.band == "critical"
+    assert decision.decide_action(found) is DirectiveAction.ESCALATE
 
 
 def test_disabled_is_verify_leaning():
