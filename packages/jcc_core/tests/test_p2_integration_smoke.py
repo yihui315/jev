@@ -11,7 +11,14 @@ Proves (per the P2 task acceptance criteria):
 
 Part A runs in-process against a real CoreEngine (isolated temp SQLite).
 Part B unit-tests the hardened receiver.
-Part C runs the REAL JCC server over HTTP and emits one event per agent.
+Part C runs the REAL JCC server over HTTP on an OS-assigned EPHEMERAL port and
+emits one event per agent.
+
+Windows teardown note: on Windows the child process's handle on ``server.log``
+(and SQLite's handle on ``jcc.db``) can outlive ``proc.wait()`` by a few ms, so
+``TemporaryDirectory`` cleanup would intermittently raise ``WinError 32``. Every
+temp dir below therefore uses ``ignore_cleanup_errors=True`` and the HTTP leg
+explicitly retries unlinking the log after the child is dead.
 
 Run: F:/jev/.venv/Scripts/python -m pytest jcc_core/tests/test_p2_integration_smoke.py -q
 """
@@ -20,6 +27,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import socket
 import subprocess
 import sys
 import tempfile
@@ -55,6 +63,28 @@ from jcc_receiver import (  # noqa: E402
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 PLANTED_SECRET = "sk-live-PLANTEDSECRETdeadbeef0123456789"
+
+
+def _tmpdir(prefix: str) -> "tempfile.TemporaryDirectory[str]":
+    """Temp dir whose cleanup never flakes on Windows handle-release races.
+
+    The child's stdout handle (and SQLite's file handle) may still be held for a
+    few ms after ``proc.wait()``, which makes ``rmtree`` raise ``WinError 32``.
+    Cleanup errors are ignored: the assertion content has already passed and a
+    leaked OS temp dir is harmless (and self-cleaned by the OS temp policy).
+    """
+    return tempfile.TemporaryDirectory(prefix=prefix, ignore_cleanup_errors=True)
+
+
+def _free_port() -> int:
+    """Reserve an OS-assigned free TCP port on loopback (avoids machine-wide
+    contention from a hardcoded port). Small TOCTOU window is acceptable."""
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind(("127.0.0.1", 0))
+        return int(s.getsockname()[1])
+    finally:
+        s.close()
 
 
 def _engine(tmp: str) -> CoreEngine:
@@ -98,7 +128,7 @@ def _force_cwd(agent: str, raw: dict) -> dict:
 
 
 def test_four_agents_distinct_and_no_crosstalk_and_no_duplicate_advance():
-    with tempfile.TemporaryDirectory(prefix="jcc_p2a_") as tmp:
+    with _tmpdir("jcc_p2a_") as tmp:
         engine = _engine(tmp)
         seen_sessions = {}
         for agent, (fname, cls) in PER_AGENT_FIXTURE.items():
@@ -134,7 +164,7 @@ def test_four_agents_distinct_and_no_crosstalk_and_no_duplicate_advance():
 
 def test_no_secret_leakage_in_state_store_bytes():
     """Plant a secret in a PreToolUse event; assert it never reaches disk."""
-    with tempfile.TemporaryDirectory(prefix="jcc_p2secret_") as tmp:
+    with _tmpdir("jcc_p2secret_") as tmp:
         engine = _engine(tmp)
         raw = _raw("claude", "claude_hook_pre_tool_use.json")
         raw["tool_input"] = {"command": "curl", "api_key": PLANTED_SECRET, "password": "hunter2-" + PLANTED_SECRET}
@@ -161,7 +191,7 @@ def _signed_headers(rcv: SecureWebhookReceiver, agent: str, body: bytes, **kw):
 
 
 def test_receiver_accepts_valid_and_ingests():
-    with tempfile.TemporaryDirectory(prefix="jcc_p2b_") as tmp:
+    with _tmpdir("jcc_p2b_") as tmp:
         engine = _engine(tmp)
         rcv = SecureWebhookReceiver("unit-secret")
         raw = _raw("hermes", "hermes_hook_agent_step.json")
@@ -190,7 +220,7 @@ def test_receiver_rejects_stale_timestamp():
 
 
 def test_receiver_rejects_replay():
-    with tempfile.TemporaryDirectory(prefix="jcc_p2replay_") as tmp:
+    with _tmpdir("jcc_p2replay_") as tmp:
         engine = _engine(tmp)
         rcv = SecureWebhookReceiver("unit-secret")
         body = b'{"event":"agent:step","context":{"session_id":"s-replay","iteration":1}}'
@@ -216,7 +246,7 @@ def test_receiver_rejects_missing_headers():
 
 
 def test_receiver_enforces_session_isolation():
-    with tempfile.TemporaryDirectory(prefix="jcc_p2iso_") as tmp:
+    with _tmpdir("jcc_p2iso_") as tmp:
         engine = _engine(tmp)
         rcv = SecureWebhookReceiver("unit-secret")
         # bind session to workbuddy
@@ -236,17 +266,16 @@ def test_receiver_rejects_unidentifiable_event():
 
 
 # --------------------------------------------------------------------------- #
-# Part C — real HTTP server end-to-end
+# Part C — real HTTP server end-to-end (ephemeral port)
 # --------------------------------------------------------------------------- #
-PORT = 4799
 TOKEN = "p2-token-" + uuid.uuid4().hex[:8]
 
 
-def _write_cfg(tmp: str, db: str) -> str:
+def _write_cfg(tmp: str, db: str, port: int) -> str:
     cfg = f"""
 server:
   host: 127.0.0.1
-  port: {PORT}
+  port: {port}
   cors_origins: [http://127.0.0.1:5173]
 control:
   token_env: JCC_CONTROL_TOKEN
@@ -285,6 +314,39 @@ def _wait_health(base: str, timeout: float = 30.0) -> bool:
     return False
 
 
+def _stop_server(proc: subprocess.Popen, logf, tmp: str) -> None:
+    """Kill the child and release its log handle BEFORE temp-dir cleanup.
+
+    On Windows ``TerminateProcess`` returns before the OS reclaims the child's
+    inherited stdout handle, so an immediate rmtree can hit ``WinError 32``.
+    We wait, close our own handle, then best-effort unlink ``server.log`` with a
+    short retry/backoff (the retry is what actually removes the intermittent
+    failure).
+    """
+    try:
+        proc.terminate()
+        proc.wait(timeout=10)
+    except Exception:  # noqa: BLE001
+        try:
+            proc.kill()
+            proc.wait(timeout=5)
+        except Exception:  # noqa: BLE001
+            pass
+    try:
+        logf.close()
+    except Exception:  # noqa: BLE001
+        pass
+    log_path = Path(tmp) / "server.log"
+    for _ in range(20):  # ~1s total; releases within a few ms in practice
+        try:
+            log_path.unlink(missing_ok=True)
+            break
+        except PermissionError:
+            time.sleep(0.05)
+        except Exception:  # noqa: BLE001
+            break
+
+
 @pytest.mark.skipif(os.environ.get("JCC_SKIP_HTTP") == "1", reason="HTTP leg disabled")
 def test_http_end_to_end_four_agents_distinct_no_secret_leak():
     import urllib.request
@@ -293,9 +355,10 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
     if not Path(venv_py).exists():
         pytest.skip("venv python unavailable")
 
-    with tempfile.TemporaryDirectory(prefix="jcc_p2c_") as tmp:
+    port = _free_port()
+    with _tmpdir("jcc_p2c_") as tmp:
         db = os.path.join(tmp, "jcc.db")
-        cfg = _write_cfg(tmp, db)
+        cfg = _write_cfg(tmp, db, port)
         env = dict(os.environ)
         env.update(JCC_CONFIG=cfg, JCC_CONTROL_TOKEN=TOKEN, JCC_PROVIDER="mock")
         logf = open(os.path.join(tmp, "server.log"), "w", encoding="utf-8")
@@ -303,7 +366,7 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
             [venv_py, "-m", "jcc_core.run"], cwd=str(PACKAGES), env=env,
             stdout=logf, stderr=subprocess.STDOUT,
         )
-        base = f"http://127.0.0.1:{PORT}"
+        base = f"http://127.0.0.1:{port}"
         try:
             assert _wait_health(base), "server did not become healthy"
             # emit one identified event per agent over HTTP
@@ -330,8 +393,8 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
             # no cwd collision among the four agent sessions
             four_sids = set()
             for agent, (fname, cls) in PER_AGENT_FIXTURE.items():
-                env = _norm(cls(), _force_cwd(agent, _raw(agent, fname)))
-                four_sids.add(env.session_id)
+                env2 = _norm(cls(), _force_cwd(agent, _raw(agent, fname)))
+                four_sids.add(env2.session_id)
             four = [s for s in sessions if s["session_id"] in four_sids]
             assert len({s["session_id"] for s in four}) == 4, four
 
@@ -345,15 +408,7 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
                     blob += f.read_bytes()
             assert PLANTED_SECRET.encode() not in blob, "secret leaked into the HTTP state store"
         finally:
-            try:
-                proc.terminate()
-                proc.wait(timeout=10)
-            except Exception:  # noqa: BLE001
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
-            logf.close()
+            _stop_server(proc, logf, tmp)
 
 
 if __name__ == "__main__":
