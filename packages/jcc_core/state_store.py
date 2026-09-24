@@ -21,12 +21,15 @@ import json
 import os
 import sqlite3
 import threading
-from typing import Any, Dict, List, Optional
+import time
+from contextlib import contextmanager
+from typing import Any, Dict, Iterator, List, Optional
 
 from . import audit as audit_mod
 from .schemas import (
     Assessment,
     Directive,
+    DirectiveAction,
     EvidenceSnapshot,
     SessionState,
 )
@@ -116,6 +119,33 @@ class StateStore:
             conn = self._conn()
             conn.executescript(SCHEMA)
             conn.commit()
+            conn.close()
+
+    @contextmanager
+    def connection(self) -> Iterator[sqlite3.Connection]:
+        """Yield a FRESH connection and always close it — the PUBLIC accessor.
+
+        WHY THIS EXISTS (ADR-0008 D-2 + the P3 shadow-persistence defect): the
+        supervisor plane owns its own tables (``shadow_decisions``, spec §2.6) and
+        therefore needs a connection to this database. It previously did
+        ``getattr(store, "_conn")`` — reaching into this class's PRIVATE method.
+        ``_conn`` is a METHOD returning a fresh connection, so the supervisor
+        received a truthy *bound method* and its ``executescript`` raised; the
+        failure was swallowed and the shadow plane recorded nothing at all. Worse,
+        the supervisor's test double exposed ``_conn`` as an *attribute*, so the
+        suite defined an interface the real store never had. A generic public
+        accessor makes the dependency explicit and pointing DOWNWARD
+        (``supervisor`` -> ``jcc_core``, never the reverse).
+
+        Deliberately does NOT take ``self._lock``: the supervisor writes only to
+        its own tables, and ``_lock`` is a non-reentrant ``threading.Lock``, so
+        holding it here would deadlock any re-entrant core call made inside the
+        ``with`` block.
+        """
+        conn = self._conn()
+        try:
+            yield conn
+        finally:
             conn.close()
 
     @property
@@ -404,3 +434,72 @@ class StateStore:
                 return audit_mod.verify_chain(conn)
             finally:
                 conn.close()
+
+    # -- P3 budget surface (ADR-0008 D-34 / spec §2.4) -----------------------
+    #: Window used to derive the per-minute directive rate (D-34
+    #: ``directives_per_minute``).
+    RATE_WINDOW_S = 60.0
+
+    def budget_snapshot(self, session_id: str) -> Dict[str, float]:
+        """Derive the D-34 budget counters from PERSISTED state (restart-safe).
+
+        ADR-0008 D-34 / spec §2.4: *"Counters are DERIVED from persisted state
+        … so a restart cannot reset an escalation."* Every value is a ``COUNT(*)``
+        over the frozen P1/P2 tables (plus ``sessions.created_at``), so this needs
+        no P3 knowledge and remains valid for pre-P3 rows. Absent this surface the
+        governor silently falls back to its in-memory ledger, which is exactly the
+        restart-unsafe source of truth D-34 forbade.
+
+        CLOCK DOMAIN (load-bearing): ``first_seen`` is a WALL-CLOCK epoch second
+        (``sessions.created_at``, written from ``time.time()``). A store-backed
+        ``BudgetGovernor`` MUST therefore be built with a wall-clock ``clock``
+        (``clock=time.time``); its default ``time.monotonic`` shares no origin
+        with this value, so the wall-clock dimension would silently never fire.
+
+        NOT DERIVABLE, reported honestly rather than faked: scorer token usage and
+        cost have no persisted column, so ``model_units_used`` / ``cost_units_used``
+        are 0.0 and the ``scorer_tokens`` / ``cost_units`` limits are INERT until
+        a column exists.
+        """
+        now = time.time()
+        with self._lock:
+            conn = self._conn()
+            try:
+                row = conn.execute(
+                    "SELECT created_at FROM sessions WHERE session_id=?", (session_id,)
+                ).fetchone()
+                first_seen = float(row[0]) if row and row[0] is not None else now
+                assessments_used = conn.execute(
+                    "SELECT COUNT(*) FROM assessments WHERE session_id=?", (session_id,)
+                ).fetchone()[0]
+                events_used = conn.execute(
+                    "SELECT COUNT(*) FROM events WHERE session_id=?", (session_id,)
+                ).fetchone()[0]
+                directives_used = conn.execute(
+                    "SELECT COUNT(*) FROM directives WHERE session_id=?", (session_id,)
+                ).fetchone()[0]
+                retries_used = conn.execute(
+                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND action=?",
+                    (session_id, DirectiveAction.RETRY.value),
+                ).fetchone()[0]
+                escalations_used = conn.execute(
+                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND action=?",
+                    (session_id, DirectiveAction.ESCALATE.value),
+                ).fetchone()[0]
+                rate_used = conn.execute(
+                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND timestamp>=?",
+                    (session_id, now - self.RATE_WINDOW_S),
+                ).fetchone()[0]
+            finally:
+                conn.close()
+        return {
+            "assessments_used": float(assessments_used),
+            "directives_used": float(directives_used),
+            "events_used": float(events_used),
+            "retries_used": float(retries_used),
+            "escalations_used": float(escalations_used),
+            "rate_used": float(rate_used),
+            "model_units_used": 0.0,
+            "cost_units_used": 0.0,
+            "first_seen": first_seen,
+        }

@@ -177,7 +177,17 @@ def _wire_shadow(engine, store, config) -> None:
     signer = DirectiveSigner(
         load_signing_key(signing.get("key_env", "JCC_DIRECTIVE_SIGNING_KEY"))
     )
-    budget = BudgetGovernor(BudgetLimits(**(sh.get("budget") or {})))
+    budget = BudgetGovernor(
+        # D-34 / spec §2.4: counters are DERIVED from persisted state (a restart
+        # must not reset an escalation), so the governor is given the REAL store.
+        # `clock=time.time` is REQUIRED, not cosmetic: StateStore.budget_snapshot
+        # reports `first_seen` as a wall-clock epoch second (sessions.created_at)
+        # while the governor defaults to time.monotonic — different origins, which
+        # would make the wall-clock dimension silently never fire.
+        BudgetLimits(**(sh.get("budget") or {})),
+        store=store,
+        clock=time.time,
+    )
     sentinel = Sentinel(
         store,
         signer=signer,

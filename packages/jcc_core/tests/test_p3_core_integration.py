@@ -24,12 +24,15 @@ The chain must verify intact after every cell.
 """
 from __future__ import annotations
 
+import time
+from pathlib import Path
+
 import pytest
 from fastapi.testclient import TestClient
 
 from jcc_core import decision, policy
 from jcc_core.actuator import Actuator
-from jcc_core.config import ActuationConfig, Config, PolicyConfig, ServerConfig
+from jcc_core.config import ActuationConfig, Config, PolicyConfig, ServerConfig, load_config
 from jcc_core.core import CoreEngine
 from jcc_core.providers import build_provider
 from jcc_core.providers.mock import DeterministicMockProvider
@@ -237,4 +240,108 @@ def test_engine_path_missing_evidence_corner_is_measured_not_hidden():
     # every divergent cell is at/above the pause cut, and none is a resuming action
     assert all(r >= _P2_CUTS[1] for _, r, _, _ in diverge)
     assert {got for *_, got in diverge} <= {"PAUSE", "ESCALATE"}
+
+
+# --------------------------------------------------------------------------- #
+# ADR-0008 F1/F2 — the PRODUCTION composition root must actually turn P3 ON
+# --------------------------------------------------------------------------- #
+REPO_ROOT = Path(__file__).resolve().parents[3]
+
+
+def _engine_with_shadow_wiring(tmp_path, *, enabled: bool):
+    """Build the real engine through the real composition root.
+
+    Uses the SHIPPED `config/jcc.yaml` (so the live `p3.shadow` block is what is
+    exercised) with only `enabled` toggled and the DB redirected to `tmp_path`.
+    """
+    from jcc_core.run import _wire_shadow  # local: importing run.py configures logging
+
+    cfg = load_config(str(REPO_ROOT / "config" / "jcc.yaml"))
+    cfg.state_store_db_path = str(tmp_path / "jcc.db")
+    cfg.raw["p3"]["shadow"]["enabled"] = enabled
+    store = StateStore(cfg.state_store_db_path)
+    engine = CoreEngine(store, build_provider(cfg), Actuator(enabled=False), cfg)
+    _wire_shadow(engine, store, cfg)
+    return store, engine
+
+
+def test_wire_shadow_persists_against_the_real_state_store(tmp_path):
+    """F1: `run._wire_shadow` had NEVER run in any test — every config ships
+    `p3.shadow.enabled: false` — so its contract with `packages/supervisor` was
+    never exercised. A shadow row MUST land.
+
+    Non-vacuity is the whole point: without this, D-40's "every recorded
+    `acted == false`" passes over an EMPTY table, so a silently broken shadow
+    plane looks healthy.
+    """
+    store, engine = _engine_with_shadow_wiring(tmp_path, enabled=True)
+    assert len(engine._subscribers) == 1, "Sentinel was not subscribed"
+
+    out = engine.ingest(
+        AEPEnvelope(event_id="w1", delivery_id="wd1", session_id="s-wire",
+                    agent="workbuddy", project="p", event_type="tool_call",
+                    evidence={"ok": True})
+    )
+    assert out["acted"] is False
+    assert out["actuation_reason"] == "shadow_mode"
+
+    # second ingest -> a SECOND row, so the hash CHAIN has a real link to check
+    engine.ingest(
+        AEPEnvelope(event_id="w2", delivery_id="wd2", session_id="s-wire",
+                    agent="workbuddy", project="p", event_type="tool_call",
+                    evidence={"ok": True})
+    )
+
+    # read with the PUBLIC accessor (the F1 contract), not a private reach-in
+    with store.connection() as conn:
+        rows = conn.execute(
+            "SELECT seq, action, acted, prev_hash, entry_hash "
+            "FROM shadow_decisions ORDER BY seq"
+        ).fetchall()
+    assert len(rows) == 2, (
+        "shadow plane recorded NOTHING (or the wrong count) against the real "
+        f"StateStore — got {len(rows)} rows"
+    )
+    (_s0, _a0, acted0, prev0, entry0), (_s1, _a1, acted1, prev1, entry1) = rows
+    # every recorded row is inert in P3 (D-27/D-41 shadow_no_actuation)
+    assert acted0 == 0 and acted1 == 0
+    # a GENUINE linked hash chain: row0 starts from GENESIS, row1 links to row0
+    assert prev0 == "GENESIS", f"chain must start at GENESIS, got {prev0!r}"
+    assert prev1 == entry0, "row1.prev_hash must link to row0.entry_hash"
+    assert entry0 and entry1 and entry0 != entry1, "entry hashes must be non-null & distinct"
+    # persistence-failure count == 0, measured (2 ingests -> 2 persisted rows)
+    assert len(rows) == 2, "any persisted/ingest mismatch is a persistence FAILURE"
+    assert out["directive"]["action"]  # a directive was produced
+
+    ok, _count = store.verify_audit()
+    assert ok is True, "the engine audit chain must stay intact with the shadow plane on"
+
+    # F2: the governor must read DERIVED counters from the real store
+    sentinel = engine._subscribers[-1].__self__
+    assert sentinel.budget.store is store, "budget must be store-backed (D-34)"
+    # White-box ON PURPOSE: the clock DOMAIN is the defect class — a monotonic
+    # clock against wall-clock `first_seen` makes the wall-clock cut never fire.
+    assert sentinel.budget._clock is time.time
+    # counters are DERIVED from persisted P1/P2 rows: 2 ingests -> 2 assessments,
+    # 2 directives; the governor reads THIS, not an in-memory ledger (D-34).
+    snap = store.budget_snapshot("s-wire")
+    assert snap["assessments_used"] == 2
+    assert snap["directives_used"] == 2
+    assert snap["model_units_used"] == 0.0  # not faked; no persisted column
+
+
+def test_wire_shadow_disabled_subscribes_nothing(tmp_path):
+    """Negative control: the flag must actually gate, else the test above proves
+    nothing about the wiring."""
+    store, engine = _engine_with_shadow_wiring(tmp_path, enabled=False)
+    assert engine._subscribers == []
+
+    engine.ingest(
+        AEPEnvelope(event_id="n1", delivery_id="nd1", session_id="s-off",
+                    agent="workbuddy", project="p", event_type="tool_call")
+    )
+    with store.connection() as conn:
+        tables = {r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'")}
+    assert "shadow_decisions" not in tables, "disabled shadow plane must not persist"
 
