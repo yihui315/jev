@@ -19,6 +19,15 @@ import yaml
 DEFAULT_CONFIG_PATH = "F:/jev/config/jcc.yaml"
 
 
+class ConfigError(RuntimeError):
+    """An EXPLICITLY requested configuration cannot be used.
+
+    ADR-0008 D-30 / F-p3-5: config load fails CLOSED. Falling back to the
+    built-in defaults would run the control plane on a policy the operator never
+    chose -- a silent downgrade, and exactly the class of defect D-30 forbids.
+    """
+
+
 @dataclass
 class ServerConfig:
     host: str = "127.0.0.1"          # hardcoded to localhost-only at bind time too
@@ -84,11 +93,47 @@ class Config:
 
 
 def load_config(path: "str | None" = None) -> Config:
-    path = path or os.environ.get("JCC_CONFIG") or DEFAULT_CONFIG_PATH
-    data: Dict[str, Any] = {}
-    if path and os.path.exists(path):
-        with open(path, "r", encoding="utf-8") as fh:
-            data = yaml.safe_load(fh) or {}
+    """Load configuration, FAIL-CLOSED whenever a config was explicitly named.
+
+    Two situations that look similar and must NOT be conflated (D-30/F-p3-5):
+
+    * **Explicit request** -- the ``path`` argument, or a set ``JCC_CONFIG``. If
+      that file is missing, unreadable, or unusable YAML, this RAISES
+      :class:`ConfigError`. It never degrades to the built-in defaults: an
+      operator who named a file gets that file or an error, nothing else.
+    * **Default path** -- a missing ``DEFAULT_CONFIG_PATH`` yields the built-in
+      defaults, so library callers and tests can build a ``Config`` without a
+      filesystem. Refusing to *start* in that case belongs to the SERVER
+      ENTRYPOINT (``run.main``), which is the only place that can decide a
+      process must not come up without a deliberately chosen config.
+
+    A malformed or non-mapping default file still RAISES: a corrupt config is
+    never ignorable, only a *missing* default is.
+    """
+    explicit = path or os.environ.get("JCC_CONFIG")
+    target = explicit or DEFAULT_CONFIG_PATH
+    try:
+        with open(target, "r", encoding="utf-8") as fh:
+            raw_text = fh.read()
+    except FileNotFoundError:
+        if explicit:
+            raise ConfigError(
+                f"config file {target!r} does not exist; refusing to fall back to "
+                f"the built-in defaults (fail-closed, ADR-0008 D-30)"
+            ) from None
+        data: Dict[str, Any] = {}
+    except OSError as exc:  # permissions, EISDIR, ...
+        raise ConfigError(f"config file {target!r} is unreadable: {exc}") from exc
+    else:
+        try:
+            data = yaml.safe_load(raw_text) or {}
+        except yaml.YAMLError as exc:
+            raise ConfigError(f"config file {target!r} is not valid YAML: {exc}") from exc
+        if not isinstance(data, dict):
+            raise ConfigError(
+                f"config file {target!r} must hold a mapping at the top level, "
+                f"got {type(data).__name__}"
+            )
 
     server = ServerConfig(**(data.get("server") or {}))  # type: ignore[arg-type]
 

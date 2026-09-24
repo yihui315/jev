@@ -27,7 +27,7 @@ if str(PKG.parent) not in sys.path:
     sys.path.insert(0, str(PKG.parent))
 
 from jcc_core.actuator import Actuator  # noqa: E402
-from jcc_core.config import load_config  # noqa: E402
+from jcc_core.config import DEFAULT_CONFIG_PATH, load_config  # noqa: E402
 from jcc_core.core import CoreEngine  # noqa: E402
 from jcc_core.providers import build_provider  # noqa: E402
 from jcc_core.server import create_app  # noqa: E402
@@ -216,6 +216,18 @@ def _wire_shadow(engine, store, config) -> None:
 
 
 def main() -> None:
+    # SERVER ENTRYPOINT guard (ADR-0008 D-30 / F-p3-5). ``load_config`` tolerates a
+    # MISSING default file so the library stays usable without a filesystem, but a
+    # SERVER must never come up on built-in defaults: that is a silent downgrade to
+    # a policy nobody chose. Only the entrypoint can say "do not start", so the
+    # refusal lives here. Non-zero exit (SystemExit("msg") == code 1), per the
+    # Windows-safe-ops rule that a failed script must not exit 0.
+    if not os.environ.get("JCC_CONFIG") and not os.path.exists(DEFAULT_CONFIG_PATH):
+        raise SystemExit(
+            f"refusing to start: no config at {DEFAULT_CONFIG_PATH} and JCC_CONFIG "
+            "is unset; built-in defaults are not an acceptable server configuration "
+            "(fail-closed, ADR-0008 D-30)"
+        )
     config = load_config()
     if config.server.host != BIND_HOST:
         log.warning("config.server.host=%s overridden to %s (localhost-only)", config.server.host, BIND_HOST)
