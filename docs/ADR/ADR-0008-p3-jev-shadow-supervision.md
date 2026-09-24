@@ -1,6 +1,6 @@
 # ADR-0008 — P3 Jev Shadow Supervision (Sentinel + Metric)
 
-- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), re-opened narrowly and re-frozen in *Round 5* (interpretation & precision), again in *Round 6* (lead-authorized **internal-consistency repair only**), and carried forward by a lead-authorized **precision addendum** (Add A / Add B / signal-count fix). Range of decisions: **D-1…D-41** — Rounds 5 & 6 and the addendum add **no** new decision.
+- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), re-opened narrowly and re-frozen in *Round 5* (interpretation & precision), again in *Round 6* (lead-authorized **internal-consistency repair only**), and carried forward by a lead-authorized **precision addendum** (Add A / Add B / signal-count fix) and a lead-authorized **Errata** (E-1…E-4; reconciles frozen text with observed behaviour; resolves the `disabled`/`real` provider contract). Range of decisions: **D-1…D-41** — Rounds 5 & 6, the addendum, and the Errata add **no** new decision.
 - **Date:** 2026-09-24 (frozen 2026-09-24; Round-5 re-freeze 2026-09-24; Round-6 re-freeze 2026-09-24; precision addendum 2026-09-24)
 - **Owner:** Atlas-2 (jcc-protocol-architect)
 - **Supersedes:** none
@@ -9,7 +9,7 @@
 - **Baseline:** P2 frozen at product commit `7f62f57c72a6146e0d75b0138bc889af22beb886`; docs closeout `a4e7916`; ADR-0007 **ACCEPTED**.
 - **Implementing spec:** `docs/p3/P3_ARCHITECTURE_SPEC.md`
 - **Inputs folded:** `docs/p3/P3_METRIC_EVAL_DESIGN.md` (G-1…G-12), `docs/p3/P3_SENTINEL_DESIGN_INPUT.md` (Sentinel conflicts), lead rulings A–I + attach-point ruling.
-- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only), and the **precision addendum** (Add A / Add B / signal-count fix) was lead-authorized contract-recording only. See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, *Round 6 — internal-consistency repair*, and *Addenda — precision / contract-recording*.
+- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only), and the **precision addendum** (Add A / Add B / signal-count fix) was lead-authorized contract-recording only. See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, *Round 6 — internal-consistency repair*, the *Addenda — precision / contract-recording*, and the *Errata — reconciliation of frozen contradictions*.
 
 ## Context
 
@@ -177,6 +177,8 @@ Adopt Sentinel §5.1.
 - **Distinction preserved:** **missing/incomplete evidence ⇒ VERIFY** (P1-frozen, `mock.py:55-60`, `ADR-0003:21`); **EXACT_BLOCKER** is the narrower "signals cannot be trusted/attributed" case (unknown required signal, contradiction between same-tier signals, unverified provider, provider_error).
 - **Absorbing state:** once a session's directive is ESCALATE-by-blocker, the session's arbitration floor stays ESCALATED until an explicit, recorded `human_clear` signal — **never a timeout**. **Round 5 clarity:** `human_clear` travels in **`payload`** — **do NOT add an `EventType` member** (the enum and the wire are frozen, D-25/D-38). (Session-state semantic change, bounded and fail-closed, accepted here.)
 
+> **Scoped by Errata E-3 (lead-authorized).** The "unknown required signal" blocker is narrowed to a provider that **supplied evidence**: absent signals from a provider that **declares non-scoring abstention** (free-form `raw["provider_abstained"] is True`) and supplies **no numeric channels** are **incomplete evidence → row 5 → VERIFY**, not a blocker. **`provider_unverified` and any undeclared absence still ESCALATE.** This **restores** D-35's own stated intent ("incomplete evidence ⇒ VERIFY", `decision.py:464-466`) rather than amending it. See *Errata*.
+
 ### D-36 (decision) — audit tape: no string-format change
 Sentinel §6 offers extending the `directive` string passed to the tape (`core.py:173`) as a chain-safe way to carry `signed/verify/budget`. Both of us agree `audit.py` and the `entry_hash` key set stay **frozen** (D-23). Decision: **keep the tape format as-is**; the new detail lives on the `directives` table (D-29, D-33) and on the shadow tape (D-23). Rationale: avoids churn in `core.py`/`test_audit.py` and keeps one tamper-evident carrier (shadow tape) rather than two.
 
@@ -289,6 +291,38 @@ Lead-authorized **precision / contract-recording only** (carried in the lead's p
 | **8→6** | signal-count correction (Sentinel doc) | D-31 / D-35 / D-16 (`docs/p3/P3_SENTINEL_DESIGN_INPUT.md`) | `docs/p3/P3_SENTINEL_DESIGN_INPUT.md:84/:152/:394/:401` "8 fields/signals" → **6 required** (+ `band`/`score`; `work_off_track` recorded-only) — matches `decision.py:61-73` (`REQUIRED_SIGNAL_FIELDS` = 6 booleans; `RECORDED_SIGNAL_FIELDS = ("work_off_track",)`). §1.2 gains an explicit "6+1 split" note. (`:393`'s "8 existing tests" is a different eight — untouched.) | Internal contradiction. **Lead corrected the count 7→6:** a *recorded-only* field (R5 #7 / R6-3) must not escalate when it is absent. |
 
 **Addenda confirmations:** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 unchanged**.
+
+## Errata — reconciliation of frozen contradictions (E-1…E-4; lead-authorized; range unchanged D-1…D-41)
+
+Lead-authorized **errata only** (the *Round-6 pattern* applied to items raised after the Round-6 re-freeze). Each item **reconciles text frozen in D-1…D-41 with observed implementation behaviour** — **no new decision**, design intent unchanged, nothing re-opens P0–P2. Range stays **D-1…D-41**. E-3 resolves the last open CHANGE REQUEST (the `disabled`/`real` provider band+signals contract, task #53) by the lead's ruling **(c)** — declared abstention — which needs **no re-open and no schema change**.
+
+| # | Item | Decision(s) reconciled | Record | Why |
+|---|---|---|---|---|
+| **E-1** | two distinct dispatch **ports** carry two distinct **reason strings** | D-3 / D-27 / D-41 | The **engine** `ActuationPort` records `reason="shadow_mode"` (`actuator.py:74`); the **Sentinel** `DispatchPort` records `reason="shadow_no_actuation"` (`supervisor/ports.py:24`). They are **deliberately distinct** and each is pinned independently (`test_p3_core_integration.py:127`, `:286`). | D-41 makes the two ports **distinct types**; recorded so a future gate does not "unify" the two reason strings. Declared divergence, not accidental drift. |
+| **E-2** | *(reserved)* | — | **Reserved — folded into the Round-6 table.** Not reproduced from any artifact. (The lead's candidate — "audit-tape row count exceeding event count" — was **not** recovered; **not asserted**.) | E-1/E-2 were reserved for the R6-1 items; unrecovered content is marked reserved rather than invented. |
+| **E-3** | D-35 abstention scoping | D-35 (restored) / D-31 (F2) / D-16 | See §E-3 below. | Vacuously, every in-enum band with `provider_verified=True` still hits `required_signal_unknown` first — **you cannot band your way to VERIFY**; scoping the *absence* while leaving `provider_unverified` intact restores D-35's stated intent. |
+| **E-4** | missing-evidence + high risk absorbs before the evidence row | D-35 row ordering / D-24 | See §E-4 below. | Ratified fail-closed engine-mapping change (P2-provider short-circuit removed); recorded as a **named exception**, never toward a resuming action. |
+
+### E-3 — D-35 abstention scoping (reconciles frozen F3 with D-35's blanket row-1 rule)
+
+**Statement.** `required_signal_unknown` and `risk_level_unknown` are blockers **only when the provider supplied evidence** — a signal set present with a required member UNKNOWN (partial supply), or a provider claiming to be a scoring provider that supplied nothing. When a provider **declares non-scoring abstention** (explicit declaration in the **existing free-form `raw` mapping**, e.g. `raw["provider_abstained"] is True`) **and** supplies **no numeric channels** (empty `probabilities`, falsy `score`), the absence of the six required signals is **incomplete evidence → row 5 → VERIFY**. **All other blockers are unaffected, including `provider_unverified`** — unverified providers and any **undeclared** absence still fail closed to **ESCALATE**.
+
+**Rationale.** `decision.py:464-466` states an exact blocker means the signals *"cannot be trusted or attributed"*, *"strictly worse than **incomplete evidence (that case is VERIFY, unchanged from P1)**"*. Absent signals are not untrustworthy signals, so the blanket rule over-reached its own stated intent — scoping **restores** D-35 rather than amending it. Frozen **F3** (`docs/p3/P3_SENTINEL_DESIGN_INPUT.md:340`) independently requires `DisabledProvider → VERIFY`.
+
+**Consequences (to record).**
+- `disabled` (non-scoring; declared abstaining; `verified=True`) → **VERIFY** (F3). It must **NOT** emit the six booleans — they are unknowable to it, and choosing values to reach an action would re-introduce provider-side directive selection that D-32 removed.
+- `real` (`verified=False`, **not** declared abstaining) → `provider_unverified` → **EXACT_BLOCKER → ESCALATE** (frozen **F2**, `:339`).
+- **No schema change:** the declaration rides in the existing free-form `raw` mapping; **no re-open of D-31/D-35**. The scoping is Errata-grade (the Round-6 pattern), justified by D-35's **own** docstring.
+
+### E-4 — missing-evidence + high risk absorbs before the evidence row (ratified engine-mapping change)
+
+**Statement.** On the **missing-evidence** path with **risk ≥ 0.6**, the engine now returns **PAUSE/ESCALATE** where P2 returned **VERIFY**. P2's provider short-circuited to VERIFY **before reading risk** (old `mock.py:56-61` early-returned with `needs_verify=True` and set no risk flag), so a session at `risk=0.997` was labelled VERIFY. Rows 1–4 precede row 5 and `POLICY_PRIORITY` + `test_policy.py:62-64` mandate that order, so **this cannot be fixed by reordering**.
+
+**Measured** (two independent probes agreeing): forge **777/2000 (38.9%)**, sentinel **1566/4000 (39.2%)**, all in `risk ∈ [0.6, 1.0)`, outcomes `{PAUSE, ESCALATE}`; remaining cells exact VERIFY; evidence-present corpus **0 divergent**.
+
+**Ratification.** Fail-closed safety improvement (never toward a resuming action), recorded as a **named exception** — **§6.11 strict equality is scoped to the evidence-PRESENT corpus**. Pinning test: `test_engine_path_missing_evidence_corner_is_measured_not_hidden`. **Range stays D-1…D-41** — no decision added or removed.
+
+**Errata confirmations:** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 unchanged**.
 
 ## Consequences
 
