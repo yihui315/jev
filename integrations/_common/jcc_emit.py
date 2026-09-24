@@ -49,9 +49,16 @@ def _spool_dir() -> Path:
 
 
 def spool(agent: str, record: Dict[str, Any]) -> Path:
+    # The spool is a PERSISTENCE BOUNDARY too (P2 gate FINDING-D): a caller may
+    # pass a raw / garbled agent payload as free text (e.g. codex
+    # jcc-codex-notify.py writes the undecodable notify JSON verbatim). Scrub
+    # every string leaf here, at the single chokepoint, so no caller can persist
+    # a secret embedded in the text. scrub_value_secrets is deterministic,
+    # idempotent and keys-preserving.
+    safe = scrub_value_secrets(record)
     path = _spool_dir() / f"{agent}.jsonl"
     with open(path, "a", encoding="utf-8") as fh:
-        fh.write(json.dumps({"spooled_at": time.time(), **record}, ensure_ascii=False) + "\n")
+        fh.write(json.dumps({"spooled_at": time.time(), **safe}, ensure_ascii=False) + "\n")
     return path
 
 
