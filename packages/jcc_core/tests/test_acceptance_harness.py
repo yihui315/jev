@@ -56,6 +56,23 @@ def _select_free_port(host: str = "127.0.0.1") -> int:
         s.close()
 
 
+def _ensure_loopback_no_proxy() -> None:
+    """Force loopback to bypass any configured proxy.
+
+    httpx honours NO_PROXY/no_proxy from the environment; if a dead or foreign
+    HTTP(S)_PROXY is set, loopback requests would otherwise be routed through it
+    and the harness would fail for the wrong reason. Append the loopback hosts
+    to both spellings while preserving pre-existing entries and de-duplicating.
+    """
+    wanted = ["127.0.0.1", "localhost", "::1"]
+    for var in ("NO_PROXY", "no_proxy"):
+        parts = [p.strip() for p in os.environ.get(var, "").split(",") if p.strip()]
+        for host in wanted:
+            if host not in parts:
+                parts.append(host)
+        os.environ[var] = ",".join(parts)
+
+
 def _write_temp_config(tmp: str, db_path: str) -> str:
     cfg = f"""
 server:
@@ -208,6 +225,7 @@ def run_acceptance() -> int:
     db_path = os.path.join(tmp, "jcc.db")
     cfg_path = _write_temp_config(tmp, db_path)
 
+    _ensure_loopback_no_proxy()   # loopback must never be sent through a proxy
     proc, log_path, logf = _start_server(tmp, cfg_path, TOKEN)
     try:
         ok, err = _wait_health()
