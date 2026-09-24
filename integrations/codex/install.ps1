@@ -1,4 +1,4 @@
-# JCC Codex telemetry installer (P2) — SAFE / OPT-IN
+# JCC Codex telemetry installer (P2) - SAFE / OPT-IN
 #
 # Codex status on this host is DEGRADED:
 #   * observation via rollout jsonl is VERIFIED (session_id present);

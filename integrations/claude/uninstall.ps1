@@ -1,7 +1,8 @@
 # JCC Claude Code telemetry hook uninstaller (P2)
 #
-# Removes ONLY JCC-owned hook entries (marker: "jcc_emit.py"). User hooks are
-# preserved. -RestoreBackup rolls the whole file back to the newest JCC backup.
+# Removes ONLY JCC-owned hook entries (marker: JCC wrapper / jcc_emit.py). User
+# hooks are preserved. -RestoreBackup rolls the whole file back to the newest JCC
+# backup.
 #
 # Exit codes: 0 = ok, 1 = failure.
 param(

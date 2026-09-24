@@ -18,9 +18,11 @@
 `SessionStart, SessionEnd, UserPromptSubmit, PreToolUse, PostToolUse, Stop,
 Notification, PreCompact`.
 
-> **User hooks are PRESERVED.** JCC entries carry a separate `jcc_emit.py` marker
-> and are merged into the existing `hooks` object — existing `env`, `model`,
-> `permissions`, and any user hooks are never modified.
+> **User hooks are PRESERVED.** JCC entries are recognised by the JCC-artifact
+> marker set (`jcc-claude-hook.cmd` here; `jcc_emit.py` for WorkBuddy) and are
+> merged into the existing `hooks` object — existing `env`, `model`,
+> `permissions`, and any user hooks are never modified. Install is idempotent and
+> uninstall is reversible (see `tests/test_installer_roundtrip.py`).
 
 ## Install / uninstall
 

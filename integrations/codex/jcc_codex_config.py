@@ -28,13 +28,52 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-NOTIFY_RE = re.compile(r"^\s*notify\s*=\s*\[(?P<body>[^\]]*)\]\s*$", re.MULTILINE)
+# Whitespace that is NOT a newline (space/tab/CR). Deliberately avoids `\s` so
+# the trailing `\n` is never consumed by the match -> the line's newline (and any
+# indent / CRLF) survives a substitution, which makes install/uninstall
+# byte-exactly reversible.
+_WS = r"[^\S\n]*"
+NOTIFY_RE = re.compile(
+    rf"^(?P<lead>{_WS})(?P<pre>notify{_WS}={_WS}\[)(?P<body>[^\]]*)\](?P<trail>{_WS})$",
+    re.MULTILINE,
+)
 JCC_MARKER = "jcc-codex-notify"
 SIDECAR_SUFFIX = ".jcc-notify-original.json"
 
 
+def _read(path: Path) -> str:
+    """Read preserving exact newlines (no universal-newline translation)."""
+    with open(path, "r", encoding="utf-8", newline="") as fh:
+        return fh.read()
+
+
+def _write(path: Path, text: str) -> None:
+    """Write preserving exact newlines (never inject os.linesep)."""
+    with open(path, "w", encoding="utf-8", newline="") as fh:
+        fh.write(text)
+
+
 def _iter_strings(body: str) -> List[str]:
     return re.findall(r"""['"]([^'"]*)['"]""", body)
+
+
+def _set_notify_line(text: str, core: str, count: int = 1) -> str:
+    """Replace the notify line with ``core`` while preserving indent + newline.
+
+    ``core`` must be the bare line (no leading indent, no trailing newline),
+    e.g. ``notify = [ "a", "b" ]``. Never pass a Windows path as a `re.sub`
+    replacement string (backslashes are escapes -> ``re.error``); the callable
+    form below is immune.
+    """
+    def _repl(m: "re.Match[str]") -> str:
+        return f'{m.group("lead")}{core}{m.group("trail")}'
+
+    return NOTIFY_RE.sub(_repl, text, count=count)
+
+
+def _core_of(m: "re.Match[str]") -> str:
+    """Reconstruct the line VERBATIM (keeps `notify   =   [` + inner spacing)."""
+    return m.group("pre") + m.group("body") + "]"
 
 
 def _backup(path: Path) -> Optional[Path]:
@@ -49,7 +88,7 @@ def _backup(path: Path) -> Optional[Path]:
 def status(config: Path) -> Dict[str, Any]:
     if not config.exists():
         return {"config": str(config), "exists": False}
-    text = config.read_text(encoding="utf-8")
+    text = _read(config)
     m = NOTIFY_RE.search(text)
     vals = _iter_strings(m.group("body")) if m else []
     return {
@@ -65,10 +104,11 @@ def status(config: Path) -> Dict[str, Any]:
 def install(config: Path, wrapper: str, force: bool = False) -> Dict[str, Any]:
     if not config.exists():
         raise FileNotFoundError(config)
-    text = config.read_text(encoding="utf-8")
+    text = _read(config)
     m = NOTIFY_RE.search(text)
     sidecar = config.with_name(config.name + SIDECAR_SUFFIX)
 
+    existing: List[str] = []
     if m:
         existing = _iter_strings(m.group("body"))
         if any(JCC_MARKER in v for v in existing):
@@ -79,12 +119,10 @@ def install(config: Path, wrapper: str, force: bool = False) -> Dict[str, Any]:
                 "reason": "user_notify_present",
                 "detail": f"existing notify={existing!r}; refusing to overwrite (pass --force to chain)",
             }
-        sidecar.write_text(json.dumps({"notify": existing}), encoding="utf-8")
 
-    bak = _backup(config)
     new_line = f'notify = [ "cmd.exe", "/c", "{wrapper}" ]'
     if m:
-        text = NOTIFY_RE.sub(new_line, text, count=1)
+        new_text = _set_notify_line(text, new_line)
     else:
         # insert after the first top-level key line (before any [table])
         lines = text.splitlines()
@@ -94,8 +132,17 @@ def install(config: Path, wrapper: str, force: bool = False) -> Dict[str, Any]:
                 break
             idx = i + 1
         lines.insert(idx, new_line)
-        text = "\n".join(lines) + "\n"
-    config.write_text(text, encoding="utf-8")
+        new_text = "\n".join(lines) + "\n"
+
+    # Persist ONLY after the transform succeeded, so a failed install never
+    # leaves an orphan sidecar (order fixed alongside the crash fix).
+    bak = _backup(config)
+    if m:
+        sidecar.write_text(
+            json.dumps({"notify": existing, "raw_core": _core_of(m)}),
+            encoding="utf-8",
+        )
+    _write(config, new_text)
     return {
         "ok": True,
         "config": str(config),
@@ -108,25 +155,41 @@ def install(config: Path, wrapper: str, force: bool = False) -> Dict[str, Any]:
 def uninstall(config: Path) -> Dict[str, Any]:
     if not config.exists():
         return {"ok": True, "note": "config absent"}
-    text = config.read_text(encoding="utf-8")
+    text = _read(config)
     m = NOTIFY_RE.search(text)
     if not m or not any(JCC_MARKER in v for v in _iter_strings(m.group("body"))):
         return {"ok": True, "note": "no JCC notify entry present"}
     bak = _backup(config)
     sidecar = config.with_name(config.name + SIDECAR_SUFFIX)
     original = None
+    raw_core = None
     if sidecar.exists():
         try:
-            original = json.loads(sidecar.read_text(encoding="utf-8")).get("notify")
+            payload = json.loads(sidecar.read_text(encoding="utf-8"))
+            original = payload.get("notify")
+            raw_core = payload.get("raw_core")
         except Exception:  # noqa: BLE001
             original = None
-    if original:
-        repl = 'notify = [ ' + ", ".join(f'"{v}"' for v in original) + " ]"
-        text = NOTIFY_RE.sub(repl, text, count=1)
+            raw_core = None
+    if raw_core:
+        # byte-exact restore of the user's original line (spacing/quotes kept)
+        text = _set_notify_line(text, raw_core)
+    elif original:
+        repl = "notify = [ " + ", ".join(f'"{v}"' for v in original) + " ]"
+        text = _set_notify_line(text, repl)
     else:
         text = NOTIFY_RE.sub("", text, count=1)
-    config.write_text(text, encoding="utf-8")
-    return {"ok": True, "restored": original, "backup": str(bak) if bak else None}
+    _write(config, text)
+    # cleanup: drop the consumed sidecar so re-install starts clean
+    sidecar_unlinked = False
+    try:
+        if sidecar.exists():
+            sidecar.unlink()
+            sidecar_unlinked = True
+    except Exception:  # noqa: BLE001
+        sidecar_unlinked = False
+    return {"ok": True, "restored": original, "backup": str(bak) if bak else None,
+            "sidecar_removed": sidecar_unlinked}
 
 
 def main(argv: Optional[List[str]] = None) -> int:

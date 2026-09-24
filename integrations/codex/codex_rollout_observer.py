@@ -1,4 +1,4 @@
-"""Codex rollout observer (P2) — the VERIFIED Codex telemetry path.
+"""Codex rollout observer (P2) - the VERIFIED Codex telemetry path.
 
 Codex writes one JSON object per line to
 ``~/.codex/sessions/YYYY/MM/DD/rollout-<ts>-<session_uuid>.jsonl``. Only the

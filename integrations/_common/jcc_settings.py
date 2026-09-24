@@ -6,8 +6,8 @@ Doing the config surgery in Python (not PowerShell) avoids Windows PowerShell
   * timestamped backup BEFORE any write (ADR-0006 / safe-ops);
   * JSON parse-validate BEFORE and AFTER the write;
   * PRESERVE all pre-existing user config + user hooks;
-  * a single, greppable JCC marker (``jcc_emit.py``) so uninstall removes ONLY
-    JCC-owned entries (never user entries);
+  * a single, greppable JCC marker set (see ``JCC_ARTIFACTS``) so uninstall
+    removes ONLY JCC-owned entries (never user entries);
   * idempotency (re-install does not duplicate);
   * WorkBuddy/CodeBuddy: NEVER registers a ``PermissionRequest`` hook (P2 rule).
 
@@ -27,7 +27,23 @@ import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-JCC_MARKER = "jcc_emit.py"
+#: A hook entry is JCC-owned iff its JSON contains ANY of these tokens.
+#:
+#: WorkBuddy/CodeBuddy commands embed ``jcc_emit.py``; Claude Code (and Codex)
+#: commands point at JCC wrapper scripts whose filenames are JCC-namespaced. A
+#: single token is NOT enough: the Claude hook command is the wrapper path
+#: ``...\jcc-claude-hook.cmd``, which does NOT contain ``jcc_emit.py`` — matching
+#: only that token made Claude installs non-idempotent AND non-reversible (found
+#: by SRE gate Harbor). Coarse but safe: every token is JCC-namespaced, so a user
+#: hook cannot collide, and anything that matches is definitely JCC's.
+JCC_ARTIFACTS = (
+    "jcc_emit.py",
+    "jcc_receiver.py",
+    "jcc-claude-hook.cmd",
+    "jcc-codex-notify",
+)
+#: Backwards-compat alias (docs / other tools import this name).
+JCC_MARKER = JCC_ARTIFACTS[0]
 
 #: P2 telemetry events only. PermissionRequest is deliberately excluded.
 TELEMETRY_EVENTS: Dict[str, List[str]] = {
@@ -71,7 +87,10 @@ def default_hook_command(agent: str, jcc_root: str) -> str:
 def _load(path: Path) -> Dict[str, Any]:
     if not path.exists():
         return {}
-    text = path.read_text(encoding="utf-8").strip()
+    # newline="" -> never translate CRLF/LF; we must not silently rewrite a
+    # user's line endings on install/uninstall.
+    with open(path, "r", encoding="utf-8", newline="") as fh:
+        text = fh.read().strip()
     if not text:
         return {}
     data = json.loads(text)  # validate
@@ -82,8 +101,10 @@ def _load(path: Path) -> Dict[str, Any]:
 
 def _save(path: Path, data: Dict[str, Any]) -> None:
     tmp = path.with_suffix(path.suffix + ".jcc-tmp")
-    tmp.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    json.loads(tmp.read_text(encoding="utf-8"))  # re-validate before swap
+    with open(tmp, "w", encoding="utf-8", newline="\n") as fh:
+        fh.write(json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    with open(tmp, "r", encoding="utf-8", newline="") as fh:
+        json.loads(fh.read())  # re-validate before swap
     os.replace(tmp, path)
 
 
@@ -97,7 +118,9 @@ def backup(path: Path) -> Optional[Path]:
 
 
 def _entry_is_jcc(entry: Dict[str, Any]) -> bool:
-    return JCC_MARKER in json.dumps(entry)
+    """True iff the entry references a JCC-owned artifact (any JCC token)."""
+    blob = json.dumps(entry)
+    return any(token in blob for token in JCC_ARTIFACTS)
 
 
 def _jcc_entry(agent: str, command: str, matcher: Optional[str]) -> Dict[str, Any]:

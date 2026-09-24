@@ -48,8 +48,11 @@ powershell -ExecutionPolicy Bypass -File F:\jev\integrations\codex\uninstall.ps1
 ```
 
 `config.toml` is backed up (`config.toml.jcc-backup-<ts>`) and the original
-`notify` value is stored in `config.toml.jcc-notify-original.json`; uninstall
-restores it exactly.
+`notify` line is stored in `config.toml.jcc-notify-original.json`
+(`{"notify": [...], "raw_core": "<verbatim line>"}`); uninstall restores it
+**byte-exactly** (original spacing / quotes / CRLF preserved) and removes the
+sidecar. The chaining wrapper is `jcc-codex-notify.cmd` → `jcc-codex-notify.py`
+(forward to JCC + re-invoke the user's original notify; always exits 0).
 
 > The `notify` push mechanism and its payload contract remain **UNVERIFIED**
 > (evidence-grade, from binary strings only). Do not treat it as production-ready.

@@ -9,7 +9,7 @@ writes to any agent config; installers do that (see each `integrations/<agent>/`
 | --- | --- |
 | `jcc_emit.py` | Reads a native agent event → adapter `normalize()` → AEP envelope → delivers it (in-process / loopback HTTP `/api/assess` / disk spool). Always exits 0 so a JCC outage never blocks the agent. |
 | `jcc_receiver.py` | Hardened **inbound** webhook receiver (Hermes / any signed sender): HMAC-SHA256 + timestamp window + `delivery_id` replay cache + body size limit + per-source session isolation. |
-| `jcc_settings.py` | Python config-merge engine for JSON settings hooks (WorkBuddy / Claude): timestamped backup, parse-validate, **preserve user hooks**, single `jcc_emit.py` marker, idempotent, reversible. |
+| `jcc_settings.py` | Python config-merge engine for JSON settings hooks (WorkBuddy / Claude): timestamped backup, parse-validate, **preserve user hooks**, JCC-artifact marker set (`jcc_emit.py`, `jcc-claude-hook.cmd`, `jcc-codex-notify`, `jcc_receiver.py` — see `JCC_ARTIFACTS`), idempotent, byte-safe reversible (newlines never translated). |
 
 ## Delivery paths (`jcc_emit`)
 

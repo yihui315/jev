@@ -1,7 +1,7 @@
 # JCC Claude Code telemetry hook installer (P2)
 #
 # Merges telemetry-only hooks into ~/.claude/settings.json. Any EXISTING user
-# hooks are PRESERVED — JCC entries carry a separate marker ("jcc_emit.py") so
+# hooks are PRESERVED - JCC entries carry a separate marker ("jcc_emit.py") so
 # uninstall never touches user config. Backup + JSON validation on every write.
 #
 # Usage:
