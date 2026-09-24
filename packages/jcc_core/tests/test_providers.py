@@ -119,6 +119,25 @@ def test_build_provider_real_without_key_falls_back_disabled():
     assert build_provider(c).name == "disabled"
 
 
+def test_build_provider_real_fallback_routes_the_abstention_contract():
+    """Errata E-3 (atlas-2's Q): the real-requested-but-absent fallback must reach
+    the SAME declared-abstention contract as ``jev.provider=disabled`` — not a
+    weaker path. The declaration lives in ``DisabledProvider.assess()``, so both
+    paths (``build_provider`` line 26 and line 43) are the same class -> identical.
+    """
+    c = cfg_mod.Config(
+        server=cfg_mod.ServerConfig(),
+        jev=cfg_mod.JevConfig(provider="real", feature_flags={"real_provider": True}),
+    )
+    os.environ.pop("JEV_API_KEY", None)
+    prov = build_provider(c)
+    assert isinstance(prov, DisabledProvider)
+    a = prov.assess(_env(evidence={"x": 1}), None)
+    assert a.raw.get("provider_abstained") is True
+    assert a.provider_verified is True
+    assert decision.decide_action(a) is DirectiveAction.VERIFY
+
+
 def test_build_provider_real_with_flag_and_key():
     c = cfg_mod.Config(
         server=cfg_mod.ServerConfig(),
