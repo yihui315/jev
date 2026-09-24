@@ -1,0 +1,44 @@
+# JCC Core control-plane configuration (P1)
+# Secrets are NEVER stored here — only env-var NAMES. See config/.env.example.
+
+server:
+  host: 127.0.0.1          # localhost-only; run.py also forces 127.0.0.1 at bind
+  port: 4778
+  cors_origins:            # EXPLICIT allowlist only — never "*"
+    - http://localhost:5173
+    - http://127.0.0.1:5173
+    - http://localhost:3000
+    - http://127.0.0.1:3000
+
+control:
+  token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
+
+state_store:
+  db_path: F:/jev/runtime/jcc/jcc.db   # gitignored runtime dir; WAL enabled
+
+jev:
+  provider: mock            # mock | disabled | real
+  model: jev-1.13.0
+  api_key_env: JEV_API_KEY
+  base_url: https://api.typesafe.ai
+  feature_flags:
+    real_provider: false    # real provider stays OFF until explicitly enabled + key present
+
+actuation:
+  enabled: false            # P0-P2: actuation OFF (ADR-0004). Refuses ALL side-effects.
+  allowed_actions: []       # none permitted in P1
+
+policy:
+  version: p1.0.0
+  priority: [ESCALATE, PAUSE, VERIFY, STEER, RETRY, FINISH, CONTINUE]
+  thresholds:
+    escalate_risk: 0.8
+    pause_risk: 0.6
+    verify_risk: 0.4
+
+agents:
+  capabilities:             # UNVERIFIED until P2 implements real probes
+    workbuddy: {aep: false, verified: false}
+    claude:    {aep: false, verified: false}
+    codex:     {aep: false, verified: false}
+    hermes:    {aep: false, verified: false}

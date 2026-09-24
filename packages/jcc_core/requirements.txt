@@ -1,0 +1,9 @@
+# JCC Core runtime dependencies (isolated venv under F:/jev/.venv)
+fastapi
+uvicorn[standard]
+pydantic
+pyyaml
+# test / acceptance harness only:
+pytest
+httpx
+websockets
