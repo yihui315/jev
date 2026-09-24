@@ -165,7 +165,10 @@ def _wire_shadow(engine, store, config) -> None:
     from supervisor.budget import BudgetGovernor, BudgetLimits
     from supervisor.ports import ShadowActuationPort
     from supervisor.sentinel import Sentinel
-    from supervisor.signing import DirectiveSigner, load_signing_key
+    # Signing is a NEUTRAL kernel in jcc_core (spec §2.5 / D-33): the supervisor
+    # package has no signing module. Importing it from `supervisor.signing` would
+    # hard-fail at activation.
+    from jcc_core.signing import DirectiveSigner, load_signing_key
 
     from jcc_core.decision import ThresholdsConfig
 
