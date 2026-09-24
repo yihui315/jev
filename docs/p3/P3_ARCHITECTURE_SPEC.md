@@ -103,7 +103,7 @@ class ThresholdsConfig:                     # D-24 (Round 5): the LIVE, per-agen
     per_agent: Mapping[str, Thresholds] = field(default_factory=dict)
     @classmethod
     def from_config(cls, th: Mapping) -> "ThresholdsConfig": ...
-    def resolve(self, agent: str) -> Thresholds: ...    # per_agent[agent] -> default
+    def for_agent(self, agent: str) -> Thresholds: ...    # per_agent[agent] -> default
 
 @dataclass(frozen=True)
 class RuleTrace:
@@ -448,7 +448,7 @@ Invariant (falsifiable form, D-40): **no input ever produces a directive with `e
 
 **Normative test rule (from the #54 "records nothing" defect): a test double MAY NOT define an interface the real collaborator lacks.** The supervisor / shadow tests MUST exercise the **real `StateStore`** on a temporary DB — **no `_FakeStore`** that supplies an attribute (e.g. `self._conn = conn`) the production `StateStore` does not have — and MUST assert that a row **actually lands** in `shadow_decisions` with a linked hash chain (`prev_hash` == the prior row's `entry_hash`; `verify_shadow_chain` intact). Rationale: 264 green tests missed #54 because `test_supervisor.py:30-34 _FakeStore` set `self._conn = conn` as a *real connection attribute*, i.e. it defined an interface the production store lacked. **A green suite over a lying fake is not evidence** — the same failure mode would otherwise recur in P4.
 
-New: `packages/jcc_core/tests/test_p3_shadow.py`
+**Realized in** `packages/jcc_core/tests/test_p3_core_integration.py`, `packages/supervisor/tests/test_supervisor.py`, and `packages/jcc_core/tests/test_decision.py`. The numbered items below are the **design intent**; the shipped tests realize these properties **under their own names** (e.g. §6.2 ≈ `test_shadow_port_never_acts`, §6.3 ≈ `test_there_is_exactly_one_dispatch_call_site`, §6.11 ≈ `test_engine_path_is_identical_to_p2_on_every_evidence_fixture`). *(An earlier draft named a single new file `test_p3_shadow.py`; it was never created — the gate must not look for it.)*
 1. `test_arbitration_is_deterministic` — same `ArbitrationInput` ×1000 ⇒ identical `action` + `trace_hash`.
 2. `test_shadow_never_actuates` — every recorded `acted is False`, `actuation_reason == "shadow_no_actuation"`; monkeypatch a side-effecting port and assert it is **never** called by product code.
 3. `test_seam_is_single_site` — static grep: engine `ActuationPort.dispatch` appears **only** at `core.py:143`; Sentinel `DispatchPort.dispatch` appears **only** in `Sentinel._dispatch`; no other caller. Includes the D-40 negative control (a swapped **Sentinel** port CAN actuate; the **engine** site CANNOT).
