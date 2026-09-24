@@ -1,7 +1,7 @@
 # ADR-0008 — P3 Jev Shadow Supervision (Sentinel + Metric)
 
-- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), then **re-opened narrowly and re-frozen in *Round 5*** (lead-authorized; **interpretation & precision only** — wording, not design intent). Range of decisions: **D-1…D-41** (Round 5 adds **no** new decision; it corrects wording in D-16/D-24/D-26/D-32/D-35/D-40/D-41).
-- **Date:** 2026-09-24 (frozen 2026-09-24; Round-5 re-freeze 2026-09-24)
+- **Status:** **FROZEN** — frozen in *Round 4* (lead rulings A–I, P4 attach-point ruling D-41, Metric's couplings), re-opened narrowly and re-frozen in *Round 5* (interpretation & precision), and again in *Round 6* (lead-authorized **internal-consistency repair only**). Range of decisions: **D-1…D-41** — Rounds 5 & 6 add **no** new decision.
+- **Date:** 2026-09-24 (frozen 2026-09-24; Round-5 re-freeze 2026-09-24; Round-6 re-freeze 2026-09-24)
 - **Owner:** Atlas-2 (jcc-protocol-architect)
 - **Supersedes:** none
 - **Superseded by:** none
@@ -9,7 +9,7 @@
 - **Baseline:** P2 frozen at product commit `7f62f57c72a6146e0d75b0138bc889af22beb886`; docs closeout `a4e7916`; ADR-0007 **ACCEPTED**.
 - **Implementing spec:** `artifacts/acceptance/P3_ARCHITECTURE_SPEC.md`
 - **Inputs folded:** `artifacts/acceptance/P3_METRIC_EVAL_DESIGN.md` (G-1…G-12), `artifacts/acceptance/P3_SENTINEL_DESIGN_INPUT.md` (Sentinel conflicts), lead rulings A–I + attach-point ruling.
-- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Round 5 was exactly such an authorized re-open (wording/precision only).** See *Round 4 — Freeze* and *Round 5 — interpretation & precision fixes*.
+- **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only). See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, and *Round 6 — internal-consistency repair*.
 
 ## Context
 
@@ -60,7 +60,7 @@ P3 is **non-actuating**. The Sentinel performs `assess → arbitrate → record 
 ### D-6 — Directive signing
 - **What "signed" means:** a detached **HMAC-SHA256** over the canonical JSON of the *signable* directive fields `{directive_id, session_id, timestamp, action, target_actuator, params, policy_version, evidence_hash}`, serialized exactly like `audit._canon` (sorted keys, `separators=(",",":")`). `signature = "hmac-sha256=<hexdigest>"`.
 - **Key source:** environment variable named by `config.p3.shadow.signing.key_env` (default `JCC_DIRECTIVE_SIGNING_KEY`). **Never** stored in `config/jcc.yaml` — same rule as the control token (`config.py:4-5,82-83`). Loaded once at startup.
-- **Verification point:** `supervisor.signing.DirectiveSigner.verify(directive, signature)`; a future real actuator MUST call it and reject forged/unsigned directives before any side-effect (ADR-0004 `:19`). In P3 the Sentinel self-verifies immediately after signing to prove the seam works.
+- **Verification point:** `jcc_core.signing.verify_directive(directive, signature)` — **D-33/ R6-4**: the signing module is the neutral `packages/jcc_core/signing.py`; D-6's original `supervisor/signing.py` is **superseded** (a `supervisor.signing` import would be a dependency inversion). A future real actuator MUST call it and reject forged/unsigned directives before any side-effect (ADR-0004 `:19`). In P3 the Sentinel self-verifies immediately after signing to prove the seam works.
 - **Current `signed=False` semantics (P0–P2):** directives are UNSIGNED **by explicit design** because no actuator exists — `schemas.py:135` (`signed: bool = False`), `core.py:138-139` (`signed=False, signature=None`). This stays the engine default.
 - **P3 semantics:** signing is **not actuation**, so P3 enables it. Key present → `signed=True`, `signature="hmac-sha256=<hex>"`, `signature_status="signed_verified"`. Key absent → `signed=False`, `signature=None`, `signature_status="unavailable:no_key"` — recorded **honestly**; a fake signature is never emitted. Fail-safe: an unsigned shadow directive is still recorded but is explicitly marked unauthentic so no downstream treats it as trustworthy.
 
@@ -105,10 +105,12 @@ All schema changes are **additive with defaults**: `Directive` gains optional `s
 - **D-22 (G-10, HIGH) — assessment↔event join.** Frozen `assessments` is **not** re-keyed (ADR-0006 rollback safety). The strict join is `shadow_decisions.event_id` (present by design); `assessments.data` additionally gains an `event_id` key so non-shadow consumers can join without DDL.
 - **D-23 (G-11, MEDIUM) — safety flag in the hash chain.** Folding `acted`/`actuation_reason` into the **existing** `audit_tape` canonical payload would invalidate the P2 chain (changing `audit._canon` breaks `verify_chain` on stored rows — rejected). Instead the **shadow tape** hash-covers `acted=false` and `actuation_reason` on every row, making the safety flag tamper-evident there; the `directives` table remains the source of truth and `audit_tape` stays byte-frozen.
 - **D-24 (G-12, BLOCKER) — inert thresholds become live; SINGLE source of truth for threshold application.** [**Round 5 — corrected; the old enabled/disabled branch is deleted**]. `jcc_core.decision.arbitrate` is **ALWAYS** the mapping authority and **ALWAYS** derives the action from the assessment signals using the applicable `Thresholds` — `p3.shadow.thresholds.per_agent[agent]`, falling back to `p3.shadow.thresholds.default` — applied to `assessment.risk_score`. **There is NO `thresholds.enabled` toggle and NO "defer to provider boolean flags" mode**: post-D-32 `mock` no longer emits those flags, so a deferral branch would be undefined and would yield EXACT_BLOCKER on every event. `policy.decide` is a **thin wrapper over the *same* kernel** ⇒ engine/shadow equivalence holds **by construction**, not by a test asserting two paths agree.
-  - **Characterization test (replaces the old "equivalence test"):** replay **recorded P2 provider-flag fixtures** through `decision.arbitrate` and assert the produced action equals the P2 `policy.decide` output for the same inputs — so the mapping delta (provider flags → threshold-derived signals) is **explicit and reviewed**. Divergences are recorded deltas, never silent.
+  - **Cut set [Round 6].** `Thresholds = {escalate_risk: 0.8, pause_risk: 0.6, steer_risk: 0.4, finish_risk: 0.1}`. **`verify_risk` is DELETED, not aliased** — VERIFY is evidence/uncertainty-driven (`policy.py:33` maps it to the `needs_verify` flag) and is **never** a risk band.
+  - **Why the 4-key form is MANDATORY (not a nicety) [Round 6].** Because `policy.decide` becomes a thin wrapper over the *same* kernel, a `0.4 → VERIFY` reading (i.e. `verify_risk` as named) would change the **live engine's** mapping (STEER→VERIFY for `0.4 ≤ risk < 0.6`). That is a behaviour change to P1/P2-verified code smuggled in by a *shadow* phase. **P3 is shadow-only; it must not alter the live engine's decision mapping.** The 4-key form is precisely what makes "thin wrapper ⇒ equivalence by construction" and "nothing re-opens P0–P2" true **simultaneously**.
+  - **Characterization test (replaces the old "equivalence test") — ASSERTED EQUALITY, not a recorded delta [Round 6].** Replay the **recorded P2 provider-flag fixtures** and assert the **engine-path output (`policy.decide`) == the P2 `policy.decide` output** on the same inputs. (A recorded-delta escape hatch would let exactly the live-mapping regression this round closes ship silently.)
   - **The mock caveat is handled by D-14** ("mock-only, non-evidential") — **not** by a toggle.
   - **`config.policy.thresholds` is RETIRED** (superseded by `p3.shadow.thresholds`): it was dead config (nothing read it). Retained only for config back-compat and MUST be marked inert in `jcc.yaml` so nobody edits it expecting effect. Removal is a P4 concern.
-  - **Config shape (Round 5):** `p3.shadow.thresholds = {default: Thresholds, per_agent: {<agent>: Thresholds}}` — **no `enabled` key**.
+  - **Config shape (Round 5/6):** `p3.shadow.thresholds = {default: Thresholds, per_agent: {<agent>: Thresholds}}` with `Thresholds = {escalate_risk, pause_risk, steer_risk, finish_risk}` — **no `enabled` key, no `verify_risk`**.
   In all cases `thresholds_snapshot` + `policy_config_hash` are recorded (D-21) so the applied numbers are attributable.
 - **D-25 (G-12, disclosure) — schema-identity break is DOCUMENTED, wire is UNTOUCHED.** P2's "schemas.py byte-identical to P1" claim was true **at P2** (`P2_ACCEPTANCE_REPORT.md:88`). P3 D-20/D-12 add fields, so `packages/jcc_core/schemas.py` is **no longer byte-identical** — this is **declared, expected drift**. Boundary: the **AEP WIRE envelope `AEPEnvelope` (`schemas.py:62-79`) is UNCHANGED** (aep/v0.1 wire stays fixed); the additive fields land on the **internal domain** model `Assessment` (`schemas.py:107-124`) and on new names, not the wire. `shadow_decisions` is a **new additive table**; **no frozen P0–P2 table receives DDL.** Stated so the P3 architecture gate does not flag this as undocumented drift.
 
@@ -253,6 +255,23 @@ This round was **authorized by the lead as a narrow re-open — wording / precis
 | 7 | **D-16** | `STEER`'s **rule row survives**; DEFERRED applies to **metric scoring only**; `work_off_track` stays on `Assessment`, removed only as a **decision input**. | Prevents reading "off-track dropped" as removing the STEER decision path. |
 
 **Round-5 confirmations (unchanged):** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 is FROZEN again** after this round.
+
+## Round 6 — internal-consistency repair (lead-authorized re-open; re-frozen)
+
+Lead-authorized **internal-consistency repair only**; **no new decision**, design intent unchanged, nothing re-opens P0–P2. Range stays **D-1…D-41**. Items raised by Metric and verified by the lead.
+
+| # | Item | Decision | What changed | Why |
+|---|---|---|---|---|
+| R6-1 | engine ≡ shadow | D-24/D-32 — **a consequence, recorded in the SPEC, not the ADR** | The engine's `policy.decide` wraps the same kernel and resolves **per-agent → default** identically to the Sentinel; equivalence is **by construction**. Lives in `P3_ARCHITECTURE_SPEC.md` (§2.3/§3/§6.14). | Follows from D-32 ("same function") — a consequence, so it does not belong in the decision range. |
+| R6-2 | `Thresholds` cut set | **D-24** | `Thresholds = {escalate_risk: 0.8, pause_risk: 0.6, steer_risk: 0.4, finish_risk: 0.1}`; **`verify_risk` DELETED** (VERIFY is evidence-driven, `policy.py:33`). Added the P0–P2 rationale (below). | The frozen 3-key set **misnamed** the 0.4 cut and could not reproduce P2's 4 risk cuts (`mock.py:62-69`). |
+| R6-3 | rule-table integrity | D-16 / D-24 (`P3_SENTINEL_DESIGN_INPUT.md` §1.4) | PAUSE row drops `work_off_track`; VERIFY row reduced to evidence/uncertainty; the 0.4 band moves to a **STEER** row (`score >= steer_risk`); FINISH row bounded by `score < finish_risk`. Row order still == `POLICY_PRIORITY`. | R5 ruling #7 removed `work_off_track` as a decision input; the 0.4 band must map to STEER to reproduce P2. |
+| R6-4 | signing module location | D-33 | Spec §4 import corrected to **`from jcc_core.signing import …`**. | §1/§2.5/D-33 place `signing.py` in the neutral core; §4 contradicted them. |
+| R6-5 | config shape / D6 | D-24 | `p3.shadow.thresholds` has **no `enabled`**; Sentinel **D6** retargeted from the *retired* `config.policy.thresholds` to the *live* `p3.shadow.thresholds`. | The retired block is inert; the test must exercise the live surface. |
+| R6-6 | characterization test | D-24 | Strengthened from "recorded delta" to **ASSERTED EQUALITY** (engine-path `policy.decide` == P2 `policy.decide` on the recorded P2 fixtures). | Makes R6-2 enforceable; a delta escape hatch would let a live-mapping regression ship silently. |
+
+**R6-2 rationale (the load-bearing argument).** Because `policy.decide` becomes a thin wrapper over the kernel, a `0.4 → VERIFY` reading would change the **live engine's** mapping (STEER→VERIFY for `0.4 ≤ risk < 0.6`) — a behaviour change to P1/P2-verified code introduced by a *shadow* phase. **P3 is shadow-only; it must not alter the live engine's decision mapping.** The 4-key form makes "thin wrapper ⇒ equivalence by construction" and "nothing re-opens P0–P2" true **simultaneously**.
+
+**Round-6 confirmations:** `aep/v0.1` untouched; all new fields optional/defaulted; no DDL on frozen P0–P2 tables; P3 non-actuating; **D-1…D-41 FROZEN again**. This round's decision text changes are confined to **D-24** (plus spec cross-references); no decision was added or removed.
 
 ## Consequences
 
