@@ -1,7 +1,7 @@
 """P1 acceptance harness (black-box over HTTP + WS).
 
-Launches the REAL JCC Core server (run.py) on 127.0.0.1:4778 inside the
-isolated venv, with a temp config + temp DB, then asserts:
+Launches the REAL JCC Core server (run.py) on a per-run ephemeral 127.0.0.1
+port inside the isolated venv, with a temp config + temp DB, then asserts:
   (a) binds only 127.0.0.1 (no 0.0.0.0)
   (b) GET /api/health 200 without token
   (c) mutating endpoint without token -> 403
@@ -33,9 +33,27 @@ import httpx
 REPO = str(Path(__file__).resolve().parents[3])  # F:/jev  (file at <repo>/packages/jcc_core/tests/<file>)
 PACKAGES = os.path.join(REPO, "packages")
 VENV_PY = os.path.join(REPO, ".venv", "Scripts", "python.exe")
-PORT = 4778
-BASE = f"http://127.0.0.1:{PORT}"
+# PORT/BASE are selected at runtime by _select_free_port() (in run_acceptance).
+# A per-run ephemeral port lets overlapping harness runs coexist instead of
+# fighting over a hardcoded 4778 (which produced misleading 403/token errors).
+PORT = 0
+BASE = ""
 TOKEN = "test-control-token-" + uuid.uuid4().hex[:8]
+
+
+def _select_free_port(host: str = "127.0.0.1") -> int:
+    """Ask the OS for a currently-free ephemeral port, then release it.
+
+    Residual TOCTOU: the port could be re-taken between close() and the server
+    bind. That is acceptable for a test harness — the OS will not hand the same
+    ephemeral port to a concurrent bind in practice.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        s.bind((host, 0))
+        return s.getsockname()[1]
+    finally:
+        s.close()
 
 
 def _write_temp_config(tmp: str, db_path: str) -> str:
@@ -174,6 +192,9 @@ def probe_bind_scope(port: int, loopback: str = "127.0.0.1",
 
 
 def run_acceptance() -> int:
+    global PORT, BASE
+    PORT = _select_free_port()      # per-run ephemeral port (isolates overlapping runs)
+    BASE = f"http://127.0.0.1:{PORT}"
     failures: list[str] = []
 
     def check(name, cond, detail=""):
