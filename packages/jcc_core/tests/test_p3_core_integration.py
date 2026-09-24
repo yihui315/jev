@@ -35,8 +35,9 @@ from jcc_core.actuator import Actuator
 from jcc_core.config import ActuationConfig, Config, PolicyConfig, ServerConfig, load_config
 from jcc_core.core import CoreEngine
 from jcc_core.providers import build_provider
+from jcc_core.providers.base import JevProvider
 from jcc_core.providers.mock import DeterministicMockProvider
-from jcc_core.schemas import AEPEnvelope, DirectiveAction
+from jcc_core.schemas import AEPEnvelope, Assessment, DirectiveAction, SessionState
 from jcc_core.server import create_app
 from jcc_core.state_store import StateStore
 
@@ -344,4 +345,112 @@ def test_wire_shadow_disabled_subscribes_nothing(tmp_path):
         tables = {r[0] for r in conn.execute(
             "SELECT name FROM sqlite_master WHERE type='table'")}
     assert "shadow_decisions" not in tables, "disabled shadow plane must not persist"
+
+
+# --------------------------------------------------------------------------- #
+# R6-1 / F-p3-4 — ONE threshold resolver across BOTH planes
+# --------------------------------------------------------------------------- #
+def _fixed_assessment(risk: float, agent: str = "workbuddy",
+                      session_id: str = "s-r6") -> Assessment:
+    """An assessment pinned at one risk score, isolating the threshold surface."""
+    return Assessment(
+        agent=agent, session_id=session_id, timestamp=time.time(),
+        model="fixed", provider="fixed-risk",
+        probabilities={"risk": risk}, risk_score=risk, band="medium",
+        provider_verified=True,
+        raw={"signals": {"meaningful_progress": True, "worker_stuck": False,
+                         "requirements_satisfied": True, "needs_verification": False,
+                         "ready_to_finish": True, "needs_human": False},
+             "evidence_complete": True},
+    )
+
+
+class _FixedRiskProvider(JevProvider):
+    """Deterministic provider at one risk score (no SHA-seeded guessing)."""
+
+    name = "fixed-risk"
+
+    def __init__(self, risk: float):
+        self.risk = risk
+
+    def assess(self, event: AEPEnvelope, session: SessionState) -> Assessment:
+        return _fixed_assessment(self.risk, agent=str(event.agent.value
+                                                      if hasattr(event.agent, "value")
+                                                      else event.agent),
+                                 session_id=event.session_id)
+
+
+def test_R6_1_engine_and_shadow_resolve_the_SAME_threshold_surface(tmp_path):
+    """F-p3-4: a non-empty ``per_agent`` override must move BOTH planes together.
+
+    Under the SHIPPED config every ``per_agent`` entry is empty, so both planes
+    resolve identical values *by accident* — the defect is invisible. Pre-fix,
+    ``run._wire_shadow`` injected the configured surface into the Sentinel ONLY,
+    while ``core.py``'s ``policy.decide`` fell back to the kernel's module-private
+    defaults; with a real override the engine executed one action and the shadow
+    plane recorded another, so every label described a policy that never ran.
+
+    This test drives the PRODUCTION composition root and reads what each plane
+    actually PERSISTED (not a re-derivation), which is the only way to observe
+    divergence:
+
+      * engine -> ``directives.action``        (the policy that executed)
+      * shadow -> ``shadow_decisions.action``  (the label's description of it)
+    """
+    from jcc_core.decision import ThresholdsConfig
+    from jcc_core.run import _wire_shadow
+    from supervisor.sentinel import Sentinel
+
+    cfg = load_config(str(REPO_ROOT / "config" / "jcc.yaml"))
+    cfg.state_store_db_path = str(tmp_path / "jcc.db")
+    sh = cfg.raw["p3"]["shadow"]
+    sh["enabled"] = True
+    # At risk 0.5 this override MOVES the kernel's answer: default steer_risk 0.4
+    # yields STEER, the override's 0.6 yields CONTINUE.
+    sh["thresholds"] = {"default": {}, "per_agent": {"workbuddy": {"steer_risk": 0.6}}}
+    configured = ThresholdsConfig.from_config(sh["thresholds"])
+
+    store = StateStore(cfg.state_store_db_path)
+    engine = CoreEngine(store, _FixedRiskProvider(0.5), Actuator(enabled=False), cfg)
+    _wire_shadow(engine, store, cfg)
+
+    sentinel = next(cb.__self__ for cb in engine._subscribers
+                    if isinstance(getattr(cb, "__self__", None), Sentinel))
+
+    # ONE resolver: identical object, not merely equal values
+    assert engine.thresholds is sentinel.thresholds, (
+        "the engine and the Sentinel hold DIFFERENT ThresholdsConfig objects — "
+        "there is more than one threshold resolver (R6-1 / F-p3-4)"
+    )
+    assert engine.thresholds.config_hash() == configured.config_hash()
+
+    # non-vacuity of the override, asserted on the SAME assessment the engine sees
+    probe = _fixed_assessment(0.5)
+    assert decision.decide_action(probe, ThresholdsConfig().for_agent("workbuddy")) \
+        is DirectiveAction.STEER
+    assert decision.decide_action(probe, configured.for_agent("workbuddy")) \
+        is DirectiveAction.CONTINUE
+
+    engine.ingest(AEPEnvelope(event_id="r1", delivery_id="rd1", session_id="s-r6",
+                              agent="workbuddy", project="p", event_type="tool_call",
+                              evidence={"ok": True}))
+
+    with store.connection() as conn:
+        engine_action = conn.execute(
+            "SELECT action FROM directives WHERE session_id='s-r6' ORDER BY rowid DESC LIMIT 1"
+        ).fetchone()[0]
+        shadow_action, shadow_hash = conn.execute(
+            "SELECT action, policy_config_hash FROM shadow_decisions "
+            "WHERE session_id='s-r6' ORDER BY seq DESC LIMIT 1"
+        ).fetchone()
+
+    assert engine_action == shadow_action == "CONTINUE", (
+        f"planes diverged: engine={engine_action!r} shadow={shadow_action!r} "
+        "(a divergent pair means the two planes used different threshold surfaces)"
+    )
+    # THE falsifier: pre-fix the engine ignored the override and stayed on the
+    # module defaults, i.e. STEER.
+    assert engine_action != "STEER", "engine ignored the per-agent override"
+    # and the shadow tape records the SAME surface hash the engine resolved
+    assert shadow_hash == configured.config_hash()
 

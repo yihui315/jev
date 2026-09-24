@@ -23,6 +23,7 @@ from typing import Any, Callable, Dict, List, Optional
 from . import policy
 from .actuator import Actuator
 from .config import Config
+from .decision import ThresholdsConfig
 from .providers.base import JevProvider
 from .redaction import scrub_value_secrets
 from .schemas import (
@@ -49,11 +50,20 @@ class CoreEngine:
         provider: JevProvider,
         actuator: Actuator,
         config: Config,
+        thresholds: Optional[ThresholdsConfig] = None,
     ):
         self.store = store
         self.provider = provider
         self.actuator = actuator
         self.config = config
+        #: The ONE threshold surface this engine resolves against (ADR-0008
+        #: R6-1 / F-p3-4). ``None`` keeps the documented defaults — which is
+        #: exactly why the P0-P2 path is byte-unchanged while the shadow plane is
+        #: not wired. The composition root (``run._wire_shadow``) injects the
+        #: SAME ``ThresholdsConfig`` object it hands the Sentinel, so the engine's
+        #: action and the recorded shadow action cannot resolve from two different
+        #: surfaces: with a non-empty ``per_agent`` map they used to diverge.
+        self.thresholds: Optional[ThresholdsConfig] = thresholds
         self._subscribers: List[Callable[[Dict[str, Any]], None]] = []
 
     # -- live projection subscribers ----------------------------------------
@@ -156,7 +166,10 @@ class CoreEngine:
         assessment.raw.setdefault("event_id", event.event_id)
 
         # 5) Deterministic policy -> single directive action.
-        action = policy.decide(assessment, sess.status)
+        #    R6-1 / F-p3-4: resolve through THIS engine's injected surface, not
+        #    the module default. ``self.thresholds is None`` for P0-P2 callers,
+        #    which reproduces the previous behaviour exactly.
+        action = policy.decide(assessment, sess.status, thresholds=self.thresholds)
 
         directive = Directive(
             directive_id=f"dir_{event.session_id}_{event.event_id}",

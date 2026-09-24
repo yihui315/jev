@@ -174,6 +174,13 @@ def _wire_shadow(engine, store, config) -> None:
 
     signing = sh.get("signing") or {}
     thresholds = sh.get("thresholds") or {}
+    # R6-1 / F-p3-4: build the threshold surface EXACTLY ONCE and inject the same
+    # object into both planes. Previously the configured surface reached only the
+    # Sentinel, while `policy.decide` (core.py) fell back to the kernel's
+    # module-private defaults — so with a non-empty `per_agent` override the
+    # engine executed a DIFFERENT action than the one the shadow plane recorded,
+    # making every label describe a policy that never ran.
+    threshold_cfg = ThresholdsConfig.from_config(thresholds)
     signer = DirectiveSigner(
         load_signing_key(signing.get("key_env", "JCC_DIRECTIVE_SIGNING_KEY"))
     )
@@ -193,12 +200,19 @@ def _wire_shadow(engine, store, config) -> None:
         signer=signer,
         budget=budget,
         dispatch_port=ShadowActuationPort(),          # D-41: the Sentinel seam
-        thresholds=ThresholdsConfig.from_config(thresholds),
+        thresholds=threshold_cfg,                     # the SAME object as below
         policy_version=config.policy.version,
         require_signature=bool(signing.get("required", False)),
     )
+    # Hand the engine the identical surface BEFORE it can be driven. Assignment
+    # (rather than a constructor argument) is deliberate: `main()` builds the
+    # engine before the shadow block is parsed, and while the plane is disabled
+    # this line is never reached, leaving `engine.thresholds is None` — i.e. the
+    # P0-P2 path is untouched.
+    engine.thresholds = threshold_cfg
     engine.subscribe(sentinel.on_event)
-    log.info("p3.shadow ENABLED -- Sentinel subscribed (observe-only)")
+    log.info("p3.shadow ENABLED -- Sentinel subscribed (observe-only), "
+             "ONE threshold resolver (config_hash=%s)", threshold_cfg.config_hash())
 
 
 def main() -> None:
