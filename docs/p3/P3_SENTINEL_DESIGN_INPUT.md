@@ -5,7 +5,7 @@
 - **Date:** 2026-09-24
 - **Reviewed state:** `git rev-parse HEAD` = `a4e7916d56ad056c20af981abfa485a76984910d`; `git status --porcelain` = `?? _atlas_ls.txt` (not authored by me). No product file, test, config or source module was modified, created or deleted by this task.
 - **Inputs read (all at HEAD):** `packages/jcc_core/{core,policy,actuator,schemas,state_store,audit,config,server,run}.py`, `packages/jcc_core/providers/*`, `packages/jcc_core/adapters/{_common,hermes}.py`, `packages/jcc_core/tests/{test_policy,test_actuator,test_audit,test_acceptance_harness}.py`, `packages/conftest.py`, `config/jcc.yaml`, `integrations/_common/jcc_receiver.py`, `docs/ADR/ADR-{0002,0003,0004,0005,0006,0007}*.md`, `artifacts/acceptance/P2_ACCEPTANCE_REPORT.md`.
-- **Doc location note:** `artifacts/` is gitignored by ADR-0006 §2 (`docs/ADR/ADR-0006-version-control-and-rollback.md:26`), so this file is an untracked acceptance artifact like every other `artifacts/acceptance/P*.md`.
+- **Doc location (updated — task #52):** this file is now **versioned** at `docs/p3/P3_SENTINEL_DESIGN_INPUT.md`. Normative design docs live under `docs/` (tracked); evidence lives under `artifacts/` (gitignored by ADR-0006 §2, `docs/ADR/ADR-0006-version-control-and-rollback.md:26`).
 
 ---
 
@@ -460,7 +460,7 @@ I explicitly do **not** sign off on: architecture conformance (Atlas), security 
 ## 9. HANDOFF
 
 - **Next owner:** **Atlas** (ADR-0008 author) — consolidate this with Metric's parallel design input and the evaluation harness design.
-- **Artifacts to pass:** this file (`artifacts/acceptance/P3_SENTINEL_DESIGN_INPUT.md`); the frozen P2 baseline (`P2_ACCEPTANCE_REPORT.md`, product commit `7f62f57`, docs closeout `a4e7916`); the open ADR-0007 D-3 hoist (a P3 precondition for §3.6-3).
+- **Artifacts to pass:** this file (`docs/p3/P3_SENTINEL_DESIGN_INPUT.md`); the frozen P2 baseline (`P2_ACCEPTANCE_REPORT.md`, product commit `7f62f57`, docs closeout `a4e7916`); the open ADR-0007 D-3 hoist (a P3 precondition for §3.6-3).
 - **Facts the lead must relay:**
   1. `policy.thresholds` is **dead config** and the provider picks the action — the headline finding.
   2. `audit.py` and the `entry_hash` input key set must be treated as **frozen forever**; the trap is `ALTER TABLE` + adding keys to `verify_chain`'s dict (§6).

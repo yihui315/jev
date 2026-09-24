@@ -248,6 +248,12 @@ Labels are **mutable** (re-adjudication allowed) and therefore live **outside** 
 ```
 `StateStore` gains thin delegates (`append_shadow(**record)`, `verify_shadow()`, `get_shadow(...)`) that reuse its connection/lock — same pattern as its `append_audit`/`verify_audit` (`state_store.py:360-403`).
 
+**Contract — the interface `StateStore` MUST provide for the shadow plane (the gap that let the #54 "records nothing" defect ship).**
+
+1. **Shadow-persistence delegates.** `store.append_shadow(**record) -> dict`, `store.verify_shadow() -> (bool, int)`, `store.get_shadow(...)` MUST each follow the existing `append_audit`/`verify_audit` pattern (`state_store.py:362-406`): take the store lock, obtain a connection, delegate to `shadow_store.<fn>(conn, …)`, close in `finally`. **Precedent:** `StateStore.append_audit` (`state_store.py:363`) is exactly this store-delegates-to-a-sibling-module shape — copy it.
+2. **Connection access is the store's business — the Sentinel MUST NOT reach for a raw connection.** It MUST NOT use `store._conn` **or** the `getattr(store, "_conn", None)` idiom. `_conn` is a **method** returning a *fresh* connection (`state_store.py:107`), so `getattr(store, "_conn", None)` yields a truthy **bound method** — not a connection. Passing it to `shadow_store.append_shadow(conn, …)` raises `AttributeError`, which the Sentinel's `except Exception: return None` swallows → **zero rows persisted, silently**. Any sibling module that genuinely needs a connection MUST receive it through the store's **public** accessor (a context manager), never by attribute-poking. (The store's `_conn`/`_lock` are private implementation; the public surface is the delegates.)
+3. **`budget_snapshot(session_id) -> dict`** derived from the existing P1/P2 tables (D-34 — restart-safe counters, **not** an in-memory ledger). `run.py` MUST pass `store` into `BudgetGovernor`; otherwise `budget.py` silently falls back to its in-memory ledger and **D-34 is inert**.
+
 ### 2.7 `supervisor/sentinel.py` — the seam-owning orchestrator
 ```python
 class BlockerCode(str, Enum):
@@ -372,7 +378,7 @@ sh = config.raw.get("p3", {}).get("shadow", {})
 if sh.get("enabled"):
     th = sh.get("thresholds", {})
     signer  = DirectiveSigner(load_signing_key(sh.get("signing", {}).get("key_env", "JCC_DIRECTIVE_SIGNING_KEY")))
-    budget  = BudgetGovernor(BudgetLimits(**sh.get("budget", {})))
+    budget  = BudgetGovernor(BudgetLimits(**sh.get("budget", {})), store=store)   # D-34: MUST pass the store, else the ledger is in-memory/inert
     sentinel = Sentinel(store, signer=signer, budget=budget,
                         dispatch_port=ShadowActuationPort(),           # D-41: the Sentinel seam (distinct port)
                         thresholds=ThresholdsConfig.from_config(th),   # D-24 (R5): per-agent thresholds; no toggle
@@ -436,6 +442,8 @@ Invariant (falsifiable form, D-40): **no input ever produces a directive with `e
 ---
 
 ## 6. Test plan (acceptance harness additions; P3 gate will execute — not run by this doc)
+
+**Normative test rule (from the #54 "records nothing" defect): a test double MAY NOT define an interface the real collaborator lacks.** The supervisor / shadow tests MUST exercise the **real `StateStore`** on a temporary DB — **no `_FakeStore`** that supplies an attribute (e.g. `self._conn = conn`) the production `StateStore` does not have — and MUST assert that a row **actually lands** in `shadow_decisions` with a linked hash chain (`prev_hash` == the prior row's `entry_hash`; `verify_shadow_chain` intact). Rationale: 264 green tests missed #54 because `test_supervisor.py:30-34 _FakeStore` set `self._conn = conn` as a *real connection attribute*, i.e. it defined an interface the production store lacked. **A green suite over a lying fake is not evidence** — the same failure mode would otherwise recur in P4.
 
 New: `packages/jcc_core/tests/test_p3_shadow.py`
 1. `test_arbitration_is_deterministic` — same `ArbitrationInput` ×1000 ⇒ identical `action` + `trace_hash`.

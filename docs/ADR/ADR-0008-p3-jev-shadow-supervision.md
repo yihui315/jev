@@ -8,7 +8,7 @@
 - **Extends (does not re-open):** ADR-0002 (four planes), ADR-0003 (`session_id` identity), ADR-0004 (supervision & actuation — **P3 stays NON-ACTUATING**), ADR-0005 (security baseline), ADR-0007 (redaction boundary / shared kernel).
 - **Baseline:** P2 frozen at product commit `7f62f57c72a6146e0d75b0138bc889af22beb886`; docs closeout `a4e7916`; ADR-0007 **ACCEPTED**.
 - **Implementing spec:** `docs/p3/P3_ARCHITECTURE_SPEC.md`
-- **Inputs folded:** `artifacts/acceptance/P3_METRIC_EVAL_DESIGN.md` (G-1…G-12), `docs/p3/P3_SENTINEL_DESIGN_INPUT.md` (Sentinel conflicts), lead rulings A–I + attach-point ruling.
+- **Inputs folded:** `docs/p3/P3_METRIC_EVAL_DESIGN.md` (G-1…G-12), `docs/p3/P3_SENTINEL_DESIGN_INPUT.md` (Sentinel conflicts), lead rulings A–I + attach-point ruling.
 - **Change control:** frozen — any alteration to D-1…D-41 requires a **superseding ADR** or an explicit re-open by the lead. **Rounds 5 and 6 were such authorized re-opens** (wording/precision; internal-consistency repair only), and the **precision addendum** (Add A / Add B / signal-count fix) was lead-authorized contract-recording only. See *Round 4 — Freeze*, *Round 5 — interpretation & precision fixes*, *Round 6 — internal-consistency repair*, and *Addenda — precision / contract-recording*.
 
 ## Context
@@ -91,7 +91,7 @@ All schema changes are **additive with defaults**: `Directive` gains optional `s
 
 ## Reconciliation with the Metric register (G-1…G-12)
 
-`artifacts/acceptance/P3_METRIC_EVAL_DESIGN.md` §6 raises twelve schema/audit insufficiencies and hands each to this ADR. Each is resolved below (extend the **new** shadow substrate / keep frozen tables untouched / drop the metric). **No P0–P2 table is migrated in P3** — rollback safety (D-11, ADR-0006). The shadow record is the canonical Metric substrate.
+`docs/p3/P3_METRIC_EVAL_DESIGN.md` §6 raises twelve schema/audit insufficiencies and hands each to this ADR. Each is resolved below (extend the **new** shadow substrate / keep frozen tables untouched / drop the metric). **No P0–P2 table is migrated in P3** — rollback safety (D-11, ADR-0006). The shadow record is the canonical Metric substrate.
 
 - **D-13 (G-1, BLOCKER) — ground-truth store is a MULTI-SOURCE child table.** Labels are **not** columns on the immutable shadow row. They live in a separate, **mutable** table `shadow_labels`, keyed **`(decision_id, label_source)`**, so multiple sources (Tier-1 `oracle_next_event`, Tier-2 `human`, future adjudicators) can label the **same** directive and be compared — required to measure the oracle's own precision/recall (§1.2). Rationale for a child table over two slots: (i) unbounded sources without further schema churn; (ii) re-adjudication must **not** break the shadow tape's hash chain, so labels belong outside it; (iii) `label_window_events` is stored **per label row**, so a window `W` change is recomputable and never silently stale. Filled out-of-band via `evaluation.set_label(decision_id, source, value, window_events=...)`. No new inbound surface (D-10). Tier-1 is computed by Metric from the existing `events` table; Tier-2 is written by a reviewer.
 - **D-14 (G-2, BLOCKER for calibration) — mock scores are not calibratable.** `DeterministicMockProvider` derives `risk_score` from a SHA-256 (`mock.py:27-31`) — uniform in [0,1), structurally uncalibratable. HARD RULE: any calibration/Brier/ECE claim computed under `provider="mock"` MUST be labelled **"mock-only, non-evidential"**; calibration claims are admissible only with the real scorer or a scored corpus. `provider`+`model` are recorded on every shadow row so this is machine-checkable.
@@ -231,7 +231,7 @@ The lead ruled the future-actuator attach point. This supersedes the D-3/D-27 **
 - **Refinements already pinned:** **D-13** (multi-source `shadow_labels` child table), **D-17** (`ingest_started_at` injected by core *after* `provider.assess` returns), **D-25** (schema-identity break disclosed; wire untouched).
 
 ### G→D resolution table (freeze)
-| Gap (`P3_METRIC_EVAL_DESIGN.md` §6) | G-1 | G-2 | G-3 | G-4 | G-5 | G-6 | G-7 | G-8 | G-9 | G-10 | G-11 | G-12 |
+| Gap (`docs/p3/P3_METRIC_EVAL_DESIGN.md` §6) | G-1 | G-2 | G-3 | G-4 | G-5 | G-6 | G-7 | G-8 | G-9 | G-10 | G-11 | G-12 |
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **Decision** | D-13 | D-14 | D-15 | **D-16 (dropped)** | D-17 | D-18 | D-19 | D-20 | D-21 | D-22 | D-23 | D-24 |
 
