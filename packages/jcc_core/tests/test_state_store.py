@@ -350,3 +350,53 @@ def test_budget_first_seen_is_wall_clock_so_the_governor_needs_time_time():
         "after all, so this pin no longer describes the real hazard"
     )
     os.remove(path)
+
+
+def test_transaction_rolls_back_and_releases_the_lock_on_exception():
+    """`transaction()` must fail CLOSED: no commit, and the lock MUST be released.
+
+    Two hazards, and the second is the nastier one:
+      * a raise inside the ``with`` must not publish partial state (no commit);
+      * ``_lock`` is a non-reentrant ``threading.Lock``, so if the exception path
+        forgot to release it every later writer would BLOCK FOREVER. A hung test
+        is worse than a failing one, so the follow-up write runs on a watchdog
+        thread with a bounded wait instead of deadlocking the suite.
+    """
+    s, path = _tmp_store()
+    s.upsert_session(SessionState(session_id="s1", agent="claude", status=SessionStatus.ACTIVE,
+                                  created_at=time.time(), updated_at=time.time()))
+    with s.transaction() as conn:
+        conn.execute("CREATE TABLE probe (v INTEGER)")
+        conn.execute("INSERT INTO probe(v) VALUES (1)")
+
+    class _Boom(RuntimeError):
+        pass
+
+    try:
+        with s.transaction() as conn:
+            conn.execute("INSERT INTO probe(v) VALUES (2)")
+            raise _Boom("mid-transaction")
+    except _Boom:
+        pass
+    else:
+        raise AssertionError("transaction() swallowed the exception")
+
+    # NO COMMIT: the row written before the raise must not be visible anywhere
+    with s.connection() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM probe WHERE v=2").fetchone()[0] == 0
+
+    # LOCK RELEASED: a further writer must make progress (bounded, never a hang)
+    done = threading.Event()
+
+    def _second_writer() -> None:
+        with s.transaction() as conn2:
+            conn2.execute("INSERT INTO probe(v) VALUES (3)")
+        done.set()
+
+    t = threading.Thread(target=_second_writer, daemon=True)
+    t.start()
+    assert done.wait(10.0), "transaction() did not release the store lock after a raise"
+    t.join(10.0)
+    with s.connection() as conn:
+        assert conn.execute("SELECT COUNT(*) FROM probe WHERE v=3").fetchone()[0] == 1
+    os.remove(path)
