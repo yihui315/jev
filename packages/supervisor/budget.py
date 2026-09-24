@@ -127,7 +127,13 @@ class BudgetGovernor:
         Optional object exposing ``budget_snapshot(session_id) -> dict`` with the
         derived counters. Without it, an in-memory (restart-unsafe) ledger is used.
     clock
-        Monotonic clock used for the wall-clock dimension. Injectable for tests.
+        The clock used for the wall-clock dimension. It MUST share an origin with
+        ``budget_snapshot()["first_seen"]``, which is a WALL-CLOCK epoch second
+        (``sessions.created_at``) — so a store-backed governor MUST be built with
+        ``clock=time.time`` (what ``run.py`` does). The ``time.monotonic`` default
+        is only valid for the in-memory ledger, whose ``first_seen`` it writes
+        itself; against a real store it makes ``elapsed`` a large negative number
+        and the wall-clock cut silently never fires.
     """
 
     def __init__(

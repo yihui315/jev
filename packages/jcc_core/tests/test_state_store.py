@@ -309,3 +309,44 @@ def test_budget_snapshot_satisfies_the_governor_contract():
     # an untouched session is NOT exhausted -> the count really is derived
     assert gov.check("other", kind="directive").allowed is True
     os.remove(path)
+
+
+def test_budget_first_seen_is_wall_clock_so_the_governor_needs_time_time():
+    """CLOCK DOMAIN pin — both sides, so neither can drift alone.
+
+    ``budget_snapshot()["first_seen"]`` is a WALL-CLOCK epoch second (it is
+    ``sessions.created_at``), while ``BudgetGovernor``'s default clock is
+    ``time.monotonic`` (seconds since boot). The two domains share no origin:
+    ``elapsed = monotonic() - first_seen`` is a large NEGATIVE number, so the
+    wall-clock cut silently NEVER fires and the dimension is fail-open. That is
+    why ``run.py`` builds the governor with ``clock=time.time``.
+
+    This asserts (a) the value really is wall-clock, and (b) that the default
+    clock really does fail to fire — the negative control, without which the test
+    would pass on a store that happened to return a monotonic value.
+    """
+    from supervisor.budget import CODE_WALL_CLOCK, BudgetGovernor, BudgetLimits
+
+    s, path = _tmp_store()
+    created = time.time() - 100.0        # 100 s ago => way past a 1 s limit
+    s.upsert_session(SessionState(session_id="s1", agent="claude", status=SessionStatus.ACTIVE,
+                                  created_at=created, updated_at=created))
+    first_seen = s.budget_snapshot("s1")["first_seen"]
+
+    # (a) wall-clock: epoch magnitude, and NOT an uptime reading
+    assert first_seen == created
+    assert first_seen > 1e9, "first_seen is not an epoch second — looks like uptime"
+    assert first_seen - time.monotonic() > 1e6, (
+        "first_seen and time.monotonic() overlap — the two clock domains must be disjoint"
+    )
+
+    limits = BudgetLimits(wall_clock_s=1.0)
+    # the CORRECT wiring fires
+    assert BudgetGovernor(limits, store=s, clock=time.time).check(
+        "s1", kind="directive").code == CODE_WALL_CLOCK
+    # (b) negative control: the DEFAULT monotonic clock cannot fire (fail-open)
+    assert BudgetGovernor(limits, store=s).check("s1", kind="directive").code is None, (
+        "monotonic-armed governor fired the wall-clock cut — the clocks are not disjoint "
+        "after all, so this pin no longer describes the real hazard"
+    )
+    os.remove(path)
