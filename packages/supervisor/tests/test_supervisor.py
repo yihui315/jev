@@ -28,10 +28,21 @@ SENTINEL_SRC = (HERE.parents[1] / "sentinel.py").read_text(encoding="utf-8")
 # fixtures / helpers
 # --------------------------------------------------------------------------- #
 class _FakeStore:
-    """Minimal store: exposes ``_conn`` so the Sentinel uses shadow_store."""
+    """Mirrors ``StateStore``'s interface: ``_conn`` is a **method**, not an attr.
+
+    Deliberately a *method* returning a Connection (exactly like
+    ``state_store.py:107``). An earlier version of this double held ``_conn`` as a
+    plain attribute holding a Connection — which masked a real defect where the
+    Sentinel passed the store's *bound method* to ``executescript`` and recorded
+    nothing against the REAL store. The double must exercise the same calling
+    convention as the real object or it is worse than no double at all.
+    """
 
     def __init__(self, conn: sqlite3.Connection):
-        self._conn = conn
+        self._c = conn
+
+    def _conn(self) -> sqlite3.Connection:
+        return self._c
 
 
 def _assessment(**over) -> Assessment:
@@ -74,6 +85,108 @@ def _sentinel(conn, *, key=b"k" * 16, require_signature=False, limits=None) -> S
         clock=lambda: 1000.0,
         nonce_factory=lambda: "fixed-nonce",
     )
+
+
+def test_shadow_plane_persists_against_the_real_state_store(tmp_path):
+    """NON-VACUOUS D-40: rows must actually land in the REAL ``StateStore``.
+
+    The rest of this file uses a double; this test uses the real store precisely
+    because the double previously hid the fact that the shadow plane recorded
+    ZERO rows against it. If the plane is a silent no-op, ``rows == 1`` fails
+    here instead of the "every row is inert" assertion passing vacuously over an
+    empty set.
+    """
+    from jcc_core.state_store import StateStore
+
+    store = StateStore(str(tmp_path / "jcc.db"))
+    s = Sentinel(
+        store,
+        signer=DirectiveSigner(b"k" * 16),
+        budget=BudgetGovernor(BudgetLimits(), store=None),
+        dispatch_port=ShadowActuationPort(),
+        thresholds=decision.ThresholdsConfig(),
+        policy_version="p3.0.0",
+        clock=lambda: 1000.0,
+        nonce_factory=lambda: "fixed-nonce",
+    )
+    d = s.arbitrate_and_record(assessment=_assessment(), event_id="e1", agent="generic")
+
+    conn = store._conn()  # the SAME accessor the Sentinel must tolerate
+    rows = shadow_store.read_decisions(conn)
+    assert len(rows) == 1, "shadow plane recorded NOTHING against the real StateStore"
+    assert rows[0]["acted"] == 0
+    assert d.acted is False
+    ok, count = shadow_store.verify_shadow_chain(conn)
+    assert ok is True and count == 1
+
+
+def test_on_event_records_against_the_real_state_store(tmp_path):
+    """The engine-broadcast entry point must also persist (not just the direct call)."""
+    from jcc_core.state_store import StateStore
+
+    store = StateStore(str(tmp_path / "jcc.db"))
+    s = Sentinel(
+        store, signer=DirectiveSigner(b"k" * 16),
+        budget=BudgetGovernor(BudgetLimits(), store=None),
+        dispatch_port=ShadowActuationPort(),
+        thresholds=decision.ThresholdsConfig(),
+        policy_version="p3.0.0", clock=lambda: 1000.0, nonce_factory=lambda: "n",
+    )
+    assessment = _assessment()
+    out = {
+        "session_id": assessment.session_id, "event_id": "e9",
+        "action": "FINISH", "evidence_hash": None,
+        "assessment": assessment.model_dump(mode="json"),
+        "session_status": "active",
+    }
+    recorded = s.on_event(out)
+    assert recorded is not None, "on_event swallowed a failure (no record produced)"
+    conn = store._conn()
+    assert len(shadow_store.read_decisions(conn)) == 1
+
+
+def test_engine_ingest_records_shadow_row_against_real_store(tmp_path):
+    """End-to-end through the REAL engine broadcast — forge's exact scenario.
+
+    Reproduces what ``run._wire_shadow`` does (``engine.subscribe(sentinel.on_event)``)
+    and asserts a shadow row actually lands. This is the test that was missing
+    when the wiring "had never actually run": with the bug, ``engine.ingest``
+    succeeded, the audit chain stayed intact, and the shadow table was simply
+    never created.
+    """
+    from jcc_core.actuator import Actuator
+    from jcc_core.config import ActuationConfig, Config, PolicyConfig, ServerConfig
+    from jcc_core.core import CoreEngine
+    from jcc_core.providers import build_provider
+    from jcc_core.schemas import AEPEnvelope
+    from jcc_core.state_store import StateStore
+
+    db = str(tmp_path / "jcc.db")
+    cfg = Config(server=ServerConfig(), actuation=ActuationConfig(),
+                 policy=PolicyConfig(), state_store_db_path=db)
+    store = StateStore(db)
+    engine = CoreEngine(store, build_provider(cfg), Actuator(enabled=False), cfg)
+    sentinel = Sentinel(
+        store, signer=DirectiveSigner(b"k" * 16),
+        budget=BudgetGovernor(BudgetLimits(), store=None),
+        dispatch_port=ShadowActuationPort(),
+        thresholds=decision.ThresholdsConfig(),
+        policy_version="p3.0.0", clock=lambda: 1000.0, nonce_factory=lambda: "n",
+    )
+    engine.subscribe(sentinel.on_event)   # exactly what run._wire_shadow does
+
+    env = AEPEnvelope(event_id="ev1", delivery_id="dl1", session_id="s1",
+                      agent="claude", project="p", event_type="tool_call",
+                      payload={}, evidence={"ok": True})
+    out = engine.ingest(env)
+    assert out.get("acted") is False      # engine path itself stays inert
+
+    conn = store._conn()
+    rows = shadow_store.read_decisions(conn)
+    assert len(rows) == 1, "engine broadcast did NOT persist a shadow row (run.py wiring gap)"
+    assert rows[0]["acted"] == 0
+    ok, count = shadow_store.verify_shadow_chain(conn)
+    assert ok is True and count == 1
 
 
 # --------------------------------------------------------------------------- #

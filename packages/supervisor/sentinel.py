@@ -17,6 +17,7 @@ Invariants enforced here, all falsifiable:
 """
 from __future__ import annotations
 
+import logging
 import secrets
 import time
 import uuid
@@ -29,6 +30,8 @@ from jcc_core.schemas import Assessment, Directive, DirectiveAction, SessionStat
 
 from . import arbitration, shadow_store
 from .ports import DispatchPort, ShadowActuationPort
+
+log = logging.getLogger("jcc.supervisor.sentinel")
 
 #: Default directive TTL when the caller does not supply one (design §3.6.1).
 DEFAULT_TTL_S = 120.0
@@ -87,9 +90,12 @@ class Sentinel:
         """Broadcast handler. Must never raise into the engine's loop."""
         try:
             return self._on_event_inner(out)
-        except Exception as exc:  # noqa: BLE001 — observe-only: never break ingest
-            # The engine swallows subscriber errors (core.py:64-68); we still
-            # avoid leaking a stack, but record nothing rather than half a row.
+        except Exception:  # noqa: BLE001 — observe-only: never break ingest
+            # Never break ingest (the engine's broadcast also swallows), but do
+            # NOT fail silently: a shadow plane that records nothing must be
+            # visible, or the D-40 "acted == false" falsifiers pass VACUOUSLY
+            # (zero rows trivially satisfy "every recorded row is inert").
+            log.exception("shadow record failed for event_id=%s", out.get("event_id"))
             return None
 
     def _on_event_inner(self, out: Dict[str, Any]) -> ShadowDecision:
@@ -216,10 +222,30 @@ class Sentinel:
         directive.signature_status = "signed_verified" if verified else "unsigned"
 
     # -- persistence ---------------------------------------------------------
+    def _store_connection(self):
+        """Resolve the store's sqlite connection, tolerating a callable accessor.
+
+        WHY THIS EXISTS: ``StateStore._conn`` is a **method** (``state_store.py:107``),
+        not a property, and it returns a FRESH connection per call. An earlier
+        version did ``conn = getattr(store, "_conn", None)`` and passed ``conn``
+        straight to ``executescript`` — which received a *bound method*, raised
+        ``AttributeError``, and was swallowed by ``on_event``, so against the REAL
+        store the shadow plane recorded **zero rows** (a silent no-op). Prefer a
+        public ``conn`` accessor if the store grows one; otherwise invoke ``_conn``
+        when it is callable, and use it verbatim when it is a plain attribute /
+        property (the test double).
+        """
+        for name in ("conn", "_conn"):
+            accessor = getattr(self.store, name, None)
+            if accessor is None:
+                continue
+            return accessor() if callable(accessor) else accessor
+        return None
+
     def _ensure_schema(self) -> None:
         if self._schema_ready:
             return
-        conn = getattr(self.store, "_conn", None)
+        conn = self._store_connection()
         if conn is not None:
             shadow_store.ensure_schema(conn)
         self._schema_ready = True
@@ -295,10 +321,13 @@ class Sentinel:
     def _append_shadow(self, record: Dict[str, Any]) -> Dict[str, Any]:
         if hasattr(self.store, "append_shadow"):
             return self.store.append_shadow(**record)
-        conn = getattr(self.store, "_conn", None)
+        conn = self._store_connection()
         if conn is not None:
             self._ensure_schema()
             return shadow_store.append_shadow(conn, record=record)
         # No persistence available: keep an in-memory trace (tests / degraded).
+        # This is a DEGRADED mode — the caller should treat "no store handle" as
+        # "shadow plane not durable", not as success.
+        log.warning("no store connection resolvable; shadow record kept in memory only")
         self._memory.append(record)
         return record

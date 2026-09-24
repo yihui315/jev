@@ -18,11 +18,30 @@ Fail-closed rules (all from D-34):
 """
 from __future__ import annotations
 
+import logging
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from jcc_core.schemas import DirectiveAction
+
+log = logging.getLogger("jcc.supervisor.budget")
+
+#: Counter keys ``BudgetGovernor`` expects from ``store.budget_snapshot(session_id)``.
+#: (The store surface is D-34's; this is the exact contract, so the two halves
+#: cannot disagree about names.) Missing keys default to 0. ``first_seen`` is the
+#: session start used for the wall-clock dimension.
+BUDGET_SNAPSHOT_KEYS: Tuple[str, ...] = (
+    "assessments_used",   # -> assess_calls limit
+    "model_units_used",   # -> scorer_tokens limit
+    "events_used",        # -> events limit
+    "directives_used",    # -> directives limit
+    "retries_used",       # -> retries limit
+    "escalations_used",   # -> escalations limit
+    "cost_units_used",    # -> cost_units limit
+    "rate_used",          # -> directives_per_minute limit
+    "first_seen",         # -> wall_clock_s limit (session start)
+)
 
 #: Static cost table (D-34). The ONLY place action→cost is defined.
 COST_UNITS: Dict[DirectiveAction, float] = {
@@ -124,6 +143,7 @@ class BudgetGovernor:
         self.store = store
         self._clock = clock
         self._ledger: Dict[str, Dict[str, float]] = {}
+        self._warned_no_snapshot = False
 
     # -- counter source ------------------------------------------------------
     def _ledger_row(self, session_id: str) -> Dict[str, float]:
@@ -150,6 +170,17 @@ class BudgetGovernor:
             if not isinstance(raw, dict):
                 raise TypeError("budget_snapshot must return a dict")
             return {k: float(v) for k, v in raw.items()}
+        if self.store is not None and not self._warned_no_snapshot:
+            # A store was wired but has no budget_snapshot(): D-34's restart-safety
+            # is then DECORATIVE (we fall back to the restart-unsafe ledger). Fail
+            # LOUDLY once rather than silently pretending the budget is durable.
+            log.warning(
+                "store %r has no budget_snapshot(); budget counters are IN-MEMORY "
+                "(restart-unsafe) — D-34 restart-safety is decorative until the "
+                "store surface lands (see BUDGET_SNAPSHOT_KEYS)",
+                type(self.store).__name__,
+            )
+            self._warned_no_snapshot = True
         return dict(self._ledger_row(session_id))
 
     # -- evaluation ----------------------------------------------------------
