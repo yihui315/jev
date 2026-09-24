@@ -32,7 +32,7 @@ from typing import Any, Dict, List, Optional
 #: WorkBuddy/CodeBuddy commands embed ``jcc_emit.py``; Claude Code (and Codex)
 #: commands point at JCC wrapper scripts whose filenames are JCC-namespaced. A
 #: single token is NOT enough: the Claude hook command is the wrapper path
-#: ``...\jcc-claude-hook.cmd``, which does NOT contain ``jcc_emit.py`` — matching
+#: ``...\jcc-claude-hook.cmd``, which does NOT contain ``jcc_emit.py`` -- matching
 #: only that token made Claude installs non-idempotent AND non-reversible (found
 #: by SRE gate Harbor). Coarse but safe: every token is JCC-namespaced, so a user
 #: hook cannot collide, and anything that matches is definitely JCC's.

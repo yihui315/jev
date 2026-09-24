@@ -8,7 +8,7 @@
 #
 # What it does by default: prints the probe result + how to run the observer.
 # With -EnableNotify it opts into chaining the notify (requires -Force to
-# overwrite a user-owned notify) — backup + sidecar make it fully reversible.
+# overwrite a user-owned notify) - backup + sidecar make it fully reversible.
 #
 # Exit codes: 0 = ok, 1 = failure, 2 = refused (user notify present).
 param(
