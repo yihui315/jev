@@ -14,6 +14,7 @@ against the real store. A green suite over a lying fake is not evidence.
 from __future__ import annotations
 
 import ast
+import sqlite3
 import time
 from pathlib import Path
 
@@ -49,6 +50,29 @@ def _rows(store, **kw):
 def _chain(store):
     with store.connection() as conn:
         return shadow_store.verify_shadow_chain(conn)
+
+
+class _RecordingConn:
+    """Thin proxy that records SQL, so E-5's control flow can be asserted.
+
+    Not a store double — it wraps a REAL connection. (The §6 no-lying-fake rule
+    forbids faking a *collaborator's interface*; this only observes one.)
+    """
+
+    def __init__(self, conn):
+        self._conn = conn
+        self.sql = []
+
+    def execute(self, sql, *args, **kwargs):
+        self.sql.append(sql)
+        return self._conn.execute(sql, *args, **kwargs)
+
+    def commit(self):
+        return self._conn.commit()
+
+    @property
+    def in_transaction(self):
+        return self._conn.in_transaction
 
 
 def _assessment(**over) -> Assessment:
@@ -103,6 +127,60 @@ def test_sentinel_never_reaches_for_a_private_connection():
             if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant):
                 assert "_conn" not in str(node.args[1].value)
     assert "_store_connection" not in SENTINEL_SRC
+
+
+def test_shadow_writes_use_the_lock_scoped_transaction(tmp_path):
+    """Spec §2.6 item 1 / E-5: the WRITE goes through ``transaction()``, never ``connection()``.
+
+    ``connection()`` is lock-free by design; writing through it lets two appends
+    read the same ``prev_hash`` and fork the chain (CR #56). Poisoning
+    ``connection()`` proves the append does not touch it.
+    """
+
+    class _ConnectionPoisonedStore(StateStore):
+        def connection(self):  # noqa: D102
+            raise AssertionError("write path must use transaction(), not the lock-free connection()")
+
+    store = _ConnectionPoisonedStore(str(tmp_path / "jcc.db"))
+    s = _sentinel(store)
+    s.arbitrate_and_record(assessment=_assessment(), event_id="e1", agent="generic")
+    assert s.persistence_attempts == 1
+    assert s.persistence_durable_writes == 1
+    assert s.persistence_failures == 0
+    assert s.persistence_ok is True
+    raw = sqlite3.connect(store.db_path)
+    try:
+        n = raw.execute("SELECT COUNT(*) FROM shadow_decisions").fetchone()[0]
+    finally:
+        raw.close()
+    assert n == 1
+
+
+def test_append_shadow_begins_immediate_before_the_tail_select(tmp_path):
+    """E-5 CROSS-PROCESS half: the write lock is taken BEFORE the tail read."""
+    store = _store(tmp_path)
+    with store.connection() as conn:
+        shadow_store.ensure_schema(conn)
+        rec = _RecordingConn(conn)
+        shadow_store.append_shadow(
+            rec, record={"decision_id": "d1", "session_id": "s-1", "action": "CONTINUE"}
+        )
+    assert rec.sql[0].strip().upper().startswith("BEGIN IMMEDIATE"), rec.sql[0]
+    assert "ORDER BY seq DESC LIMIT 1" in rec.sql[1]
+
+
+def test_append_shadow_tolerates_an_already_open_transaction(tmp_path):
+    """A nested ``BEGIN`` must not raise 'cannot start a transaction within a transaction'."""
+    store = _store(tmp_path)
+    with store.connection() as conn:
+        shadow_store.ensure_schema(conn)
+        shadow_store.append_shadow(conn, record={"decision_id": "seed", "session_id": "s-1"})
+        conn.execute("BEGIN IMMEDIATE")          # caller-held transaction
+        assert conn.in_transaction is True
+        shadow_store.append_shadow(conn, record={"decision_id": "d2", "session_id": "s-1"})
+        conn.commit()
+        rows = shadow_store.read_decisions(conn)
+    assert len(rows) == 2
 
 
 # --------------------------------------------------------------------------- #
@@ -200,9 +278,9 @@ def test_persistence_failure_is_counted_when_the_store_raises(tmp_path):
     """A store error must be COUNTED (not only logged) and must not break ingest."""
 
     class _FailingStore(StateStore):
-        """The REAL store with a failing accessor — fault injection, not a fake."""
+        """The REAL store with a failing WRITE accessor — fault injection, not a fake."""
 
-        def connection(self):  # noqa: D102
+        def transaction(self):  # noqa: D102
             raise RuntimeError("disk full")
 
     s = _sentinel(_FailingStore(str(tmp_path / "jcc.db")))
@@ -221,7 +299,7 @@ def test_degraded_store_memory_fallback_is_counted(tmp_path):
     """No persistence surface ⇒ NOT durable, and the counter says so out loud."""
 
     class _NoSurfaceStore:
-        """Defines NOTHING (no append_shadow, no connection) — the degraded branch."""
+        """Defines NOTHING (no transaction) — the degraded branch."""
 
     s = _sentinel(_NoSurfaceStore())
     d = s.arbitrate_and_record(assessment=_assessment(), event_id="e1", agent="generic")

@@ -14,11 +14,12 @@ Invariants enforced here, all falsifiable:
   the directive is never resuming and never executable.
 * **Signing is honest** (D-33): no key ⇒ ``signed=False``, never a fake
   signature; ``require_signature`` with no key ⇒ ESCALATE.
-* **Store access is PUBLIC-only** (spec §2.6): persistence goes through the
-  store's ``append_shadow`` delegate, else its public ``connection()`` accessor.
-  The Sentinel never touches ``store._conn`` (a *method*, not a connection) — the
-  ``getattr(store, "_conn", None)`` idiom is the #54 defect that silently
-  recorded ZERO rows.
+* **Store access is PUBLIC-only** (spec §2.6 items 1–2, Errata **E-5**): the
+  shadow WRITE goes through the store's **lock-scoped** ``transaction()`` context
+  manager — never the lock-free ``connection()`` (which cannot serialise the
+  ``SELECT tail → INSERT`` pair, so two appends could fork the chain), and never
+  a private ``_conn`` poke (``_conn`` is a *method*, not a connection: the #54
+  defect that silently recorded ZERO rows).
 """
 from __future__ import annotations
 
@@ -252,19 +253,28 @@ class Sentinel:
         directive.signature_status = "signed_verified" if verified else "unsigned"
 
     # -- persistence ---------------------------------------------------------
-    def _append_via_public_connection(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Fallback append via the store's PUBLIC connection accessor (spec §2.6).
+    def _append_via_store_transaction(self, record: Dict[str, Any]) -> Dict[str, Any]:
+        """Append through the store's **lock-scoped** ``transaction()`` (§2.6 item 1).
 
-        Taken only when the store has not grown the ``append_shadow`` delegate.
-        The Sentinel MUST NOT reach for a RAW connection: it MUST NOT touch
-        ``store._conn`` **or** use the ``getattr(store, "_conn", None)`` idiom.
-        That idiom yields a truthy *bound method* (``_conn`` is a **method**
-        returning a fresh connection, ``state_store.py:110``), whose later use
-        raised ``AttributeError`` — swallowed by ``on_event`` — so the shadow
-        plane silently recorded **ZERO** rows against the real store (the #54
-        defect). Only a public accessor is acceptable.
+        This is the PRIMARY write path, not a fallback (Errata E-5). The lock is
+        load-bearing: ``shadow_store.append_shadow`` does a non-atomic
+        ``SELECT … ORDER BY seq DESC LIMIT 1`` then ``INSERT``, so a lock-free
+        accessor lets two appends read the same ``prev_hash`` and **fork the hash
+        chain**. ``store.connection()`` is deliberately lock-free and covers
+        READS only; writing through it was the open hazard CR #56 raised.
+
+        The Sentinel MUST NOT reach for a RAW connection either: neither
+        ``store._conn`` nor the ``getattr(store, "_conn", None)`` idiom. That
+        idiom yields a truthy *bound method* (``_conn`` is a **method** returning
+        a fresh connection, ``state_store.py:110``), whose later use raised
+        ``AttributeError`` — swallowed by ``on_event`` — so the shadow plane
+        silently recorded **ZERO** rows against the real store (the #54 defect).
+
+        Must not call back into ``StateStore`` inside the ``with``: ``_lock`` is
+        a non-reentrant ``threading.Lock`` and a nested store call would deadlock.
+        ``shadow_store.*`` touches only ``conn``, so this body is safe.
         """
-        with self.store.connection() as conn:
+        with self.store.transaction() as conn:
             if not self._schema_ready:
                 shadow_store.ensure_schema(conn)
                 self._schema_ready = True
@@ -339,39 +349,38 @@ class Sentinel:
         )
 
     def _append_shadow(self, record: Dict[str, Any]) -> Dict[str, Any]:
-        """Persist one shadow record through the store's PUBLIC surface (§2.6).
+        """Persist one shadow record via the store's lock-scoped ``transaction()``.
 
-        Order (normative, ADR-0008 spec §2.6):
+        Contract (ADR-0008 spec §2.6 item 1, Errata **E-5** — this REPLACES the
+        earlier, erroneous "delegate to ``shadow_store``" draft):
 
-        1. ``store.append_shadow(**record)`` — the store-side **delegate**. This
-           is the intended surface: the store owns its lock and connection,
-           exactly like ``StateStore.append_audit``.
-        2. ``store.connection()`` — the store's public connection *context
-           manager*, for a store that has not grown the delegate.
+        * ``store.transaction()`` — the store's **lock-scoped** context manager.
+          The lock must span the ``SELECT tail → INSERT`` pair, so it is the write
+          path and nothing else is tried first.
+        * With no ``transaction()`` the record is kept in memory and logged
+          **LOUDLY**: "not durable" must never be mistaken for success. There is
+          deliberately **no** ``append_shadow``-delegate branch (``StateStore``
+          can never offer one — that would be a ``jcc_core``→``supervisor``
+          import, D-2) and **no** ``connection()`` write fallback (lock-free ⇒
+          chain-fork hazard).
 
-        Never a private ``_conn`` poke (see ``_append_via_public_connection``).
-        With neither surface the record is kept in memory and logged **LOUDLY**:
-        "not durable" must never be mistaken for success. Every outcome is
-        counted (``persistence_attempts`` / ``persistence_failures`` /
-        ``persistence_durable_writes``) so a silent no-op is `assert`-able.
+        Never a private ``_conn`` poke (see ``_append_via_store_transaction``).
+        Every outcome is counted (``persistence_attempts`` /
+        ``persistence_failures`` / ``persistence_durable_writes``) so a silent
+        no-op is `assert`-able.
         """
         self.persistence_attempts += 1
-        append = getattr(self.store, "append_shadow", None)
-        if callable(append):
-            stored = append(**record)  # a raise is counted once by on_event
+        transaction = getattr(self.store, "transaction", None)
+        if callable(transaction):
+            stored = self._append_via_store_transaction(record)  # raise -> on_event
             self.persistence_durable_writes += 1
             return stored
-        connection = getattr(self.store, "connection", None)
-        if callable(connection):
-            stored = self._append_via_public_connection(record)  # raise -> on_event
-            self.persistence_durable_writes += 1
-            return stored
-        # Degraded: no persistence surface at all. This does NOT raise, so it
-        # counts its own failure here (on_event never sees it).
+        # Degraded: the store exposes no lock-scoped write accessor. This does NOT
+        # raise, so it counts its own failure here (on_event never sees it).
         self.persistence_failures += 1
         log.error(
-            "store %r exposes neither append_shadow() nor connection(); shadow "
-            "record kept IN MEMORY ONLY (session_id=%s) — NOT durable",
+            "store %r exposes no transaction(); shadow record kept IN MEMORY ONLY "
+            "(session_id=%s) — NOT durable",
             type(self.store).__name__, record.get("session_id"),
         )
         self._memory.append(record)

@@ -98,7 +98,25 @@ def append_shadow(conn, *, record: Dict[str, Any]) -> Dict[str, Any]:
     ``record`` is a mapping of column→value; unknown keys are ignored, missing
     keys default to ``None``. Returns the stored row (with ``seq``,
     ``prev_hash`` and ``entry_hash`` filled in).
+
+    ATOMICITY (spec §2.6 item 1, Errata **E-5** — the CROSS-PROCESS half of the
+    chain-fork guard). The tail read and the insert below are one
+    read-modify-write pair; if two writers both read the same ``prev_hash`` the
+    chain **forks**. The *in-process* half is the caller's
+    ``StateStore.transaction()``, which holds a ``threading.Lock`` — that
+    serialises threads of ONE interpreter only. Two separate **processes** could
+    still race, so an explicit ``BEGIN IMMEDIATE`` takes the database RESERVED
+    write lock **before** the tail read; the second process then blocks at the
+    ``SELECT`` instead of racing it. ``IMMEDIATE`` (not ``DEFERRED``) is
+    load-bearing: a deferred transaction would only take the write lock at the
+    first ``INSERT`` — *after* the read that must be protected.
+
+    ``conn.in_transaction`` guards a caller that already opened a transaction:
+    SQLite rejects a nested ``BEGIN`` ("cannot start a transaction within a
+    transaction"), and such a transaction already provides this protection.
     """
+    if not conn.in_transaction:
+        conn.execute("BEGIN IMMEDIATE")
     row = conn.execute("SELECT entry_hash FROM shadow_decisions ORDER BY seq DESC LIMIT 1").fetchone()
     prev_hash = row[0] if row else GENESIS
 
