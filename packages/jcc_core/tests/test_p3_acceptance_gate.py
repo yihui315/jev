@@ -126,10 +126,16 @@ _PROD_ARTIFACTS = [
 # import time) so that A8 detects a production artifact moving, rather than
 # silently following whatever HEAD happens to be. Any legitimate change requires
 # a deliberate re-baseline recorded with old->new hashes + reason.
-A8_FROZEN_AT = "pre-freeze snapshot HEAD 02bdb3f (scope extended to 12 files per lead ruling; re-baseline at freeze)"
+#
+# RE-BASELINE @ HEAD 9ee4507 (freeze batch; 3 files moved, 9 byte-current).
+# Independently recomputed by harbor (not taken from forge's report):
+#   config/jcc.yaml  old 70b5bdf9..  -> new 4ae55770..   (#65, D-37 versioning)
+#   run.py           old 910fefc6..  -> new d820cd84..   (#61 R6-1 + #64 fail-closed)
+#   config.py        old fac5baa7..  -> new af0ddc18..   (#64 + #65)
+A8_FROZEN_AT = "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f"
 _BASELINE_HASHES = {
     "F:/jev/config/jcc.yaml":
-        "70b5bdf96f063320a1ed87ab71b549b29f963634c2f536c3a70db7c75d3bf832",
+        "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
     "F:/jev/packages/jcc_core/core.py":
         "6e44314a9578d2ced819bbf2c220b366a37323e82c51cf644392b915a4a6d117",
     "F:/jev/packages/jcc_core/actuator.py":
@@ -141,11 +147,11 @@ _BASELINE_HASHES = {
     "F:/jev/packages/jcc_core/policy.py":
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "F:/jev/packages/jcc_core/run.py":
-        "910fefc6922f9dc9ed30006ca0547894d922d7b282826101dc1f8633662ae4a7",
+        "d820cd848befeac1ed99a66e710b5353a53a23409f0cfddb27e4b986606765f3",
     "F:/jev/packages/jcc_core/server.py":
         "92ac49cf294935c7c7d187dce5eea09b10cbd90a41ea150e5ae1a005c810beff",
     "F:/jev/packages/jcc_core/config.py":
-        "fac5baa7d698149132e1de0b0308af47ef330a1d7cd17565a9922af5ebb78cff",
+        "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "F:/jev/packages/supervisor/sentinel.py":
         "65dbfea5050e9e6a0087354b219c88a741d2b4ff4cb9598c8beff7987b2655eb",
     "F:/jev/packages/supervisor/shadow_store.py":
@@ -972,35 +978,35 @@ def test_R6_1_engine_equals_shadow_on_shipped_config():
         assert policy.decide(a) is decision.decide_action(a), i
 
 
-def test_R6_1_single_resolver_under_per_agent_override():
-    """R6-1 / F-p3-4 — the ONE guard that can actually FAIL today.
+def test_R6_1_single_resolver_under_per_agent_override(tmp_path, monkeypatch):
+    """R6-1 / F-p3-4 — ONE threshold resolver: the engine and the shadow plane must
+    resolve the SAME configured surface, observed on what each PERSISTED.
 
-    `policy.decide` (the ENGINE call site, `core.py`) resolves against a
-    module-private `_DEFAULT_THRESHOLDS`; `run._wire_shadow` injects the configured
-    surface into the SENTINEL only. Under the SHIPPED config (empty `per_agent`) the
-    two coincide, so `test_R6_1_engine_equals_shadow_on_shipped_config` is blind to
-    the gap. This test supplies a per-agent override that MOVES a decision and
-    asserts the engine and the Sentinel still agree.
+    Drives the REAL composition root (``run._wire_shadow``) with
+    ``per_agent.workbuddy.steer_risk = 0.6`` and ingests a workbuddy event at risk
+    0.5: under the defaults that is STEER, under the override it is CONTINUE.
+    Pre-fix the engine resolved the kernel's module-private defaults while only the
+    Sentinel received the configured surface, so ``directives.action`` (the policy
+    that executed) diverged from ``shadow_decisions.action`` (the label's
+    description) — every shadow label described a policy that never ran.
 
-    EXPECTED RED until F-p3-4 / task #61 ("ONE threshold resolver — engine +
-    Sentinel") lands; GREEN after. That is the gate DOING ITS JOB (team-lead ruled
-    #61 MUST FIX pre-freeze; nothing is absorbed), not a harness defect.
+    NOTE (harness fix): this replaces an earlier form that called the bare
+    module-level ``policy.decide(a)``. That call can never observe an ENGINE-injected
+    surface (``core.py`` now passes ``thresholds=self.thresholds``), so it was RED
+    for a reason unrelated to F-p3-4 and no implementation could have satisfied it.
+    The assertion is kept, not deleted — it now exercises the real path.
     """
     from jcc_core.decision import ThresholdsConfig
+    from jcc_core.run import _wire_shadow
     from jcc_core.schemas import AgentName, Assessment
 
-    # A configured surface whose per-agent override changes a decision:
-    # steer_risk 0.4 -> 0.6 for `workbuddy`.
-    configured = ThresholdsConfig.from_config(
-        {"default": {}, "per_agent": {"workbuddy": {"steer_risk": 0.6}}}
-    )
+    override = {"default": {}, "per_agent": {"workbuddy": {"steer_risk": 0.6}}}
+    configured = ThresholdsConfig.from_config(override)
 
-    def _assess() -> Assessment:
-        # score 0.5 >= default steer_risk 0.4  => STEER under the defaults,
-        # score 0.5 <  override steer_risk 0.6 => NOT steer under the override.
+    def _assess(risk: float) -> Assessment:
         return Assessment(
-            agent=AgentName.WORKBUDDY, session_id="s", timestamp=1.0,
-            probabilities={"risk": 0.5}, risk_score=0.5, band="medium",
+            agent=AgentName.WORKBUDDY, session_id="s-r6", timestamp=1.0,
+            probabilities={"risk": risk}, risk_score=risk, band="medium",
             provider_verified=True,
             raw={"signals": {"meaningful_progress": True, "worker_stuck": False,
                              "requirements_satisfied": True, "needs_verification": False,
@@ -1008,28 +1014,61 @@ def test_R6_1_single_resolver_under_per_agent_override():
                  "evidence_complete": True},
         )
 
-    a = _assess()
-    default_action = decision.decide_action(a, ThresholdsConfig().for_agent("workbuddy"))
-    override_action = decision.decide_action(a, configured.for_agent("workbuddy"))
+    class _FixedRisk:
+        name = "fixed-risk"
 
-    # Non-vacuity: the override MUST move this assessment, else the assertions below
-    # could pass trivially.
-    assert override_action is not default_action, (
-        "test is vacuous: the per-agent override did not change the decision "
-        f"(default={default_action} override={override_action})"
+        def __init__(self, risk: float):
+            self.risk = risk
+
+        def assess(self, event, session):
+            return _assess(self.risk)
+
+    # Non-vacuity of the override, on the very assessment the engine will see:
+    # risk 0.5 is STEER under the defaults and CONTINUE under the override.
+    probe = _assess(0.5)
+    assert decision.decide_action(probe, ThresholdsConfig().for_agent("workbuddy")) \
+        is DirectiveAction.STEER
+    assert decision.decide_action(probe, configured.for_agent("workbuddy")) \
+        is DirectiveAction.CONTINUE
+
+    monkeypatch.setenv("JCC_CONTROL_TOKEN", TOKEN)
+    cfg = load_config(str(SHIPPED_CONFIG))
+    cfg.state_store_db_path = str(tmp_path / "jcc.db")
+    sh = cfg.raw["p3"]["shadow"]
+    sh["enabled"] = True
+    sh["thresholds"] = override
+
+    store = StateStore(cfg.state_store_db_path)
+    engine = CoreEngine(store, _FixedRisk(0.5), Actuator(enabled=False), cfg)
+    _wire_shadow(engine, store, cfg)
+
+    # ONE resolver: the SAME object on both planes, not merely equal values.
+    assert engine.thresholds is _sentinel_of(engine).thresholds, (
+        "engine and Sentinel hold DIFFERENT ThresholdsConfig objects -> more than "
+        "one threshold resolver (R6-1 / F-p3-4)"
     )
+    assert engine.thresholds.config_hash() == configured.config_hash()
 
-    # Sentinel path == the injected configured surface.
-    sentinel_action = override_action
-    # Engine path == exactly how core.py calls it: NO thresholds argument.
-    engine_action = policy.decide(_assess())
+    engine.ingest(AEPEnvelope(event_id="r6", delivery_id="rd6", session_id="s-r6",
+                              agent="workbuddy", project="p", event_type="tool_call",
+                              payload={"i": 0}, evidence={"ok": True}))
 
-    assert engine_action == sentinel_action, (
-        "R6-1 VIOLATED (F-p3-4): the engine resolved a DIFFERENT action than the "
-        f"Sentinel under a per-agent override -- engine={engine_action!r} "
-        f"sentinel={sentinel_action!r}. There is MORE THAN ONE threshold resolver; "
-        "inject ONE ThresholdsConfig into BOTH the engine and the Sentinel."
+    with store.connection() as conn:
+        engine_action = conn.execute(
+            "SELECT action FROM directives WHERE session_id='s-r6' "
+            "ORDER BY rowid DESC LIMIT 1").fetchone()[0]
+        row = conn.execute(
+            "SELECT action, policy_config_hash FROM shadow_decisions "
+            "WHERE session_id='s-r6' ORDER BY seq DESC LIMIT 1").fetchone()
+    assert row is not None, "shadow plane recorded nothing (non-vacuity)"
+    shadow_action, shadow_hash = row
+
+    assert engine_action == shadow_action == DirectiveAction.CONTINUE.value, (
+        f"planes diverged: engine={engine_action!r} shadow={shadow_action!r} -> the "
+        "two planes used DIFFERENT threshold surfaces (R6-1 / F-p3-4)"
     )
+    assert engine_action != DirectiveAction.STEER.value, "engine ignored the override"
+    assert shadow_hash == configured.config_hash()
 
 
 def _shadow_chain(store):
