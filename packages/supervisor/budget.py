@@ -23,6 +23,7 @@ import time
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
+from jcc_core.policy import COST_UNITS_PER_ACTION
 from jcc_core.schemas import DirectiveAction
 
 log = logging.getLogger("jcc.supervisor.budget")
@@ -43,16 +44,13 @@ BUDGET_SNAPSHOT_KEYS: Tuple[str, ...] = (
     "first_seen",         # -> wall_clock_s limit (session start)
 )
 
-#: Static cost table (D-34). The ONLY place action→cost is defined.
-COST_UNITS: Dict[DirectiveAction, float] = {
-    DirectiveAction.CONTINUE: 0.0,
-    DirectiveAction.VERIFY: 1.0,
-    DirectiveAction.FINISH: 1.0,
-    DirectiveAction.STEER: 2.0,
-    DirectiveAction.RETRY: 3.0,
-    DirectiveAction.PAUSE: 5.0,
-    DirectiveAction.ESCALATE: 10.0,
-}
+#: Static cost table (D-34). The `.get(action, 0.0)` below is the ONLY place the
+#: governor reads action->cost. The table itself is defined once, in
+#: ``jcc_core.policy``, and imported here as an ALIAS: ``jcc_core`` must not
+#: import ``supervisor`` (D-2), so the shared authority has to live core-side,
+#: and ``StateStore.budget_snapshot`` derives the persisted ``cost_units_used``
+#: from that same object. A second literal here would be a drift surface.
+COST_UNITS: Dict[DirectiveAction, float] = COST_UNITS_PER_ACTION
 
 CODE_ASSESS_CALLS = "assess_calls"
 CODE_SCORER_TOKENS = "scorer_tokens"

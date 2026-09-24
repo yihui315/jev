@@ -210,9 +210,71 @@ def test_budget_snapshot_is_derived_from_persisted_state():
     assert snap["escalations_used"] == 1
     assert snap["rate_used"] == 3          # all three inside the 60 s window
     assert snap["first_seen"] == 1000.0    # sessions.created_at (WALL-CLOCK epoch)
-    # not persisted anywhere -> reported honestly as 0.0, never invented
+    # genuinely not persisted anywhere -> reported honestly as 0.0, never invented
     assert snap["model_units_used"] == 0.0
-    assert snap["cost_units_used"] == 0.0
+    # DERIVED from the persisted actions (D-34), not hard-coded: RETRY 3 + ESCALATE 10
+    # + CONTINUE 0. A hard-coded 0.0 here is the fail-open bug this asserts against.
+    assert snap["cost_units_used"] == 13.0
+    os.remove(path)
+
+
+def test_budget_snapshot_cost_units_is_derived_from_actions():
+    """Directional falsifier for the ``cost_units`` dimension (D-34/D-5).
+
+    The old implementation hard-coded ``cost_units_used = 0.0``, which made the
+    dimension permanently FAIL-OPEN: it could never exhaust, so the governor's
+    ``cost_units`` cut was decorative. This pins the derivation *directionally*
+    (an exact per-action sum), so it fails on 0.0 AND on any table drift.
+    """
+    from jcc_core.policy import COST_UNITS_PER_ACTION
+
+    s, path = _tmp_store()
+    assert s.budget_snapshot("s1")["cost_units_used"] == 0.0   # nothing persisted
+
+    expected = 0.0
+    for i, action in enumerate(
+        [DirectiveAction.CONTINUE, DirectiveAction.VERIFY, DirectiveAction.STEER,
+         DirectiveAction.RETRY, DirectiveAction.PAUSE, DirectiveAction.ESCALATE]
+    ):
+        s.add_directive(Directive(directive_id=f"d{i}", session_id="s1",
+                                  timestamp=time.time(), action=action))
+        expected += COST_UNITS_PER_ACTION[action]
+
+    # one action per row, no duplicates -> exact equality, not >=
+    assert expected == 21.0     # 0 + 1 + 2 + 3 + 5 + 10
+    assert s.budget_snapshot("s1")["cost_units_used"] == expected
+
+    # and it is monotone: one more ESCALATE (+10) strictly raises it
+    s.add_directive(Directive(directive_id="d9", session_id="s1", timestamp=time.time(),
+                              action=DirectiveAction.ESCALATE))
+    assert s.budget_snapshot("s1")["cost_units_used"] == expected + 10.0
+    os.remove(path)
+
+
+def test_budget_snapshot_cost_is_uncostable_action_fails_closed():
+    """An action string with no cost entry must NOT be silently costed at 0.
+
+    Under-counting is the exact failure mode D-34 exists to prevent, so the
+    derivation raises instead; the governor turns a raising counter read into
+    ``budget_check_error`` (exhausted), i.e. fail-closed. Normal writers cannot
+    reach this -- the column is only written through the validated ``Directive``
+    model -- so it takes a raw INSERT to provoke.
+    """
+    s, path = _tmp_store()
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action) "
+            "VALUES (?,?,?,?)",
+            ("d1", "s1", time.time(), "NOT_A_REAL_ACTION"),
+        )
+        conn.commit()   # connection() is deliberately lock-free; it does NOT commit
+
+    try:
+        s.budget_snapshot("s1")
+    except ValueError as exc:
+        assert "NOT_A_REAL_ACTION" in str(exc)
+    else:
+        raise AssertionError("uncostable action was silently under-counted (fail-open)")
     os.remove(path)
 
 

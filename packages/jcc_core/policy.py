@@ -13,6 +13,12 @@ Equivalence is **by construction** (R6-1): the engine path and the shadow plane
 call the SAME function, so ``policy.decide`` cannot drift from
 ``decision.arbitrate`` — there is literally one authority.
 
+``COST_UNITS_PER_ACTION`` below is the single action->cost authority (D-34). It
+is a *cost* table, not decision-mapping logic, so it does not weaken the
+"no mapping logic here" rule above; it lives here because both the store
+(deriving the persisted counter) and the supervisor budget governor need it and
+must not each carry a private copy.
+
 What changed vs P1/P2
 ---------------------
 P2 ``decide`` walked the provider's directive-shaped booleans
@@ -37,6 +43,24 @@ _DEFAULT_THRESHOLDS = ThresholdsConfig()
 #: Canonical priority (index 0 == highest precedence). Re-exported from the
 #: kernel's row table so the two can never disagree (D-5).
 PRIORITY: list[DirectiveAction] = list(decision.table_actions())
+
+#: Static action -> cost table (ADR-0008 D-34, spec §2.4). **ONE authority, by
+#: construction.** ``supervisor.budget`` imports this exact object (its
+#: ``COST_UNITS`` is an alias, not a copy) and ``StateStore.budget_snapshot``
+#: derives the persisted ``cost_units_used`` counter from the
+#: ``directives.action`` column *through this dict* -- so the budget check and
+#: the counter it reads cannot drift, and there is no second table to update.
+#: Values are FROZEN (the acceptance gate pins them); `CONTINUE` is free because
+#: it is the no-op action.
+COST_UNITS_PER_ACTION: dict[DirectiveAction, float] = {
+    DirectiveAction.CONTINUE: 0.0,
+    DirectiveAction.VERIFY: 1.0,
+    DirectiveAction.FINISH: 1.0,
+    DirectiveAction.STEER: 2.0,
+    DirectiveAction.RETRY: 3.0,
+    DirectiveAction.PAUSE: 5.0,
+    DirectiveAction.ESCALATE: 10.0,
+}
 
 
 def decide(

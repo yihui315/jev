@@ -26,6 +26,7 @@ from contextlib import contextmanager
 from typing import Any, Dict, Iterator, List, Optional
 
 from . import audit as audit_mod
+from .policy import COST_UNITS_PER_ACTION
 from .schemas import (
     Assessment,
     Directive,
@@ -499,10 +500,22 @@ class StateStore:
         (``clock=time.time``); its default ``time.monotonic`` shares no origin
         with this value, so the wall-clock dimension would silently never fire.
 
-        NOT DERIVABLE, reported honestly rather than faked: scorer token usage and
-        cost have no persisted column, so ``model_units_used`` / ``cost_units_used``
-        are 0.0 and the ``scorer_tokens`` / ``cost_units`` limits are INERT until
-        a column exists.
+        NOT DERIVABLE vs DERIVED -- these are two different things and must not be
+        conflated:
+
+        * ``cost_units_used`` IS derived. The persisted ``directives.action``
+          column is the source of truth and it is costed through
+          ``jcc_core.policy.COST_UNITS_PER_ACTION`` (D-34/D-5). A hard-coded 0.0
+          made the ``cost_units`` dimension permanently FAIL-OPEN -- it could
+          never exhaust, and a restart could not reset it because nothing was
+          ever counted. An action string with no cost entry cannot be costed, so
+          this raises rather than silently under-counting (fail-closed, mirroring
+          D-34's ``budget_check_error``); in practice the column is written only
+          through the validated ``Directive`` model.
+        * ``model_units_used`` (the ``scorer_tokens`` dimension) is genuinely NOT
+          derivable: no persisted column carries scorer token usage, so this
+          stays 0.0 and that dimension remains INERT BY DESIGN (waived, and
+          asserted as such by the gate) -- reported honestly rather than faked.
         """
         now = time.time()
         with self._lock:
@@ -533,6 +546,24 @@ class StateStore:
                     "SELECT COUNT(*) FROM directives WHERE session_id=? AND timestamp>=?",
                     (session_id, now - self.RATE_WINDOW_S),
                 ).fetchone()[0]
+                # D-34: cost is DERIVED from persisted actions, never in-memory.
+                # Grouped by action so one row per distinct action, not one per
+                # directive; the cost table is the single authority (policy.py).
+                cost_units_used = 0.0
+                for action_value, n_rows in conn.execute(
+                    "SELECT action, COUNT(*) FROM directives "
+                    "WHERE session_id=? GROUP BY action",
+                    (session_id,),
+                ).fetchall():
+                    try:
+                        unit_cost = COST_UNITS_PER_ACTION[DirectiveAction(action_value)]
+                    except (ValueError, KeyError) as exc:  # unknown action string
+                        raise ValueError(
+                            f"uncostable directive action {action_value!r} for session "
+                            f"{session_id!r}: cost_units_used cannot be derived, and "
+                            "under-counting would make the cost dimension fail-open"
+                        ) from exc
+                    cost_units_used += unit_cost * float(n_rows)
             finally:
                 conn.close()
         return {
@@ -543,6 +574,6 @@ class StateStore:
             "escalations_used": float(escalations_used),
             "rate_used": float(rate_used),
             "model_units_used": 0.0,
-            "cost_units_used": 0.0,
+            "cost_units_used": cost_units_used,
             "first_seen": first_seen,
         }
