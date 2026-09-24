@@ -52,13 +52,18 @@ p3:                         # ADR-0008 P3 shadow supervision (Sentinel + Metric)
       cost_units: 500
       cost_units_per_hour: 2000
       directives_per_minute: 600
-    thresholds:             # D-24: the LIVE per-agent threshold surface.
-      enabled: false        #   false => arbitrate defers to provider flags (== policy.decide)
+    thresholds:             # D-24 as corrected in Round 5: the LIVE threshold surface.
+      #  shape is {default, per_agent}. There is NO `enabled` toggle and NO
+      #  "defer to provider flags" mode: `decision.arbitrate` is ALWAYS the
+      #  mapping authority and derives the action from assessment.risk_score
+      #  using per_agent[agent] else default. (Exact key set pending the
+      #  Round-6 ruling on 3 vs 4 risk cuts.)
       default: {escalate_risk: 0.8, pause_risk: 0.6, verify_risk: 0.4}
-      workbuddy: {}
-      claude: {}
-      codex: {}
-      hermes: {}
+      per_agent:            # per-agent overrides (absent => default)
+        workbuddy: {}
+        claude: {}
+        codex: {}
+        hermes: {}
     signing:                # D-33: key is env-only, NEVER in this file.
       key_env: JCC_DIRECTIVE_SIGNING_KEY
       required: false       #   true => refuse to record an unsigned shadow directive

@@ -23,6 +23,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from pydantic import ValidationError
 
 from .core import CoreEngine
 from .schemas import AEPEnvelope, Directive, DirectiveAction
@@ -132,8 +133,31 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     # ------------------------------------------------------------------ #
     @app.post("/api/assess")
     def assess(body: dict, _token: bool = Depends(require_control_token)):
-        """Manual AEP ingest trigger. Token required. Actuation stays disabled."""
-        env = AEPEnvelope(**body)
+        """Manual AEP ingest trigger. Token required. Actuation stays disabled.
+
+        ADR-0008 D-26 (extended in Round 5): a malformed envelope MUST NOT
+        surface as a silent 500 with no audit row. A rejected ingest returns a
+        structured 422 AND still writes its audit row (the record is never
+        dropped). Auth runs before this handler, so only a token holder reaches
+        here.
+        """
+        try:
+            env = AEPEnvelope(**body)
+        except ValidationError as exc:
+            engine.store.append_audit(
+                event_id=str(body.get("event_id") or f"rejected_{int(time.time() * 1000)}"),
+                timestamp=time.time(),
+                session_id=str(body.get("session_id") or "unknown"),
+                agent=str(body.get("agent") or "unknown"),
+                project=str(body.get("project") or "unknown"),
+                assessment="rejected:EXACT_BLOCKER",
+                directive="NONE:rejected",
+                evidence_hash=None,
+            )
+            raise HTTPException(
+                status_code=422,  # Unprocessable Content (avoid the deprecated alias)
+                detail=f"invalid AEP envelope: {exc.error_count()} validation error(s)",
+            )
         return engine.ingest(env)
 
     def _manual(action: DirectiveAction, body: dict) -> dict:
