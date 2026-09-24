@@ -169,8 +169,18 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             action=action,
             target_actuator="noop",
             policy_version=config.policy.version,
+            # ADR-0008 D-28 / D-41: a control-plane manual directive is INERT and
+            # is never a side-effect. It is dispatched through the ActuationPort
+            # seam (`dispatch`), which is permanently verify-only; calling
+            # `Actuator.execute` here is explicitly forbidden because that is the
+            # one path that can reach a real side-effect when actuation is later
+            # enabled. `requires_human=True` records that a human asked for this
+            # and that no machine may act on it unaided.
+            executable=False,
+            requires_human=True,
+            params={"source": "control-plane", "requires_human": True},
         )
-        res = engine.actuator.execute(d)
+        res = engine.actuator.dispatch(d)
         engine.store.append_audit(
             event_id=f"manual_{int(time.time() * 1000)}",
             timestamp=time.time(),

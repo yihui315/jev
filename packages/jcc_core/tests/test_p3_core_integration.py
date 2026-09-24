@@ -454,3 +454,76 @@ def test_R6_1_engine_and_shadow_resolve_the_SAME_threshold_surface(tmp_path):
     # and the shadow tape records the SAME surface hash the engine resolved
     assert shadow_hash == configured.config_hash()
 
+
+# --------------------------------------------------------------------------- #
+# D-28 / D-41 — the control-plane manual path is INERT (never Actuator.execute)
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize(
+    "endpoint,expected_action",
+    [("/api/pause", "PAUSE"), ("/api/steer", "STEER"), ("/api/retry", "RETRY")],
+)
+def test_manual_endpoints_never_reach_actuator_execute(tmp_path, monkeypatch,
+                                                       endpoint, expected_action):
+    """D-28: ``/api/{pause,steer,retry}`` must route through the ActuationPort seam.
+
+    ``Actuator.execute`` is the ONE path that can reach a real side-effect once
+    actuation is later enabled, so a control-plane endpoint must never call it
+    (D-28 — explicit "no manual Actuator.execute"). The manual directive is INERT
+    (D-41) and human-gated, i.e. no machine may act on it unaided.
+
+    Asserted three independent ways, because a single assertion here is easy to
+    satisfy by accident: ``execute`` is NEVER called, ``dispatch`` is called
+    EXACTLY once, and the HTTP response itself reports ``acted == False``.
+    """
+    monkeypatch.setenv("JCC_CONTROL_TOKEN", TOKEN)
+    db_path = str(tmp_path / "jcc.db")
+    cfg = Config(server=ServerConfig(), actuation=ActuationConfig(),
+                 policy=PolicyConfig(), state_store_db_path=db_path)
+    store = StateStore(db_path)
+    # enabled=True on purpose: with actuation OFF, `execute` would deny anyway and
+    # the assertion could pass without the route being fixed. Enabling it removes
+    # the excuse.
+    engine = CoreEngine(store, build_provider(cfg), Actuator(enabled=True), cfg)
+    client = TestClient(create_app(engine, cfg))
+
+    calls = {"execute": 0, "dispatch": 0}
+    real_execute, real_dispatch = Actuator.execute, Actuator.dispatch
+    seen = {}
+
+    def _spy_execute(self, directive):
+        calls["execute"] += 1
+        return real_execute(self, directive)
+
+    def _spy_dispatch(self, directive):
+        calls["dispatch"] += 1
+        seen["directive"] = directive
+        return real_dispatch(self, directive)
+
+    monkeypatch.setattr(Actuator, "execute", _spy_execute)
+    monkeypatch.setattr(Actuator, "dispatch", _spy_dispatch)
+
+    r = client.post(endpoint, json={"session_id": "s-manual"},
+                    headers={"X-JCC-Token": TOKEN})
+    assert r.status_code == 200, r.text[:200]
+    payload = r.json()
+
+    assert calls["execute"] == 0, (
+        f"{endpoint} called Actuator.execute -- D-28 forbids the manual path from "
+        "reaching the one function that can produce a side-effect"
+    )
+    assert calls["dispatch"] == 1, calls
+    assert payload["action"] == expected_action
+    assert payload["actuation"]["acted"] is False, payload["actuation"]
+
+    directive = seen["directive"]
+    assert directive.executable is False
+    assert directive.requires_human is True
+    assert directive.params.get("source") == "control-plane"
+    assert directive.params.get("requires_human") is True
+    # and the manual path never writes a `directives` row (legacy contract: the
+    # only record is the audit row), so it cannot be mistaken for an execution
+    with store.connection() as conn:
+        assert conn.execute(
+            "SELECT COUNT(*) FROM directives WHERE session_id='s-manual'"
+        ).fetchone()[0] == 0
+
