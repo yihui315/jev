@@ -91,7 +91,17 @@ ADAPTERS = ["workbuddy", "claude", "codex", "hermes"]
 # scripts, docs, tests) is already in it and only the release EVIDENCE is added
 # afterwards. A leg that is signed at the freeze and then committed shifts HEAD
 # by one -- hence the two accepted positions below.
-RELEASE_FREEZE = "dc154b015c1d0df7d17ef66fbab16d7a02e3b31f"
+#
+# WHY df3e7d9 AND NOT dc154b0. The freeze is defined as: the last commit that
+# carries all product/ops code and NO release evidence. `FINAL_ACTIVATION_CHECKLIST.md`
+# is F-02, i.e. release evidence (see docs/FINAL_STOP_CONDITIONS.md sec. F), and
+# dc154b0 is the commit that first added it -- so dc154b0 already contains evidence
+# and cannot be the freeze. df3e7d9 ("fix(ops): stop doctor.ps1 crashing at check 7")
+# changes only scripts/doctor.ps1 and carries no evidence: that is the freeze. The
+# first attempt picked dc154b0 and a signer was right to refuse it. Do not "fix" this
+# back without re-deriving the definition: the freeze is the position at which every
+# leg may be signed, and moving it invalidates all three signatures.
+RELEASE_FREEZE = "df3e7d91ac274d971ef110199d5b65acf131aacd"
 # What a release-evidence commit is allowed to touch. If something outside this
 # set moves after the freeze, a signature written at the freeze describes a
 # product that is no longer in HEAD -- that is a stale signature, not a pass.

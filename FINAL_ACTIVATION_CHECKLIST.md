@@ -1,8 +1,10 @@
 # JEV COMMAND CENTER — FINAL ACTIVATION CHECKLIST
 
 **Owner:** lead (Orion) · **Enforced by:** `artifacts/acceptance/final_gate_run.py` (the only stop condition)
-**Release commit:** `dc154b0…` (product freeze — all product/ops code, no release
-evidence) · **Verdict:** `PROJECT_COMPLETE=true` at `final_gate_run.py --full`
+**Release commit:** `df3e7d9…` (product freeze — all product/ops code, no release
+evidence; chosen over the later `dc154b0` because the checklist itself is F-02
+evidence and a freeze must not carry evidence) ·
+**Verdict:** `PROJECT_COMPLETE=true` at `final_gate_run.py --full`
 **Status:** activation steps below were executed against this working copy; every port, path and command is copied from a real run, not from documentation.
 
 This is the operator's path from an empty machine to a running, verified platform.

@@ -123,6 +123,31 @@ ownership marker + known port/process identity required.
 | E-06 | Security Gate | GO |
 | E-07 | SRE/QA Gate | GO |
 
+### How the freeze is identified (do not just read the constant)
+
+`RELEASE_FREEZE` in the gate is `df3e7d9…`. That value was derived, not
+guessed, and the derivation is recorded here so the next reader can re-derive it
+instead of trusting a literal:
+
+1. A freeze is the last commit that carries all product/ops code **and no
+   release evidence**. Release evidence is the set the gate calls evidence:
+   `artifacts/`, `tools/`, `docs/`, `scripts/`, `.gitignore`, the root
+   checklist, the final report — in short, everything in `EVIDENCE_PREFIXES`
+   plus `FINAL_ACCEPTANCE_REPORT.md`.
+2. `FINAL_ACTIVATION_CHECKLIST.md` is **F-02**, i.e. release evidence.
+3. Therefore the commit that first added the checklist is already past the
+   freeze, and the freeze is the commit just before it.
+4. `dc154b0` added the checklist; `df3e7d9` changed only `scripts/doctor.ps1`
+   and added none. **The freeze is `df3e7d9`.**
+
+The first attempt to fix `RELEASE_FREEZE` chose `dc154b0`, and the signer
+refused it on exactly this ground. A freeze that contains evidence would let a
+leg point at a commit whose provenance includes a document that only exists
+because the release is being produced — the signature would describe a
+particular state of the release process rather than the product. That is why
+the freeze excludes evidence, and why moving the constant invalidates all three
+leg signatures.
+
 Each leg's signature must name either the current `HEAD` **or the release
 freeze** (`RELEASE_FREEZE`, a constant in the gate). The freeze position exists
 because a signature cannot contain itself and simultaneously claim to have been
