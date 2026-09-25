@@ -345,6 +345,39 @@ the re-emitted manifest, then re-run `--check` and require it to be clean; (3) i
 clean, the drift is in the generator rather than in the artifact, and the generator is product
 tooling under `scripts/` and is to be fixed rather than annotated.
 
+### KD-0009 — `artifacts/release/` carries two manifests with two schemas, and the smaller one reads as "nothing to check"
+
+Measured 2026-09-25 at HEAD `e4d40e7`, after the commit `60168e8` re-emitted both.
+
+The release directory holds **two independent manifests from two independent generators**, and the
+final gate reads a different one for each check:
+
+| generator | output | gate that reads it | entries | container key |
+|---|---|---|---|---|
+| `tools/emit_final_manifest.py` | `final-manifest.json` | F-03 (`final_gate_run.py:1091`) | 23, curated | `files` |
+| `scripts/emit_release_evidence.py` | `manifest.json` | P-02 (`final_gate_run.py:712`) | 12, discovered | `entries` |
+
+The 12 is not a lost 23; it corresponds exactly to the twelve files A8 pins, and P-02's own
+comparison at `final_gate_run.py:770` prints `release manifest 12/12 aligned with the A8 gate`.
+The two numbers answer different questions and must not be reconciled against each other.
+
+The trap is the container key. A verifier written against the 23-entry convention reads `files`,
+gets an empty list from the 12-entry manifest, iterates zero times, and reports a clean
+reconciliation of nothing. That is the third instance on 2026-09-25 of the same failure — after a
+delete that reported success and did not delete, and a false-FAIL that was actually a proxy — and
+it is the most dangerous of the three, because it is a **pass**, not a fail. Any `--check` over
+this directory must assert a non-zero entry count and print it.
+
+The curated 23-entry set also has a coverage gap: it enumerates seven `scripts/*.ps1`
+(`acceptance.ps1`, `bootstrap.ps1`, `doctor.ps1`, `restart.ps1`, `start.ps1`, `status.ps1`,
+`stop.ps1`) and omits `scripts/lib/JccCommon.ps1` — the module `start.ps1` dot-sources for
+`Write-JccOwnershipMarker`, `Test-JccDescent` and `Invoke-JccHealth` — and
+`scripts/emit_release_evidence.py`. A manifest that pins the launcher and not the shared library it
+loads is not a manifest of the release.
+
+Neither manifest has been exercised at runtime: no one has re-derived one from a running product
+and compared it. A manifest is only evidence under that test.
+
 ### Mint sites outside `packages/` — resolved 2026-09-25
 
 The register had left this open. It is now closed by enumeration: `git grep -n "Directive("` over
