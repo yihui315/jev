@@ -423,13 +423,24 @@ def step_freeze_verify(state: dict) -> dict:
     return {"tree_clean": True, "head": head}
 
 
+FREEZE_MANIFEST = os.path.join(SCRATCH, "freeze_manifest.json")
+
+
 def step_hash_snapshot(state: dict) -> dict:
     snap = snapshot_frozen_scripts()
     state["scripts_freeze_hashes"] = snap
     missing = [k for k, v in snap.items() if not v["sha256"]]
     if missing:
         raise Deterministic("frozen scripts missing from disk: %r" % missing)
-    return {"files": len(snap)}
+    os.makedirs(SCRATCH, exist_ok=True)
+    payload = {
+        "scripts_freeze_sha": state.get("scripts_freeze_sha"),
+        "head_sha": state.get("head_sha"),
+        "taken_at": iso(),
+        "hashes": {k: v["sha256"] for k, v in snap.items()},
+    }
+    fsync_atomic_write(FREEZE_MANIFEST, json.dumps(payload, indent=2, ensure_ascii=False))
+    return {"files": len(snap), "manifest": FREEZE_MANIFEST}
 
 
 def step_lock_acquire(state: dict) -> dict:
@@ -474,9 +485,11 @@ def step_e07_run(state: dict) -> dict:
         raise Deterministic(
             "E-07 runner is not in version control: %s" % E07_RUNNER, missing=E07_RUNNER
         )
-    res = run_subprocess(
-        [sys.executable, E07_RUNNER, "--port", str(PORT)], timeout_s=1800
-    )
+    # pass the freeze manifest so the runner itself can detect a moving target
+    cmd = [sys.executable, E07_RUNNER, "--port", str(PORT)]
+    if os.path.isfile(FREEZE_MANIFEST):
+        cmd += ["--expected-manifest", FREEZE_MANIFEST, "--throughput", "60"]
+    res = run_subprocess(cmd, timeout_s=1800)
     detect_moving_target(state.get("scripts_freeze_sha"), snapshot_frozen_scripts())
     if res["exit_code"] != 0:
         raise Recoverable(
