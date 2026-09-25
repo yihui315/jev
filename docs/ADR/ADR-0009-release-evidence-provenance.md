@@ -168,6 +168,50 @@ Therefore:
   harness; the two-run measurement is the gate that decides whether something may be entered, and it
   is a human/owner act, not a `--check` act.
 
+**Three stability classes, because "does not change" is not one property.** EV-11 is about the third:
+
+1. **stable + regenerable** — rerunning the command reproduces the bytes. The only class that is
+   fully admissible under EV-11.
+2. **stable by hand-edit** — the bytes do not move because a human wrote them once and nothing
+   rewrites them. `artifacts/acceptance/P3_SRE_GATE_HARBOR.md` is this: it mentions `ran_at` and
+   `basetemp` in prose (lines 312/314) but embeds no volatile field, so its digest is byte-stable.
+   Stable enough for `--check` to pass today, but the stability is a property of *nobody re-running
+   the leg*, not of the file. It must not be promoted to evidence on the strength of its current
+   digest; if the leg is ever re-run, the row moves and nothing has gone wrong.
+3. **volatile** — the bytes change on every run. `artifacts/acceptance/p3_gate_result.json` (`ran_at`
+   `2026-09-25T02:52:40.616338+00:00`, `basetemp` `…\jev-pytest-runs\g20260925_025203_008090`) and
+   `p3_gate_result.verdict_3936c96.json` (`ran_at` `02:54:04.208139`, `basetemp` `…\AppData\Local\Temp\…`)
+   are both in this class, and class 3 is what EV-11a–EV-11c exist to keep out of the manifest.
+
+### EV-11a — The gate runner emits a deterministic record alongside the run record
+
+The gate runner MUST emit, together with its per-run record, a **deterministic record** from which the
+volatile fields are removed: `ran_at`, `basetemp`, PIDs and anything else derived from the run's
+moment or machine go into a **per-run sidecar that is not entered into the manifest**. The manifest
+accounts only the deterministic record.
+
+Without this, the manifest's own check becomes the hazard it was built to prevent: a verifier re-runs
+the gate at the **same commit**, gets different bytes in a file whose name still promises the old
+commit, and sees a `DRIFT` row with **zero code change**. The first instinct at that point is to
+re-anchor, which is precisely the precautionary re-baseline this ADR's *Do not* section forbids —
+except here the trigger is fired by the mechanism itself rather than by a person. Emitting the
+deterministic record is what breaks that loop.
+
+### EV-11b — Admission is a two-run measurement, not an inspection
+
+The gate for entry is mechanical: **run the producer twice on the same commit, print both
+`sha256` values, and admit the artefact only if they are equal.** Both values and the command used
+are recorded; "they looked stable to me" is not a measurement. Owner: harbor, on request of the lead.
+
+### EV-11c — A name that promises equivalence must carry it in the bytes
+
+Any output whose **filename embeds a commit, a date or a serial number** MUST NOT let its bytes depend
+on the moment of the run. `p3_gate_result.verdict_3936c96.json` is the live counter-example: the name
+promises "the verdict at `3936c96`", while the contents carry that run's wall clock and host temp
+directory — so the name promises equivalence the bytes do not have. Either the name stops carrying the
+commit (the volatile fields move out per EV-11a), or the bytes stop depending on the run. A reader
+must never have to open the file to find out which of the two it is.
+
 ### EV-12 — Evidence is promoted into the release directory; `artifacts/acceptance/` stays ignored
 
 Anything that is to be retained as evidence is **promoted** into `artifacts/release/` (generated
@@ -387,6 +431,53 @@ file is the two-run comparison on one commit, and the numbers are harbor's to pr
 emit the artefact twice at a fixed commit, compare `sha256`, and record both values. Equal → it may be
 accounted; different → it may not (EV-11). Until that measurement exists, **no** artefact that embeds
 a timestamp or a host path enters the manifest, whatever its location.
+
+**What the generator actually reports today** (measured at HEAD `4e96c1a`, main tree):
+
+```
+$ python scripts/emit_release_evidence.py --check ; echo "exit=$?"
+[check] reconciling artifacts/release/manifest.json
+SCHEMA    schema_version == 1.0
+FROZEN    manifest.frozen_at=3936c96 differs from HEAD=4e96c1a
+OK[raw]   artifacts/acceptance/P3_SRE_GATE_HARBOR.md                  ...
+OK[raw]   artifacts/acceptance/p3_gate_result.json                     ...
+OK[raw]   artifacts/acceptance/p3_gate_result.verdict_3936c96.json     ...
+OK[lf]    artifacts/acceptance/p3_gate_run.py                          ...
+OK[lf]    packages/jcc_core/policy.py                                  ...
+OK[lf]    packages/supervisor/tests/test_budget_cost_failclosed.py     ...
+DRIFT -- 3 item(s). Not reclassified, not absorbed:
+TREE-DIRTY                 working tree has uncommitted change(s) (4 path(s)):
+                           artifacts/release/, packages/jcc_core/state_store.py,
+                           packages/jcc_core/tests/test_directive_identity.py, scripts/
+DIGEST[crlf_to_lf]         packages/supervisor/budget.py  manifest 96a11b69dd041482
+                                                          disk     4bf297449394785a
+ANCHOR-DIGEST[crlf_to_lf]  packages/supervisor/budget.py  P3 sec.1.2 records 96a11b69dd041482,
+                                                          file is 4bf297449394785a
+[check] FAILED -- reconciliation is not clean.
+exit=1
+```
+
+Two observations that are recorded here rather than acted on, because both belong to other owners:
+
+- The `OK` rows for the volatile acceptance files are **present-tense facts about bytes, not
+  reproducibility verdicts**. They stay green until somebody re-runs the gate over them; that is EV-11.
+- The `--check` output tags tracked rows `OK[lf]` while the manifest records `hash_convention:
+  "crlf_to_lf"` for the same rows. Two labels for one property. Harmless today because the digests
+agree; it is the kind of thing that becomes an argument about which label is authoritative, so it is
+noted here. Raised with harbor (generator side) and the lead (record side).
+
+**Method note, because I hit it.** `git hash-object --stdin` prints a git **blob SHA-1**
+(`0429e0aff10b…`), which is not comparable to a file `sha256`. The correct cross-check of "is the disk
+copy the real product" is to hash the bytes `git show <commit>:<path>` outputs:
+
+```
+sha256(bytes of `git show 79e9a1b:packages/supervisor/budget.py`) = 4bf297449394785a… (22875 bytes)
+sha256(worktree packages/supervisor/budget.py)                    = 4bf297449394785a… (22875 bytes)   equal
+```
+
+which confirms the lead's reading: the disk value is the genuine product at `79e9a1b`, not worktree
+noise, and the manifest row — recording `96a11b69…` / 13674 bytes from the `3936c96` era — is the
+thing that is behind.
 
 Pattern matrix, produced in throwaway probe repos (`.workbuddy/scratch/negmatrix/`), verdict taken
 from real traversal (`git add --dry-run`), not from `check-ignore`:

@@ -137,6 +137,23 @@ forward instead of being skipped: the manifest is re-emitted and its tracked row
 the **first** commit of the freeze window, and that commit is the one that satisfies condition 1 —
 not vice versa.
 
+**`hash_convention` is frozen until the re-emit completes.**
+
+> While the re-emit is outstanding, every tracked row in the manifest keeps `hash_convention:
+> "crlf_to_lf"`. Not one of them is relabelled `raw` early.
+
+Reason. `.gitattributes` governs **future** checkout conversion only. It does not rewrite an existing
+blob and it does not touch the working tree you are standing in — `packages/jcc_core/run.py` is still
+CRLF on disk (13286 bytes, 306 CR) and its blob is still CRLF. Someone who sees "`eol=lf` is landed,
+so the `crlf_to_lf` label is obsolete" and relabels the row to `raw` before the re-emit has produced
+the same class of error as writing a fabricated re-baseline, in the opposite direction: the next
+Windows checkout that materialises CRLF reports a **false DRIFT**, and the operator's first move is to
+"fix" the manifest. Label the bytes you actually hash; change the label at the same moment the bytes
+change, not before.
+
+`--check` prints the tracked rows as `OK[lf]`. That tag describes the comparison it just performed,
+not a mandate to relabel; the manifest's own `hash_convention` field is the record.
+
 Rollback is the inverse: delete `.gitattributes`, restore `core.autocrlf = true`, force a re-checkout.
 A8 pins are unaffected (measured `12/12`), only raw-byte manifest reproducibility regresses. No
 product file, no test, and no `scripts/` file is touched by this ADR.

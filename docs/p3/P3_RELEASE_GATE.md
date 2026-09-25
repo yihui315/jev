@@ -296,6 +296,9 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
    **Lead's sequence ruling: `.gitattributes` lands as its own commit before the freeze window and
    does not share a window with the A8 re-baseline** (the two are independent). Committed as its own
    commit; the landing conditions and the rollback are in ADR-0010.
+   **`hash_convention` is frozen at `crlf_to_lf` until the re-emit completes** — `.gitattributes`
+   governs future conversions only, so relabelling a row to `raw` before the re-emit would manufacture
+   a false DRIFT on the next CRLF checkout (ADR-0010 §Sequence).
 9. **Verdict-artifact durability:** `artifacts/` is gitignored, so the gate's machine evidence is not
    revision-controlled (§1.2). **Decided in P4 (task #78 / ADR-0009):** `artifacts/release/` is the
    one tracked hole, and the anchors are reconciled by `scripts/emit_release_evidence.py --check`.
