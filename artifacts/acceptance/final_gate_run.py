@@ -91,7 +91,7 @@ ADAPTERS = ["workbuddy", "claude", "codex", "hermes"]
 # scripts, docs, tests) is already in it and only the release EVIDENCE is added
 # afterwards. A leg that is signed at the freeze and then committed shifts HEAD
 # by one -- hence the two accepted positions below.
-RELEASE_FREEZE = "40a888d083ada83043ff967a3d35d0abe0afd02a"
+RELEASE_FREEZE = "dc154b015c1d0df7d17ef66fbab16d7a02e3b31f"
 # What a release-evidence commit is allowed to touch. If something outside this
 # set moves after the freeze, a signature written at the freeze describes a
 # product that is no longer in HEAD -- that is a stale signature, not a pass.
