@@ -1,0 +1,153 @@
+{
+  "description": "Read-only 3D-scene projection of the JCC Core session state for the Claw3D visual product. OPTIONAL VISUAL INTEGRATION: the external Claw3D product need not be installed for this contract, facade and tests to exist and pass; when it is absent the integration is reported as unavailable (see contract.external_product_available and claw3d/external.py::probe_external_product), which is not a blocker.",
+  "encoding": {
+    "allow_nan": false,
+    "canonical": "json",
+    "ensure_ascii": true,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "sort_keys": true
+  },
+  "excluded_fields": [
+    "current_assessment.raw",
+    "current_directive.signature",
+    "current_directive.nonce",
+    "current_directive.evidence_hash",
+    "current_directive.params",
+    "current_directive.verify_reason",
+    "current_directive.human_approval",
+    "current_directive.policy_config_hash"
+  ],
+  "external_product_available": false,
+  "external_product_note": "OPTIONAL VISUAL INTEGRATION: the external Claw3D product is NOT available on this host (probe: no loopback endpoint configured, no candidate executable on PATH, no matching uninstall entry -> product not installed here). This is not a blocker: the facade contract, the projection and the tests all exist and pass without it; see claw3d/external.py::probe_external_product for the live probe.",
+  "fields": [
+    {
+      "note": "Scene-graph node id = primary session identity (ADR-0003). Never cwd.",
+      "path": "node_id",
+      "source_path": "session_id",
+      "source": "sessions.session_id",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Agent that owns the session (node label).",
+      "path": "label",
+      "source_path": "agent",
+      "source": "sessions.agent",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Logical project label (scene cluster).",
+      "path": "cluster",
+      "source_path": "project",
+      "source": "sessions.project",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "active|await|quarantine|escalated|paused|finished.",
+      "path": "status",
+      "source_path": "status",
+      "source": "sessions.status",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Scorer score in [0,1] (drives node colour intensity).",
+      "path": "risk_score",
+      "source_path": "current_assessment.risk_score",
+      "source": "assessments.risk_score",
+      "type": [
+        "number"
+      ]
+    },
+    {
+      "note": "low|medium|high|critical|unknown — scorer output only (node colour).",
+      "path": "band",
+      "source_path": "current_assessment.band",
+      "source": "assessments.band",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "ESCALATE|PAUSE|VERIFY|STEER|RETRY|FINISH|CONTINUE (node action glyph).",
+      "path": "action",
+      "source_path": "current_directive.action",
+      "source": "directives.action",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Scorer escalate signal (exclamation glyph).",
+      "path": "escalated",
+      "source_path": "current_assessment.escalate",
+      "source": "assessments.escalate",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer pause signal (pause glyph).",
+      "path": "paused",
+      "source_path": "current_assessment.pause",
+      "source": "assessments.pause",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer needs_verify signal (verify glyph).",
+      "path": "needs_verify",
+      "source_path": "current_assessment.needs_verify",
+      "source": "assessments.needs_verify",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Deterministic grid X from sha256(session_id) — no randomness.",
+      "path": "pos_x",
+      "source_path": "pos_x",
+      "source": "derived.geometry",
+      "type": [
+        "integer"
+      ]
+    },
+    {
+      "note": "Deterministic grid Y from sha256(session_id#y) — no randomness.",
+      "path": "pos_y",
+      "source_path": "pos_y",
+      "source": "derived.geometry",
+      "type": [
+        "integer"
+      ]
+    },
+    {
+      "note": "Deterministic grid Z from sha256(session_id#z) — no randomness.",
+      "path": "pos_z",
+      "source_path": "pos_z",
+      "source": "derived.geometry",
+      "type": [
+        "integer"
+      ]
+    }
+  ],
+  "mutating_api": [],
+  "name": "jcc.claw3d",
+  "no_secrets": "No control token, no API key, no signature, no nonce and no evidence payload is projected. The excluded-fields list above is the barrier and is asserted by tests/test_secret_leakage.py. Geometry is derived from the session id only.",
+  "ordering": "nodes sorted by node_id ascending (canonical, independent of the store's updated_at ordering)",
+  "owner": "meridian",
+  "read_only": true,
+  "source_of_truth": "packages/jcc_core/schemas.py::SessionState and packages/jcc_core/server.py /api/sessions",
+  "stop_condition_id": "S-07",
+  "version": "1.0.0"
+}

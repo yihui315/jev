@@ -1,0 +1,345 @@
+{
+  "description": "Read-only projection of the JCC Core session state. Existence of this contract does NOT require the external Session Center product to be installed: when it is absent the facade, its contract and its tests all still exist and the integration is reported as OPTIONAL VISUAL INTEGRATION, not as a blocker.",
+  "encoding": {
+    "allow_nan": false,
+    "canonical": "json",
+    "ensure_ascii": true,
+    "separators": [
+      ",",
+      ":"
+    ],
+    "sort_keys": true
+  },
+  "excluded_fields": [
+    "current_assessment.raw",
+    "current_assessment.session_id",
+    "current_assessment.timestamp",
+    "current_directive.directive_id",
+    "current_directive.session_id",
+    "current_directive.timestamp",
+    "current_directive.params",
+    "current_directive.signature",
+    "current_directive.nonce",
+    "current_directive.evidence_hash",
+    "current_directive.issued_at",
+    "current_directive.ttl_s",
+    "current_directive.verify_reason",
+    "current_directive.human_approval",
+    "current_directive.policy_config_hash"
+  ],
+  "external_product_available": false,
+  "external_product_note": "OPTIONAL VISUAL INTEGRATION: the external Session Center product is NOT available on this host (probe: no loopback endpoint configured, no candidate executable on PATH, no matching uninstall entry -> product not installed here). This is not a blocker: the facade contract, the projection and the tests all exist and pass without it; see session_center/external.py::probe_external_product for the live probe.",
+  "fields": [
+    {
+      "note": "Primary identity (ADR-0003). Never cwd.",
+      "path": "session_id",
+      "source": "sessions.session_id",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Agent name that owns the session.",
+      "path": "agent",
+      "source": "sessions.agent",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Logical project label.",
+      "path": "project",
+      "source": "sessions.project",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "METADATA ONLY (ADR-0003): never identity, never a lookup key.",
+      "path": "cwd",
+      "source": "sessions.cwd",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "note": "active|await|quarantine|escalated|paused|finished.",
+      "path": "status",
+      "source": "sessions.status",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Wall-clock epoch seconds.",
+      "path": "created_at",
+      "source": "sessions.created_at",
+      "type": [
+        "number"
+      ]
+    },
+    {
+      "note": "Wall-clock epoch seconds.",
+      "path": "updated_at",
+      "source": "sessions.updated_at",
+      "type": [
+        "number"
+      ]
+    },
+    {
+      "note": "Last ingested event.",
+      "path": "last_event_id",
+      "source": "sessions.last_event_id",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "note": "Ingest count (dedup-protected).",
+      "path": "event_count",
+      "source": "sessions.event_count",
+      "type": [
+        "integer"
+      ]
+    },
+    {
+      "note": "Evidence snapshots stored.",
+      "path": "evidence_count",
+      "source": "sessions.evidence_count",
+      "type": [
+        "integer"
+      ]
+    },
+    {
+      "note": "Scorer model id.",
+      "path": "current_assessment.model",
+      "source": "assessments.model",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Scorer provider id.",
+      "path": "current_assessment.provider",
+      "source": "assessments.provider",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "low|medium|high|critical|unknown \u2014 scorer output only.",
+      "path": "current_assessment.band",
+      "source": "assessments.band",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Scorer score in [0,1].",
+      "path": "current_assessment.risk_score",
+      "source": "assessments.risk_score",
+      "type": [
+        "number"
+      ]
+    },
+    {
+      "note": "D-20 confidence.",
+      "path": "current_assessment.confidence",
+      "source": "assessments.confidence",
+      "type": [
+        "number",
+        "null"
+      ]
+    },
+    {
+      "note": "none|heuristic|model.",
+      "path": "current_assessment.confidence_kind",
+      "source": "assessments.confidence_kind",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "D-31.",
+      "path": "current_assessment.provider_verified",
+      "source": "assessments.provider_verified",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "NONE|EXACT.",
+      "path": "current_assessment.blocker_kind",
+      "source": "assessments.blocker_kind",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Sorted+deduped.",
+      "path": "current_assessment.blocker_reasons",
+      "source": "assessments.blocker_reasons",
+      "type": [
+        "array"
+      ]
+    },
+    {
+      "note": "Default-deny signal.",
+      "path": "current_assessment.needs_verify",
+      "source": "assessments.needs_verify",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer signal only.",
+      "path": "current_assessment.escalate",
+      "source": "assessments.escalate",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer signal only.",
+      "path": "current_assessment.pause",
+      "source": "assessments.pause",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer signal only.",
+      "path": "current_assessment.steer",
+      "source": "assessments.steer",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer signal only.",
+      "path": "current_assessment.retry",
+      "source": "assessments.retry",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Scorer signal only.",
+      "path": "current_assessment.finished",
+      "source": "assessments.finished",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "ESCALATE|PAUSE|VERIFY|STEER|RETRY|FINISH|CONTINUE.",
+      "path": "current_directive.action",
+      "source": "directives.action",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Internal version.",
+      "path": "current_directive.policy_version",
+      "source": "directives.policy_version",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Kernel mapping version.",
+      "path": "current_directive.policy_table_version",
+      "source": "directives.policy_table_version",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "note": "unsigned|signed_verified|unavailable:no_key|required_missing.",
+      "path": "current_directive.signature_status",
+      "source": "directives.signature_status",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Signing algorithm.",
+      "path": "current_directive.signing_alg",
+      "source": "directives.signing_alg",
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    {
+      "note": "D-33.",
+      "path": "current_directive.signature_verified",
+      "source": "directives.signature_verified",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Always False in P3 \u2014 inert by construction.",
+      "path": "current_directive.executable",
+      "source": "directives.executable",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "D-34/D-35.",
+      "path": "current_directive.requires_human",
+      "source": "directives.requires_human",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "D-33.",
+      "path": "current_directive.shadow",
+      "source": "directives.shadow",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "noop in observe-only.",
+      "path": "current_directive.target_actuator",
+      "source": "directives.target_actuator",
+      "type": [
+        "string"
+      ]
+    },
+    {
+      "note": "Never True while actuation is off.",
+      "path": "current_directive.acted",
+      "source": "directives.acted",
+      "type": [
+        "boolean"
+      ]
+    },
+    {
+      "note": "Why the actuator did nothing.",
+      "path": "current_directive.actuation_reason",
+      "source": "directives.actuation_reason",
+      "type": [
+        "string",
+        "null"
+      ]
+    }
+  ],
+  "mutating_api": [],
+  "name": "jcc.session_center",
+  "no_secrets": "No control token, no API key, no signature, no nonce and no evidence payload is projected. The excluded-fields list above is the barrier and is asserted by tests/test_secret_leakage.py.",
+  "ordering": "sessions sorted by session_id ascending (canonical, independent of the store's updated_at ordering)",
+  "owner": "meridian",
+  "read_only": true,
+  "source_of_truth": "packages/jcc_core/schemas.py::SessionState and packages/jcc_core/server.py /api/sessions",
+  "stop_condition_id": "S-06",
+  "version": "1.0.0"
+}
