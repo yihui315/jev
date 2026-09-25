@@ -259,8 +259,8 @@ DEFAULT_EXCLUDES: Tuple[str, ...] = (
 # --------------------------------------------------------------------------------------------
 P3_ANCHORS: Dict[str, Dict[str, object]] = {
     "artifacts/acceptance/p3_gate_result.json": {
-        "sha256": "9f96bb6907a97edb",
-        "bytes": 41496,
+        "sha256": "6ff5f212e1bb67bb",
+        "bytes": 56208,
         "hash_convention": HASH_RAW,
     },
     "artifacts/acceptance/p3_gate_result.verdict_3936c96.json": {
@@ -294,7 +294,7 @@ P3_ANCHORS: Dict[str, Dict[str, object]] = {
         "hash_convention": HASH_RAW,
     },
     "packages/supervisor/budget.py": {
-        "sha256": "96a11b69dd041482",
+        "sha256": "c47c85b91af5af10",
         "bytes": None,  # sec.1.2 publishes no size for this row; a size is not invented.
         "hash_convention": HASH_EOL_LF,
     },
