@@ -163,3 +163,24 @@ Totals from P3/P4 are **not** imported. Zero collected tests = FAIL.
 
 **A PASS of `final_gate_run.py --full` is the only stop condition. Nothing else stops
 this project.**
+
+## Engineering notes (lead) — how the verdict stays verifiable
+
+`artifacts/*` is excluded by `.gitignore:18` under ADR-0009 (release evidence lives in
+`artifacts/release/`, everything else stays ignored, fail-closed). An **untracked gate is
+an unreproducible verdict**: if the runner that produced `PROJECT_COMPLETE=true` is not in
+the repository, nobody can ever re-derive that answer from a clone.
+
+Therefore:
+
+1. `artifacts/acceptance/final_gate_run.py` is **force-added** into git despite the
+   exclusion, exactly as `artifacts/release/manifest.json` was at `ccb040d`. It is the
+   only machine stop condition and it must survive a clone.
+2. Every evidence file the gate consumes (`component_evidence/*.json`,
+   `adapter_capability/*.json`, `final_{architecture,security,sre}_go.json`, the E2E result
+   artifacts, `FINAL_ACCEPTANCE_REPORT.md`, `FINAL_ACTIVATION_CHECKLIST.md`,
+   `artifacts/release/final-manifest.json`) is force-added at the moment the final verdict
+   is computed — not before, so that a verdict can never be assembled from evidence that a
+   later commit has changed.
+3. A dirty working tree is a FAIL of P-01/P-05 (see H). Evidence written under
+   `artifacts/` does not dirty the tree; scratch work does not belong in the repo root.
