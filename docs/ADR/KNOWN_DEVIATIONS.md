@@ -302,6 +302,49 @@ packages/` is empty, and the working-tree sha256 of `state_store.py`
   now ABORTS with ``pytest.UsageError`` (exit 4) instead of reporting those
   tests as skipped, so the configuration cannot read as a pass.
 
+### KD-0008 — the committed F-03 manifest does not reconcile with the generator that produced it
+
+Found 2026-09-25 while preparing the re-sign, by running the generator's own verifier:
+
+    F:\jev\.venv\Scripts\python.exe F:\jev\scripts\emit_release_evidence.py --check
+    ...
+    DRIFT -- 1 item(s). Not reclassified, not absorbed:
+    DIGEST[git_blob]   packages/jcc_core/core.py  manifest 72fc0f99f2eef751  disk 7d19e0c62defc051
+
+    [check] FAILED -- reconciliation is not clean.
+
+Evidence gathered before registering it, all from the repo at HEAD `fd1dbd6` with an empty
+`git status`:
+
+- `packages/jcc_core/core.py` on disk is 15499 bytes, 365 LF, zero CR, sha256
+  `72fc0f99f2eef751…`; `git cat-file blob HEAD:packages/jcc_core/core.py` is byte-identical,
+  and `git status --porcelain -- packages/jcc_core/core.py` is empty. The tree is clean, so the
+  drift is not product mutation.
+- The committed `artifacts/release/final-manifest.json` **does not mention `core.py` at all**
+  (`raw.count('core.py') == 0`). Its 23 entries are 14 files plus 9 directories.
+- The manifest's own keys do not match what the generator reads: the committed manifest carries
+  `schema: "jcc/final-manifest/1"`, and no `schema_version` and no `frozen_at`; the generator's
+  `reconcile()` reads `manifest["schema_version"]` and `manifest["frozen_at"]`, so both of those
+  comparisons are made against `None`.
+- The manifest records `release_sha = b38719f8…` and
+  `product_freeze_sha = e6f5c15899b4bd5128d76366465d16f7b31aaca4`, neither of which is the
+  release freeze the gate pins (`df3e7d91ac274d971ef110199d5b65acf131aacd`).
+
+Why it ships as-is: the final gate's F-03 check (`final_gate_run.py:1091-1100`) only asserts that
+`final-manifest.json` exists and parses, and explicitly defers the regeneration check
+("regeneration check deferred to the release step"). So this does not turn any gate red today and
+it cannot be absorbed into a pass, because nothing claims it as one.
+
+Consequence: the manifest cannot be cited as the release's hash record, and the `--check`
+verification cannot be used as the certification precedent in its current form.
+
+Resolution, in order: (1) `forge-5`'s `scripts/` change alters the manifest's covered paths, so
+re-emitting it before that lands would go stale again; (2) re-run
+`emit_release_evidence.py` **without** `--check` to re-emit against the current generator, commit
+the re-emitted manifest, then re-run `--check` and require it to be clean; (3) if it is still not
+clean, the drift is in the generator rather than in the artifact, and the generator is product
+tooling under `scripts/` and is to be fixed rather than annotated.
+
 ### Mint sites outside `packages/` — resolved 2026-09-25
 
 The register had left this open. It is now closed by enumeration: `git grep -n "Directive("` over
