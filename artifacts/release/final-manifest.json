@@ -1,0 +1,198 @@
+{
+  "file_count": 23,
+  "files": [
+    {
+      "bytes": 47747,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "artifacts/acceptance/final_gate_run.py",
+      "sha256": "e884a77943c06e034af2f6382f4320a44e39c32380430f1e8deb5ba499869ac8"
+    },
+    {
+      "bytes": 15625,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "docs/FINAL_STOP_CONDITIONS.md",
+      "sha256": "7199cb233378ebd957eab1796d29015ccee0445717e3705aa1d6352e88a9427e"
+    },
+    {
+      "bytes": 7811,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "docs/p4/P4_FREEZE_RECORD.md",
+      "sha256": "5cd76e64b8c629b785537ce9772c813ef931114d499224188128f8275ed24b89"
+    },
+    {
+      "bytes": 28627,
+      "hash_convention": "git_blob",
+      "owner": "protocol-architect",
+      "path": "docs/ADR/KNOWN_DEVIATIONS.md",
+      "sha256": "3e6f42afb307752d7367e170951a43bc73b5faa5fff3b85e2fe0e0bf5235b698"
+    },
+    {
+      "bytes": 4034,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/manifest.json",
+      "sha256": "f23220aefedd9bbd4bd9d9c9d8ebf343c75dd5f77dfe60314752e27c5ab696a8"
+    },
+    {
+      "bytes": 99,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/manifest.sha256",
+      "sha256": "249a86d5be0ba22faaceb8ccc79b3d7ee026b42fe02bf85d40f4ad8e0497c57f"
+    },
+    {
+      "bytes": 11569,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/bootstrap.ps1",
+      "sha256": "5b8f3f8cfda2dd485c59733eda0eb12ece3b40a2a21fb93f0a65c3a3a7d84ea1"
+    },
+    {
+      "bytes": 9750,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/start.ps1",
+      "sha256": "7fea12f07cd1a4807f873ff2c0e8d120ff9354d2e0265e2231dbea2276897751"
+    },
+    {
+      "bytes": 6399,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/stop.ps1",
+      "sha256": "f1b54b01a7d51c9c5da0e3d0ec84f2519c5995ec06f23aa31fc95899a3f36953"
+    },
+    {
+      "bytes": 3167,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/restart.ps1",
+      "sha256": "7cd03caf92e206d1ccf78b10e281907f1c5b459e547980f9eafbc0160b4ef0ef"
+    },
+    {
+      "bytes": 4516,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/status.ps1",
+      "sha256": "3c71fbebeb320ee9929ef4e5ebca6ff4646381b7272a7b115726503a9f079ef3"
+    },
+    {
+      "bytes": 10071,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/doctor.ps1",
+      "sha256": "ff6b81481cb6c94fc5c536c1711969db091970672846514fbb6f8b75d7fc059e"
+    },
+    {
+      "bytes": 3762,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/acceptance.ps1",
+      "sha256": "2b64e885018c6549f5c04024e545ce56f869829fbac2a2c7bc4e53a5afda1d3c"
+    },
+    {
+      "bytes": 130837,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/operator_skill",
+      "sha256": "62d0fa70851ca628ac9f993390855a607ef812718771823737a7a5e274b45e94"
+    },
+    {
+      "bytes": 53805,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/mcp_facade",
+      "sha256": "0bcd9e22c05d5aa0bc2358ebe6cd101b1be8d6386b9c739b3af768a173338d92"
+    },
+    {
+      "bytes": 86225,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/observability",
+      "sha256": "9d70016c80f5cb96a7052089f0486bb975c5b7df76be80f3ebc4daf5f0610501"
+    },
+    {
+      "bytes": 59185,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "apps/control_ui",
+      "sha256": "2c650e14a58f8b86140a5c4aae48c03d9c2c8f600315efd113166423d6a7f7ca"
+    },
+    {
+      "bytes": 62358,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "facades/session_center",
+      "sha256": "6035715e5ee84f2dbaf5b36ffba5b551e10644c3260170f074b1e8830843c241"
+    },
+    {
+      "bytes": 51561,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "facades/claw3d",
+      "sha256": "506a8138963dd7a4d062cd6afa85d824b1456a63b6a8d383dce115e3ef33d8e7"
+    },
+    {
+      "bytes": 11719,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "fixtures",
+      "sha256": "8da739176beb11b4f56ca3597e7ecfd16e1c43b5dfa9f7b13f2d2e98adddb758"
+    },
+    {
+      "bytes": 33301,
+      "hash_convention": "dir_fingerprint",
+      "owner": "qa-sre",
+      "path": "tests/e2e",
+      "sha256": "9e07963aed68629f6e9c76015a1f5b947269f76d1e5a9cd6efcf4f306b166bf1"
+    },
+    {
+      "bytes": 5994,
+      "hash_convention": "raw_file",
+      "owner": "lead",
+      "path": "artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md",
+      "sha256": "99bd30ad3d864294725eb2195ca9dd41468b6cc3921d4752cb757786025eb891"
+    },
+    {
+      "bytes": 7029,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "FINAL_ACTIVATION_CHECKLIST.md",
+      "sha256": "bf4446e0d8eaa5dc36132c9d501bca5d4f845983f92d6f72b4d94a960e0b42f3"
+    }
+  ],
+  "final_gate": {
+    "blocker": 3,
+    "degraded": [
+      "A-01",
+      "A-02",
+      "A-03",
+      "A-04",
+      "S-04",
+      "S-05"
+    ],
+    "failed": [
+      "E-05"
+    ],
+    "head": "497a95141f99c38fb6b3c4ebfdafa1416beeae2f",
+    "high": 3,
+    "missing": [
+      "E-07",
+      "F-03"
+    ],
+    "pending_external_activation": [],
+    "present": true,
+    "project_complete": false
+  },
+  "generated_at": "2026-09-25T10:37:15.875328+00:00",
+  "generated_by": "tools/emit_final_manifest.py",
+  "generated_by_sha256": "8f9e6274bd5d7079178fc493830b6fbaec458581fc2d397c3ddc4501d62d6bac",
+  "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(sorted content fingerprints) for directories",
+  "product_freeze_frozen_at": "e6f5c15",
+  "product_freeze_sha": "e6f5c15899b4bd5128d76366465d16f7b31aaca4",
+  "release_sha": "b38719f8dd76332b77b37eaa8129143ad5171732",
+  "schema": "jcc/final-manifest/1",
+  "test_sha": "b38719f8dd76332b77b37eaa8129143ad5171732"
+}
