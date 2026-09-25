@@ -410,6 +410,88 @@ def test_f2_a_cross_plane_overwrite_is_refused_and_leaves_the_row_alone(tmp_path
     assert len(s.get_directives("s-origin")) == 1
 
 
+def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts_its_prefix(
+        tmp_path):
+    """F2 falsifier: the ONE row M1 cannot backfill, and why it must stay red.
+
+    F1 and F2 both refuse "the wrong plane writes this id". They refuse for
+    DIFFERENT reasons and only one of the two can fire on any given row:
+
+      * F1 refuses a row the prefix does not send to this caller;
+      * F2 refuses a row whose STORED origin differs from this caller's.
+
+    Consider a row that is mis-attributed rather than un-attributed: written by
+    a buggy or half-migrated writer as ``origin='supervisor'`` under a
+    ``dir_...`` id. F1 is SILENT on it -- the prefix says plane=``engine`` and
+    the caller IS ``engine``, so the namespace rule is satisfied -- therefore the
+    only thing standing between that row and ``INSERT OR REPLACE`` is F2.
+
+    This matters because of the NULL-prior migration (lead's M1): it backfills
+    ``origin`` where it IS NULL, and a NULL prior is then exactly the case F2
+    alone catches. Once M1 has run, that branch is gone -- a NULL origin is
+    filled from the prefix and the row is no longer "unknown provenance". The
+    contradiction row below is what is LEFT when the migration is done, and it
+    is the reason F2 is not dead code.
+
+    *** THIS NAIL MUST STILL BE RED AFTER M1 COMPLETES. ***
+    It goes green in exactly two circumstances, both of which are the defect
+    that M2 is there to catch: (a) the migration rewrote a stored origin on the
+    strength of its prefix -- i.e. it fabricated provenance for a row whose
+    provenance is not recoverable from the id alone; or (b) F2 was removed.
+    Green here is a REGRESSION SIGNAL, not a passing state.
+
+    FALSIFICATION, MEASURED (no production backdoor, no test switch) -- see
+    ``.workbuddy/scratch/forge_falsifier_f2.py``, two passes:
+
+      * release F1 ONLY (``resolve_directive_origin`` accepts every
+        (id, origin) pair), F2 intact -> THIS TEST STAYS GREEN. That is the
+        point of step 0 above: this row is not an F1 case at all;
+      * release F2 ONLY (rebuild ``add_directive`` without the prior-origin
+        gate, F1 kept) -> THIS TEST GOES RED: nothing refuses the write,
+        ``INSERT OR REPLACE`` overwrites the row and its mis-attribution
+        disappears with it.
+
+    "Release F1 and watch it go red" is the WRONG falsification for this nail
+    and was tried first: it stays green, because F2 still holds. Documented here
+    because the natural guess is the wrong one.
+    """
+    from jcc_core.state_store import StateStore, resolve_directive_origin
+
+    s = StateStore(str(tmp_path / "o.db"))
+    # A historical row written by the wrong plane, straight to SQL: a `dir_`
+    # id carrying `origin='supervisor'`. Not NULL, not missing -- contradictory,
+    # which is why a NULL-backfill cannot fix it.
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action, "
+            "origin) VALUES (?,?,?,?,?)",
+            ("dir_s-contra_e1", "s-contra", 1.0, "PAUSE", "supervisor"),
+        )
+        conn.commit()
+
+    # 0) PROOF THAT F1 DOES NOT FIRE HERE, i.e. that F2 is the only gate: the
+    #    namespace rule is satisfied by this (id, origin) pair.
+    assert resolve_directive_origin("dir_s-contra_e1", "engine") == "engine"
+
+    # 1) F2 refuses the overwrite -- and the message must be F2's, not F1's.
+    #    "already persisted as" is the F2 wording; "can only be issued by" is
+    #    F1's and would mean this proof-of-exclusivity was wrong.
+    with pytest.raises(ValueError, match="already persisted as"):
+        s.add_directive(_mint("dir_s-contra_e1", action=DirectiveAction.ESCALATE),
+                        origin="engine")
+
+    # 2) the refused write left the row exactly as it found it
+    with s.connection() as conn:
+        row = conn.execute(
+            "SELECT action, origin FROM directives "
+            "WHERE directive_id='dir_s-contra_e1'"
+        ).fetchone()
+    assert row == ("PAUSE", "supervisor"), (
+        "the mis-attributed row must survive unmodified: rewriting a stored "
+        "origin from the id prefix would be inventing provenance"
+    )
+
+
 def test_the_persisted_row_carries_the_attribution_it_was_written_with(tmp_path):
     """R3 in the concrete form: provenance is a COLUMN, not a side-channel, and
     it survives a read back through the public surface."""

@@ -419,14 +419,33 @@ def test_A8_negative_control_enabled_without_allowlist(tmp_path):
         f"PIN BASELINE/SCOPE MISMATCH: {extra} carry a baseline hash but are NOT in "
         "_PROD_ARTIFACTS, so the digest is dead weight (stale/renamed entry)."
     )
+    # NOTE ON THE SHAPE OF THIS FAILURE: this used to `return` on the FIRST
+    # moved artifact, so a single red run reported "1 pinned artifact changed"
+    # while the freeze record had to be hand-built from a read-only probe. A
+    # P4 phase legitimately moves several pinned files at once, and a freeze
+    # commit then re-baselines all of them: the count is the point. So the loop
+    # CONTINUES and every moved artifact is listed. Fail-fast is preserved in
+    # the sense that the test still fails, and still names the file first.
+    moved = []
     for rel, digest in _BASELINE_HASHES.items():
-        assert _sha(REPO_ROOT / rel) == digest, (
-            f"PINNED production artifact changed: {rel}\n"
-            f"  frozen at: {A8_FROZEN_AT}\n"
-            "  => either the frozen SHA moved without a re-baseline, or the tree is "
-            "dirty. Re-baseline ONLY in the same commit that freezes the SHA, and "
-            "record old->new hashes + reason in p3_gate_result.json and the report."
+        now = _sha(REPO_ROOT / rel)
+        if now != digest:
+            moved.append((rel, digest, now))
+    assert not moved, (
+        f"A8: {len(moved)} of {len(_BASELINE_HASHES)} PINNED production artifacts "
+        f"have moved (frozen at: {A8_FROZEN_AT}).\n"
+        + "\n".join(
+            f"  {rel}\n"
+            f"    frozen (old) = {old}\n"
+            f"    worktree (now) = {now}\n"
+            "    re-baseline from `git rev-parse <freeze-commit>:<path>`, NOT from "
+            "the worktree value, if the working tree carries uncommitted edits"
+            for rel, old, now in moved
         )
+        + "\n  => either the frozen SHA moved without a re-baseline, or the tree is "
+        "dirty. Re-baseline ONLY in the same commit that freezes the SHA, and "
+        "record old->new hashes + reason in p3_gate_result.json and the report."
+    )
 
 
 def test_A9_port_log_surface_has_no_side_effect_line(tmp_path, monkeypatch, caplog):

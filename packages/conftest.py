@@ -41,10 +41,18 @@ Two sandbox / user-profile hazards are neutralised here:
    a new one appears. It is deliberately NOT "skip the whole suite": a wall of
    skips reads like a pass and would take the A8 artifact pins down with it.
 
-   The direction is fail-INFORMATIONAL, not fail-open: in a guarded environment
-   the operator still sees every other test run, and every skipped test is
-   listed with its reason. ``JCC_PYTEST_ALLOW_DIRTY_ENV=1`` turns the skip off
-   for someone who wants the raw errors.
+   The direction is now FAIL-CLOSED ON THE RUN AS A WHOLE (lead ruling
+   2026-09-25, replacing the earlier fail-informational): a guarded environment
+   no longer produces a "26 skipped, exit 0" that reads like a pass. At
+   COLLECTION the guarded configuration raises ``pytest.UsageError``, which
+   exits 4 -- a usage error is a statement about the invocation, not about the
+   product, and it cannot be mistaken for a test result. ``26 skipped / exit 0``
+   was exactly the false PASS the project already has too many of.
+
+   ``JCC_PYTEST_ALLOW_DIRTY_ENV=1`` remains the deliberate opt-in for someone
+   who wants the raw errors; it keeps the skips off and prints the flagged set
+   to the terminal in its own block, so the numbers are not hidden inside a
+   warning summary.
 
 3. Spool dir. ``jcc_emit.spool()`` defaults to ``~/.jcc/spool``
    (``JCC_SPOOL_DIR`` unset) and writes there whenever delivery fails -- which
@@ -66,16 +74,40 @@ import pytest
 SAFE_DELETE_PRECONDITION = (
     "CODEBUDDY_SAFE_DELETE_ENABLED=0 is a REPORTING precondition, not a product "
     "one: with the machine's safe-delete guard on, pytest's own tmp_path churn "
-    "trips the bulk-delete guard and the tests below are SKIPPED instead of "
-    "ERRORING. Measured on this tree: guard on = '11 errors', guard off = clean. "
-    "Re-run with CODEBUDDY_SAFE_DELETE_ENABLED=0 (or JCC_PYTEST_ALLOW_DIRTY_ENV=1 "
-    "to see the raw errors)."
+    "trips the bulk-delete guard and the tests in the measured set ERROR during "
+    "SETUP -- the test is never entered, so 'error' here means the environment "
+    "could not provide scratch, NOT that the product is broken. Measured on this "
+    "tree: guard on = '11 errors', guard off = clean. This run aborts with a "
+    "usage error (exit 4) because it collects tests from that measured set. "
+    "Re-run with CODEBUDDY_SAFE_DELETE_ENABLED=0; JCC_PYTEST_ALLOW_DIRTY_ENV=1 "
+    "deliberately overrides this and reports the raw errors instead."
+)
+
+#: Shown when someone opts out of the precondition on purpose; the count and the
+#: flagged set are reported separately in the terminal, not folded into the
+#: warning summary.
+SAFE_DELETE_PRECONDITION_DIRTY = (
+    "Opting OUT of the CODEBUDDY_SAFE_DELETE_ENABLED=0 reporting precondition "
+    "(JCC_PYTEST_ALLOW_DIRTY_ENV=1). The tests in the measured set below will "
+    "ERROR because the safe-delete guard interrupts their tmp_path factory -- "
+    "that is an environment failure, not a product verdict. Treat the resulting "
+    "numbers as un-comparable with the recorded ones."
+)
+
+#: Shown when the guard is on but this run collects none of the measured tests.
+SAFE_DELETE_PRECONDITION_INAPPLICABLE = (
+    "CODEBUDDY_SAFE_DELETE_ENABLED is not '0' and this run collects none of the "
+    "tests the safe-delete guard is measured to break, so the guard cannot have "
+    "distorted these numbers: running it anyway. If tests ERROR, that is an "
+    "environment failure to investigate, not a product verdict."
 )
 
 #: The measured set. Derived from guard-on runs of this tree (2026-09-25): these
 #: are the tests that error at SETUP under the guard, i.e. that the environment
-#: refuses to run -- not tests that assert anything about the product.
-_SKIP_UNDER_SAFE_DELETE_GUARD = {
+#: refuses to run -- not tests that assert anything about the product. (Named
+#: for what they MEASURE, not for what the hook does to them: the guarded run
+#: now aborts instead of skipping.)
+_MEASURED_UNDER_SAFE_DELETE_GUARD = {
     ("test_installer_roundtrip.py", "test_settings_install_is_idempotent_and_reversible"),
     ("test_installer_roundtrip.py", "test_settings_backup_written_before_change"),
     ("test_installer_roundtrip.py", "test_permission_request_never_hooked"),
@@ -88,19 +120,64 @@ _SKIP_UNDER_SAFE_DELETE_GUARD = {
 }
 
 
-def pytest_collection_modifyitems(config, items) -> None:
-    """Self-proving precondition check, run at COLLECTION -- see docstring 2."""
-    if os.environ.get("CODEBUDDY_SAFE_DELETE_ENABLED", "1") == "0":
-        return  # the reporting configuration: nothing to correct
-    warnings.warn(SAFE_DELETE_PRECONDITION, stacklevel=2)
-    if os.environ.get("JCC_PYTEST_ALLOW_DIRTY_ENV") == "1":
-        return  # explicit opt-in to the raw errors
-    skip = pytest.mark.skip(reason=SAFE_DELETE_PRECONDITION)
+def _flagged(items):
+    """The items the guard measurably breaks: i.e. the reported numbers."""
+    out = []
     for item in items:
         module = Path(str(item.fspath)).name
         name = getattr(item, "originalname", item.name).split("[")[0]
-        if (module, name) in _SKIP_UNDER_SAFE_DELETE_GUARD:
-            item.add_marker(skip)
+        if (module, name) in _MEASURED_UNDER_SAFE_DELETE_GUARD:
+            out.append(item)
+    return out
+
+
+def pytest_collection_modifyitems(config, items) -> None:
+    """Self-proving precondition check, run at COLLECTION -- see docstring 2.
+
+    Guarded environment and a run that collects at least one of the measured
+    tests => ``pytest.UsageError`` (exit 4). Not a skip: the skip made the same
+    tree report "green" while 26 tests never ran. A guarded run that collects
+    NONE of the measured tests is left alone -- otherwise the guard would abort
+    any single-file run on a guarded box, which is a false alarm.
+    """
+    if os.environ.get("CODEBUDDY_SAFE_DELETE_ENABLED", "1") == "0":
+        return  # the reporting configuration: nothing to correct
+    flagged = _flagged(items)
+    if os.environ.get("JCC_PYTEST_ALLOW_DIRTY_ENV") == "1":
+        # explicit opt-in: keep the raw errors, but own them out loud
+        warnings.warn(SAFE_DELETE_PRECONDITION_DIRTY, stacklevel=2)
+        # name changed in pytest 8; support either without guessing a minimum
+        make = getattr(config, "get_terminal_writer", None) or config.getterminalwriter
+        tw = make()
+        tw.line()
+        tw.sep("!", "JCC_PYTEST_ALLOW_DIRTY_ENV=1 -- RUNNING WITHOUT THE REPORTING "
+                    "PRECONDITION")
+        tw.line(f"CODEBUDDY_SAFE_DELETE_ENABLED is NOT '0'; {len(flagged)} test(s) "
+                "of the collected ones are in the measured set that the "
+                "safe-delete guard breaks"
+                + (":" if flagged else
+                   " -- none here, so the guard is not expected to distort these "
+                   "numbers, but they still are not the recorded configuration."))
+        for item in flagged:
+            tw.line(f"  - {Path(str(item.fspath)).name}::{item.name}")
+        tw.line("Numbers from THIS run are not comparable with the recorded ones.")
+        tw.line()
+        return
+    if not flagged:
+        # Nothing collected belongs to the measured set, so -- by measurement --
+        # the guard cannot have broken this particular run. Aborting here would
+        # be a false alarm that blocks e.g. running one file on a guarded box.
+        warnings.warn(SAFE_DELETE_PRECONDITION_INAPPLICABLE, stacklevel=2)
+        return
+    raise pytest.UsageError(
+        SAFE_DELETE_PRECONDITION + f"\n\n{len(flagged)} of the collected tests are "
+        "in the measured set that this environment cannot run:\n"
+        + "\n".join(f"  - {Path(str(item.fspath)).name}::{item.name}"
+                    for item in flagged)
+        + "\n\nRe-run with CODEBUDDY_SAFE_DELETE_ENABLED=0. "
+        "JCC_PYTEST_ALLOW_DIRTY_ENV=1 deliberately overrides this and reports the "
+        "raw errors instead."
+    )
 
 
 def pytest_configure(config) -> None:
