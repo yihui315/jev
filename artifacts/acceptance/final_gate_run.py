@@ -268,14 +268,21 @@ def check_adapters(g: Gate, collected: set) -> None:
 # D. Windows scripts -- all must PASS
 # ---------------------------------------------------------------------------
 
+# NOTE: the path is passed via an ENV var ($env:JCC_PS_PATH), not as a positional
+# $args element. Two reasons: (1) on this Chinese-locale Windows, PowerShell emits
+# output in a non-UTF-8 codepage and forward-slash paths make
+# Parser::ParseFile report "path argument value is invalid" (a false parse failure);
+# (2) reading $env:JCC_PS_PATH survives quoting/encoding entirely. Output is captured
+# as BYTES and decoded with errors='replace' so a non-UTF-8 codepage can never make
+# subprocess.run return stdout=None and crash the gate (see 2026-09-25 fix).
 PS_PARSE = (
     "$ErrorActionPreference='Stop';"
     "$e=$null;"
-    "$t=[System.Management.Automation.Language.Parser]::ParseFile($args[0],[ref]$null,[ref]$e);"
+    "$t=[System.Management.Automation.Language.Parser]::ParseFile($env:JCC_PS_PATH,[ref]$null,[ref]$e);"
     "if($e -and $e.Count -gt 0){ "
     "  $e | Select-Object -First 3 | ForEach-Object { Write-Output ('ERR: ' + $_.Message) }; "
     "  exit 3 } else { Write-Output ('PARSE_OK ' + $t.GetType().Name) }"
-)
+    )
 
 
 def check_windows_scripts(g: Gate) -> None:
@@ -287,10 +294,13 @@ def check_windows_scripts(g: Gate) -> None:
             g.missing(cid, f"{_rel(path)} does not exist")
             continue
         try:
-            out = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", PS_PARSE, str(path)],
-                capture_output=True, text=True, timeout=120,
-            ).stdout.strip()
+            env = dict(os.environ)
+            env["JCC_PS_PATH"] = str(path).replace("/", "\\")
+            proc = subprocess.run(
+                ["powershell", "-NoProfile", "-NonInteractive", "-Command", PS_PARSE],
+                capture_output=True, timeout=120, env=env,
+            )
+            out = (proc.stdout or b"").decode("utf-8", "replace").strip()
         except (OSError, subprocess.SubprocessError) as exc:
             g.fail(cid, f"could not parse {name} (environment error): {exc}")
             continue
