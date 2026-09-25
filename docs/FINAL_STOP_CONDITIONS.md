@@ -146,6 +146,25 @@ which pressures a leg's author toward the only string that passes. Accepting the
 family is only safe if the hedge earns its word: a `GO WITH CONDITIONS` that
 names no conditions is a plain GO wearing a softer word, and that is refused.
 
+### What the three legs actually signed
+
+Kept separate from the required state above, so the two cannot be confused. A leg
+may legitimately be NO-GO while its fix is still in flight, and a table that shows
+the requirement as the current state is how a release ends up describing a gate
+that never ran. This table is that mistake, corrected.
+
+| ID | Leg | Signed verdict | Signed at (`release_sha`) | Artifact |
+| --- | --- | --- | --- | --- |
+| E-05 | architecture | `GO WITH CONDITIONS` | `df3e7d91ac274d9…` | `artifacts/acceptance/final_architecture_go.json` |
+| E-06 | security | `GO` | `df3e7d91ac274d9…` | `artifacts/acceptance/final_security_go.json` |
+| E-07 | sre | **NO-GO** | `7c94abb8e784…` | `artifacts/acceptance/final_sre_go.json` |
+
+E-07 is not a pass. Its first condition is STOP SHIP: `scripts/start.ps1` cannot
+start the service on the engine this release supports. Repairing `scripts/` does
+not invalidate a leg signed at the freeze, because `scripts/` is a release-
+evidence prefix — so the repair is cheap and is being done rather than negotiated
+down to a softer word.
+
 ### How the freeze is identified (do not just read the constant)
 
 `RELEASE_FREEZE` in the gate is `df3e7d9…`. That value was derived, not
