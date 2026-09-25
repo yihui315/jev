@@ -22,7 +22,11 @@ from jcc_core import decision
 from jcc_core.schemas import AgentName, Assessment, DirectiveAction
 from jcc_core.signing import DirectiveSigner
 from jcc_core.state_store import StateStore
-from supervisor.budget import COST_UNITS, BudgetGovernor, BudgetLimits, CODE_COST_UNITS
+from supervisor.budget import (
+    COST_UNITS, BudgetGovernor, BudgetLimits, CODE_ASSESS_CALLS, CODE_COST_UNITS,
+    CODE_DIRECTIVES, CODE_ESCALATIONS, CODE_EVENTS, CODE_RATE, CODE_RETRIES,
+    CODE_SCORER_TOKENS, CODE_WALL_CLOCK, WAIVED_DIMENSIONS,
+)
 from supervisor.ports import ShadowActuationPort
 from supervisor.sentinel import BlockerCode, Sentinel
 
@@ -343,23 +347,131 @@ def test_a_directive_is_never_charged_twice(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# #75(b) — a dimension is either LIVE or LABELED INERT, never a silent 0.0
+# #75(b), uniform waiver — ONE enforced dimension set in EVERY counter-source mode
 # --------------------------------------------------------------------------- #
-def test_scorer_tokens_is_labelled_inert_against_a_store(tmp_path):
-    """#75b: the waived dimension says so; it does not masquerade as healthy."""
-    store = _store(tmp_path)
-    gov = BudgetGovernor(BudgetLimits(), store=store)
+class _TokenBearingStore:
+    """An adversarial counter source that DOES report token usage.
 
-    assert gov._scorer_tokens_inert() is True
-    assert gov.snapshot("s-1").scorer_tokens_inert is True
-    assert gov.check("s-1", kind="directive").snapshot.scorer_tokens_inert is True
+    This is not a stand-in for ``StateStore`` (§6 no-lying-fake rule): it exposes
+    exactly the one surface the governor reads, and it is built to prove the
+    waiver does not depend on the counter source's abilities. A waiver that
+    resurrects on a store capable of reporting tokens would be a POLICY THAT
+    DEPENDS ON THE WIRING, which is the defect being closed.
+    """
+
+    def __init__(self, tokens: float):
+        self._tokens = tokens
+
+    def budget_snapshot(self, session_id: str) -> dict:
+        return {
+            "assessments_used": 0.0, "model_units_used": self._tokens,
+            "events_used": 0.0, "directives_used": 0.0, "retries_used": 0.0,
+            "escalations_used": 0.0, "cost_units_used": 0.0, "rate_used": 0.0,
+            "first_seen": 0.0,
+        }
 
 
-def test_scorer_tokens_is_live_against_the_in_memory_ledger():
-    """Against the ledger ``commit`` fills ``model_units_used``, so it CAN fire."""
-    gov = BudgetGovernor(BudgetLimits(scorer_tokens=5.0), store=None)
-    assert gov._scorer_tokens_inert() is False
-    assert gov.snapshot("s").scorer_tokens_inert is False
+def test_the_enforced_dimension_set_is_identical_across_counter_sources(tmp_path):
+    """#75b: ledger / real store / token-bearing store — same enforced set.
+
+    Pre-ruling the set depended on the wiring: the in-memory ledger let
+    ``scorer_tokens`` fire (``commit`` filled ``model_units_used``) while the
+    store-backed governor — the one ``run.py`` actually ships — could never fire
+    it. So production policed FEWER ceilings than the harness that tests it, and
+    which ceiling you had was decided by a constructor argument nobody reads.
+    """
+    ledger = BudgetGovernor(BudgetLimits(), store=None, clock=lambda: 0.0)
+    real = BudgetGovernor(BudgetLimits(), store=_store(tmp_path), clock=lambda: 0.0)
+    tokens = BudgetGovernor(BudgetLimits(scorer_tokens=1.0),
+                            store=_TokenBearingStore(1_000_000.0), clock=lambda: 0.0)
+
+    sets = {ledger.enforced_dimensions(), real.enforced_dimensions(),
+            tokens.enforced_dimensions()}
+    assert len(sets) == 1, f"the enforced set is deployment-dependent: {sets}"
+    enforced = sets.pop()
+
+    assert CODE_SCORER_TOKENS not in enforced
+    # Non-vacuous: it is the FULL live set, not an empty one that is trivially
+    # equal across modes. This is the mirror of jcc_core's 8-dimension matrix.
+    assert enforced == (
+        CODE_ASSESS_CALLS, CODE_EVENTS, CODE_DIRECTIVES, CODE_RETRIES,
+        CODE_ESCALATIONS, CODE_WALL_CLOCK, CODE_COST_UNITS, CODE_RATE,
+    )
+
+    # The waiver is not a store-capability check: a source that CAN report tokens
+    # does not get the dimension back — 1,000,000 observed against a limit of 1.0.
+    d = tokens.check("s", kind="none")
+    assert d.code != CODE_SCORER_TOKENS, "the waived dimension came back into play"
+    assert d.code is None, f"something else fired: {d.code}"
+    assert d.snapshot.model_units_used == 1_000_000.0, "the counter is still REPORTED"
+
+
+def test_a_waived_dimension_cannot_enter_the_code_even_when_the_limit_is_blown():
+    """Exclusion is by CONSTRUCTION, not by the counter happening to read 0.0.
+
+    A waived ceiling must survive a limit the projection always exceeds (a
+    negative one), otherwise the exemption is really just "0.0 > limit is False"
+    and it silently re-arms the moment anything is reported.
+    """
+    for gov in (
+        BudgetGovernor(BudgetLimits(scorer_tokens=-1.0), store=None, clock=lambda: 0.0),
+        BudgetGovernor(BudgetLimits(scorer_tokens=-1.0),
+                       store=_TokenBearingStore(1_000_000.0), clock=lambda: 0.0),
+    ):
+        gov.commit("s", kind="assessment", units=5.0)
+        snapped = gov.snapshot("s")
+        assert snapped.exhausted_code != CODE_SCORER_TOKENS, snapped
+        assert gov.check("s", kind="assessment", units=0.0).code != CODE_SCORER_TOKENS
+        # and it is still the ONLY thing violated, so nothing masked the refusal
+        assert snapped.exhausted_code is None
+        assert gov.check("s", kind="none").allowed is True, (
+            "the waived dimension is leaking into the decision"
+        )
+
+
+def test_the_enforced_set_is_not_vacuously_empty_in_either_mode(tmp_path):
+    """The waiver must not have quietly disabled the dimensions that stay.
+
+    Same governor shape in both modes, with a ``scorer_tokens`` limit that is
+    already blown so the waived code would win by CHECK ORDER if it were still
+    enforced. Both modes must answer with the LIVE code instead.
+    """
+    limits = BudgetLimits(directives=0, scorer_tokens=-1.0)
+    ledger = BudgetGovernor(limits, store=None, clock=lambda: 0.0)
+    assert ledger.enforced_dimensions()
+    assert ledger.check("s", kind="directive").code == CODE_DIRECTIVES, (
+        "in-memory mode stopped enforcing directives — the waiver overreached"
+    )
+
+    store = BudgetGovernor(limits, store=_store(tmp_path), clock=lambda: 0.0)
+    assert store.enforced_dimensions()
+    assert store.check("s", kind="directive").code == CODE_DIRECTIVES, (
+        "store-backed mode stopped enforcing directives — the waiver overreached"
+    )
+
+
+def test_the_waiver_is_published_on_every_snapshot_surface(tmp_path):
+    """#75b: name the non-enforced ceilings, on each surface that reports one."""
+
+    class _ExplodingStore:
+        def budget_snapshot(self, session_id):
+            raise RuntimeError("store is gone")
+
+    for gov in (
+        BudgetGovernor(BudgetLimits(), store=None, clock=lambda: 0.0),
+        BudgetGovernor(BudgetLimits(), store=_store(tmp_path), clock=lambda: 0.0),
+        BudgetGovernor(BudgetLimits(), store=_ExplodingStore(), clock=lambda: 0.0),
+    ):
+        assert gov.snapshot("s").waived_dimensions == WAIVED_DIMENSIONS
+        assert gov.check("s", kind="none").snapshot.waived_dimensions == WAIVED_DIMENSIONS
+    # the surfaces that saw an unreadable counter still name the waiver
+    assert WAIVED_DIMENSIONS == (CODE_SCORER_TOKENS,)
+    assert gov.snapshot("s").exhausted_code == "budget_check_error"
+
+    # and the published waiver is CONSULTABLE, by code, not just by eye
+    snap = BudgetGovernor(BudgetLimits(), store=None, clock=lambda: 0.0).snapshot("s")
+    assert snap.is_enforced(CODE_SCORER_TOKENS) is False
+    assert snap.is_enforced(CODE_DIRECTIVES) is True
 
 
 def test_cost_units_is_published_not_left_at_zero(tmp_path):

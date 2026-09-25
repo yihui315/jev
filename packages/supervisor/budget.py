@@ -21,12 +21,18 @@ Fail-closed rules (all from D-34):
   pre-decision gate cannot be blind to cost (D-5: an unpriced pre-check is what
   made the ``cost_units`` ceiling decorative). It never "looks up a cost and
   finds nothing, so treats it as 0" — that branch does not exist here.
-* A dimension is REPORTED, never left at a silent 0.0: a dimension pinned at 0.0
-  is what makes a ceiling *look* dead. ``cost_units_used`` is published on the
-  snapshot; ``scorer_tokens`` has no persisted column and is therefore INERT
-  against a store-backed governor (``StateStore.budget_snapshot`` says so), so
-  it is LABELLED ``scorer_tokens_inert`` instead of masquerading as "0 of 200000,
-  healthy" (#75b).
+* There are NO deployment-dependent ceilings (#75b, lead ruling). ``scorer_tokens``
+  is WAIVED — statically, in EVERY counter-source mode — because no persisted
+  column carries token usage, so under D-34 (counters are DERIVED from persisted
+  state) it cannot be derived through the store. The waiver is a property of the
+  DIMENSION, not of whether a store happens to be wired: if it depended on the
+  wiring, the shipped (store-backed) configuration would enforce a *smaller* set
+  of ceilings than the unit harness exercises — a fail-open asymmetry decided by
+  an invisible deployment detail. A waived dimension is EXCLUDED from the
+  evaluated set (``_ENFORCED_DIMENSIONS``), can never enter ``exhausted_code``
+  (not even when the counter source reports a non-zero ``model_units_used``), and
+  is PUBLISHED through ``BudgetSnapshot.waived_dimensions`` — a reader is told
+  which ceiling is not being enforced rather than seeing "0 of 200000, healthy".
 * There is **no** ``budget.enabled`` off-switch. A flippable off-switch is how a
   budget becomes decorative.
 """
@@ -107,6 +113,16 @@ CODE_COST_UNITS = "cost_units"
 CODE_RATE = "directives_per_minute"
 CODE_CHECK_ERROR = "budget_check_error"
 
+#: Dimensions this plane does NOT enforce, unconditionally (#75b lead ruling).
+#: ``scorer_tokens`` observes ``model_units_used`` and no persisted column carries
+#: token usage, so under D-34 the store cannot derive it. That makes the waiver a
+#: property of the DIMENSION and never of the counter source — see the module
+#: docstring: the shipped wiring must not police a smaller set of ceilings than
+#: the harness that tests it. Defined before ``BudgetSnapshot`` because the
+#: snapshot publishes it (a dataclass field default is evaluated at class-body
+#: time, which is how an ordering mistake here would surface).
+WAIVED_DIMENSIONS: Tuple[str, ...] = (CODE_SCORER_TOKENS,)
+
 
 class BudgetExhausted(Exception):
     """Raised only where callers opt into exceptions; ``check`` returns instead."""
@@ -140,15 +156,20 @@ class BudgetSnapshot:
     model_units_used: float
     limits: BudgetLimits
     exhausted_code: Optional[str] = None
-    # -- #75b: a dimension is either LIVE or LABELED INERT. A bare 0.0 is the
-    # one reading that cannot be told apart from "0 used, ceiling healthy", and
-    # a run of those is exactly what makes a ceiling look like decoration.
+    # -- #75b: publish the WAIVERS, not a bare 0.0. A dimension pinned at 0.0 is
+    # the one reading that cannot be told apart from "0 used, ceiling healthy",
+    # and a run of those is exactly what makes a ceiling look like decoration.
+    # So the snapshot names the ceilings that are NOT being enforced.
     cost_units_used: float = 0.0
-    scorer_tokens_inert: bool = False
+    waived_dimensions: Tuple[str, ...] = WAIVED_DIMENSIONS
 
     @property
     def healthy(self) -> bool:
         return self.exhausted_code is None
+
+    def is_enforced(self, code: str) -> bool:
+        """Whether ``code`` actually participates in the ceiling evaluation."""
+        return code not in WAIVED_DIMENSIONS
 
 
 @dataclass(frozen=True)
@@ -162,6 +183,12 @@ class BudgetDecision:
 _CHECK_ORDER: Tuple[str, ...] = (
     CODE_ASSESS_CALLS, CODE_SCORER_TOKENS, CODE_EVENTS, CODE_DIRECTIVES,
     CODE_RETRIES, CODE_ESCALATIONS, CODE_WALL_CLOCK, CODE_COST_UNITS, CODE_RATE,
+)
+
+#: The set ``check``/``snapshot`` actually evaluate. Derived from the SAME waiver
+#: set in both counter-source modes, so the two configurations cannot disagree.
+_ENFORCED_DIMENSIONS: Tuple[str, ...] = tuple(
+    code for code in _CHECK_ORDER if code not in WAIVED_DIMENSIONS
 )
 
 
@@ -266,7 +293,7 @@ class BudgetGovernor:
             snap = BudgetSnapshot(
                 assessments_used=0, directives_used=0, rate_used=0,
                 model_units_used=0.0, limits=self.limits, exhausted_code=CODE_CHECK_ERROR,
-                cost_units_used=0.0, scorer_tokens_inert=self._scorer_tokens_inert(),
+                cost_units_used=0.0, waived_dimensions=WAIVED_DIMENSIONS,
             )
             return BudgetDecision(allowed=False, code=CODE_CHECK_ERROR, snapshot=snap)
 
@@ -280,21 +307,21 @@ class BudgetGovernor:
             limits=self.limits,
             exhausted_code=exhausted,
             cost_units_used=float(counters.get("cost_units_used", 0.0)),
-            scorer_tokens_inert=self._scorer_tokens_inert(),
+            waived_dimensions=WAIVED_DIMENSIONS,
         )
         return BudgetDecision(allowed=exhausted is None, code=exhausted, snapshot=snap)
 
-    def _scorer_tokens_inert(self) -> bool:
-        """True iff ``scorer_tokens`` CANNOT fire for this governor's counters.
+    def enforced_dimensions(self) -> Tuple[str, ...]:
+        """The dimensions this governor evaluates — identical for every counter
+        source (ledger, store-backed, or a store that reports anything at all).
 
-        Against the in-memory ledger ``commit`` fills ``model_units_used``, so the
-        dimension is live. Against a store the value is whatever the store
-        derives, and ``StateStore.budget_snapshot`` reports ``model_units_used``
-        as a hard 0.0 because no persisted column carries scorer token usage.
-        That is a WAIVED dimension, not a broken one — so it is labelled, never
-        left to read like "0 of 200000, healthy" (#75b).
+        Exposed read-only so the waiver is INSPECTABLE rather than an accident of
+        which constructor argument happened to be passed: a test can build the
+        same governor against three different sources and assert the sets are
+        equal, which is the only way to keep the two configurations from drifting
+        apart again (#75b).
         """
-        return self.store is not None and hasattr(self.store, "budget_snapshot")
+        return _ENFORCED_DIMENSIONS
 
     def _observed(self, counters: Dict[str, float], kind: str, units: int,
                   action: Optional[DirectiveAction] = None) -> Dict[str, float]:
@@ -306,6 +333,8 @@ class BudgetGovernor:
         elapsed = self._clock() - float(counters.get("first_seen", self._clock()))
         return {
             CODE_ASSESS_CALLS: counters.get("assessments_used", 0) + (1 if kind == "assessment" else 0),
+            # Waived: projected for reporting (``BudgetSnapshot.model_units_used``)
+            # but excluded from the evaluation — see _ENFORCED_DIMENSIONS.
             CODE_SCORER_TOKENS: counters.get("model_units_used", 0.0),
             CODE_EVENTS: counters.get("events_used", 0.0),
             CODE_DIRECTIVES: counters.get("directives_used", 0) + (1 if kind == "directive" else 0),
@@ -319,7 +348,15 @@ class BudgetGovernor:
         }
 
     def _first_exhausted(self, observed: Dict[str, float]) -> Optional[str]:
-        for code in _CHECK_ORDER:
+        """First violated dimension, or ``None``.
+
+        Iterates ``_ENFORCED_DIMENSIONS`` only, so a waived ceiling cannot reach
+        the caller through any route: not by its counter being 0.0, and not by
+        the limit being set to something the counter would exceed (a negative or
+        zero limit would otherwise trip it). Excluded by construction, in both
+        counter-source modes.
+        """
+        for code in _ENFORCED_DIMENSIONS:
             limit = getattr(self.limits, code)
             if float(observed.get(code, 0.0)) > float(limit):
                 return code
@@ -415,12 +452,12 @@ class BudgetGovernor:
                 limits=self.limits,
                 exhausted_code=code,
                 cost_units_used=float(counters.get("cost_units_used", 0.0)),
-                scorer_tokens_inert=self._scorer_tokens_inert(),
+                waived_dimensions=WAIVED_DIMENSIONS,
             )
         except Exception:  # noqa: BLE001
             return BudgetSnapshot(
                 0, 0, 0, 0.0, self.limits, CODE_CHECK_ERROR,
-                scorer_tokens_inert=self._scorer_tokens_inert(),
+                waived_dimensions=WAIVED_DIMENSIONS,
             )
 
     # -- AssessmentBudgetGuard shim (jcc_core.ports) -------------------------
