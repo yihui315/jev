@@ -310,7 +310,13 @@ class Sentinel:
         # pure read (it reserves nothing), and ``commit`` below is the single
         # writer of ``cost_units_used``. One issued directive => exactly one
         # charge here, whatever path produced the ESCALATE.
-        self.budget.commit(session_id, kind="directive", units=0, action=action)
+        #
+        # ``directive=`` is what makes the charge DURABLE against a store-backed
+        # governor: the store derives the counters from its own ``directives``
+        # rows, so charging without persisting the directive would be charging
+        # against a counter we do not control (see ``_persist_directive``).
+        self.budget.commit(session_id, kind="directive", units=0, action=action,
+                           directive=directive)
 
         # 5) Record (hash-chained).
         decision = self._record(

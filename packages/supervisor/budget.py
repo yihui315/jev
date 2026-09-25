@@ -38,7 +38,7 @@ from dataclasses import dataclass
 from typing import Any, Callable, Dict, Optional, Tuple
 
 from jcc_core.policy import COST_UNITS_PER_ACTION
-from jcc_core.schemas import DirectiveAction
+from jcc_core.schemas import Directive, DirectiveAction
 
 log = logging.getLogger("jcc.supervisor.budget")
 
@@ -327,8 +327,12 @@ class BudgetGovernor:
 
     # -- mutation ------------------------------------------------------------
     def commit(self, session_id: str, units: int = 0, *, kind: Optional[str] = None,
-               action: Optional[DirectiveAction] = None) -> BudgetSnapshot:
+               action: Optional[DirectiveAction] = None,
+               directive: Optional[Directive] = None) -> BudgetSnapshot:
         """Record a completed step. Returns the post-commit snapshot.
+
+        ``directive`` is the full issued ``Directive``; it is required whenever a
+        store is wired (see ``_persist_directive``).
 
         Also satisfies ``jcc_core.ports.AssessmentBudgetGuard.commit`` (which is
         called with ``(session_id, units)`` and ignores the return value).
@@ -355,8 +359,49 @@ class BudgetGovernor:
                 row["retries_used"] += 1
             if action is DirectiveAction.ESCALATE:
                 row["escalations_used"] += 1
+            self._persist_directive(session_id, directive)
         row["cost_units_used"] += float(units)
         return self.snapshot(session_id)
+
+    def _persist_directive(self, session_id: str,
+                           directive: Optional[Directive]) -> None:
+        """Make the charge DURABLE when the counters are store-derived (D-34).
+
+        With a store wired, ``_counters`` reads the counters from
+        ``store.budget_snapshot(session_id)`` and the ledger is never consulted —
+        which means a plain ledger write was a no-op against the numbers that
+        actually govern. Worse, the store derives ``cost_units_used``,
+        ``directives_used``, ``retries_used``, ``escalations_used`` and
+        ``rate_used`` from the ``directives`` TABLE, and nothing in the supervisor
+        plane ever wrote to it: every one of those dimensions read 0.0 forever and
+        the ceilings could not fire in production no matter what ``check`` priced.
+
+        So the commit that charges a directive has to persist the directive. This
+        uses the store's PUBLIC ``add_directive`` (same surface class as
+        ``transaction()``/``budget_snapshot``) — not a private connection, and no
+        hand-rolled SQL against the store's schema.
+
+        If the store cannot be written, the charge CANNOT be made durable and this
+        RAISES rather than silently accounting against nothing. Charging against a
+        counter source we do not control is the #54 defect ("records nothing")
+        wearing a budget costume.
+        """
+        if self.store is None or not hasattr(self.store, "budget_snapshot"):
+            return  # the in-memory ledger IS the counter source; nothing to persist
+        adder = getattr(self.store, "add_directive", None)
+        if not callable(adder):
+            raise RuntimeError(
+                f"store {type(self.store).__name__} derives budget counters but "
+                "exposes no add_directive(); the cost charge could not be made "
+                "durable, so it is NOT being recorded"
+            )
+        if directive is None:
+            raise RuntimeError(
+                "a store-backed budget commit for a directive needs the issued "
+                "Directive to persist the charge; refusing to charge against a "
+                "counter source this governor does not control"
+            )
+        adder(directive)
 
     def snapshot(self, session_id: str) -> BudgetSnapshot:
         try:

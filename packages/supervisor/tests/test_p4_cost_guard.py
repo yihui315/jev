@@ -14,6 +14,8 @@ boundary.
 """
 from __future__ import annotations
 
+import time
+
 import pytest
 
 from jcc_core import decision
@@ -237,6 +239,87 @@ def test_the_priced_gate_is_load_bearing(tmp_path):
         "the blind gate did NOT overshoot — the falsifier above would pass even "
         "without the #73 fix (it would be vacuous)"
     )
+
+
+def test_the_ceiling_also_fires_when_the_real_store_derives_the_counters(tmp_path):
+    """#73 against the PRODUCTION counter path (D-34), not just the in-memory ledger.
+
+    ``run.py`` builds the governor with ``store=``, and a store-backed governor
+    reads every counter from ``StateStore.budget_snapshot`` — which derives them
+    from the ``directives`` TABLE. Until the commit that charges a directive also
+    PERSISTED it (``store.add_directive``), that table stayed empty, so
+    ``cost_units_used`` read 0.0 forever and the ceiling could not fire in
+    production no matter what the priced gate computed. The tests above all use
+    the ledger, which is exactly how that stayed invisible.
+
+    This is the same shape as the #54 "records nothing" defect: a green
+    in-memory suite over a dead production path.
+    """
+    store = _store(tmp_path)
+    WIDE = dict(
+        directives=10_000, escalations=10_000, retries=10_000, assess_calls=10_000,
+        events=10_000, directives_per_minute=10_000, wall_clock_s=10_000.0,
+    )
+    gov = BudgetGovernor(BudgetLimits(cost_units=10.0, **WIDE), store=store,
+                         clock=time.time)
+    s = Sentinel(
+        store,
+        signer=DirectiveSigner(b"k" * 16),
+        budget=gov,
+        dispatch_port=ShadowActuationPort(),
+        thresholds=decision.ThresholdsConfig(),
+        clock=time.time,
+    )
+
+    fired_at, cost = None, []
+    with store.connection() as conn:
+        conn.execute("INSERT INTO sessions (session_id, created_at) VALUES ('s-1', ?)",
+                     (time.time(),))
+        conn.commit()
+
+    for i in range(14):
+        d = s.arbitrate_and_record(
+            assessment=_assessment(), event_id=f"p{i}", agent="generic"
+        )
+        cost.append(gov.snapshot("s-1").cost_units_used)
+        if d.blocker_code == BlockerCode.BUDGET_EXHAUSTED.value and fired_at is None:
+            fired_at = i
+
+    assert fired_at is not None, (
+        "the ceiling still does not fire with a store-backed governor: the charge "
+        "is not reaching the persisted counter source"
+    )
+    assert fired_at == 10, f"store-backed ceiling fired at {fired_at}, expected 10"
+    assert all(b >= a for a, b in zip(cost, cost[1:])), cost
+    assert max(cost[:fired_at]) <= 10.0, cost
+
+    # non-vacuity: the directive rows landed in the STORE, and the DERIVED cost
+    # reads back off that table rather than off any in-memory ledger.
+    with store.connection() as conn:
+        n = conn.execute(
+            "SELECT COUNT(*) FROM directives WHERE session_id='s-1'"
+        ).fetchone()[0]
+    # 10 FINISH @ 1.0 before the refusal, then 4 ESCALATE @ 10.0 (the refusal plus
+    # the three after it, which stay budget-refused). Independent of the table.
+    assert n == 14, f"expected all 14 issued directives persisted, found {n}"
+    expected_cost = (sum(COST_UNITS[DirectiveAction.FINISH] for _ in range(fired_at))
+                     + sum(COST_UNITS[DirectiveAction.ESCALATE]
+                           for _ in range(14 - fired_at)))
+    assert gov.snapshot("s-1").cost_units_used == pytest.approx(expected_cost), (
+        "the store-derived cost does not match the persisted directive rows"
+    )
+
+
+def test_a_store_that_cannot_be_written_refuses_the_charge(tmp_path):
+    """A store that derives counters but cannot persist them must NOT be charged."""
+
+    class _ReadOnlyStore(StateStore):
+        add_directive = None  # attribute present, not callable
+
+    gov = BudgetGovernor(BudgetLimits(cost_units=10.0), store=_ReadOnlyStore(str(tmp_path / "jcc.db")))
+    with pytest.raises(RuntimeError, match="add_directive"):
+        gov.commit("s", kind="directive", action=DirectiveAction.FINISH,
+                   directive=object())
 
 
 def test_a_directive_is_never_charged_twice(tmp_path):
