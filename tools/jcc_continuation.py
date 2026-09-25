@@ -707,7 +707,9 @@ def run_state_machine(state: dict, once: bool = False) -> dict:
                 log("PROJECT_COMPLETE=true")
                 break
 
-            if once:
+            # `--once` means "run the pipeline to completion in this invocation,
+            # without the idle poll loop". It does NOT mean "run one step".
+            if once and state.get("current_step") == S_COMPLETE:
                 break
 
             if time.time() > deadline_total:
