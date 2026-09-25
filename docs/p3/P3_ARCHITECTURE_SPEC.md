@@ -569,6 +569,15 @@ Lead-authorized **contract-recording only**; **no new decision**. Mirrors the *A
 
 Lead-authorized **errata only** (the *Round-6 pattern*). These reconcile text frozen in D-1…D-41 with observed behaviour; **no new decision**. Mirrors the *Errata* table in ADR-0008 (E-1…E-4); **E-5 is spec-only** (the ADR is untouched — D-2/D-7 normalise, nothing in D-1…D-41 changes).
 
+**Line citations are pinned to a commit, not to a file.** Every `server.py` / `core.py` line number in
+this table was re-derived item by item in task #72 (C2) against the committed tree
+`packages/jcc_core/server.py` at **`a59fb96`** — and `server.py` is byte-unchanged between `9972288`
+and `41b9f7f`, so that basis also covers `9972288`. A line number is a property of a *commit*: the
+working tree during that refresh already carried an uncommitted `+31` line change to `server.py`
+(P4 #77.1 / #77.2 — `OPEN_GET_ENDPOINTS` plus the loopback-only docstring), which will shift every
+row again as soon as it lands. **When a citation stops matching, check the commit before concluding
+that the code regressed** — and prefer refreshing the row over reasoning from a stale number.
+
 | # | Item | Decision | Where in this spec |
 |---|---|---|---|
 | **E-1** two distinct dispatch **ports** carry two distinct **reason strings** (`shadow_mode` engine `actuator.py:74` / `shadow_no_actuation` Sentinel `supervisor/ports.py:24`), each pinned — **declared, not unified** | D-3 / D-27 / D-41 | §2.7, §6.3 (`test_seam_is_single_site`) |
