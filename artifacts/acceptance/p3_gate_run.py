@@ -18,6 +18,10 @@ the #39 full-suite freeze; it is off by default so this stays the P3 gate).
 Gate rules enforced here (not merely reported):
   * failed == 0 AND errors == 0 AND **skipped == 0** (a skip is a gate FAILURE).
   * every §5 A-row and every D-40 row must be PASSED.
+  * the per-test parse must RECONCILE with pytest's own final tally. `counts` is
+    derived from a regex over `pytest -v` lines; a regex gap under-counts silently
+    and can hide a FAILED (a node id containing spaces did exactly that — see
+    `_STATUS_RE`). Any parse/tally disagreement is fatal.
 
 Environment (MEASURED on this host; two earlier advices superseded):
   * ``TEMP``/``TMP`` alone does NOT fix tmp_path setup errors — pytest's basetemp
@@ -70,11 +74,66 @@ P3_SUITES = [
     "supervisor/tests",
 ]
 
+#: One `pytest -v` result line: ``<nodeid> <STATUS> [ NN%]``.
+#:
+#: The node id is ``\S.*?`` and NOT ``\S+``: 10 tests in this tree are parametrized
+#: with ids that CONTAIN SPACES (e.g. ``test_codex_notify_restore_is_byte_exact[
+#: model = "x"\nnotify = [ "a.exe" ]]``, ``test_secret_values_are_masked[curl -u
+#: alice:s3cr3tpw …]``). With ``\S+`` those lines failed to match and were SILENTLY
+#: DROPPED from the totals — an under-count, and worse, a FAILED line for such a
+#: test would have been dropped too, letting ``failed == 0`` hold while a test
+#: failed. That is a fail-open parse hole of the same class as F-2 (vacuity).
+#:
+#: Anchoring the line END on the ``[ NN%]`` progress marker (which only pytest's
+#: own result lines carry) is what keeps this precise while allowing spaces: the
+#: runner's own ``[gate] … PASSED`` prose lines cannot match.
 _STATUS_RE = re.compile(
-    r"^(?P<node>\S+::\S+)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b"
+    r"^(?P<node>\S.*?)\s+(?P<status>PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)"
+    r"\s+\[\s*\d+%\]\s*$"
 )
 _A_RE = re.compile(r"::test_A(\d+)_")
 _D40_RE = re.compile(r"::test_D40([a-e]?)_?")
+
+#: pytest's own tally line, e.g.
+#: ``==== 349 passed, 2 warnings in 161.49s (0:02:41) ====``.
+#: Parsed only to RECONCILE against the per-test parse above: if the two disagree,
+#: the parse is incomplete and the gate must fail loudly instead of under-reporting.
+_SUMMARY_RE = re.compile(
+    r"(?P<n>\d+)\s+(?P<kind>passed|failed|errors?|skipped|xfailed|xpassed)\b"
+)
+_SUMMARY_KINDS = {
+    "passed": "PASSED", "failed": "FAILED", "error": "ERROR", "errors": "ERROR",
+    "skipped": "SKIPPED", "xfailed": "XFAIL", "xpassed": "XPASS",
+}
+
+
+def _pytest_summary_counts(out: str) -> dict[str, str | int] | None:
+    """Counts from pytest's OWN final tally line, or ``None`` if it was not emitted.
+
+    Used only to cross-check the per-test parse. Returns a dict of
+    ``{STATUS: count}``; a non-tally line is never accepted.
+    """
+    def _from_line(stripped: str) -> dict[str, int] | None:
+        found: dict[str, int] = {}
+        for m in _SUMMARY_RE.finditer(stripped):
+            found[_SUMMARY_KINDS[m.group("kind")]] = int(m.group("n"))
+        return found or None
+
+    lines = out.splitlines()
+    for line in reversed(lines):
+        stripped = line.strip()
+        if stripped.startswith("="):
+            got = _from_line(stripped)
+            if got:
+                return got
+    # Fallback: a pytest-style tally anywhere (e.g. wrapped output).
+    for line in reversed(lines):
+        stripped = line.strip()
+        if " in " in stripped and "passed" in stripped:
+            got = _from_line(stripped)
+            if got:
+                return got
+    return None
 
 #: DELIBERATELY EMPTY. No failure is absorbed or reclassified.
 #: (Earlier this map labelled two budget failures "known-pending"; the lead ruled
@@ -162,6 +221,33 @@ def main(argv: list[str]) -> int:
     for status in results.values():
         counts[status] = counts.get(status, 0) + 1
 
+    # ---- parse reconciliation (lead, freeze-time finding) -------------------
+    # `counts` is derived from OUR regex over pytest's per-test lines. A regex gap
+    # under-counts silently, and can hide a FAILED whose node id did not match --
+    # i.e. `failed == 0` while a test actually failed. Cross-check the parse against
+    # pytest's own tally and treat ANY disagreement as fatal.
+    summary = _pytest_summary_counts(out)
+    parse_mismatch: list[str] = []
+    if summary is None:
+        parse_mismatch.append(
+            "pytest emitted no final tally line -> the per-test parse cannot be "
+            "reconciled (output truncated, crash before the summary, or run aborted)"
+        )
+    else:
+        parsed_total = sum(counts.values())
+        summary_total = sum(int(v) for v in summary.values())
+        if parsed_total != summary_total:
+            parse_mismatch.append(
+                f"PARSE INCOMPLETE: matched {parsed_total} result lines but pytest "
+                f"reported {summary_total} ({summary}) -> _STATUS_RE missed some lines"
+            )
+        for kind, n in sorted(summary.items()):
+            if counts.get(kind, 0) != int(n):
+                parse_mismatch.append(
+                    f"parse/pytest disagree on {kind}: parsed "
+                    f"{counts.get(kind, 0)} vs pytest {n}"
+                )
+
     a_rows = {}
     d40_rows = {}
     for node, status in sorted(results.items()):
@@ -193,6 +279,7 @@ def main(argv: list[str]) -> int:
     # so ANY of these would silently yield ok=True and GATE=PASS on zero executed
     # tests. That is the same vacuous-pass class as #54. Each is now fatal.
     vacuity: list[str] = []
+    vacuity.extend(parse_mismatch)
 
     if not results:
         vacuity.append("no test results were parsed at all (pytest emitted nothing "
@@ -251,9 +338,11 @@ def main(argv: list[str]) -> int:
         "head": _git(["rev-parse", "HEAD"]),
         "dirty": bool(_git(["status", "--porcelain"])),
         "basetemp": str(tmp_dir),
-        "basetemp_note": ("explicit --basetemp overrides conftest's forced "
-                          "F:\\jev\\runtime\\pytest-tmp (non-exempt); workaround "
-                          "until the conftest fix lands"),
+        "basetemp_note": (
+            "derived from tempfile.gettempdir() at runtime (the ONLY prefix the "
+            "safe-delete shim exempts) with a FRESH UNIQUE per-run child, so nothing "
+            "pre-exists to be mass-deleted. packages/conftest.py (#60, 9c0820d) derives "
+            "the same base, so no explicit override is needed."),
         "notes": NOTES,
         "cmd": cmd,
         "counts": counts,
@@ -263,6 +352,12 @@ def main(argv: list[str]) -> int:
         "pytest_returncode": proc.returncode,
         "vacuity_guard": vacuity,
         "vacuity_guard_triggered": bool(vacuity),
+        "summary_reconciliation": {
+            "pytest_tally": summary,
+            "parsed_total": sum(counts.values()),
+            "mismatches": parse_mismatch,
+            "reconciled": not parse_mismatch,
+        },
         "a8_rebaseline": A8_REBASELINE,
         "a_matrix": {k: {"test": v[0], "status": v[1]} for k, v in a_rows.items()},
         "d40": d40_rows,
