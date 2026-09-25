@@ -59,6 +59,28 @@ Write-Output ('')
 if ($stopRes.Exit -ne 0) {
     Write-Output ('REFUSED: stop.ps1 refused (exit ' + $stopRes.Exit + '). start.ps1 was NOT run.')
     Write-Output ('         Nothing was signalled by restart.ps1 either.')
+
+    # Say WHY when this script can see it. An out-of-band kill (a service that
+    # dies without these scripts touching it) leaves the pid file and the marker
+    # naming a pid that is gone; stop.ps1 then refuses, and without the block
+    # below the operator is told only "refused" and has to find the stale files
+    # on their own. The exit code is NOT changed: a refusal is still a refusal.
+    $stalePid = Get-JccPidFromFile -Paths $Paths
+    $staleOwner = Get-JccPortOwner -Port $resolvedPort
+    $staleInfo = Get-JccProcessInfo -ProcessId $stalePid
+    if ($stalePid -gt 0 -and -not $staleInfo.Alive -and $staleOwner.Pid -eq 0) {
+        Write-Output ('  cause      : stop.ps1 refused because ' + $Paths.PidFile + ' records pid ' +
+            $stalePid + ', which is not running, and nothing is LISTENING on port ' + $resolvedPort + '.')
+        Write-Output ('               That is the residue of a service that died without these')
+        Write-Output ('               scripts signalling it (out-of-band kill, host reboot, or a')
+        Write-Output ('               process that exited on its own).')
+        Write-Output ('  confirm    : netstat -ano | findstr :' + $resolvedPort +
+                      '  -> expect no LISTENING line')
+        Write-Output ('  remedy     : once you have confirmed pid ' + $stalePid + ' is really gone,')
+        Write-Output ('               delete ' + $Paths.PidFile + ' and ' + $Paths.MarkerFile +
+                      ' and re-run this script.')
+        Write-Output ('               Nothing is signalled by restart.ps1 now or after that.')
+    }
     exit $stopRes.Exit
 }
 
