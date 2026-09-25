@@ -125,6 +125,27 @@ is narrower than it was: *a row that is real data but whose id is not of the `di
 event shape*. That is the case to keep watching, and clause 4 (refuse + report) is what makes it
 visible when it appears instead of silently accepted.
 
+**Superseded by a re-runnable census (atlas-3, 2026-09-25).** The rows above are a snapshot from
+2026-09-25 13:18. The measurement is now reproducible from `docs/tools/census_directive_origins.py`
+(the method the evidence table asks for: match `*.db`, stamp the run, report unreadable files as
+errors). Its final stamped run on `F:\jev` — **1 541** `*.db` files, of which **1 313** are named
+`jcc.db`; **1 172** pre-F1 stores, **1 706** pre-F1 rows, **1 734** NULL priors, **78** unattributable
+rows in **68** stores (`dir0`, `esc0`, `rt0`, `zog_s_1`, `weird_s-x_e1`, `oops_s-m1_e1`), **0**
+unreadable files, **0** `.db` files under `artifacts/`; `--strict` exits **1**. A run ten minutes
+later reproduced the same **1 172** pre-F1 stores and the same six shapes, with the row counts moved
+(73 → 78) — the store count is the stable fact and the row count is the churn. Note the number that
+reconciles the 14-vs-54 spread above: **72 of those 78 rows sit in stores whose filename is not
+`jcc.db`**, so the filename method of the withdrawn draft could not see 92 % of the phenomenon.
+
+**The withdrawal conditions were measured against this corpus, on 2026-09-25, and two of the three
+FAIL** — see `docs/ADR/KNOWN_DEVIATIONS.md` KD-004 for the full ruling, the M1 runtime evidence
+(three real pre-F1 stores, migrated on copies, idempotent at row level) and the falsifier.
+Condition 1 (zero NULL priors in every admitted store): false — 1 734. Condition 2 (every pre-F1
+corpus exhausted): false — **47** pre-F1 stores hold rows M1 can never attribute, and M1's own run
+on one of them (a real store copied to a temp location) refused the rows and marked its report
+inadmissible. Condition 2 fails independently of how condition 1 is scoped, so the entry cannot
+close under any reading of it. M1 and this document stay.
+
 **Still UNVERIFIED**: the census covers this working tree, and the stores live under the pytest
 basetemp roots (`.workbuddy/`, `runtime/pytest-tmp/`) — they are test artefacts, not a production
 corpus. A corpus outside the tree has never been measured, and *that* is why the rule is fail-closed

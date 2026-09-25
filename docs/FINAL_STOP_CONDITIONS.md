@@ -137,12 +137,28 @@ Totals from P3/P4 are **not** imported. Zero collected tests = FAIL.
 | ID | Measure | Condition |
 | --- | --- | --- |
 | T-01 | tests collected | `> 0` |
-| T-02 | passed | reconciled with collection |
+| T-02 | aggregate tally | reconciled, `failed`/`errors`/`skipped` all known |
 | T-03 | failed | `0` |
 | T-04 | errors | `0` |
 | T-05 | skipped | `0` |
-| T-06 | pytest exit code | `0` |
+| T-06 | pytest exit code | `0` in every scope |
 | T-07 | provider calls during gate | `0` (no paid provider calls) |
+
+Per-scope execution. A scope whose path does not exist is a **FAIL**, not a skip — the gate
+cannot evaluate what it cannot find, and "not found" must never read as "not needed":
+
+| ID | Scope | Paths |
+| --- | --- | --- |
+| T-10 | unit and contract | `packages/jcc_core/tests`, `packages/supervisor/tests` |
+| T-11 | platform surfaces | `packages/operator_skill/tests`, `packages/mcp_facade/tests`, `packages/observability/tests` |
+| T-12 | control UI and demo | `apps/control_ui/tests` |
+| T-13 | projection facades | `facades/session_center/tests`, `facades/claw3d/tests` |
+| T-14 | end to end | `tests/e2e` |
+
+A scope that collects zero tests is a FAIL. A per-line parse reporting more FAILED/ERROR than
+pytest's own summary is a FAIL (that is an inconsistency), but a per-line parse reporting fewer
+is not, because a node id may contain spaces — an instrument that cries false-FAIL is as much a
+defect as one that absorbs a failure.
 
 ## H. Provenance — a FAIL if unexplained
 
