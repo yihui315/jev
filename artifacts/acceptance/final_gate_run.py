@@ -974,6 +974,20 @@ def check_e2e(g: Gate, collected: set) -> None:
         except (OSError, ValueError) as exc:
             g.fail(cid, f"unreadable: {exc}")
             continue
+        # A signature's SHA position says WHERE it was written; the verdict says
+        # WHAT it concluded. Checking only the first turned a leg that signed
+        # NO-GO into a pass the moment someone corrected its SHA -- exactly the
+        # "instrument reports success while concluding the opposite" failure
+        # this gate exists to catch. Real observation, from this session: the
+        # architecture leg came back NO-GO against server.py:206-239 (_manual
+        # mints a Directive outside the policy kernel), and the gate had no
+        # check that would have made that visible.
+        verdict = str(rec.get("verdict", "")).strip().upper()
+        if verdict != "GO":
+            g.fail(cid, f"{leg} GO names verdict={verdict or '<absent>'!r}; a leg that "
+                        f"signed NO-GO is a FAIL -- the SHA position only proves where "
+                        f"the signature was written, never what it concluded")
+            continue
         head = git("rev-parse", "HEAD")
         rsha = str(rec.get("release_sha", ""))
         if rsha == head:

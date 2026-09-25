@@ -123,6 +123,13 @@ ownership marker + known port/process identity required.
 | E-06 | Security Gate | GO |
 | E-07 | SRE/QA Gate | GO |
 
+`GO` means **both**: the file's `verdict` field is `"GO"` *and* its `release_sha` is
+one of the two accepted positions. A leg whose `verdict` is `NO-GO` is a **FAIL**,
+not a pass. The gate used to check only the SHA, so a NO-GO signature became green
+the moment its SHA was corrected — the SHA says where a signature was written, the
+verdict says what it concluded, and checking one without the other lets a refusal
+through as a pass.
+
 ### How the freeze is identified (do not just read the constant)
 
 `RELEASE_FREEZE` in the gate is `df3e7d9…`. That value was derived, not
