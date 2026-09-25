@@ -259,6 +259,11 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
 13. Metric evaluation activates only with real shadow sessions (corpus-gated; nothing evaluated at P3).
 14. `Actuator.execute` must remain unreachable from any port (D-41 must not regress).
 15. Annotate (do not rewrite) the `02bdb3f` / `7aa56f6` record.
+16. `artifacts/acceptance/P3_ACCEPTANCE_HARNESS_READY.md` §4 rows F-p3-2/F-p3-3 still state
+    pre-`#62` facts (manual path calling `execute`; returning `actuation_disabled` in the HTTP body)
+    while §0 marks them landed — annotate the rows. Owner: harbor/atlas-2. Note this file is inside
+    the gitignored `artifacts/` tree, so it is not revision-controlled (§1.2) — which is itself the
+    reason a stale row can sit there unnoticed.
 
 ---
 
@@ -324,3 +329,30 @@ Recorded because a gate's record is only worth what it is willing to admit.
 - All teammate scratch relocated to `.workbuddy/scratch/` and preserved.
 - No pending gate conditions. All remaining items are P4 (§6).
 - The lead does not rewrite history: `02bdb3f` / `7aa56f6` are annotated, never amended.
+
+---
+
+## 10. Scope exclusions and the "nothing measured" confirmation
+
+P3's honesty claim is that **nothing was evaluated** — no metric result is *measured* anywhere in the
+P3 surface, because no real shadow sessions exist (§6 item 13). The metric leg was asked to check
+that claim independently and **confirmed it**: no JCC P3 artifact presents mock-derived numbers as
+measured results.
+
+**Scope exclusion (recorded because it is a live conflation risk).** The workspace contains a
+**separate, gitignored** subtree `jev-cascade/` (a JEV × CASCADE trading application). It is **not**
+a JCC artifact and **not** part of the P3 product freeze, and it is outside this gate's scope
+entirely — it has no tracked files in this repository. However, it reports metrics that *look*
+measured (including a "shadow agreement" figure) while being driven by **mock providers**, and it
+does not carry the D-14 mock-only / non-evidential label.
+
+Why this is written down: `jev-cascade` and JCC P3 both use the word *shadow*, and a future reader —
+human or agent — could cite the cascade figure as if it were a JCC P3 shadow-plane result. **It is
+not.** Any citation of a numeric result as JCC P3 evidence must resolve to the artifacts anchored in
+§1.2, not to `jev-cascade/`. If that subtree is ever treated as a deliverable in its own right, it
+needs the mock-only label of its own accord (P4, tracked by the metric leg, not by this gate).
+
+**A note on this gate's own drift.** This document is a tracked carrier and was revised once more
+after the verdict (adding this section and §6 item 16). That is a docs-only commit and cannot alter
+the certified bytes of `280bfa8`; it is recorded here so the revision is visible rather than silent.
+The certification SHA `3936c96` and the numbers in §1.1 are unaffected.
