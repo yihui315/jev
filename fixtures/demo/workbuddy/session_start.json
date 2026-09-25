@@ -1,0 +1,24 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-workbuddy-0001-e01",
+  "delivery_id": "demo-workbuddy-0001-e01-d1",
+  "session_id": "demo-workbuddy-0001",
+  "agent": "workbuddy",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000000.0,
+  "event_type": "session_start",
+  "payload": {
+    "hook": "SessionStart",
+    "hook_schema_kind": "codebuddy-hooks",
+    "transcript_path": "<demo-workdir>/session.jsonl",
+    "cwd_is_metadata": true
+  },
+  "evidence": {
+    "hook": "SessionStart",
+    "transcript_bytes": 4096,
+    "transcript_lines": 12,
+    "complete": true
+  },
+  "schema_ok": true
+}

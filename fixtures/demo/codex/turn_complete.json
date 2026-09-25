@@ -1,0 +1,17 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-codex-0001-e02",
+  "delivery_id": "demo-codex-0001-e02-d1",
+  "session_id": "demo-codex-0001",
+  "agent": "codex",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000300.0,
+  "event_type": "agent_message",
+  "payload": {
+    "hook": "notify",
+    "reason": "turn_complete",
+    "model": "codex-mini"
+  },
+  "schema_ok": true
+}

@@ -1,0 +1,82 @@
+{
+  "label": "DEMO",
+  "format": "aep-v0.1-demo-manifest/1",
+  "description": "Deterministic four-agent AEP v0.1 fixture set for JCC Demo Mode (S-05). Every envelope carries a FIXED timestamp, a fixed session_id and a fixed delivery_id, so replaying this manifest into an empty database reproduces byte-identical assessments, directives and audit rows. No third-party credential is read or required: the chain runs ingest -> AEP -> state -> assessment -> policy -> directive -> audit -> UI entirely offline.",
+  "project": "DEMO",
+  "agents": ["workbuddy", "claude", "codex", "hermes"],
+  "cwd": "<demo-workdir>",
+  "events": [
+    {
+      "file": "workbuddy/session_start.json",
+      "order": 1,
+      "agent": "workbuddy",
+      "session_id": "demo-workbuddy-0001",
+      "event_id": "demo-workbuddy-0001-e01",
+      "delivery_id": "demo-workbuddy-0001-e01-d1",
+      "event_type": "session_start"
+    },
+    {
+      "file": "workbuddy/tool_call.json",
+      "order": 2,
+      "agent": "workbuddy",
+      "session_id": "demo-workbuddy-0001",
+      "event_id": "demo-workbuddy-0001-e02",
+      "delivery_id": "demo-workbuddy-0001-e02-d1",
+      "event_type": "tool_call"
+    },
+    {
+      "file": "claude/session_start.json",
+      "order": 3,
+      "agent": "claude",
+      "session_id": "demo-claude-0001",
+      "event_id": "demo-claude-0001-e01",
+      "delivery_id": "demo-claude-0001-e01-d1",
+      "event_type": "session_start"
+    },
+    {
+      "file": "claude/agent_message.json",
+      "order": 4,
+      "agent": "claude",
+      "session_id": "demo-claude-0001",
+      "event_id": "demo-claude-0001-e02",
+      "delivery_id": "demo-claude-0001-e02-d1",
+      "event_type": "agent_message"
+    },
+    {
+      "file": "codex/session_start.json",
+      "order": 5,
+      "agent": "codex",
+      "session_id": "demo-codex-0001",
+      "event_id": "demo-codex-0001-e01",
+      "delivery_id": "demo-codex-0001-e01-d1",
+      "event_type": "session_start"
+    },
+    {
+      "file": "codex/turn_complete.json",
+      "order": 6,
+      "agent": "codex",
+      "session_id": "demo-codex-0001",
+      "event_id": "demo-codex-0001-e02",
+      "delivery_id": "demo-codex-0001-e02-d1",
+      "event_type": "agent_message"
+    },
+    {
+      "file": "hermes/session_start.json",
+      "order": 7,
+      "agent": "hermes",
+      "session_id": "demo-hermes-0001",
+      "event_id": "demo-hermes-0001-e01",
+      "delivery_id": "demo-hermes-0001-e01-d1",
+      "event_type": "session_start"
+    },
+    {
+      "file": "hermes/agent_step.json",
+      "order": 8,
+      "agent": "hermes",
+      "session_id": "demo-hermes-0001",
+      "event_id": "demo-hermes-0001-e02",
+      "delivery_id": "demo-hermes-0001-e02-d1",
+      "event_type": "agent_message"
+    }
+  ]
+}

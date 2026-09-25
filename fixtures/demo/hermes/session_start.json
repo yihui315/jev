@@ -1,0 +1,23 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-hermes-0001-e01",
+  "delivery_id": "demo-hermes-0001-e01-d1",
+  "session_id": "demo-hermes-0001",
+  "agent": "hermes",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000360.0,
+  "event_type": "session_start",
+  "payload": {
+    "hook": "session_start",
+    "hook_schema_kind": "hermes-hooks",
+    "transport": "signed-outbound-hook",
+    "config_path": "<demo-workdir>/hermes/config.yaml"
+  },
+  "evidence": {
+    "transport": "signed-outbound-hook",
+    "hook_yaml_present": true,
+    "complete": true
+  },
+  "schema_ok": true
+}

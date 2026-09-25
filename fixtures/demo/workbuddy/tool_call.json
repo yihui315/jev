@@ -1,0 +1,17 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-workbuddy-0001-e02",
+  "delivery_id": "demo-workbuddy-0001-e02-d1",
+  "session_id": "demo-workbuddy-0001",
+  "agent": "workbuddy",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000060.0,
+  "event_type": "tool_call",
+  "payload": {
+    "hook": "PreToolUse",
+    "tool_name": "Bash",
+    "tool_input_summary": "pytest apps/control_ui/tests"
+  },
+  "schema_ok": true
+}

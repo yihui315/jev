@@ -1,0 +1,24 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-claude-0001-e01",
+  "delivery_id": "demo-claude-0001-e01-d1",
+  "session_id": "demo-claude-0001",
+  "agent": "claude",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000120.0,
+  "event_type": "session_start",
+  "payload": {
+    "hook": "SessionStart",
+    "hook_schema_kind": "claude-hooks",
+    "transcript_path": "<demo-workdir>/claude.jsonl",
+    "preserves_user_hooks": true
+  },
+  "evidence": {
+    "hook": "SessionStart",
+    "transcript_bytes": 8192,
+    "transcript_lines": 64,
+    "complete": true
+  },
+  "schema_ok": true
+}

@@ -1,0 +1,17 @@
+{
+  "version": "aep/v0.1",
+  "event_id": "demo-hermes-0001-e02",
+  "delivery_id": "demo-hermes-0001-e02-d1",
+  "session_id": "demo-hermes-0001",
+  "agent": "hermes",
+  "project": "DEMO",
+  "cwd": "<demo-workdir>",
+  "timestamp": 1769000420.0,
+  "event_type": "agent_message",
+  "payload": {
+    "hook": "agent_step",
+    "step_index": 7,
+    "tool": "Read"
+  },
+  "schema_ok": true
+}
