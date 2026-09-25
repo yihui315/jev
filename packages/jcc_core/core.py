@@ -17,8 +17,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 import time
 from typing import Any, Callable, Dict, List, Optional
+
+log = logging.getLogger(__name__)
 
 from . import policy
 from .actuator import Actuator
@@ -43,6 +46,15 @@ def _fingerprint(evidence: Dict[str, Any]) -> str:
     return hashlib.sha256(canon.encode("utf-8")).hexdigest()
 
 
+def _subscriber_label(cb: Any) -> str:
+    """Best-effort human label for a subscriber callback, for logs / telemetry."""
+    if hasattr(cb, "__qualname__"):
+        return cb.__qualname__
+    if hasattr(cb, "__name__"):
+        return cb.__name__
+    return repr(cb)
+
+
 class CoreEngine:
     def __init__(
         self,
@@ -65,18 +77,126 @@ class CoreEngine:
         #: surfaces: with a non-empty ``per_agent`` map they used to diverge.
         self.thresholds: Optional[ThresholdsConfig] = thresholds
         self._subscribers: List[Callable[[Dict[str, Any]], None]] = []
+        #: Subscribers registered as the engine's OWN in-process supervision
+        #: subscriber (``subscribe(cb, own=True)``). Their delivery failures are
+        #: HARD errors for the caller; every other (observe-only / external)
+        #: subscriber is dropped with a recorded ``BROADCAST_FAILED`` rather than
+        #: silently passed (P5 residual, ADR-0008 D-2/D-41).
+        self._own_subscribers: List[Callable[[Dict[str, Any]], None]] = []
+        # -- broadcast delivery observability (P5 residual) ------------------
+        #: Failures observed in the most recent ``_broadcast`` call (per-subscriber).
+        self.last_broadcast_failures: int = 0
+        #: Cumulative broadcast delivery failures since this engine was built.
+        self.broadcast_failure_total: int = 0
+        #: Outcome record of the most recent ``_broadcast`` (machine-readable).
+        self.last_broadcast: Dict[str, Any] = {
+            "event_id": None,
+            "sent": 0,
+            "failed": 0,
+            "failures": [],
+            "mode": "unknown",
+            "timestamp": 0.0,
+        }
+        #: Telemetry history of every broadcast outcome (audit/telemetry stream).
+        self._broadcast_events: List[Dict[str, Any]] = []
 
     # -- live projection subscribers ----------------------------------------
-    def subscribe(self, cb: Callable[[Dict[str, Any]], None]) -> None:
+    def subscribe(
+        self,
+        cb: Callable[[Dict[str, Any]], None],
+        *,
+        own: bool = False,
+    ) -> None:
+        """Register a live-projection subscriber.
+
+        ``own=True`` marks the subscriber as the engine's OWN in-process
+        supervision subscriber (e.g. in-process arbitration). Its delivery
+        failures are HARD errors for the caller -- ``_broadcast`` re-raises them.
+        Every other subscriber (observe-only / external, e.g. the Sentinel or the
+        WebSocket projection) is dropped with a recorded ``BROADCAST_FAILED``
+        rather than silently passed (the P5 residual this closes).
+        """
         if cb not in self._subscribers:
             self._subscribers.append(cb)
+        if own and cb not in self._own_subscribers:
+            self._own_subscribers.append(cb)
+
+    def _is_observe_only(self) -> bool:
+        """True when the platform is in observe-only mode (actuation disabled).
+
+        Derived from ``config.actuation.enabled`` (ADR-0004: actuation OFF in
+        P0-P2). A broadcast failure MUST be recorded even here -- never a silent
+        success.
+        """
+        actuation = getattr(self.config, "actuation", None)
+        return not bool(getattr(actuation, "enabled", True))
 
     def _broadcast(self, msg: Dict[str, Any]) -> None:
+        """Deliver ``msg`` to every live subscriber WITHOUT swallowing a failure.
+
+        A subscriber raising used to be caught by a bare ``except Exception: pass``
+        so the failure read as success -- the same "instrument says success but did
+        nothing" defect class ADR-0008 D-2/D-41 forbid, and a P5 residual that MUST
+        be closed. Now every delivery is tracked per-subscriber; on failure we:
+
+        * log at ERROR with the subscriber id, the message id, and the exception;
+        * bump the engine's failure metrics (``last_broadcast_failures`` /
+          ``broadcast_failure_total``);
+        * append an audit/telemetry record to ``_broadcast_events`` (observable
+          even in observe-only mode);
+        * for the engine's OWN supervision subscriber (``subscribe(cb, own=True)``)
+          re-raise so the caller sees the hard error;
+        * for every other (observe-only / external) subscriber, drop with a recorded
+          ``BROADCAST_FAILED`` and continue -- never silently pass.
+        """
+        msg_id = msg.get("event_id") or msg.get("session_id") or "<unknown>"
+        sent = 0
+        failures: List[Dict[str, Any]] = []
+        reraise: Optional[BaseException] = None
+
         for cb in list(self._subscribers):
+            is_own = cb in self._own_subscribers
             try:
                 cb(msg)
-            except Exception:  # noqa: BLE001
-                pass
+                sent += 1
+            except Exception as exc:  # noqa: BLE001 -- recorded, never swallowed
+                label = _subscriber_label(cb)
+                failures.append({
+                    "subscriber": label,
+                    "event_id": msg_id,
+                    "error": f"{type(exc).__name__}: {exc}"[:400],
+                })
+                self.broadcast_failure_total += 1
+                log.error(
+                    "BROADCAST_FAILED subscriber=%s event_id=%s error=%s: %s",
+                    label, msg_id, type(exc).__name__, exc,
+                )
+                if is_own and reraise is None:
+                    reraise = exc
+                continue
+
+        mode = "observe-only" if self._is_observe_only() else "actuation"
+        record: Dict[str, Any] = {
+            "event_id": msg_id,
+            "sent": sent,
+            "failed": len(failures),
+            "failures": failures,
+            "mode": mode,
+            "timestamp": time.time(),
+        }
+        self.last_broadcast_failures = len(failures)
+        self.last_broadcast = record
+        self._broadcast_events.append(record)
+        if failures:
+            log.error(
+                "BROADCAST_FAILED summary event_id=%s sent=%d failed=%d mode=%s",
+                msg_id, sent, len(failures), mode,
+            )
+
+        if reraise is not None:
+            # The engine's own supervision subscriber failed: a HARD error, not a
+            # best-effort drop. Re-raise so the caller cannot read it as success.
+            raise reraise
 
     # -- ingest -------------------------------------------------------------
     def ingest(self, event: AEPEnvelope) -> Dict[str, Any]:
