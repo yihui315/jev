@@ -397,16 +397,33 @@ def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
 
 def collect_test_ids() -> set:
     """Collect the suite's node ids so declared pin tests can be verified.
+
+    pytest's ``--collect-only -v`` prints a ``<Dir>/<Module>/<Function>`` TREE
+    that contains no ``::`` separators, and ``--collect-only -q`` prints one
+    ``path::nodeid`` line per item with no ``<`` -- so the legacy predicate
+    ``"<" in line and "::" in line`` matched NEITHER format and silently
+    collected zero ids, which then failed every C-/S- check (every pinned test
+    "absent from the suite"). Collect with ``-q`` and accept any line that
+    contains ``::`` (the canonical node-id form the evidence JSONs pin).
     Every declared scope path that exists is collected; a scope path that does
     not exist is a FAIL of its own T-xx check, not a reason to abscond here."""
     ids: set = set()
     paths = [p for _, _, ps in TEST_SCOPES for p in ps if (REPO / p).is_dir()]
     if not paths:
         return ids
-    proc = _run_pytest(["--collect-only", *paths])
+    env = dict(os.environ)
+    env["CODEBUDDY_SAFE_DELETE_ENABLED"] = "0"
+    env["PAID_PROVIDER_CALLS"] = "0"
+    env["EXTERNAL_PUBLISH"] = "0"
+    proc = subprocess.run(
+        [str(PY), "-m", "pytest", "--collect-only", "-q", "-p", "no:cacheprovider", *paths],
+        cwd=str(REPO), capture_output=True, text=True, env=env, timeout=600,
+    )
     for line in (proc.stdout or "").splitlines():
         line = line.strip()
-        if "<" in line and "::" in line:
+        if "::" in line and not line.startswith(
+            ("=", "-", "platform", "rootdir", "plugins", "collecting", "collected")
+        ):
             ids.add(line)
     return ids
 
