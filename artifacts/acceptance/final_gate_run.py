@@ -46,6 +46,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
@@ -376,7 +377,61 @@ def _parse_tallies(out: str) -> Dict[str, int]:
     return tallies
 
 
+_JUNIT_TALLY_KEYS = ("PASSED", "FAILED", "ERROR", "SKIPPED", "XFAIL", "XPASS")
+
+# Path of the junit report the most recent _run_pytest() wrote. pytest names the
+# file itself only via the flag we pass, so we own the name.
+_JUNIT_PATH: Optional[Path] = None
+
+
+def _parse_junit_tally(xml_path: Path) -> Dict[str, int]:
+    """Authoritative per-testcase tally, read straight out of pytest's junit XML.
+
+    Why this exists (a real false-FAIL this gate shipped): pytest's human
+    summary line prints a counter ONLY when it is non-zero -- a fully green run
+    reads ``627 passed in 41s`` and never says "0 failed". Parsing that line can
+    therefore not distinguish "genuinely zero" from "not printed", so the
+    failed/errors/skipped counts came back UNKNOWN and T-02..T-05 failed a suite
+    that had actually passed 627/627. The junit report instead records the
+    outcome of EVERY testcase, so the absence of a ``<failure/>`` child really is
+    evidence. Ground truth, not a textual guess about the summary format.
+    """
+    try:
+        root = ET.parse(str(xml_path)).getroot()
+    except (OSError, ET.ParseError) as exc:
+        raise RuntimeError(f"unreadable junit report {xml_path}: {exc}")
+    tally = {k: 0 for k in _JUNIT_TALLY_KEYS}
+    for tc in root.iter("testcase"):
+        tags = {el.tag for el in tc.iter()}
+        # pytest writes an expected failure as <skipped type="pytest.xfail"> and
+        # an unexpected pass as <skipped type="pytest.xpass"> -- counting them as
+        # plain skips would be the same class of error in the other direction.
+        skip_types = {
+            el.get("type") for el in tc.iter() if el.tag == "skipped" and el.get("type")
+        }
+        if "failure" in tags:
+            tally["FAILED"] += 1
+        elif "error" in tags:
+            tally["ERROR"] += 1
+        elif "pytest.xfail" in skip_types:
+            tally["XFAIL"] += 1
+        elif "pytest.xpass" in skip_types:
+            tally["XPASS"] += 1
+        elif "skipped" in tags:
+            tally["SKIPPED"] += 1
+        else:
+            tally["PASSED"] += 1
+    return tally
+
+
+def _last_junit_path() -> Path:
+    if _JUNIT_PATH is None:
+        raise RuntimeError("pytest has not run in this gate process; there is no junit report")
+    return _JUNIT_PATH
+
+
 def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
+    global _JUNIT_PATH
     base = Path(tempfile.gettempdir()) / "jev-final-gate"
     base.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S_%f")
@@ -388,9 +443,11 @@ def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
     # an incident, not a measurement.
     env["PAID_PROVIDER_CALLS"] = "0"
     env["EXTERNAL_PUBLISH"] = "0"
+    junit = base / "junit.xml"
+    _JUNIT_PATH = junit
     return subprocess.run(
         [str(PY), "-m", "pytest", *args, "-v", "-p", "no:cacheprovider",
-         "--no-header", "-rN", f"--basetemp={basetemp}"],
+         "--no-header", "-rN", f"--basetemp={basetemp}", f"--junitxml={junit}"],
         cwd=str(REPO), capture_output=True, text=True, env=env, timeout=3600,
     )
 
@@ -444,14 +501,42 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
     parsed_failed = tallies.get("FAILED", 0)
     parsed_errors = tallies.get("ERROR", 0)
 
+    # Ground truth for the counts: the junit report pytest just wrote, which
+    # records the outcome of every testcase. The summary line is only used to
+    # cross-check it -- if the two disagree, one of them is lying and both are
+    # evidence of a broken instrument.
+    try:
+        junit = _parse_junit_tally(_last_junit_path())
+    except RuntimeError as exc:
+        g.fail(cid, "scope '{}': {}".format(label, exc))
+        return None
+
+    if junit["PASSED"] == 0 and junit["FAILED"] == 0 and junit["ERROR"] == 0 \
+            and junit["SKIPPED"] == 0 and junit["XFAIL"] == 0 and junit["XPASS"] == 0:
+        g.fail(cid, "scope '{}': junit report contains no testcase (a scope with no "
+                    "tests is a FAIL, never a skip)".format(label))
+        return None
+    if summary and summary.get("passed") is not None and summary["passed"] != junit["PASSED"]:
+        g.fail(cid, "scope '{}': numbers must reconcile -- pytest's summary says {} passed "
+                    "but the junit report records {} passing testcases".format(
+                        label, summary["passed"], junit["PASSED"]))
+        return None
+
+    tally = {
+        "passed": junit["PASSED"],
+        "failed": junit["FAILED"],
+        "errors": junit["ERROR"],
+        "skipped": junit["SKIPPED"],
+    }
+
     if not summary:
-        g.fail(cid, "no pytest summary line for scope '{}': the tally could not be "
-                    "parsed, so nothing is known".format(label))
-        return summary
+        g.fail(cid, "no pytest summary line for scope '{}': the tally came from the junit "
+                    "report only, which is weaker evidence".format(label))
+        return tally
 
     details = []
     ok_all = True
-    for key, cid2 in (("failed", "FAILED"), ("errors", "ERROR"), ("skipped", "SKIPPED")):
+    for key in ("failed", "errors", "skipped"):
         if key in summary:
             details.append("{}={}".format(key, summary[key]))
             if summary[key] != 0:
@@ -467,35 +552,40 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
             ok_all = False
             break
 
-    collected = summary.get("passed", 0) + summary.get("failed", 0) + summary.get("errors", 0)
+    collected = tally["passed"] + tally["failed"] + tally["errors"]
     if collected == 0:
-        g.fail(cid, "scope '{}': zero tests collected (a scope with no tests is a "
-                    "FAIL, never a skip)".format(label))
+        g.fail(cid, "scope '{}': zero passed/failed/error testcases in the junit report "
+                    "(a scope with no tests is a FAIL, never a skip)".format(label))
         ok_all = False
 
     if proc.returncode != 0:
         g.fail(cid, "scope '{}': pytest exit code {}".format(label, proc.returncode))
         ok_all = False
-    elif ok_all:
+    if ok_all:
         g.ok(cid, "scope '{}': {} -- {}".format(label, ", ".join(details), ", ".join(paths)))
-    return summary
+    return tally
 
 
 def run_full_tests(g: Gate) -> None:
     grand: Dict[str, int] = {}
     any_collected = False
+    scopes_seen = 0
 
     for cid, label, paths in TEST_SCOPES:
-        summary = run_scope(g, cid, label, paths)
-        if not summary:
+        tally = run_scope(g, cid, label, paths)
+        if not tally:
             continue
-        for key, value in summary.items():
+        scopes_seen += 1
+        for key, value in tally.items():
             grand[key] = grand.get(key, 0) + value
-        if summary.get("passed", 0) + summary.get("failed", 0) + summary.get("errors", 0) > 0:
+        if tally["passed"] + tally["failed"] + tally["errors"] > 0:
             any_collected = True
 
     # T-01 the gate must have collected something at all
-    if any_collected:
+    if scopes_seen != len(TEST_SCOPES):
+        g.fail("T-01", "only {}/{} scope(s) produced a tally -- the gate never evaluated "
+                       "every scope it declared".format(scopes_seen, len(TEST_SCOPES)))
+    elif any_collected:
         g.ok("T-01", "gate collected its own totals across {} scope(s): {}".format(
             len(TEST_SCOPES), grand))
     else:
@@ -531,11 +621,20 @@ def run_full_tests(g: Gate) -> None:
     else:
         g.ok("T-06", "every declared scope ran and exited clean")
 
-    # T-07 provider calls must remain zero
-    if os.environ.get("PAID_PROVIDER_CALLS") == "0":
-        g.ok("T-07", "PAID_PROVIDER_CALLS=0 for the duration of this gate run")
+    # T-07 provider calls must remain zero, AND the gate must have pinned them
+    # itself (see _pin_gate_env): a gate that only checks the runner's
+    # environment can never catch a paid call this run makes on its own behalf.
+    current = os.environ.get("PAID_PROVIDER_CALLS")
+    runner_value = _GATE_ENV_PINNED_FROM.get("PAID_PROVIDER_CALLS")
+    if current == "0" and runner_value != "0":
+        g.ok("T-07", "this gate pinned PAID_PROVIDER_CALLS=0, overriding the runner's "
+                     "{!r}".format(runner_value))
+    elif current == "0":
+        g.ok("T-07", "PAID_PROVIDER_CALLS=0 held for the whole run (already 0 in the runner)")
     else:
-        g.fail("T-07", "PAID_PROVIDER_CALLS was not pinned to 0 for this run")
+        g.fail("T-07", "PAID_PROVIDER_CALLS is {!r} after pinning ({!r} supplied by the "
+                       "runner); no gate run may spend money".format(
+                           current, runner_value))
 
 
 # ---------------------------------------------------------------------------
@@ -633,7 +732,26 @@ def check_provenance(g: Gate) -> None:
 
 
 # ---------------------------------------------------------------------------
+_GATE_ENV_PINNED_FROM: Dict[str, Optional[str]] = {}
+
+
+def _pin_gate_env() -> None:
+    """The gate holds itself to every constraint it imposes.
+
+    Before this fix, T-07 checked whether the RUNNER had set
+    PAID_PROVIDER_CALLS=0 while the gate itself never pinned it -- an
+    unfalsifiable check that could not have caught a paid call made by the very
+    run it was judging. Pin here, and remember what was there before so the
+    check can report what it overrode instead of asserting a tautology.
+    """
+    for key in ("PAID_PROVIDER_CALLS", "EXTERNAL_PUBLISH",
+                "CODEBUDDY_SAFE_DELETE_ENABLED"):
+        _GATE_ENV_PINNED_FROM[key] = os.environ.get(key)
+        os.environ[key] = "0"
+
+
 def main(argv: Optional[List[str]] = None) -> int:
+    _pin_gate_env()
     ap = argparse.ArgumentParser(description="JEV COMMAND CENTER final stop gate")
     ap.add_argument("--full", action="store_true",
                     help="also execute the full test suite and compute its own tally")
