@@ -101,9 +101,13 @@ if ($uptime -eq '-' -and $marker -and $marker.start_time_local) {
     } catch { }
 }
 
+$launcherShown = '-'
+if ($marker -and $marker.launcher_pid) { $launcherShown = ([string]$marker.launcher_pid) }
+
 Write-Output ('')
 Write-Output ('  service      : ' + $state)
-Write-Output ('  pid          : ' + $pidShown)
+Write-Output ('  pid          : ' + $pidShown + '   (service pid: holds the socket)')
+Write-Output ('  launcher pid : ' + $launcherShown + '   (the process start.ps1 spawned)')
 Write-Output ('  port         : ' + $resolvedPort + ' (bound to 127.0.0.1 only)')
 Write-Output ('  port owner   : ' + $stateOwner)
 Write-Output ('  uptime       : ' + $uptime)

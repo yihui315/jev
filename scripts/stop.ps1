@@ -11,6 +11,12 @@
     If any of those fail the script prints a refusal and exits non-zero.
     It also refuses outright when a port is held by a foreign process.
 
+    The signal goes to the SERVICE process -- the one holding 127.0.0.1:<port>
+    (marker "pid" / "service_pid"), NOT to the launcher that was spawned by
+    start.ps1 and only owns the redirected log handles. Only if that launcher is
+    still alive afterwards is it terminated too, and only because it is the
+    process this repository started.
+
     Exit codes: 0 = stopped (or already stopped), 2 = refused (would not signal),
     3 = foreign port hold / missing prerequisite, 4 = stop did not complete.
 #>
@@ -117,8 +123,11 @@ if (-not $PSCmdlet.ShouldProcess(('pid ' + $own.Pid), 'stop the verified JCC ser
 }
 
 # --- the actual (single, verified) signal -------------------------------- #
+$launcherPid = 0
+if ($marker.launcher_pid) { $launcherPid = [int]$marker.launcher_pid }
+
 Write-Output ('')
-Write-Output ('stopping pid ' + $own.Pid + ' ...')
+Write-Output ('stopping service pid ' + $own.Pid + ' ...')
 try {
     Stop-Process -Id $own.Pid -Force -ErrorAction Stop
 } catch {
@@ -141,7 +150,18 @@ if (-not $exited) {
     exit 4
 }
 
-Write-Output ('pid ' + $own.Pid + ' exited.')
+Write-Output ('service pid ' + $own.Pid + ' exited.')
+
+# The launcher (the process start.ps1 spawned, which owns the log handles) is
+# only touched while it is still alive AND is the pid recorded by OUR marker.
+if ($launcherPid -gt 0 -and $launcherPid -ne $own.Pid -and (Test-JccProcessAlive -ProcessId $launcherPid)) {
+    Write-Output ('stopping launcher pid ' + $launcherPid + ' ...')
+    try {
+        Stop-Process -Id $launcherPid -Force -ErrorAction Stop
+    } catch {
+        Write-Output ('WARNING: Stop-Process on launcher pid ' + $launcherPid + ' threw: ' + $_.Exception.Message)
+    }
+}
 
 # Only now clean up OUR OWN bookkeeping, and only because the process is gone
 # and no other pid answers on the port.

@@ -279,12 +279,104 @@ function Get-JccPidFromFile {
     return 0
 }
 
-function Write-JccOwnershipMarker {
-    param($Paths, [int]$Port, [string]$PythonExe, [string]$Root)
+function Get-JccNormCmd {
+    # Collapse whitespace so "python.exe  -m x" matches "python.exe -m x": cmd.exe
+    # hands CreateProcess its own spacing and Win32 echoes it back verbatim.
+    param([string]$Text)
+    if (-not $Text) { return '' }
+    return ([string]$Text).Replace('"', '') -replace '\s+', ' '
+}
 
+function Get-JccProcessChain {
+    # Pids of $ProcessId and its ancestors, innermost first, at most $MaxDepth
+    # deep. Used to prove that a pid is a DESCENDANT of the process we started.
+    param([int]$ProcessId, [int]$MaxDepth = 12)
+    $chain = New-Object System.Collections.Generic.List[int]
+    if ($ProcessId -le 0) { return $chain.ToArray() }
+    $seen = @{}
+    $cur = $ProcessId
+    for ($i = 0; $i -lt $MaxDepth; $i++) {
+        if ($cur -le 0) { break }
+        if ($seen.ContainsKey($cur)) { break }
+        $seen[$cur] = $true
+        $chain.Add($cur)
+        $par = 0
+        try {
+            $c = Get-CimInstance -ClassName Win32_Process -Filter ("ProcessId = " + $cur) -ErrorAction Stop
+            if ($c) { $par = [int]$c.ParentProcessId } else { break }
+        } catch { break }
+        $cur = $par
+    }
+    return $chain.ToArray()
+}
+
+function Test-JccDescent {
+    # Proves that $ServicePid is (a descendant of) a process whose command line
+    # is the JCC service start line of THIS repo, and that $AncestorPid -- the
+    # process the launching script actually started -- is on that chain.
+    # This is the evidence that replaces "pid file and port owner happen to be
+    # the same number".
+    param(
+        [int]$ServicePid,
+        [string]$WantCommandLine,
+        [string]$WantModule,
+        [int]$AncestorPid = 0
+    )
+
+    $want = (Get-JccNormCmd -Text $WantCommandLine)
+    $wantMod = (Get-JccNormCmd -Text $WantModule)
+
+    $chain = Get-JccProcessChain -ProcessId $ServicePid
+    if ($chain.Count -eq 0) {
+        return @{ Ok = $false; Reason = 'no process chain could be built for pid ' + $ServicePid; Chain = @() }
+    }
+
+    $matched = $false
+    foreach ($p in $chain) {
+        $info = Get-JccProcessInfo -ProcessId $p
+        if (-not $info.Alive) { continue }
+        $cl = (Get-JccNormCmd -Text ([string]$info.CommandLine))
+        if (-not $cl) { continue }
+        if ($want -and $cl -like ('*' + $want + '*')) { $matched = $true; break }
+        if ($wantMod -and $cl -like ('*' + $wantMod + '*')) { $matched = $true; break }
+    }
+
+    if (-not $matched) {
+        return @{
+            Ok    = $false
+            Reason = 'no process in the ancestry of pid ' + $ServicePid + ' runs the JCC service start line'
+            Chain = $chain
+        }
+    }
+    if ($AncestorPid -gt 0 -and $chain -notcontains $AncestorPid) {
+        return @{
+            Ok     = $false
+            Reason = 'pid ' + $ServicePid + ' is not a descendant of the launcher pid ' + $AncestorPid +
+                     ' (chain: ' + ($chain -join '<') + ')'
+            Chain  = $chain
+        }
+    }
+    return @{ Ok = $true; Reason = 'pid ' + $ServicePid + ' descends from the JCC service start line'; Chain = $chain }
+}
+
+function Write-JccOwnershipMarker {
+    param(
+        $Paths,
+        [int]$Port,
+        [string]$PythonExe,
+        [string]$Root,
+        [int]$LauncherPid = 0,
+        [int]$ServicePid = 0
+    )
+
+    # `pid` / `service_pid` are the SERVICE process: the one that actually holds
+    # the listening socket. `launcher_pid` is the process the launching script
+    # started and that owns the redirected log handles.
     $marker = [ordered]@{
         service        = 'jcc-core'
         pid            = (Get-JccPidFromFile -Paths $Paths)
+        service_pid    = $ServicePid
+        launcher_pid   = $LauncherPid
         start_time     = (Get-Date).ToUniversalTime().ToString('yyyy-MM-ddTHH:mm:ssZ')
         start_time_local = (Get-Date).ToString('o')
         script_version = '1.0.0'
@@ -330,9 +422,13 @@ function Test-JccOwnership {
         ProcessAlive = $alive
     }
 
-    if ($pidFile -ne $mpid) {
+    $spid = 0
+    if ($marker.service_pid) { $spid = [int]$marker.service_pid }
+    if ($spid -eq 0) { $spid = $mpid }
+
+    if ($pidFile -ne $spid) {
         $base.Ok = $false
-        $base.Reason = 'PID file (' + $pidFile + ') and ownership marker pid (' + $mpid + ') disagree'
+        $base.Reason = 'PID file (' + $pidFile + ') and ownership marker service pid (' + $spid + ') disagree'
         return $base
     }
     if (-not $alive) {
@@ -349,10 +445,9 @@ function Test-JccOwnership {
     }
     $cl = [string]$info.CommandLine
     if ($cl) {
-        $norm = $cl.Replace('"', '')
-        $want = [string]$marker.command_line
-        $wantNorm = $want.Replace('"', '')
-        if ($norm -notlike ('*' + $wantNorm + '*')) {
+        $norm = (Get-JccNormCmd -Text $cl)
+        $want = (Get-JccNormCmd -Text ([string]$marker.command_line))
+        if ($norm -notlike ('*' + $want + '*')) {
             # Accept any interpreter as long as the module is the one we started.
             if ($norm -notlike '*-m jcc_core.run*') {
                 $base.Ok = $false
@@ -361,19 +456,40 @@ function Test-JccOwnership {
             }
         }
     }
-    if ($portOwner.Pid -ne 0 -and $portOwner.Pid -ne $mpid) {
+
+    # On Windows the service is the CHILD of the process that was launched: the
+    # listening socket belongs to the child, the parent only owns the redirected
+    # log handles. So "recorded pid == port owner" is not the only correct shape.
+    # What must always hold: the port owner is the recorded service pid, or the
+    # recorded launcher pid, and the service pid descends from a process that
+    # really ran "python -m jcc_core.run" for this repo.
+    $lp = $spid
+    if ($lp -eq 0) { $lp = $mpid }
+    $launcher = 0
+    if ($marker.launcher_pid) { $launcher = [int]$marker.launcher_pid }
+
+    if ($portOwner.Pid -ne 0 -and $portOwner.Pid -ne $lp -and $portOwner.Pid -ne $launcher) {
         $base.Ok = $false
-        $base.Reason = 'port ' + $Port + ' is owned by foreign pid ' + $portOwner.Pid + ' (not ' + $mpid + ')'
+        $base.Reason = 'port ' + $Port + ' is owned by foreign pid ' + $portOwner.Pid +
+                       ' (recorded service pid ' + $lp + ', launcher pid ' + $launcher + ')'
         return $base
     }
     if ($portOwner.Pid -eq 0 -and $portOwner.Method -eq 'none') {
         $base.Ok = $false
-        $base.Reason = 'no listener found on port ' + $Port + ' while the marker claims pid ' + $mpid + ' is the service'
+        $base.Reason = 'no listener found on port ' + $Port + ' while the marker claims pid ' + $lp + ' is the service'
+        return $base
+    }
+
+    $descent = Test-JccDescent -ServicePid $lp -WantCommandLine ([string]$marker.command_line) `
+                               -WantModule 'jcc_core.run' -AncestorPid $launcher
+    if (-not $descent.Ok) {
+        $base.Ok = $false
+        $base.Reason = 'ownership chain rejected: ' + $descent.Reason
         return $base
     }
 
     $base.Ok = $true
-    $base.Reason = 'pid ' + $mpid + ' verified (marker + command line + port owner)'
+    $base.Reason = 'service pid ' + $lp + ' verified (marker + command line + port owner + ancestry)'
     return $base
 }
 

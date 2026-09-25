@@ -8,8 +8,11 @@
     core engine -- it is NOT a second process and is never started here.
 
     Ownership model: runtime\jcc\jcc.pid + runtime\jcc\jcc.ownership.json.
-    A process we did not start, or one whose identity cannot be verified, is
-    never signalled -- start.ps1 refuses and exits non-zero instead.
+    The pid file names the SERVICE process -- the one that actually holds the
+    127.0.0.1:<port> socket, which on Windows is the CHILD of the process this
+    script launches. The launcher pid is kept separately in the ownership marker
+    as "launcher_pid". A process we did not start, or one whose identity cannot
+    be verified, is never signalled -- start.ps1 refuses and exits non-zero.
 
     Exit codes: 0 = up and healthy, 3 = refused (foreign port hold / phantom
     marker / missing prerequisite), 4 = started but health timeout.
@@ -117,8 +120,32 @@ if ($stalePid -gt 0) {
 }
 
 # --- launch ------------------------------------------------------------- #
+# The child's stdout/stderr go STRAIGHT into files: cmd.exe opens the two log
+# files and the service inherits those handles, so the service -- not this
+# script -- owns the descriptors. There is no pipe, hence no OutputDataReceived
+# event, no BeginOutputReadLine, and no buffer that could fill up and stall the
+# service. "python -m jcc_core.run" needs the package directory on PYTHONPATH
+# before run.py executes (run.py's own sys.path bootstrap never runs under -m),
+# so it is set HERE, in this process, and inherited by the child.
 $stdoutLog = $Paths.ServerLog
 $stderrLog = $Paths.ServerErrLog
+
+$packagesPath = Join-Path $Root 'packages'
+$curPyPath = [string]$env:PYTHONPATH
+if ($curPyPath -and ($curPyPath -notlike ('*' + $packagesPath + '*'))) {
+    $env:PYTHONPATH = $packagesPath + ';' + $curPyPath
+} elseif ($curPyPath) {
+    # already contains it
+} else {
+    $env:PYTHONPATH = $packagesPath
+}
+$env:JCC_CONFIG = $Paths.Config
+Write-Output ('PYTHONPATH: ' + $env:PYTHONPATH)
+Write-Output ('JCC_CONFIG: ' + $env:JCC_CONFIG)
+
+# '>' truncates: each start begins with a fresh server.log / server.err.log, so
+# the stderr tail printed on failure can only ever be THIS run's output. There
+# is no rotation step and no reader -- the previous content is gone, by design.
 Remove-Item -LiteralPath $stdoutLog -ErrorAction SilentlyContinue | Out-Null
 Remove-Item -LiteralPath $stderrLog -ErrorAction SilentlyContinue | Out-Null
 
@@ -126,41 +153,23 @@ Write-Output ('')
 Write-Output ('starting: "' + $python + '" -m jcc_core.run   (cwd ' + $Root + ')')
 
 $psi = New-Object System.Diagnostics.ProcessStartInfo
-$psi.FileName = $python
-$psi.Arguments = '-m jcc_core.run'
+$psi.FileName = (Join-Path $env:SystemRoot 'system32\cmd.exe')
+$psi.Arguments = '/c "' + $python + ' -m jcc_core.run > "' + $stdoutLog + '" 2> "' + $stderrLog + '"'
 $psi.WorkingDirectory = $Root
 $psi.UseShellExecute = $false
 $psi.CreateNoWindow = $true
-$psi.RedirectStandardOutput = $true
-$psi.RedirectStandardError = $true
-$psi.EnvironmentVariables['JCC_CONFIG'] = $Paths.Config
-
-# Each drain handler must bake in its own log path: a script block resolves its
-# variables at call time, so one shared variable would send BOTH streams to the
-# last file it was pointed at.
-function New-JccDrainHandler {
-    param([string]$LogPath)
-    $sb = [scriptblock]::Create(
-        'param($sender, $ea) if ($null -ne $ea.Data) { try { Add-Content -LiteralPath "' + $LogPath +
-        '" -Value ([string]$ea.Data) -Encoding ASCII -ErrorAction SilentlyContinue } catch { } }')
-    return $sb
-}
+# NOTE: RedirectStandardOutput / RedirectStandardError must stay UNSET. Setting
+# them makes .NET create pipes that nobody in this script ever reads; on
+# PowerShell 5.1 the event drain (OutputDataReceived) does not fire reliably, and
+# an unread pipe stalls the child once its 64 KiB buffer fills.
 
 $proc = New-Object System.Diagnostics.Process
 $proc.StartInfo = $psi
-$proc.OutputDataReceived += (New-JccDrainHandler -LogPath $stdoutLog)
-$proc.ErrorDataReceived += (New-JccDrainHandler -LogPath $stderrLog)
-
 [void]$proc.Start()
-$pidStarted = $proc.Id
-$proc.BeginOutputReadLine() | Out-Null
-$proc.BeginErrorReadLine() | Out-Null
+$launcherPid = $proc.Id
+Write-JccOwnershipMarker -Paths $Paths -Port $resolvedPort -PythonExe $python -Root $Root -LauncherPid $launcherPid | Out-Null
 
-Set-Content -LiteralPath $Paths.PidFile -Value ([string]$pidStarted) -Encoding ASCII
-Start-Sleep -Milliseconds 300
-Write-JccOwnershipMarker -Paths $Paths -Port $resolvedPort -PythonExe $python -Root $Root | Out-Null
-
-Write-Output ('pid       : ' + $pidStarted)
+Write-Output ('launcher pid: ' + $launcherPid)
 Write-Output ('logs      : ' + $stdoutLog + ', ' + $stderrLog)
 
 # --- wait for /api/health ----------------------------------------------- #
@@ -178,11 +187,11 @@ while ((Get-Date) -lt $deadline) {
         break
     }
     if ($h.Error) { $lastFail = $h.Error }
-    if (-not (Test-JccProcessAlive -ProcessId $pidStarted)) {
+    if (-not (Test-JccProcessAlive -ProcessId $launcherPid)) {
         Write-Output ('')
         $innerExit = ''
         try { if ($proc.HasExited) { $innerExit = [string]$proc.ExitCode } } catch { }
-        Write-Output ('the service process exited before it went healthy.')
+        Write-Output ('the service process (launcher pid ' + $launcherPid + ') exited before it went healthy.')
         Write-Output ('exit code inside the process: ' + $innerExit)
         Write-Output ('stderr tail:')
         $tail = Get-JccTail -Lines (Get-Content -LiteralPath $stderrLog -ErrorAction SilentlyContinue) -Count 12
@@ -209,6 +218,50 @@ if (-not $healthy) {
     exit 4
 }
 
+# --- resolve the SERVICE pid (the process that holds the socket) --------- #
+# The launcher only owns the redirected log handles; on Windows the listening
+# socket belongs to its child. jcc.pid therefore records the SERVICE pid, and
+# the marker carries the launcher pid alongside it.
+$ownerNow = Get-JccPortOwner -Port $resolvedPort
+$servicePid = 0
+$noService = 'no LISTENING socket on port ' + $resolvedPort
+if ($ownerNow.Pid -gt 0) {
+    $sInfo = Get-JccProcessInfo -ProcessId $ownerNow.Pid
+    $sNorm = (Get-JccNormCmd -Text ([string]$sInfo.CommandLine))
+    if ($sNorm -like '*-m jcc_core.run*') {
+        $servicePid = $ownerNow.Pid
+        $noService = ''
+    } else {
+        $noService = 'the holder of port ' + $resolvedPort + ' is pid ' + $ownerNow.Pid +
+                     ', whose command line is "' + $sInfo.CommandLine + '" -- not a JCC service'
+    }
+}
+if ($servicePid -le 0) {
+    Write-Output ('')
+    Write-Output ('REFUSED: the service came up on the port but could not be positively')
+    Write-Output ('         identified as ours. ' + $noService)
+    Write-Output ('         It has NOT been signalled. Confirm with')
+    Write-Output ('         netstat -ano | findstr :' + $resolvedPort + ' and re-run this script.')
+    Write-Output ('         A current marker exists at ' + $Paths.MarkerFile + ' (pid ' + $launcherPid + ').')
+    exit 3
+}
+
+$descent = Test-JccDescent -ServicePid $servicePid `
+                           -WantCommandLine ('{0} -m jcc_core.run' -f $python) `
+                           -WantModule 'jcc_core.run' -AncestorPid $launcherPid
+if (-not $descent.Ok) {
+    Write-Output ('')
+    Write-Output ('REFUSED: service pid ' + $servicePid + ' is the port holder, but the ownership')
+    Write-Output ('         chain does not prove it is ours: ' + $descent.Reason)
+    Write-Output ('         chain: ' + (($descent.Chain | ForEach-Object { [string]$_ }) -join ' <- '))
+    Write-Output ('         It has NOT been signalled. Re-run this script after resolving it.')
+    exit 3
+}
+
+Set-Content -LiteralPath $Paths.PidFile -Value ([string]$servicePid) -Encoding ASCII
+Write-JccOwnershipMarker -Paths $Paths -Port $resolvedPort -PythonExe $python -Root $Root `
+                         -LauncherPid $launcherPid -ServicePid $servicePid | Out-Null
+
 $body = Invoke-JccHealth -Url $healthUrl -TimeoutMs 3000
 $hj = Read-JccHealthJson -Body $body.Body
 $summary = ''
@@ -222,7 +275,9 @@ if ($hj) {
 
 Write-Output ('')
 Write-Output ('UP')
-Write-Output ('pid       : ' + $pidStarted)
+Write-Output ('service pid : ' + $servicePid + '   (holds 127.0.0.1:' + $resolvedPort + ')')
+Write-Output ('launcher pid: ' + $launcherPid)
+Write-Output ('ownership   : ' + $descent.Reason)
 Write-Output ('port      : ' + $resolvedPort + ' (127.0.0.1 only)')
 Write-Output ('health    : ' + $summary)
 Write-Output ('health url: ' + $healthUrl)
