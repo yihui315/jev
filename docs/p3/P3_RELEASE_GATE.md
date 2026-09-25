@@ -345,7 +345,9 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
     through the freeze; its three readings (F1 validity, F2 gate, sentinel plane partition) are pinned
     separately, and `budget_snapshot` must keep partitioning by `directive_event_key()`, never by
     `origin`. Code half unshipped: owner of `packages/jcc_core/state_store.py` (forge). Measured:
-    1 648 pre-F1 rows in-tree, 0 unrecognised. Adapter for the freeze record: whichever A8 re-baseline
+    Non-derivable rows exist (lead refuted the first census's "0 unrecognised": its method matched
+    only files named `jcc.db`; correctly measured they are short synthetic fixture ids). Adapter for
+    the freeze record: whichever A8 re-baseline
     carries `state_store.py`, state whether M1 ran and what its report said — the column, not the
     ADR, is what moves a pin.
 

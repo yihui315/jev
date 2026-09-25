@@ -24,7 +24,11 @@ Format is deliberately boring: the deviations are behavioural, not narrative.
 **ADR-0011**, the M1 backfill rule: attribute only `origin IS NULL` rows, derive the value through
 `state_store.directive_plane_of` (the function F1 uses), and **never default** an unrecognised shape
 to `engine`; refuse and report instead. Measured basis for the ruling:
-1 648 pre-F1 rows in this tree, 1 452 `dir_…` + 196 `shadow_…`, **0** of unrecognised shape.
+Non-derivable rows do exist: an independent census by the lead refuted the "0 of unrecognised shape"
+figure in the first draft of ADR-0011 (its method matched only files named `jcc.db`, which misses the
+`m_*.db` / `live.db` / `det.db` stores the tree also holds). Correctly measured, the corpus holds
+non-derivable rows whose ids are short synthetic fixture ids, not engine-shaped
+`dir_<session>_<event>` ones. ADR-0011 records the correction; the ruling itself is unchanged.
 
 The code half is **shipped** as of `973217f` (ADR-0011 M1,
 `state_store.backfill_directive_origins`): operator-invoked only, no automatic
