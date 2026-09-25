@@ -38,3 +38,9 @@ auth.json
 .sandbox-secrets
 id_rsa
 id_ed25519
+# Windows reserved device names accidentally created in the repo root (e.g. by a
+# shell redirect such as `... > nul`). They are 0-byte shells -- NOT real files --
+# but git still reports them as untracked, which makes `dirty == True` and fails
+# the provenance checks (P-01/P-05). Ignore them; do not delete them (只搬不删).
+nul
+NUL
