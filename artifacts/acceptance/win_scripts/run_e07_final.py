@@ -55,6 +55,15 @@ if not os.path.isfile(SERVER_PY):
 POWERSHELL = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                          "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 
+# This host routes 127.0.0.1 through a misconfigured loopback proxy (both the
+# IE/WinINET self-referencing proxy and HTTP_PROXY in the process environment).
+# Strip it for this process so every in-system probe hits the loopback directly.
+# run_ps1 already strips the same vars for the child .ps1 processes.
+for _pk in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy",
+            "ALL_PROXY", "all_proxy"):
+    os.environ.pop(_pk, None)
+os.environ["NO_PROXY"] = "127.0.0.1,localhost"
+
 FROZEN = [
     "scripts/acceptance.ps1",
     "scripts/bootstrap.ps1",
@@ -169,9 +178,15 @@ def listening_pid(port: int) -> int | None:
 
 
 def http_json(url: str, timeout_s: float = 5.0):
+    # Bypass any loopback proxy: urllib would otherwise route 127.0.0.1 through
+    # HTTP_PROXY / the IE/WinINET self-referencing proxy and the probe would fail
+    # with 502 instead of reaching the local service. Disabling the proxy handlers
+    # makes every in-system probe hit the loopback directly.
+    no_proxy = urllib.request.ProxyHandler({"http": None, "https": None})
+    opener = urllib.request.build_opener(no_proxy)
     req = urllib.request.Request(url, method="GET")
     try:
-        with urllib.request.urlopen(req, timeout=timeout_s) as resp:
+        with opener.open(req, timeout=timeout_s) as resp:
             return resp.status, resp.read().decode("utf-8", "replace")
     except urllib.error.HTTPError as exc:
         return exc.code, exc.read().decode("utf-8", "replace")
