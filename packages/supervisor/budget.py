@@ -13,6 +13,9 @@ Fail-closed rules (all from D-34):
 * Any exhausted dimension ⇒ ``allowed=False`` with a code. The caller **replaces**
   the action with ``ESCALATE`` — never suppresses it, never ``CONTINUE``.
 * A counter read that raises ⇒ exhausted with ``budget_check_error``.
+* An action with no entry in the cost table ⇒ ``commit`` RAISES; it is never
+  silently charged 0.0. A 0.0 charge is fail-OPEN — the ``cost_units`` ceiling
+  could then never fire for that action. Mirrors the store-side derivation (#63).
 * There is **no** ``budget.enabled`` off-switch. A flippable off-switch is how a
   budget becomes decorative.
 """
@@ -44,12 +47,15 @@ BUDGET_SNAPSHOT_KEYS: Tuple[str, ...] = (
     "first_seen",         # -> wall_clock_s limit (session start)
 )
 
-#: Static cost table (D-34). The `.get(action, 0.0)` below is the ONLY place the
-#: governor reads action->cost. The table itself is defined once, in
-#: ``jcc_core.policy``, and imported here as an ALIAS: ``jcc_core`` must not
-#: import ``supervisor`` (D-2), so the shared authority has to live core-side,
-#: and ``StateStore.budget_snapshot`` derives the persisted ``cost_units_used``
-#: from that same object. A second literal here would be a drift surface.
+#: Static cost table (D-34). ``commit`` indexes it DIRECTLY (``COST_UNITS[action]``,
+#: never ``.get(action, 0.0)``) so an uncostable action fails CLOSED — a missing
+#: entry raises instead of being silently priced at 0.0, which would let the
+#: ``cost_units`` ceiling never fire (fail-open). The table itself is defined once,
+#: in ``jcc_core.policy``, and imported here as an ALIAS (identity pinned in tests):
+#: ``jcc_core`` must not import ``supervisor`` (D-2), so the shared authority lives
+#: core-side, and ``StateStore.budget_snapshot`` derives the persisted
+#: ``cost_units_used`` from that same object. A second literal would be a drift
+#: surface.
 COST_UNITS: Dict[DirectiveAction, float] = COST_UNITS_PER_ACTION
 
 CODE_ASSESS_CALLS = "assess_calls"
@@ -253,7 +259,24 @@ class BudgetGovernor:
             row["directives_used"] += 1
             row["rate_used"] += 1
             if action is not None:
-                row["cost_units_used"] += COST_UNITS.get(action, 0.0)
+                try:
+                    unit_cost = COST_UNITS[action]
+                except (KeyError, ValueError) as exc:
+                    # D-34 fail-CLOSED: an uncostable action must NOT be silently
+                    # priced at 0.0, or the ``cost_units`` ceiling can never fire for
+                    # it (fail-OPEN — the mode D-5/D-34 forbid). This mirrors the
+                    # store-side derivation (#63, ``StateStore.budget_snapshot``),
+                    # which raises on the same input, so the two halves of the ONE
+                    # cost authority cannot disagree. Contained by
+                    # ``Sentinel.on_event`` (observe-only: it counts a persistence
+                    # failure and never breaks the engine's ingest loop), so this
+                    # SURFACES rather than crashing the daemon.
+                    raise ValueError(
+                        f"uncostable directive action {action!r}: cost_units_used "
+                        "cannot be derived, and under-counting would make the cost "
+                        "dimension fail-open"
+                    ) from exc
+                row["cost_units_used"] += unit_cost
             if action is DirectiveAction.RETRY:
                 row["retries_used"] += 1
             if action is DirectiveAction.ESCALATE:
