@@ -101,8 +101,18 @@ function Invoke-JccScript {
     # JCC service is designed to outlive the shell that started it, and a child
     # that outlives its parent keeps a copy of the parent's stdout handle: with a
     # pipe that copy makes any "read until EOF" (the 2>&1 capture used here)
-    # block until the service dies. Files remove the pipe, so the capture returns
-    # as soon as the scripts themselves are done.
+    # block until the service dies -- measured, restart.ps1 hung past 240 s this
+    # way.
+    #
+    # The redirection itself must ALSO be done by cmd.exe, not by PowerShell's
+    # '>' operator. PowerShell implements '>' on an external command by giving
+    # the child a PIPE and then pumping that pipe into the file; the JCC service
+    # inherits the write end of that pipe and stays alive forever, so the pump
+    # never sees EOF and '& $exe ... > file' never returns -- measured: the
+    # nested engine exited, the service was up and healthy, and the parent was
+    # still stuck in the launch statement 65 s later. cmd.exe opens the files
+    # itself, so the descriptors go straight to the child: no pipe, no pump, no
+    # wait on EOF. Exit code still comes back through cmd's errorlevel.
     param(
         [string]$Root,
         [string]$Name,
@@ -126,7 +136,11 @@ function Invoke-JccScript {
 
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $null = & $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $file @ScriptArgs > $outF 2> $errF
+    $argList = @($exe, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $file)
+    if ($ScriptArgs) { $argList += $ScriptArgs }
+    $quoted = ($argList | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
+    $cmdExe = Join-Path $env:SystemRoot 'system32\cmd.exe'
+    $null = & $cmdExe /c ('"' + $quoted + '" > "' + $outF + '" 2> "' + $errF + '"')
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prev
 
