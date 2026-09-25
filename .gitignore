@@ -5,7 +5,19 @@ _bootstrap/
 node_modules/
 runtime/
 *.db
-artifacts/
+# P4 #78 / ADR-0009 RELEASE EVIDENCE -- why this is NOT the obvious `artifacts/`
+# + `!artifacts/release/`: a directory pattern swallows its whole subtree and git
+# will not descend into an excluded directory, so the naive pair leaves the
+# manifest ignored (verified: `git add --dry-run` refuses it, and `check-ignore -v`
+# even reports `.gitignore:8:artifacts/` as the matching pattern). Narrowing the
+# exclusion to `artifacts/*` fixes that, but the re-inclusion must name the
+# DIRECTORY before git will descend into it -- `!artifacts/release/**` alone does
+# not work either. Scope stays narrow: every other content dir (acceptance/probe/
+# reports/security) and any future one remains ignored, i.e. fail-closed.
+# Rationale and the full pattern matrix: docs/ADR/ADR-0009-release-evidence-provenance.md
+artifacts/*
+!artifacts/release/
+!artifacts/release/**
 build/
 dist/
 *.log
