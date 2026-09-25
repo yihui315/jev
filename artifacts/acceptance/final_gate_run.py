@@ -110,6 +110,36 @@ EVIDENCE_PREFIXES = (
     "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md",
 )
 
+# Verdicts that may stand as a leg's signature. `GO WITH CONDITIONS` is in the
+# project's vocabulary (docs/p3/P3_ARCH_GO.md signed it at 49d91d4) and stays a
+# pass ONLY when the leg also names its conditions; the gate enforces that below.
+GO_BEARING_VERDICTS = frozenset({"GO", "GO WITH CONDITIONS"})
+
+
+def classify_leg_verdict(rec: Dict[str, Any]) -> Tuple[bool, str]:
+    """Pure: does this signature's verdict pass the leg check? Returns
+    ``(accepts, why)``.
+
+    Split out of the gate loop so the rule can be tested without running git or
+    the whole gate. A rule that can only be exercised by a five-minute gate run
+    is a rule nobody re-checks after it has quietly been weakened.
+
+    WHY THE FAMILY. An earlier version demanded the literal string ``"GO"``,
+    while ``docs/p3/P3_ARCH_GO.md`` has signed "GO WITH CONDITIONS" since P3.
+    A gate that refuses a word this release itself uses pushes every leg toward
+    the one string that passes, so the family is accepted -- but the hedge must
+    earn its word with a non-empty ``conditions`` list, or it is a plain GO in
+    costume.
+    """
+    verdict = re.sub(r"\s+", " ", str(rec.get("verdict", "")).strip()).upper()
+    if verdict not in GO_BEARING_VERDICTS:
+        return False, f"names verdict={verdict or '<absent>'!r}"
+    if verdict != "GO":
+        conds = rec.get("conditions") or []
+        if not isinstance(conds, list) or not conds:
+            return False, f"signed {verdict!r} but names no condition"
+    return True, f"verdict={verdict!r}"
+
 # Components whose completion is owner-declared. The gate verifies the claim
 # against ground truth (module exists, every pinned test id exists in the
 # collected suite); an absent evidence file is MISSING, and a claim that does
@@ -982,16 +1012,43 @@ def check_e2e(g: Gate, collected: set) -> None:
         # architecture leg came back NO-GO against server.py:206-239 (_manual
         # mints a Directive outside the policy kernel), and the gate had no
         # check that would have made that visible.
-        verdict = str(rec.get("verdict", "")).strip().upper()
-        if verdict != "GO":
-            g.fail(cid, f"{leg} GO names verdict={verdict or '<absent>'!r}; a leg that "
-                        f"signed NO-GO is a FAIL -- the SHA position only proves where "
-                        f"the signature was written, never what it concluded")
+        # ... and the gate itself had the precision defect on the other side: it
+        # demanded the literal string "GO" and nothing else, while the project's
+        # own vocabulary (docs/p3/P3_ARCH_GO.md) has used "GO WITH CONDITIONS"
+        # since P3. A leg that honestly signed the softer GO would have been
+        # recorded as a FAIL for using a word the release has always used, which
+        # pushes a leg's author toward the only two strings that pass.
+        #
+        # Accepting the family is only safe if the hedge earns its word: a
+        # "GO WITH CONDITIONS" that names no conditions is exactly the "GO with
+        # an empty worry list" this gate exists to refuse, so `conditions` must
+        # be a non-empty list. Everything outside the family (NO-GO, BLOCKED,
+        # CONDITIONAL GO, typos) stays a FAIL.
+        ok_verdict, why = classify_leg_verdict(rec)
+        if not ok_verdict:
+            g.fail(cid, f"{leg} GO {why}; accepted verdicts are "
+                        f"{sorted(GO_BEARING_VERDICTS)}")
             continue
+        verdict = str(rec.get("verdict", "")).strip().upper()
+        conditions = rec.get("conditions") or []
+        ok_verdict, why = classify_leg_verdict(rec)
+        if not ok_verdict:
+            g.fail(cid, f"{leg} GO {why}; accepted verdicts are "
+                        f"{sorted(GO_BEARING_VERDICTS)}")
+            continue
+        # Surfaced, not stored: the gate's verdict is pass/fail only, so a leg's
+        # conditions are carried in the evidence text rather than in a new
+        # category nobody would re-derive.
+        cond_note = ""
+        if conditions:
+            shown = "; ".join(str(c) for c in conditions[:3])
+            if len(conditions) > 3:
+                shown += f" ... (+{len(conditions) - 3} more)"
+            cond_note = f" [{len(conditions)} condition(s): {shown}]"
         head = git("rev-parse", "HEAD")
         rsha = str(rec.get("release_sha", ""))
         if rsha == head:
-            g.ok(cid, f"final {leg} GO re-signed against {head[:12]}")
+            g.ok(cid, f"final {leg} GO re-signed against {head[:12]}") + cond_note
             continue
         # A signature cannot contain itself and simultaneously claim to have been
         # signed at the very commit that contains it -- demanding that made every
@@ -1009,7 +1066,8 @@ def check_e2e(g: Gate, collected: set) -> None:
                             f"since: {', '.join(offenders[:5])}")
             else:
                 g.ok(cid, f"final {leg} GO re-signed against the release freeze {rsha[:12]}; "
-                          f"the {len(changed)} path(s) added since are release evidence only")
+                          f"the {len(changed)} path(s) added since are release evidence only"
+                          + cond_note)
             continue
         g.fail(cid, f"{leg} GO was signed against {rsha or 'nothing'}, neither the current "
                     f"HEAD {head} nor the release freeze {RELEASE_FREEZE[:12]}")
