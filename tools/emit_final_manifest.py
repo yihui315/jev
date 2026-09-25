@@ -79,7 +79,10 @@ FILES: List[Dict[str, str]] = [
     {"path": "facades/claw3d", "owner": "core-platform", "dir": "true"},
     {"path": "fixtures", "owner": "core-platform", "dir": "true"},
     {"path": "tests/e2e", "owner": "qa-sre", "dir": "true"},
-    {"path": "docs/ADR/FINAL_ACCEPTANCE_REPORT.md", "owner": "lead"},
+    # The gate's F-01 check looks FINAL_ACCEPTANCE_REPORT.md up under
+    # artifacts/acceptance/ (docs/FINAL_STOP_CONDITIONS.md sec.4). Naming any
+    # other path here would make the manifest attest to a file nobody checks for.
+    {"path": "artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md", "owner": "lead"},
     {"path": "FINAL_ACTIVATION_CHECKLIST.md", "owner": "lead"},
 ]
 

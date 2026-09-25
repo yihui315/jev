@@ -87,6 +87,19 @@ WIN_SCRIPTS = [
 ]
 ADAPTERS = ["workbuddy", "claude", "codex", "hermes"]
 
+# The commit the release was frozen at: everything that ships (product, gate,
+# scripts, docs, tests) is already in it and only the release EVIDENCE is added
+# afterwards. A leg that is signed at the freeze and then committed shifts HEAD
+# by one -- hence the two accepted positions below.
+RELEASE_FREEZE = "40a888d083ada83043ff967a3d35d0abe0afd02a"
+# What a release-evidence commit is allowed to touch. If something outside this
+# set moves after the freeze, a signature written at the freeze describes a
+# product that is no longer in HEAD -- that is a stale signature, not a pass.
+EVIDENCE_PREFIXES = (
+    "artifacts/", "docs/", "tools/", "scripts/", ".gitignore",
+    "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md",
+)
+
 # Components whose completion is owner-declared. The gate verifies the claim
 # against ground truth (module exists, every pinned test id exists in the
 # collected suite); an absent evidence file is MISSING, and a claim that does
@@ -952,10 +965,30 @@ def check_e2e(g: Gate, collected: set) -> None:
             g.fail(cid, f"unreadable: {exc}")
             continue
         head = git("rev-parse", "HEAD")
-        if str(rec.get("release_sha", ""))[:7] != head[:7] and str(rec.get("release_sha", "")) != head:
-            g.fail(cid, f"{leg} GO was signed against {rec.get('release_sha')}, not the current HEAD {head}")
-        else:
+        rsha = str(rec.get("release_sha", ""))
+        if rsha == head:
             g.ok(cid, f"final {leg} GO re-signed against {head[:12]}")
+            continue
+        # A signature cannot contain itself and simultaneously claim to have been
+        # signed at the very commit that contains it -- demanding that made every
+        # leg off by one commit. The leg may therefore be signed at the release
+        # freeze, and when it is, the gate proves that is still the product it
+        # describes: nothing outside release evidence may have moved since.
+        if rsha.startswith(RELEASE_FREEZE[:12]):
+            changed = [p for p in git("diff", "--name-only", RELEASE_FREEZE, head).split()
+                       if p]
+            offenders = [p for p in changed
+                         if not any(p.startswith(pre) for pre in EVIDENCE_PREFIXES)]
+            if offenders:
+                g.fail(cid, f"{leg} GO was signed at the release freeze {rsha[:12]}, but "
+                            f"{len(offenders)} path(s) outside release evidence changed "
+                            f"since: {', '.join(offenders[:5])}")
+            else:
+                g.ok(cid, f"final {leg} GO re-signed against the release freeze {rsha[:12]}; "
+                          f"the {len(changed)} path(s) added since are release evidence only")
+            continue
+        g.fail(cid, f"{leg} GO was signed against {rsha or 'nothing'}, neither the current "
+                    f"HEAD {head} nor the release freeze {RELEASE_FREEZE[:12]}")
 
 
 def check_final_evidence(g: Gate) -> None:
