@@ -23,7 +23,7 @@ import sqlite3
 import threading
 import time
 from contextlib import contextmanager
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from . import audit as audit_mod
 from .policy import COST_UNITS_PER_ACTION
@@ -96,6 +96,67 @@ CREATE TABLE IF NOT EXISTS directives (
   actuation_reason TEXT
 );
 """ + audit_mod.SCHEMA
+
+
+#: Id prefixes of the two planes that persist a row for the SAME economic event
+#: (P4 #82). The engine issues ``dir_<session>_<event>``
+#: (``jcc_core.core.CoreEngine.ingest``) and the sentinel's charging copy issues
+#: ``shadow_<session>_<event>`` (``supervisor.budget.BudgetGovernor._persist_directive``,
+#: which exists so the charge survives D-34's store-derived counters). Dropping the
+#: prefix yields the event identity both rows carry -- the only thing the two rows
+#: share that also distinguishes separate events. This list is PINNED by
+#: ``tests/test_directive_identity.py``: a plane that renames its id must fail a
+#: test here, not silently change what the budget counters mean.
+_DIRECTIVE_EVENT_PREFIXES = ("dir_", "shadow_")
+
+
+def directive_event_key(directive_id: str, session_id: str) -> str:
+    """Economic-event identity of a ``directives`` row (P4 #82 / R1).
+
+    Two rows describing the same issued directive map to the SAME key even though
+    their ``directive_id`` differs by plane prefix. A row of an unrecognised shape
+    maps to a key unique to itself, so the worst case of a naming change is the
+    old over-count, never an under-count.
+    """
+    for prefix in _DIRECTIVE_EVENT_PREFIXES:
+        if directive_id.startswith(prefix):
+            rest = directive_id[len(prefix):]
+            if rest:
+                return f"{session_id}\x1f{rest}"
+    return f"{session_id}\x1f!unrecognised:{directive_id}"
+
+
+def _action_matches(action: Optional[str], name: str) -> bool:
+    """Compare a persisted ``action`` column against a ``DirectiveAction`` value.
+
+    The column is written from ``Directive.action.value`` (a plain string) by
+    ``add_directive``, but rows can only reach the table through the validated
+    model -- this tolerates the enum's repr as well, and nothing else.
+    """
+    if not action:
+        return False
+    value = str(action).strip()
+    if value.startswith("DirectiveAction."):
+        value = value.split(".", 1)[1]
+    return value.strip().upper() == name
+
+
+def _directive_events(conn, session_id: str) -> Dict[str, Tuple[str, Optional[float]]]:
+    """Collapse ``directives`` rows to ONE entry per economic event.
+
+    ORDER MATTERS: ``ORDER BY rowid`` (insertion order) and a later row simply
+    overwrites, so the surviving row is the LAST written for that event -- the
+    sentinel's charging record, and the one carrying a substituted action when a
+    budget-blocked event is re-issued as ESCALATE.
+    """
+    events: Dict[str, Tuple[str, Optional[float]]] = {}
+    for directive_id, action, ts in conn.execute(
+        "SELECT directive_id, action, timestamp FROM directives "
+        "WHERE session_id=? ORDER BY rowid",
+        (session_id,),
+    ).fetchall():
+        events[directive_event_key(directive_id, session_id)] = (action, ts)
+    return events
 
 
 class StateStore:
@@ -531,30 +592,43 @@ class StateStore:
                 events_used = conn.execute(
                     "SELECT COUNT(*) FROM events WHERE session_id=?", (session_id,)
                 ).fetchone()[0]
-                directives_used = conn.execute(
-                    "SELECT COUNT(*) FROM directives WHERE session_id=?", (session_id,)
-                ).fetchone()[0]
-                retries_used = conn.execute(
-                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND action=?",
-                    (session_id, DirectiveAction.RETRY.value),
-                ).fetchone()[0]
-                escalations_used = conn.execute(
-                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND action=?",
-                    (session_id, DirectiveAction.ESCALATE.value),
-                ).fetchone()[0]
-                rate_used = conn.execute(
-                    "SELECT COUNT(*) FROM directives WHERE session_id=? AND timestamp>=?",
-                    (session_id, now - self.RATE_WINDOW_S),
-                ).fetchone()[0]
+                # ONE ROW PER ECONOMIC EVENT (P4 #82 / R1-R4). Previously
+                # every count below was a bare COUNT(*) over ``directives``
+                # rows, and TWO planes write a row per directive: the
+                # engine (``core.py`` -> ``dir_<session>_<event>``) and the
+                # sentinel's charging copy (``BudgetGovernor._persist_directive``
+                # -> ``shadow_<session>_<event>``). Same event, two rows, so
+                # directives_used / rate_used / escalations_used / retries_used
+                # all read 2x and cost_units_used was billed twice -- the
+                # ``directives_per_minute`` ceiling then fires at half the
+                # real call rate and the audit tape over-reports what was sent.
+                #
+                # The two rows are collapsed by the economic-event identity
+                # they carry (``directive_event_key``); the surviving row is
+                # the LAST one written for that event, i.e. the sentinel's
+                # charging record -- which is also the one that carries a
+                # substituted action (a budget-blocked event is re-issued as
+                # ESCALATE), so no escalation can be lost to the collapse.
+                # Rows of an UNRECOGNISED shape are never merged: the worst
+                # case is the old over-count, never an under-count.
+                events = _directive_events(conn, session_id)
+                directives_used = len(events)
+                retries_used = sum(
+                    1 for action, _ts in events.values()
+                    if _action_matches(action, "RETRY")
+                )
+                escalations_used = sum(
+                    1 for action, _ts in events.values()
+                    if _action_matches(action, "ESCALATE")
+                )
+                rate_used = sum(
+                    1 for _action, ts in events.values()
+                    if ts is not None and ts >= now - self.RATE_WINDOW_S
+                )
                 # D-34: cost is DERIVED from persisted actions, never in-memory.
-                # Grouped by action so one row per distinct action, not one per
-                # directive; the cost table is the single authority (policy.py).
+                # One charge per event, not one per duplicate row.
                 cost_units_used = 0.0
-                for action_value, n_rows in conn.execute(
-                    "SELECT action, COUNT(*) FROM directives "
-                    "WHERE session_id=? GROUP BY action",
-                    (session_id,),
-                ).fetchall():
+                for action_value, _ts in events.values():
                     try:
                         unit_cost = COST_UNITS_PER_ACTION[DirectiveAction(action_value)]
                     except (ValueError, KeyError) as exc:  # unknown action string
@@ -563,7 +637,7 @@ class StateStore:
                             f"{session_id!r}: cost_units_used cannot be derived, and "
                             "under-counting would make the cost dimension fail-open"
                         ) from exc
-                    cost_units_used += unit_cost * float(n_rows)
+                    cost_units_used += unit_cost
             finally:
                 conn.close()
         return {

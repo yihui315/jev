@@ -30,11 +30,23 @@ from jcc_core.server import OPEN_GET_ENDPOINTS, create_app
 from jcc_core.config import Config, ServerConfig
 from jcc_core.core import CoreEngine
 from jcc_core.providers import build_provider
+from jcc_core.schemas import Directive, DirectiveAction
 from jcc_core.state_store import StateStore
 
 TOKEN = "surface-test-token"
 REPO_ROOT = Path(__file__).resolve().parents[3]   # F:/jev
 PKGS = REPO_ROOT / "packages"
+
+#: THE INERT ENGINE-PORT OUTCOME (P4 #77.3). A manual control-plane directive
+#: that returns anything else is the D-28 bypass landing. This is pinned
+#: POSITIVELY on purpose: a set of "reasons that would mean real execution" is
+#: EMPTY while no code path can produce one, and `reason not in <empty set>`
+#: would be vacuous -- the exact failure mode this file must not repeat.
+INERT_ENGINE_PORT_OUTCOME = {
+    "acted": False,
+    "executable": False,
+    "reason": "shadow_mode",
+}
 
 
 # --------------------------------------------------------------------------- #
@@ -278,6 +290,55 @@ def test_actuation_port_protocol_declares_dispatch_and_not_execute():
     assert hasattr(ActuationPort, "dispatch")
     assert not hasattr(ActuationPort, "execute")
     assert not hasattr(ActuationPort, "_dispatch")
+
+
+@pytest.mark.parametrize(
+    "endpoint", ["/api/pause", "/api/steer", "/api/retry"]
+)
+def test_the_manual_path_produces_no_execution_result(client, endpoint):
+    """#77.3 CONSEQUENCE pin (lead ruling): E-6 cares that the manual path CANNOT
+    reach a real side-effect, not that it is spelled a particular way.
+
+    The shape pin above would still pass if `_manual` were rewired to
+    `Actuator.execute` while remaining inert, and it would blow up for the WRONG
+    reason. So the OUTCOME is pinned too, on the wire, for every manual control
+    endpoint: whatever the directive routes through, the response is the inert
+    engine-port result and nothing else.
+    """
+    r = client.post(endpoint, json={"session_id": "s-manual"},
+                    headers={"X-JCC-Token": TOKEN})
+    assert r.status_code == 200, (endpoint, r.status_code, r.text)
+    res = r.json()["actuation"]
+
+    for key, expected in INERT_ENGINE_PORT_OUTCOME.items():
+        assert res[key] == expected, (
+            f"{endpoint} did not return the inert engine-port outcome; {key}={res[key]!r} "
+            f"!= {expected!r}. A manual directive reaching a real side-effect is the "
+            "D-28 bypass this pin exists to catch."
+        )
+    # non-vacuity: the response really did come off an ACTUATOR object -- an inert
+    # result produced by a port that was never consulted would pass without this.
+    assert res["directive_id"].startswith("dir_manual_"), res
+
+
+def test_the_manual_path_and_the_real_port_refuse_differently_but_equally(client):
+    """Non-vacuity for the consequence pin: the two ports are DISTINCT (D-41's
+    "two distinct ports"), and being distinct must not make the manual one
+    weaker. Same refusal class, different seam, neither one executing."""
+    r = client.post("/api/pause", json={"session_id": "s-manual"},
+                    headers={"X-JCC-Token": TOKEN})
+    manual_reason = r.json()["actuation"]["reason"]
+    assert manual_reason == "shadow_mode"
+
+    # the OTHER port refuses with its own reason and STILL refuses to execute:
+    a = Actuator(enabled=True, allowed_actions=["PAUSE"])
+    out = a.execute(
+        Directive(directive_id="dir_pin", session_id="s", timestamp=0.0,
+                  action=DirectiveAction.PAUSE)
+    )
+    assert out["acted"] is False
+    assert out["reason"] == "real_actuation_not_implemented"
+    assert out["reason"] != manual_reason, "the two ports must stay distinguishable"
 
 
 def test_the_shiped_actuator_denies_execute_even_when_enabled():

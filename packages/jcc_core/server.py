@@ -213,16 +213,29 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             target_actuator="noop",
             policy_version=config.policy.version,
             # ADR-0008 D-28 / D-41: a control-plane manual directive is INERT and
-            # is never a side-effect. It is dispatched through the ActuationPort
-            # seam (`dispatch`), which is permanently verify-only; calling
-            # `Actuator.execute` here is explicitly forbidden because that is the
-            # one path that can reach a real side-effect when actuation is later
-            # enabled. `requires_human=True` records that a human asked for this
-            # and that no machine may act on it unaided.
+            # is never a side-effect. `requires_human=True` records that a human
+            # asked for this and that no machine may act on it unaided.
             executable=False,
             requires_human=True,
             params={"source": "control-plane", "requires_human": True},
         )
+        # KNOWN DEVIATION KD-001 (ADR-0008 D-41 / D-28), recorded 2026-09-25,
+        # reported to the lead and owned for removal by the protocol owner.
+        #
+        # This is the SECOND call site of the engine actuation port. ADR-0008
+        # wants exactly one (the engine's, core.py) plus the Sentinel's own
+        # DispatchPort; this one routes a control-plane manual directive
+        # straight into the actuation seam, from outside policy. It is INERT
+        # today only because `ActuationPort.dispatch` is permanently
+        # verify-only -- the deviation is real, not the reason it is harmless.
+        #
+        # It must not be normalised silently in either direction: removing it
+        # changes the D-28 manual-plane contract, and "fixing" it by routing
+        # through the Sentinel changes who signs what. Both are protocol
+        # decisions. The behavioural consequences (no execution, no executable
+        # result) are pinned by tests in
+        # packages/jcc_core/tests/test_server_surface.py, and the site itself is
+        # pinned by shape; see docs/ADR/KNOWN_DEVIATIONS.md for the register.
         res = engine.actuator.dispatch(d)
         engine.store.append_audit(
             event_id=f"manual_{int(time.time() * 1000)}",

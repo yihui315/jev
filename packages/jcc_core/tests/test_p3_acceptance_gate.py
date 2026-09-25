@@ -917,6 +917,29 @@ def test_budget_scorer_tokens_is_inert_by_design(tmp_path):
         "no exhaustion for this dimension while it remains inert by design"
     )
 
+    # (iv) THE WAIVER IS THE FACT, AND IT IS PUBLISHED.
+    # `snap["model_units_used"] == 0.0` above is near-vacuous: it passes for any
+    # counter source whose values happen to be zero, whether or not the governor
+    # is wired to one. The contract is not the number, it is that the governor
+    # STATES which ceilings it does not enforce.
+    published = got.snapshot
+    assert CODE_SCORER_TOKENS in published.waived_dimensions, (
+        "the waiver must be published, so a reader is told which ceiling is not "
+        f"being enforced rather than seeing '0 of 200000, healthy'; got "
+        f"{published.waived_dimensions!r}"
+    )
+    assert published.is_enforced(CODE_SCORER_TOKENS) is False
+    # Non-vacuity for those two: `is_enforced` must not simply answer False for
+    # everything, or the pair above would pass over a governor that enforces
+    # nothing at all. A waived dimension is a SELECTED exclusion.
+    assert published.is_enforced(CODE_ASSESS_CALLS) is True, (
+        "the enforced set cannot exclude the dimension this very check counts — "
+        f"waived={published.waived_dimensions!r}"
+    )
+    # and the reporting counter is still reported, not swallowed: the waiver is
+    # about ENFORCEMENT, not about hiding the number.
+    assert published.model_units_used == 0.0
+
 
 def test_budget_survives_restart(tmp_path):
     """D-34 restart-safety: the counters are DERIVED, so a fresh governor on the
