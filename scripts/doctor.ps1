@@ -31,11 +31,11 @@ $pass = 0
 $fail = 0
 
 function Add-Check {
-    param([string]$Id, [string]$Name, [string]$Status, [string]$Measured)
-    $script:checks.Add(@{ Id = $Id; Name = $Name; Status = $Status; Measured = $Measured })
+    param([string]$Id, [string]$Name, [string]$Status, [string]$Detail)
+    $script:checks.Add(@{ Id = $Id; Name = $Name; Status = $Status; Detail = $Detail })
     if ($Status -eq 'PASS') { $script:pass++ } else { $script:fail++ }
     Write-Output ('  [' + $Status + '] ' + $Id + ' ' + $Name)
-    Write-Output ('          measured: ' + $Measured)
+    Write-Output ('          measured: ' + $Detail)
 }
 
 function Out-Title {
@@ -159,15 +159,15 @@ Out-Title '6. server port ownership'
 $port = Get-JccPort -Root $Root -Python $python
 $owner = Get-JccPortOwner -Port $port
 if ($owner.Pid -eq 0) {
-    Add-Check -Id 'D-6' -Name 'port ' + $port + ' not in foreign hold' -Status 'PASS' -Detail ('no LISTENING socket (detected via ' + $owner.Method + ')')
-} else {
-    $pidFilePid = Get-JccPidFromFile -Paths $Paths
-    $own = Test-JccOwnership -Paths $Paths -Port $port -Root $Root
-    if ($own.Ok) {
-        Add-Check -Id 'D-6' -Name 'port ' + $port + ' hold' -Status 'PASS' -Detail ('listener owned by OUR pid ' + $owner.Pid + ' via ' + $owner.Method + '; verification: ' + $own.Reason)
+        Add-Check -Id 'D-6' -Name ('port ' + $port + ' not in foreign hold') -Status 'PASS' -Detail ('no LISTENING socket (detected via ' + $owner.Method + ')')
     } else {
-        $info = Get-JccProcessInfo -ProcessId $owner.Pid
-        Add-Check -Id 'D-6' -Name 'port ' + $port + ' not in foreign hold' -Status 'FAIL' -Detail ('LISTENING held by foreign pid ' + $owner.Pid + ' via ' + $owner.Method + '; command line: ' + $info.CommandLine + '; verification said: ' + $own.Reason)
+        $pidFilePid = Get-JccPidFromFile -Paths $Paths
+        $own = Test-JccOwnership -Paths $Paths -Port $port -Root $Root
+        if ($own.Ok) {
+            Add-Check -Id 'D-6' -Name ('port ' + $port + ' hold') -Status 'PASS' -Detail ('listener owned by OUR pid ' + $owner.Pid + ' via ' + $owner.Method + '; verification: ' + $own.Reason)
+        } else {
+            $info = Get-JccProcessInfo -ProcessId $owner.Pid
+            Add-Check -Id 'D-6' -Name ('port ' + $port + ' not in foreign hold') -Status 'FAIL' -Detail ('LISTENING held by foreign pid ' + $owner.Pid + ' via ' + $owner.Method + '; command line: ' + $info.CommandLine + '; verification said: ' + $own.Reason)
     }
 }
 
@@ -180,12 +180,12 @@ if ($ds -and $null -ne $ds.Free) {
     $freeGb = [math]::Round(($ds.Free / 1GB), 2)
     $usedGb = [math]::Round(($ds.Used / 1GB), 2)
     if ($freeGb -ge $MinFreeGb) {
-        Add-Check -Id 'D-7' -Name 'free disk space on ' + $drive -Status 'PASS' -Detail ($freeGb + ' GiB free / ' + $usedGb + ' GiB used (minimum ' + $MinFreeGb + ' GiB)')
+        Add-Check -Id 'D-7' -Name ('free disk space on ' + $drive) -Status 'PASS' -Detail ('{0} GiB free / {1} GiB used (minimum {2} GiB)' -f $freeGb, $usedGb, $MinFreeGb)
     } else {
-        Add-Check -Id 'D-7' -Name 'free disk space on ' + $drive -Status 'FAIL' -Detail ($freeGb + ' GiB free, below the required ' + $MinFreeGb + ' GiB')
+        Add-Check -Id 'D-7' -Name ('free disk space on ' + $drive) -Status 'FAIL' -Detail ('{0} GiB free, below the required {1} GiB' -f $freeGb, $MinFreeGb)
     }
 } else {
-    Add-Check -Id 'D-7' -Name 'free disk space on ' + $drive -Status 'FAIL' -Detail ('could not measure free space for ' + $drive)
+    Add-Check -Id 'D-7' -Name ('free disk space on ' + $drive) -Status 'FAIL' -Detail ('could not measure free space for ' + $drive)
 }
 
 # 8 ----------------------------------------------------------------------- #
@@ -209,7 +209,7 @@ $failedChecks = @($checks | Where-Object { $_.Status -ne 'PASS' })
 if ($failedChecks.Count -gt 0) {
     Write-Output (' failing checks:')
     foreach ($c in $failedChecks) {
-        Write-Output ('  ' + $c.Id + ' ' + $c.Name + ' -- ' + $c.Measured)
+        Write-Output ('  ' + $c.Id + ' ' + $c.Name + ' -- ' + $c.Detail)
     }
     Write-Output ('')
     Write-Output ('RESULT: FAIL')
