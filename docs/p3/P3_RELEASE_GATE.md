@@ -60,6 +60,7 @@ untracked evidence is at least pinned by content. These hashes are what make the
 | `p3_gate_result.c1_red_4c9c3f0.json` | `52b8559aa564cce9…` | 21991 | the EXPECTED-RED state, preserved |
 | `p3_gate_result.superseded_dirty_1082fff.json` | `425bb0c85d7467f5…` | 40808 | the clobbering dirty run, preserved |
 | `artifacts/acceptance/p3_gate_run.py` | `83ce300b1b98dc6a…` | 17513 | the runner (tracked, `e74b3f2`+) |
+| `artifacts/acceptance/P3_SRE_GATE_HARBOR.md` | `be7f5cb299479007…` | 19510 | the SRE leg's own report (independent; untracked) |
 
 Tracked source anchors for this freeze:
 
@@ -68,6 +69,14 @@ Tracked source anchors for this freeze:
 | `packages/supervisor/budget.py` | `96a11b69dd041482…` | the single production change; prefix matches the A8 pin's recorded new digest `96a11b69..` |
 | `packages/supervisor/tests/test_budget_cost_failclosed.py` | `52b6b5db645fddcc…` | the 5 new C1/C3 pins |
 | `packages/jcc_core/policy.py` | `a4fe24cb1b2ad4b5…` | `COST_UNITS_PER_ACTION`, the single cost authority |
+
+**Independent reproduction.** The canonical pointer and the immutable `verdict_3936c96` record are
+**two separate runs** — different worktree, venv, basetemp and wall-clock — that agree on every
+substantive field. The verdict is therefore a reproduction, not a single observation. Every hash in
+this section, the §1.1 numbers, the §1.3 window claims and the repository facts in §8/§10 were
+independently re-derived and confirmed by the SRE leg (which found no error in this record; the one
+defect it did find — an earlier version of §2 borrowing the *runner's* hash as the SRE report's — is
+what this revision fixes).
 
 **Residual (P4):** make verdict artifacts revision-controlled, or hash-anchor them automatically.
 This section is a manual, interim version of that fix.
@@ -114,7 +123,7 @@ Root cause and fix:
 |---|---|---|
 | **Architecture** (ADR-0008 D-1…D-41 conformance) | **GO** (unconditional) | `docs/p3/P3_ARCH_GO.md`, re-signed at `280bfa8`, recorded in-tree at `c1df72e` |
 | **Security** | **GO** | `docs/SECURITY-P3-REVIEW.md` §C — re-affirmed at `280bfa8`; product blockers **0** |
-| **SRE / Acceptance** | **GO** | `artifacts/acceptance/P3_SRE_GATE_HARBOR.md` (`83ce300b…`-era) + §1.1 above |
+| **SRE / Acceptance** | **GO** | `artifacts/acceptance/P3_SRE_GATE_HARBOR.md` + §1.1 above |
 
 ### 2.1 Conditions: all closed
 
@@ -352,7 +361,9 @@ not.** Any citation of a numeric result as JCC P3 evidence must resolve to the a
 §1.2, not to `jev-cascade/`. If that subtree is ever treated as a deliverable in its own right, it
 needs the mock-only label of its own accord (P4, tracked by the metric leg, not by this gate).
 
-**A note on this gate's own drift.** This document is a tracked carrier and was revised once more
-after the verdict (adding this section and §6 item 16). That is a docs-only commit and cannot alter
-the certified bytes of `280bfa8`; it is recorded here so the revision is visible rather than silent.
-The certification SHA `3936c96` and the numbers in §1.1 are unaffected.
+**A note on this gate's own drift.** This document is a tracked carrier and was revised after the
+verdict: first to add this section and §6 item 16, then to correct a §2 mis-attribution that borrowed
+the *runner's* hash as the SRE report's (found by the SRE leg's adversarial read of this file). Both
+revisions are docs-only commits and cannot alter the certified bytes of `280bfa8`; they are recorded
+here so the revision is visible rather than silent. The certification SHA `3936c96` and the numbers in
+§1.1 are unaffected — confirmed by `git diff 3936c96 <HEAD> -- <12 pinned>` being **empty**.
