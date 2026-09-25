@@ -350,11 +350,25 @@ def read_pid_file() -> dict:
     if not os.path.isfile(PID_FILE):
         return {}
     raw = io.open(PID_FILE, encoding="utf-8", errors="replace").read().strip()
+    if not raw:
+        return {}
     try:
         parsed = json.loads(raw)
-        return parsed if isinstance(parsed, dict) else {"raw": raw}
+        if isinstance(parsed, dict):
+            return parsed
+        # jcc.pid is documented to carry the SERVICE pid as a BARE NUMBER
+        # (start.ps1: Set-Content -Value ([string]$servicePid)), while
+        # jcc.ownership.json carries the richer JSON marker. A bare integer is
+        # therefore the normal on-disk shape of the pid file, not a corrupt one;
+        # expose it as service_pid so the ownership comparison is made against
+        # the real value instead of None.
+        if isinstance(parsed, int):
+            return {"service_pid": parsed, "raw": raw}
     except ValueError:
-        return {"raw": raw}
+        pass
+    if raw.isdigit():
+        return {"service_pid": int(raw), "raw": raw}
+    return {"raw": raw}
 
 
 # --------------------------------------------------------------------------- #
