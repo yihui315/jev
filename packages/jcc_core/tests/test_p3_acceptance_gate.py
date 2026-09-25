@@ -986,6 +986,51 @@ def test_budget_defaults_match_config_yaml():
     }
 
 
+def test_budget_uncostable_action_never_charges_zero():
+    """D-34 fail-closed falsifier — arch-gate **C1** (`supervisor/budget.py:256`).
+
+    ``BudgetGovernor.commit(kind="directive", action=...)`` charges
+    ``COST_UNITS.get(action, 0.0)``. Every *current* ``DirectiveAction`` member is
+    in the frozen table, so the fail-open default is LATENT today — but it is still
+    fail-OPEN: any action value NOT in the table (a future enum member added
+    without a table row, or a non-enum value) is silently charged **0.0**, so the
+    ``cost_units`` ceiling can never fire for it and the budget leaks. The
+    store-side derivation is fail-closed (#63, raises on an uncostable action); the
+    governor must match it.
+
+    EXPECTED RED until arch-gate C1 / task #70 lands — the gate DOING ITS JOB, the
+    same way the R6-1 row was EXPECTED RED until #61. Never absorbed, never
+    reclassified.
+
+    Contract-agnostic: the fix may RAISE, or charge a NON-ZERO amount; either
+    passes. Only silently charging 0.0 fails.
+    """
+    # Non-vacuity: the SAME commit path DOES charge a costable action, so a 0.0
+    # reading for the sentinel is meaningful rather than an observation artifact.
+    control = BudgetGovernor(limits=BudgetLimits())          # in-memory ledger
+    control.commit("s", kind="directive", action=DirectiveAction.ESCALATE)
+    assert control._counters("s")["cost_units_used"] == 10.0
+
+    uncostable = "__NOT_IN_THE_FROZEN_COST_TABLE__"
+    assert uncostable not in {a.value for a in COST_UNITS}, (
+        "the sentinel must be uncostable for this falsifier to mean anything"
+    )
+
+    gov = BudgetGovernor(limits=BudgetLimits())
+    try:
+        gov.commit("s", kind="directive", action=uncostable)
+    except Exception:                                        # noqa: BLE001
+        return  # fail-closed by raising -- acceptable shape
+
+    charged = gov._counters("s").get("cost_units_used", 0.0)
+    assert charged > 0.0, (
+        "FAIL-OPEN (arch-gate C1): an action absent from COST_UNITS was charged "
+        f"{charged!r} via `COST_UNITS.get(action, 0.0)`, so the cost_units ceiling "
+        "can never fire for it. Fail CLOSED (raise, or charge non-zero) to match "
+        "the store-side derivation (#63)."
+    )
+
+
 # =========================================================================== #
 # R6-1 guard — engine == shadow on the SHIPPED config (evidence-present corpus)
 # =========================================================================== #
