@@ -97,13 +97,33 @@ FOUR_AGENTS = {"workbuddy", "claude", "codex", "hermes"}
 def _sha(path: Path) -> str:
     """EOL-normalised sha256 for the A8 freeze pin.
 
-    The repo runs with ``core.autocrlf=true`` and NO ``.gitattributes``, so a FRESH
-    checkout (``git worktree`` / clone) smudges committed LF to CRLF while the main
-    working tree holds LF. A raw byte hash therefore does NOT survive a re-checkout
-    of the SAME commit (measured at frozen SHA ``49d91d4``: a clean worktree hashed
-    0/12 against a main-tree baseline, 12/12 once CRLF->LF was normalised). The
-    normalisation keeps the pin checkout-independent while still failing on any
-    real content change.
+    HISTORY (do not regress the lesson): the pin was originally written for a
+    repo running with ``core.autocrlf=true`` and NO ``.gitattributes``. A fresh
+    checkout then smudged committed LF to CRLF while the main working tree held
+    LF, so a raw byte hash did NOT survive a re-checkout of the SAME commit
+    (measured at frozen SHA ``49d91d4``: a clean worktree hashed 0/12 against a
+    main-tree baseline, 12/12 once CRLF->LF was normalised). The
+    ``.replace(b"\r\n", b"\n")`` below is that fix.
+
+    CURRENT STATE (measured, not assumed): ``.gitattributes`` landed at
+    ``9b82393`` as ``* text=auto eol=lf`` (plus ``*.png`` / ``*.pdf binary``).
+    ``git ls-files --eol`` now reports, for every one of the 12 pinned files,
+    ``i/lf  w/lf  attr/text=auto eol=lf`` -- the index blob is LF, the worktree
+    is LF, and the effective attribute is ``eol=lf``. A freshly DETACHED
+    worktree at HEAD was checked: 12/12 of the pins have ``raw == norm``, so the
+    normalisation is a NO-OP today.
+
+    WHY THE REPLACE STAYS: it is deliberate insurance against the ``49d91d4``
+    failure mode. If the repo is ever cloned with ``core.autocrlf=true`` and
+    WITHOUT the ``.gitattributes`` ``eol=lf`` attribute (i.e. the eol rule is
+    gone), dropping the replace would turn the whole 12/12 pin into a FALSE
+    failure on a byte-identical commit. Leave the line in place.
+
+    TO REMOVE THE REPLACE you must FIRST delete the ``.gitattributes`` premise:
+    the ``eol=lf`` attribute is the ONLY thing keeping CRLF out of a fresh
+    checkout. Removing the replace before that is done re-introduces the 12/12
+    false-fail. The normalisation keeps the pin checkout-independent while still
+    failing on any REAL content change. See ``test_A8_gitattributes_enforces_lf_eol``.
     """
     return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
@@ -472,6 +492,42 @@ def test_A8_negative_control_enabled_without_allowlist(tmp_path):
         + "\n  => either the frozen SHA moved without a re-baseline, or the tree is "
         "dirty. Re-baseline ONLY in the same commit that freezes the SHA, and "
         "record old->new hashes + reason in p3_gate_result.json and the report."
+    )
+
+
+def test_A8_gitattributes_enforces_lf_eol():
+    """A8 prerequisite guard: the freeze pin's EOL assumption is pinned, too.
+
+    The A8 pin hash is EOL-normalised (``_sha`` folds CRLF->LF) so it survives a
+    re-checkout. That fold is a NO-OP only because ``.gitattributes`` forces
+    ``* text=auto eol=lf`` (landed at ``9b82393``): ``git ls-files --eol``
+    reports ``i/lf  w/lf  attr/text=auto eol=lf`` for all 12 pins, and a fresh
+    detached worktree at HEAD measured 12/12 ``raw == norm``. If ``.gitattributes``
+    is deleted or a ``-text`` override is added, a fresh checkout can
+    re-introduce CRLF and the pin silently leans on an assumption that no longer
+    holds. This test goes RED the moment that happens, instead of the pin
+    quietly depending on the old premise.
+    """
+    ga = REPO_ROOT / ".gitattributes"
+    assert ga.is_file(), (
+        "F:/jev/.gitattributes is MISSING -- A8's EOL-normalised pin depends on "
+        "* text=auto eol=lf; without it a fresh checkout can re-introduce CRLF "
+        "(the 49d91d4 failure mode). Restore .gitattributes."
+    )
+    text = ga.read_text(encoding="utf-8")
+    assert "* text=auto eol=lf" in text, (
+        "F:/jev/.gitattributes no longer contains '* text=auto eol=lf' -- A8's "
+        "EOL-normalised pin assumes LF on checkout. A '*.py -text' or removed "
+        "eol=lf rule would let CRLF back in and the pin would silently depend on "
+        "the _sha fold being a no-op. Restore the rule or re-pin deliberately."
+    )
+    # A '-text' override (e.g. '*.py -text') would re-expose the pinned .py files
+    # to CRLF on checkout and silently break the pin's EOL assumption.
+    offending = [ln.strip() for ln in text.splitlines() if "-text" in ln]
+    assert not offending, (
+        f".gitattributes contains a -text override: {offending}. This re-exposes "
+        "the pinned files to CRLF on checkout and A8 would silently depend on the "
+        "_sha fold being a no-op. Remove the -text override."
     )
 
 
