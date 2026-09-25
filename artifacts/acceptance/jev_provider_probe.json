@@ -1,0 +1,45 @@
+{
+  "probe_at": "2026-09-25T08:17:31Z",
+  "probe_script": "inline read-only provider inspection (scout); PAID_PROVIDER_CALLS=0; no committed script",
+  "probe_exit_code": 0,
+  "module": "packages/jcc_core/providers",
+  "real_jev_available": false,
+  "config": {
+    "provider_mode": "mock",
+    "api_key_env": "JEV_API_KEY",
+    "api_key_present": false,
+    "feature_flag_real_provider": false,
+    "base_url": "https://api.typesafe.ai",
+    "model": "jev-1.13.0"
+  },
+  "resolved_provider_on_shipped_config": "mock",
+  "fallback_chain": {
+    "DisabledProvider": {
+      "exercised": true,
+      "assess_ok": true,
+      "paid_calls": 0,
+      "note": "declares abstention (raw.provider_abstained=True); kernel resolves to VERIFY (Errata E-3)"
+    },
+    "DeterministicMockProvider": {
+      "exercised": true,
+      "assess_ok": true,
+      "paid_calls": 0,
+      "note": "default provider; deterministic risk from session_id:event_id SHA-256"
+    },
+    "RealProvider": {
+      "selected_on_shipped_config": false,
+      "fail_closed_to": "disabled",
+      "paid_calls": 0,
+      "note": "only selected when real_provider flag AND JEV_API_KEY both present; not instantiated here (UNVERIFIED stub)"
+    },
+    "RecordReplayProvider": {
+      "present_in_codebase": false,
+      "error": "ModuleNotFoundError: No module named 'jcc_core.providers.record_replay'",
+      "paid_calls": 0,
+      "note": "DEFECT: task references RecordReplayProvider in the fallback chain but NO such class exists in packages/jcc_core/providers (ModuleNotFoundError). Actual chain is disabled->mock->real."
+    }
+  },
+  "platform_running_with_real_disabled": true,
+  "paid_provider_calls": 0,
+  "notes": "Real Jev unavailable on this host: jev.feature_flags.real_provider=false and env JEV_API_KEY unset. build_provider(mock) -> mock; build_provider(real+flag+nokey) -> fail-closed disabled (verified). DisabledProvider.assess and DeterministicMockProvider.assess both executed with zero external calls (PAID_PROVIDER_CALLS=0), confirming the platform keeps running with the real provider disabled. RecordReplayProvider is ABSENT from the codebase (see fallback_chain.RecordReplayProvider) - the task-described chain cannot be fully verified as written."
+}

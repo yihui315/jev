@@ -1,0 +1,146 @@
+{
+  "adapter": "hermes",
+  "probe_at": "2026-09-25T08:16:16Z",
+  "probe_script": "tools/probe_adapter_capabilities.py",
+  "probe_exit_code": 0,
+  "status": "UNVERIFIED",
+  "probing_mode": "live",
+  "capabilities": {
+    "telemetry": {
+      "status": "VERIFIED",
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=hermes-ac1dae71f6f5ba5764cddecf, event_type=EventType.HEARTBEAT) at C:\\Users\\Administrator\\.hermes\\gateway_state.json"
+    },
+    "pause": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    },
+    "verify": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on HermesAdapter\""
+    },
+    "steer": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    },
+    "retry": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    },
+    "cancel": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    },
+    "session_message": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    },
+    "approval": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here"
+    }
+  },
+  "capabilities_detail": {
+    "telemetry": {
+      "record_source": "live",
+      "record_path": "C:\\Users\\Administrator\\.hermes\\gateway_state.json",
+      "envelope_event_id": "hermes-ac1dae71f6f5ba5764cddecf",
+      "envelope_session_id": "hermes-gateway:23252",
+      "envelope_event_type": "EventType.HEARTBEAT",
+      "envelope_schema_ok": true,
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=hermes-ac1dae71f6f5ba5764cddecf, event_type=EventType.HEARTBEAT) at C:\\Users\\Administrator\\.hermes\\gateway_state.json",
+      "mode": "live"
+    },
+    "pause": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('pause', 'halt', 'suspend', 'freeze') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    },
+    "verify": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on HermesAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "steer": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('steer', 'inject', 'instruct', 'redirect', 'redirect') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    },
+    "retry": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('retry', 'replay', 'redrive', 'resume') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    },
+    "cancel": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('cancel', 'abort', 'terminate', 'kill') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    },
+    "session_message": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('send_message', 'post_message', 'message', 'prompt', 'speak') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    },
+    "approval": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('approve', 'deny', 'permission', 'approval', 'grant') on HermesAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
+      "mode": "contract_dry_run"
+    }
+  },
+  "notes": "agent=hermes; adapter's own probe() status=CONNECTED; installed=True; version=Hermes Agent v0.4.0 (2026.3.18); config=C:\\Users\\Administrator\\.hermes\\config.yaml. capabilities: 1 VERIFIED / 6 UNVERIFIED / 1 UNSUPPORTED. exercised live: ['telemetry']. No capability other than telemetry is actuator-invocable: pause/cancel/steer/retry/session_message/approval have no callable on this adapter. ",
+  "probing_rules": {
+    "R1_VERIFIED": "an interface actually responded during this run (live record + normalize() for telemetry; a callable that answered the fail-closed dry-run otherwise)",
+    "R2_UNSUPPORTED": "the adapter's own contract declares the capability not offered (explicit False flag, or no surface in the AgentAdapter public API)",
+    "R3_UNVERIFIED": "the environment has the mechanism but no path to exercise it here (reason recorded)"
+  },
+  "adapter_self_report": {
+    "status": "CONNECTED",
+    "installed": true,
+    "version": "Hermes Agent v0.4.0 (2026.3.18)",
+    "config_path": "C:\\Users\\Administrator\\.hermes\\config.yaml",
+    "hook_schema_kind": "hermes-hooks",
+    "public_callables_on_adapter": [],
+    "discovery_actuation_enabled": false
+  }
+}

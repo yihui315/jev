@@ -1,0 +1,17 @@
+{
+  "module": "packages/jcc_core/providers",
+  "pin_tests": [
+    "packages/jcc_core/tests/test_providers.py::test_mock_deterministic",
+    "packages/jcc_core/tests/test_providers.py::test_mock_emits_the_full_provider_contract",
+    "packages/jcc_core/tests/test_providers.py::test_mock_unknown_evidence_routes_to_verify",
+    "packages/jcc_core/tests/test_providers.py::test_mock_high_risk_escalates",
+    "packages/jcc_core/tests/test_providers.py::test_disabled_declares_abstention_and_emits_no_signals",
+    "packages/jcc_core/tests/test_providers.py::test_real_provider_escalates_not_verify",
+    "packages/jcc_core/tests/test_providers.py::test_build_provider_default_is_mock",
+    "packages/jcc_core/tests/test_providers.py::test_build_provider_real_without_key_falls_back_disabled",
+    "packages/jcc_core/tests/test_providers.py::test_build_provider_real_fallback_routes_the_abstention_contract",
+    "packages/jcc_core/tests/test_providers.py::test_build_provider_real_with_flag_and_key"
+  ],
+  "owner": "scout",
+  "note": "C-05 pins the Jev provider layer (packages/jcc_core/providers). Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest packages/jcc_core/tests/test_providers.py --collect-only -q` on this host (10 tests collected, EXIT=0). The gate must re-run EACH node id; do not trust a count-only check (a vacuous pass is exactly the #54 failure mode). Provider classes present: DisabledProvider, DeterministicMockProvider, RealProvider. RecordReplayProvider is ABSENT from the codebase (see artifacts/acceptance/jev_provider_probe.json) — the task-described fallback chain referencing it cannot be fully verified."
+}

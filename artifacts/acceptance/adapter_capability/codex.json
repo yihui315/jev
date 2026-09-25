@@ -1,0 +1,139 @@
+{
+  "adapter": "codex",
+  "probe_at": "2026-09-25T08:16:14Z",
+  "probe_script": "tools/probe_adapter_capabilities.py",
+  "probe_exit_code": 0,
+  "status": "UNVERIFIED",
+  "probing_mode": "live",
+  "capabilities": {
+    "telemetry": {
+      "status": "VERIFIED",
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=codex-4771e8e556e7051533ad8873, event_type=EventType.SESSION_START) at C:\\Users\\Administrator\\.codex\\sessions\\2026\\08\\03\\rollout-2026-08-03T10-21-45-019fc56d-581d-7721-bad8-0fdbb8b90562.jsonl"
+    },
+    "pause": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no pause interface, and the fail-closed dry-run produced \"no attribute matching ('pause', 'halt', 'suspend', 'freeze') on CodexAdapter\""
+    },
+    "verify": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on CodexAdapter\""
+    },
+    "steer": {
+      "status": "UNSUPPORTED",
+      "reason": "CodexAdapter.probe() reports app_server_steering=False mapped to capability 'steer': the adapter's own contract declares this capability not offered"
+    },
+    "retry": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no retry interface, and the fail-closed dry-run produced \"no attribute matching ('retry', 'replay', 'redrive', 'resume') on CodexAdapter\""
+    },
+    "cancel": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no cancel interface, and the fail-closed dry-run produced \"no attribute matching ('cancel', 'abort', 'terminate', 'kill') on CodexAdapter\""
+    },
+    "session_message": {
+      "status": "UNSUPPORTED",
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no session_message interface, and the fail-closed dry-run produced \"no attribute matching ('send_message', 'post_message', 'message', 'prompt', 'speak') on CodexAdapter\""
+    },
+    "approval": {
+      "status": "UNVERIFIED",
+      "reason": "mechanism present in the environment but not exercisable: the installed codex binary (C:\\Users\\Administrator\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe) contains the native hook strings PermissionRequest, ConfiguredHookMatcherGroup (read-only byte scan, no execution, no API call); CodexAdapter itself exposes no approval callable and app_server_steering is False -> no path to exercise it here"
+    }
+  },
+  "capabilities_detail": {
+    "telemetry": {
+      "record_source": "live",
+      "record_path": "C:\\Users\\Administrator\\.codex\\sessions\\2026\\08\\03\\rollout-2026-08-03T10-21-45-019fc56d-581d-7721-bad8-0fdbb8b90562.jsonl",
+      "envelope_event_id": "codex-4771e8e556e7051533ad8873",
+      "envelope_session_id": "019fb0e0-245b-7dd0-ab25-e56447a2bc8f",
+      "envelope_event_type": "EventType.SESSION_START",
+      "envelope_schema_ok": true,
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=codex-4771e8e556e7051533ad8873, event_type=EventType.SESSION_START) at C:\\Users\\Administrator\\.codex\\sessions\\2026\\08\\03\\rollout-2026-08-03T10-21-45-019fc56d-581d-7721-bad8-0fdbb8b90562.jsonl",
+      "mode": "live"
+    },
+    "pause": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('pause', 'halt', 'suspend', 'freeze') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no pause interface, and the fail-closed dry-run produced \"no attribute matching ('pause', 'halt', 'suspend', 'freeze') on CodexAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "verify": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on CodexAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "steer": {
+      "reason": "CodexAdapter.probe() reports app_server_steering=False mapped to capability 'steer': the adapter's own contract declares this capability not offered",
+      "mode": "contract_dry_run"
+    },
+    "retry": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('retry', 'replay', 'redrive', 'resume') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no retry interface, and the fail-closed dry-run produced \"no attribute matching ('retry', 'replay', 'redrive', 'resume') on CodexAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "cancel": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('cancel', 'abort', 'terminate', 'kill') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no cancel interface, and the fail-closed dry-run produced \"no attribute matching ('cancel', 'abort', 'terminate', 'kill') on CodexAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "session_message": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('send_message', 'post_message', 'message', 'prompt', 'speak') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no session_message interface, and the fail-closed dry-run produced \"no attribute matching ('send_message', 'post_message', 'message', 'prompt', 'speak') on CodexAdapter\"",
+      "mode": "contract_dry_run"
+    },
+    "approval": {
+      "dry_run": {
+        "attempted": false,
+        "callable_found": false,
+        "result": null,
+        "exception": "no attribute matching ('approve', 'deny', 'permission', 'approval', 'grant') on CodexAdapter"
+      },
+      "public_callables": [],
+      "reason": "mechanism present in the environment but not exercisable: the installed codex binary (C:\\Users\\Administrator\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe) contains the native hook strings PermissionRequest, ConfiguredHookMatcherGroup (read-only byte scan, no execution, no API call); CodexAdapter itself exposes no approval callable and app_server_steering is False -> no path to exercise it here",
+      "mode": "contract_dry_run"
+    }
+  },
+  "notes": "agent=codex; adapter's own probe() status=DEGRADED; installed=True; version=0.137.0; config=C:\\Users\\Administrator\\.codex\\config.toml. capabilities: 1 VERIFIED / 1 UNVERIFIED / 6 UNSUPPORTED. exercised live: ['telemetry']. No capability other than telemetry is actuator-invocable: pause/cancel/steer/retry/session_message/approval have no callable on this adapter. The adapter's own probe() reports DEGRADED because push/steering channels are absent; that degradation is recorded per capability above rather than hidden inside the aggregate status.",
+  "probing_rules": {
+    "R1_VERIFIED": "an interface actually responded during this run (live record + normalize() for telemetry; a callable that answered the fail-closed dry-run otherwise)",
+    "R2_UNSUPPORTED": "the adapter's own contract declares the capability not offered (explicit False flag, or no surface in the AgentAdapter public API)",
+    "R3_UNVERIFIED": "the environment has the mechanism but no path to exercise it here (reason recorded)"
+  },
+  "adapter_self_report": {
+    "status": "DEGRADED",
+    "installed": true,
+    "version": "0.137.0",
+    "config_path": "C:\\Users\\Administrator\\.codex\\config.toml",
+    "hook_schema_kind": "codex-native-hooks+notify",
+    "public_callables_on_adapter": [],
+    "discovery_actuation_enabled": false
+  }
+}
