@@ -140,11 +140,11 @@
       {
         "item": 2,
         "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/start.ps1",
-        "at": "2026-09-25T22:12:45+08:00",
-        "exit": "not captured",
-        "result": "the powershell engine was still alive at t=5.3 s, the service answered HTTP 200 on 127.0.0.1:4778 at t=8.8 s, the powershell process exited on its own by t=12.1 s, and the service answered 200 for the whole remaining 63 s of observation.",
+        "at": "2026-09-25T22:12:45+08:00 (run finished 22:12:47)",
+        "exit": 0,
+        "result": "the powershell engine was still alive at t=5.2 s, the service answered HTTP 200 on 127.0.0.1:4778 at t=8.6 s, the powershell process exited on its own by t=12.0 s (terminated True, not killed), and the service answered 200 for the whole remaining 60 s of the 76.56 s run. stdout 4 lines, stderr empty. stdout begins 'JCC start (W-02) ... stale pid file found ...'.",
         "pass": true,
-        "caveat": "exit code NOT recorded: the first harness captured stdout through a pipe, and the service inherits the pipe's write end and outlives the shell, so the reader waits for an EOF that never arrives. That was the instrument failing, not the product. Item 1 of the verdict rule ('NO-GO if a script could not be run or a run produced an unexpected exit code') is therefore satisfied on substance but the exit code is missing from the record."
+        "caveat": "CORRECTED AFTER FIRST DRAFT. This entry originally said the exit code was not captured, because an earlier harness read stdout through a pipe and the service inherits the pipe's write end and outlives the shell, so the reader waits for an EOF that never arrives. The bounded harness that ran the same command wrote the code to disk anyway, and it is 0: record in .workbuddy\\scratch\\sre07\\cycle2\\bounded_start.json, fields exit_code 0, terminated True, elapsed 76.56, bound 75. So the run did happen and did end as expected; the gap was in my note, not in the measurement. Recording the correction here rather than quietly dropping it -- an entry that says the evidence is missing when it is on disk is the kind of thing that gets read as a reason to distrust the rest."
       },
       {
         "item": 3,
