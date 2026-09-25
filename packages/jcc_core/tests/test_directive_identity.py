@@ -29,6 +29,8 @@ from pathlib import Path
 
 import pytest
 
+from jcc_core.schemas import Directive, DirectiveAction
+
 REPO_ROOT = Path(__file__).resolve().parents[3]  # F:/jev
 
 
@@ -266,6 +268,161 @@ def test_with_the_shadow_plane_off_engine_rows_still_count(tmp_path):
     assert snap["directives_used"] == 2
     assert snap["rate_used"] == 2
     assert snap["cost_units_used"] > 0.0, "cost must not be lost either way"
+
+
+# --------------------------------------------------------------------------- #
+# origin attribution -- F1 (namespace ownership) and F2 (no cross-plane overwrite)
+# --------------------------------------------------------------------------- #
+def _mint(directive_id: str, action=DirectiveAction.PAUSE, **kw) -> Directive:
+    return Directive(
+        directive_id=directive_id, session_id="s-origin", timestamp=1.0,
+        action=action, evidence_hash="deadbeef", **kw
+    )
+
+
+def test_origin_is_required_and_keyword_only(tmp_path):
+    """F1, first line: a writer that cannot say who it is may not write.
+
+    There is deliberately NO default. A default does not produce an
+    unattributed row by accident -- it produces one *every time someone
+    forgets the argument*, which is the silent path #82 took.
+    """
+    import inspect
+
+    from jcc_core.state_store import StateStore
+
+    s = StateStore(str(tmp_path / "o.db"))
+    sig = inspect.signature(StateStore.add_directive)
+    origin = sig.parameters["origin"]
+    assert origin.default is inspect.Parameter.empty, (
+        "origin MUST have no default: a default makes the attribution optional"
+    )
+    assert origin.kind is inspect.Parameter.KEYWORD_ONLY, (
+        "origin MUST be keyword-only, so a caller cannot pass it positionally "
+        "and silently be attributed to the wrong writer"
+    )
+
+    with pytest.raises(TypeError, match="origin"):
+        s.add_directive(_mint("dir_s-origin_e1"))
+    with pytest.raises(TypeError, match="positional"):
+        s.add_directive(_mint("dir_s-origin_e1"), "engine")  # positional -> no longer
+
+
+def test_an_origin_outside_the_whitelist_is_refused(tmp_path):
+    """Fail-closed whitelist: '' , None, a wrong-but-plausible name and a
+    case-variant are ALL refused, not coerced or defaulted."""
+    from jcc_core.state_store import StateStore
+
+    s = StateStore(str(tmp_path / "o.db"))
+    for bad in ("", "sentinel", "Engine", "ENGINE", "supervisor ", None, "unknown"):
+        with pytest.raises(ValueError, match="origin") as exc:
+            s.add_directive(_mint("dir_s-origin_e1"), origin=bad)
+        assert bad != "engine", "the only accepted value must stay accepted"
+
+
+@pytest.mark.parametrize(
+    "directive_id, origin",
+    [
+        ("dir_s-origin_e1", "supervisor"),     # engine's namespace, sentinel's name
+        ("shadow_s-origin_e1", "engine"),      # sentinel's namespace, engine's name
+        ("plain-id", "engine"),                # unrecognised shape, any name
+        ("plain-id", "supervisor"),            #  ... and the other one too
+        ("", "engine"),                        # empty id is no id
+        ("dir_", "engine"),                    # prefix with nothing behind it
+    ],
+)
+def test_f1_an_id_may_only_be_written_by_the_plane_that_owns_its_prefix(
+        tmp_path, directive_id, origin):
+    """F1: namespace ownership. The prefix is the evidence that the writer had
+    the right to mint that id; without it, nothing distinguishes the planes."""
+    from jcc_core.state_store import StateStore
+
+    s = StateStore(str(tmp_path / "o.db"))
+    with pytest.raises(ValueError, match="origin"):
+        s.add_directive(_mint(directive_id), origin=origin)
+    # and the refusal must be BEFORE the write: nothing landed
+    assert s.get_directives("s-origin") == []
+
+
+def test_the_two_accepted_writers_are_the_only_two(tmp_path):
+    """The whitelist itself is the contract; pin it so it cannot quietly grow."""
+    from jcc_core.state_store import StateStore, _DIRECTIVE_ORIGINS
+
+    assert set(_DIRECTIVE_ORIGINS) == {"engine", "supervisor"}
+    s = StateStore(str(tmp_path / "o.db"))
+    # both are accepted -- otherwise the two probes above would be vacuous
+    s.add_directive(_mint("dir_s-origin_e1"), origin="engine")
+    s.add_directive(_mint("shadow_s-origin_e1"), origin="supervisor")
+    rows = {r["directive_id"]: r["origin"] for r in s.get_directives()}
+    assert rows == {"dir_s-origin_e1": "engine",
+                    "shadow_s-origin_e1": "supervisor"}
+
+
+def test_f2_a_cross_plane_overwrite_is_refused_and_leaves_the_row_alone(tmp_path):
+    """F2: ``INSERT OR REPLACE`` must NOT silently swap the other plane's record.
+
+    With F1 in front of it, the cross-origin case that F2 alone would catch is
+    the one where the PREVIOUS row carries no attribution at all -- a database
+    written before ``origin`` existed. Everything else F1 already refuses; F2 is
+    the second line that keeps a row of unknown provenance from being replaced
+    by whichever writer shows up next, which is precisely how #82's two rows
+    ended up indistinguishable.
+
+    The same origin MAY still replace its own row (the idempotent retry), which
+    is why the gate is on origin and not on "id already exists".
+    """
+    from jcc_core.state_store import StateStore
+
+    s = StateStore(str(tmp_path / "o.db"))
+    s.add_directive(_mint("dir_s-origin_e1", action=DirectiveAction.PAUSE),
+                    origin="engine")
+
+    # 1) F1 refuses the cross-plane write before F2 is even reached
+    with pytest.raises(ValueError, match="can only be issued by"):
+        s.add_directive(_mint("dir_s-origin_e1", action=DirectiveAction.ESCALATE),
+                        origin="supervisor")
+    row = s.get_directives("s-origin")[0]
+    assert row["action"] == "PAUSE", "the refused write must not have replaced it"
+
+    # 2) F2: a row with NO attribution cannot be overwritten by anyone
+    s2 = StateStore(str(tmp_path / "legacy.db"))
+    with s2.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action) "
+            "VALUES (?,?,?,?)",
+            ("dir_s-origin_e1", "s-origin", 1.0, "PAUSE"),
+        )
+        conn.commit()
+    with pytest.raises(ValueError, match="cross-origin"):
+        s2.add_directive(_mint("dir_s-origin_e1", action=DirectiveAction.ESCALATE),
+                         origin="engine")
+    with s2.connection() as conn:
+        only = conn.execute(
+            "SELECT action, origin FROM directives WHERE directive_id='dir_s-origin_e1'"
+        ).fetchone()
+    assert only == ("PAUSE", None), "the refused write must not have replaced it"
+
+    # 3) same origin, same id -> allowed, and this IS the retry path
+    s.add_directive(_mint("dir_s-origin_e1", action=DirectiveAction.ESCALATE),
+                    origin="engine")
+    row = s.get_directives("s-origin")[0]
+    assert row["action"] == "ESCALATE"
+    assert len(s.get_directives("s-origin")) == 1
+
+
+def test_the_persisted_row_carries_the_attribution_it_was_written_with(tmp_path):
+    """R3 in the concrete form: provenance is a COLUMN, not a side-channel, and
+    it survives a read back through the public surface."""
+    from jcc_core.state_store import StateStore
+
+    s = StateStore(str(tmp_path / "o.db"))
+    s.add_directive(_mint("dir_s-origin_e1"), origin="engine")
+    with s.connection() as conn:
+        stored = conn.execute(
+            "SELECT origin FROM directives WHERE directive_id='dir_s-origin_e1'"
+        ).fetchone()[0]
+    assert stored == "engine", "the writer must be recorded, not just checked"
+    assert s.get_directives("s-origin")[0]["origin"] == "engine"
 
 
 # --------------------------------------------------------------------------- #

@@ -93,7 +93,8 @@ CREATE TABLE IF NOT EXISTS directives (
   signature       TEXT,
   evidence_hash   TEXT,
   acted           INTEGER,
-  actuation_reason TEXT
+  actuation_reason TEXT,
+  origin          TEXT
 );
 """ + audit_mod.SCHEMA
 
@@ -124,6 +125,69 @@ def directive_event_key(directive_id: str, session_id: str) -> str:
             if rest:
                 return f"{session_id}\x1f{rest}"
     return f"{session_id}\x1f!unrecognised:{directive_id}"
+
+
+#: The closed set of writers a ``directives`` row may be attributed to (F1).
+#: Anything else -- including the empty string and ``None`` -- is REFUSED, not
+#: defaulted: an unattributed row is exactly the thing that let two planes
+#: overwrite each other unnoticed (#82), and a default would make the
+#: attribution disappear the moment a caller forgets it.
+_DIRECTIVE_ORIGINS = ("engine", "supervisor")
+
+#: Which prefix belongs to which writer. One prefix per origin, so the
+#: namespace itself is the first line of the attribution.
+_ORIGIN_OF_PREFIX = (("dir_", "engine"), ("shadow_", "supervisor"))
+
+
+def directive_plane_of(directive_id: str) -> Optional[str]:
+    """Writer a ``directive_id`` shape can ONLY have been issued by (F1).
+
+    ``None`` means the shape is not attributable to either writer. A bare
+    prefix (``"dir_"``) is NOT attributable: it identifies no event, so it
+    carries no evidence either -- the same guard ``directive_event_key`` uses.
+    """
+    for prefix, origin in _ORIGIN_OF_PREFIX:
+        if directive_id.startswith(prefix) and len(directive_id) > len(prefix):
+            return origin
+    return None
+
+
+def resolve_directive_origin(directive_id: str, origin: str) -> str:
+    """Attribution gate for a ``directives`` row (F1, fail-closed).
+
+    Two independent refusals, both of which must hold:
+
+    1. ``origin`` itself must be one of :data:`_DIRECTIVE_ORIGINS`. The empty
+       string, ``None`` and any typo are REFUSED rather than coerced.
+    2. ``directive_id`` must carry a prefix owned by that ``origin``. A
+       ``dir_`` id can only be an engine directive and a ``shadow_`` id can only
+       be the sentinel's charging copy; an id of an UNRECOGNISED shape is
+       refused no matter what ``origin`` says, because there is nothing in the
+       id that could tell the two planes apart -- which is precisely how #82
+       produced two rows that looked like four directives.
+
+    Raises ``ValueError`` -- never warns, never defaults. A writer that cannot
+    say who it is must not write.
+    """
+    if origin not in _DIRECTIVE_ORIGINS:
+        raise ValueError(
+            f"directive {directive_id!r} was attributed to origin {origin!r}; "
+            f"only {_DIRECTIVE_ORIGINS} may persist a directive, and an "
+            "unattributed write is refused rather than defaulted"
+        )
+    plane = directive_plane_of(directive_id)
+    if plane is None:
+        raise ValueError(
+            f"directive_id {directive_id!r} matches no prefix owned by a writer "
+            f"({[p for p, _o in _ORIGIN_OF_PREFIX]}), so origin={origin!r} cannot "
+            "be substantiated; refusing an unattributable directive"
+        )
+    if plane != origin:
+        raise ValueError(
+            f"directive_id {directive_id!r} can only be issued by {plane!r}, but "
+            f"origin={origin!r} -- refusing this cross-origin write"
+        )
+    return origin
 
 
 def _action_matches(action: Optional[str], name: str) -> bool:
@@ -424,15 +488,56 @@ class StateStore:
                 conn.close()
 
     # -- directives ----------------------------------------------------------
-    def add_directive(self, d: Directive) -> None:
+    def add_directive(self, d: Directive, *, origin: str) -> None:
+        """Persist an issued directive. ``origin`` is KEYWORD-ONLY AND REQUIRED.
+
+        ``origin`` names the writer that issued ``d`` (``"engine"`` or
+        ``"supervisor"``) and is validated against the directive's id prefix
+        (F1) before anything is written. It has NO default on purpose: a
+        default turns a forgotten argument into an unattributed row, and an
+        unattributed row is what let the two planes write the same economic
+        event twice (#82), and what ``directive_event_key`` has to guess at.
+
+        F2 -- the cross-origin overwrite gate. ``INSERT OR REPLACE`` would let
+        a second writer silently replace the first's row, so the existing
+        attribution is checked first: same ``directive_id`` AND a DIFFERENT
+        origin is REFUSED; the same origin may still replace its own row, which
+        is the idempotent retry path. This is also what makes the #82
+        per-event collapse sound -- after F2, both rows of an event are known
+        to come from ONE writer, so collapsing them cannot merge two planes'
+        views of the same event.
+
+        Raises ``ValueError`` on any of those refusals; the write is not
+        attempted, so a refused directive leaves the table as it was.
+        """
+        resolved = resolve_directive_origin(d.directive_id, origin)
         with self._lock:
             conn = self._conn()
             try:
+                prior = conn.execute(
+                    "SELECT origin FROM directives WHERE directive_id=?",
+                    (d.directive_id,),
+                ).fetchone()
+                if prior is not None and prior[0] != resolved:
+                    existing = prior[0]
+                    note = (
+                        "an UNATTRIBUTED row (origin NULL: written by a "
+                        "pre-F1 database, so its plane is unknown)"
+                        if existing is None
+                        else f"{existing!r}"
+                    )
+                    raise ValueError(
+                        f"directive {d.directive_id!r} is already persisted as "
+                        f"{note} and cannot be replaced by {resolved!r}; a "
+                        "cross-origin overwrite would destroy the other writer's "
+                        "record of the same issued directive"
+                    )
                 conn.execute(
                     "INSERT OR REPLACE INTO directives "
                     "(directive_id, session_id, timestamp, action, target_actuator, "
-                     "params, policy_version, signed, signature, evidence_hash, "
-                     "acted, actuation_reason) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "params, policy_version, signed, signature, evidence_hash, "
+                    "acted, actuation_reason, origin) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (
                         d.directive_id,
                         d.session_id,
@@ -446,6 +551,7 @@ class StateStore:
                         d.evidence_hash,
                         int(d.acted),
                         d.actuation_reason,
+                        resolved,
                     ),
                 )
                 conn.commit()
@@ -460,7 +566,8 @@ class StateStore:
                     rows = conn.execute(
                         "SELECT directive_id, session_id, timestamp, action, "
                         "target_actuator, params, policy_version, signed, "
-                        "signature, evidence_hash, acted, actuation_reason "
+                        "signature, evidence_hash, acted, actuation_reason, "
+                        "origin "
                         "FROM directives "
                         "WHERE session_id=? ORDER BY timestamp ASC",
                         (session_id,),
@@ -469,7 +576,8 @@ class StateStore:
                     rows = conn.execute(
                         "SELECT directive_id, session_id, timestamp, action, "
                         "target_actuator, params, policy_version, signed, "
-                        "signature, evidence_hash, acted, actuation_reason "
+                        "signature, evidence_hash, acted, actuation_reason, "
+                        "origin "
                         "FROM directives "
                         "ORDER BY timestamp ASC"
                     ).fetchall()
@@ -492,6 +600,7 @@ class StateStore:
             "evidence_hash": r[9],
             "acted": bool(r[10]),
             "actuation_reason": r[11],
+            "origin": r[12],
         }
 
     # -- audit tape (delegates to audit.py) ----------------------------------
@@ -554,6 +663,19 @@ class StateStore:
         no P3 knowledge and remains valid for pre-P3 rows. Absent this surface the
         governor silently falls back to its in-memory ledger, which is exactly the
         restart-unsafe source of truth D-34 forbade.
+
+        RATE USED COUNTS EVENTS, NOT ROWS. ``rate_used`` is the number of
+        directives *issued* in the last ``RATE_WINDOW_S`` seconds, so it is
+        DERIVED OVER THE COLLAPSED EVENT SET BELOW, never as ``COUNT(*)
+        FROM directives``. Two planes persist one row each for the same issued
+        directive (engine ``dir_<sid>_<eid>``, sentinel's charging copy
+        ``shadow_<sid>_<eid>``), so a row count reads TWICE the real call rate:
+        the ``directives_per_minute`` ceiling then fires at half the true rate.
+        Measured on the #82 probe (2 ingests, shadow on): rows = 4, events = 2,
+        and ``rate_used`` used to report 4. Rows are collapsed by
+        ``directive_event_key`` BEFORE any counter below is derived, so
+        ``rate_used`` == ``directives_used`` in shape; the semantic change from
+        "rows" to "events" lands here and is recorded in the commit message.
 
         CLOCK DOMAIN (load-bearing): ``first_seen`` is a WALL-CLOCK epoch second
         (``sessions.created_at``, written from ``time.time()``). A store-backed

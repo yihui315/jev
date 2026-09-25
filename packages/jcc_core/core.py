@@ -211,7 +211,10 @@ class CoreEngine:
 
         # 8) Persist assessment + directive + immutable audit tape (hash chain).
         self.store.add_assessment(assessment)
-        self.store.add_directive(directive)
+        # F1 (ADR-0008 P4): the engine is the writer of a ``dir_<session>_<event>``
+        # id, and says so. ``origin`` is keyword-only by design -- a default there
+        # would turn a forgotten argument into an unattributed row.
+        self.store.add_directive(directive, origin="engine")
         self.store.append_audit(
             event_id=event.event_id,
             timestamp=now,

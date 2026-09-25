@@ -274,19 +274,39 @@ def test_A2_two_port_reasons_exactly(live):
     engine `directives.actuation_reason == 'shadow_mode'`;
     Sentinel `shadow_decisions.actuation_reason == 'shadow_no_actuation'`;
     the legacy `actuation_disabled` must appear on NEITHER persisted surface.
+
+    PARTITION BY directive_id PREFIX, NOT BY UNION (lead ruling 2026-09-25).
+    Two planes persist a row for the SAME economic event (#82), and a union of
+    their reasons hides the day an ENGINE row grows the supervisor's
+    ``shadow_no_actuation``: in the union it is indistinguishable from the
+    supervisor rows that legitimately carry it. Partitioning by the id prefix
+    makes each plane's own surface checkable on its own, and pins the
+    containment direction instead of the size of the set.
     """
     _client, store, _e, _s, _c = live
-    eng = [r[0] for r in _db(store, "SELECT DISTINCT actuation_reason FROM directives")]
-    assert eng, "vacuous: no directives"
-    assert set(eng) == {"shadow_mode"}, f"engine reasons: {eng}"
+    sessions = [
+        r[0] for r in _db(store, "SELECT DISTINCT session_id FROM directives")
+    ]
+    assert sessions, "vacuous: no directives"
 
-    sh = [r[0] for r in _db(store, "SELECT DISTINCT actuation_reason FROM shadow_decisions")]
-    assert sh, "vacuous: no shadow rows"
-    assert set(sh) == {"shadow_no_actuation"}, f"sentinel reasons: {sh}"
-
-    assert "actuation_disabled" not in set(eng) | set(sh), (
-        "legacy reason leaked onto a persisted surface"
-    )
+    for sid in sessions:
+        rows = _db(
+            store,
+            "SELECT directive_id, actuation_reason FROM directives "
+            "WHERE session_id=?",
+            (sid,),
+        )
+        engine_face = {r[1] for r in rows if r[0].startswith("dir_")}
+        supervisor_face = {r[1] for r in rows if r[0].startswith("shadow_")}
+        assert engine_face, f"vacuous: no engine rows for {sid}"
+        assert supervisor_face, f"vacuous: no supervisor rows for {sid}"
+        assert engine_face == {"shadow_mode"}, f"engine reasons: {engine_face}"
+        assert supervisor_face <= {"shadow_no_actuation"}, (
+            f"sentinel reasons: {supervisor_face}"
+        )
+        assert "actuation_disabled" not in (engine_face | supervisor_face), (
+            "legacy reason leaked onto a persisted surface"
+        )
 
 
 def test_A3_actuation_disabled_in_config_and_health(live):

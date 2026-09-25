@@ -67,10 +67,12 @@ def test_audit_persist_and_verify():
 
 def test_directive_persist():
     s, path = _tmp_store()
-    d = Directive(directive_id="d1", session_id="s1", timestamp=1.0,
+    # F1: the id must carry a prefix OWNED BY THE WRITER, and the writer says
+    # which one it is. A bare "d1" is refused whatever ``origin`` claims.
+    d = Directive(directive_id="dir_s1_d1", session_id="s1", timestamp=1.0,
                   action=DirectiveAction.PAUSE, acted=False,
                   actuation_reason="actuation_disabled")
-    s.add_directive(d)
+    s.add_directive(d, origin="engine")
     ds = s.get_directives("s1")
     assert len(ds) == 1
     assert ds[0]["action"] == "PAUSE"
@@ -195,12 +197,12 @@ def test_budget_snapshot_is_derived_from_persisted_state():
     s.add_event(AEPEnvelope(event_id="e2", delivery_id="d2", session_id="s1", agent="claude"))
     s.add_assessment(Assessment(agent="claude", session_id="s1", timestamp=1001.0))
     now = time.time()
-    s.add_directive(Directive(directive_id="d1", session_id="s1", timestamp=now,
-                              action=DirectiveAction.RETRY))
-    s.add_directive(Directive(directive_id="d2", session_id="s1", timestamp=now,
-                              action=DirectiveAction.ESCALATE))
-    s.add_directive(Directive(directive_id="d3", session_id="s1", timestamp=now,
-                              action=DirectiveAction.CONTINUE))
+    s.add_directive(Directive(directive_id="dir_s1_d1", session_id="s1", timestamp=now,
+                              action=DirectiveAction.RETRY), origin="engine")
+    s.add_directive(Directive(directive_id="dir_s1_d2", session_id="s1", timestamp=now,
+                              action=DirectiveAction.ESCALATE), origin="engine")
+    s.add_directive(Directive(directive_id="dir_s1_d3", session_id="s1", timestamp=now,
+                              action=DirectiveAction.CONTINUE), origin="engine")
 
     snap = s.budget_snapshot("s1")
     assert snap["assessments_used"] == 1
@@ -236,8 +238,9 @@ def test_budget_snapshot_cost_units_is_derived_from_actions():
         [DirectiveAction.CONTINUE, DirectiveAction.VERIFY, DirectiveAction.STEER,
          DirectiveAction.RETRY, DirectiveAction.PAUSE, DirectiveAction.ESCALATE]
     ):
-        s.add_directive(Directive(directive_id=f"d{i}", session_id="s1",
-                                  timestamp=time.time(), action=action))
+        s.add_directive(Directive(directive_id=f"dir_s1_d{i}", session_id="s1",
+                                  timestamp=time.time(), action=action),
+                        origin="engine")
         expected += COST_UNITS_PER_ACTION[action]
 
     # one action per row, no duplicates -> exact equality, not >=
@@ -245,8 +248,8 @@ def test_budget_snapshot_cost_units_is_derived_from_actions():
     assert s.budget_snapshot("s1")["cost_units_used"] == expected
 
     # and it is monotone: one more ESCALATE (+10) strictly raises it
-    s.add_directive(Directive(directive_id="d9", session_id="s1", timestamp=time.time(),
-                              action=DirectiveAction.ESCALATE))
+    s.add_directive(Directive(directive_id="dir_s1_d9", session_id="s1", timestamp=time.time(),
+                              action=DirectiveAction.ESCALATE), origin="engine")
     assert s.budget_snapshot("s1")["cost_units_used"] == expected + 10.0
     os.remove(path)
 
@@ -300,8 +303,8 @@ def test_budget_snapshot_satisfies_the_governor_contract():
     s, path = _tmp_store()
     s.upsert_session(SessionState(session_id="s1", agent="claude", status=SessionStatus.ACTIVE,
                                   created_at=time.time(), updated_at=time.time()))
-    s.add_directive(Directive(directive_id="d1", session_id="s1", timestamp=time.time(),
-                              action=DirectiveAction.CONTINUE))
+    s.add_directive(Directive(directive_id="dir_s1_d1", session_id="s1", timestamp=time.time(),
+                              action=DirectiveAction.CONTINUE), origin="engine")
 
     gov = BudgetGovernor(BudgetLimits(directives=1), store=s, clock=time.time)
     # 1 persisted + the step about to be taken = 2 > limit 1 -> exhausted
