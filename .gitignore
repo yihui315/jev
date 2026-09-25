@@ -18,6 +18,34 @@ runtime/
 artifacts/*
 !artifacts/release/
 !artifacts/release/**
+# P4 / E-05..E-07 leg re-signing -- the gate's own decision carriers.
+# The three leg verdicts and the gate result ARE the release decision. Kept out
+# of version control, re-signing them is an in-place overwrite git cannot see:
+# `git status` stays clean, P-01 passes, and every check that reads artifacts/
+# keeps reading whatever was there before -- so E-07 passes precisely because
+# the thing it checks is outside the repository.
+#
+# Getting four exact files out of `artifacts/*` took three measured attempts:
+#   1. `!artifacts/acceptance/final_sre_go.json` alone  -> no effect. The
+#      directory `artifacts/acceptance` is itself excluded by `artifacts/*` and
+#      git does not descend into an excluded directory, so the negation inside
+#      was never reached.
+#   2. adding `!artifacts/acceptance/` -> works, but re-includes EVERY file in
+#      the directory (~240 of them became untracked at once, dirtying the tree
+#      for reasons unrelated to the product), because `artifacts/*` never
+#      matched those paths in the first place -- a `*` cannot span `/`.
+#   3. this form: re-include the directory, re-exclude its contents with
+#      `artifacts/acceptance/**`, then negate the four back in. Last matching
+#      pattern wins, so the four survive and every sibling stays ignored.
+# Verified with `git check-ignore -v` and `git status --porcelain -uall`.
+# Registered as KD-0012; the reason it survived to P4 is that the gap was in the
+# ignore rules, not in the gate.
+!artifacts/acceptance/
+artifacts/acceptance/**
+!artifacts/acceptance/final_sre_go.json
+!artifacts/acceptance/final_architecture_go.json
+!artifacts/acceptance/final_security_go.json
+!artifacts/acceptance/final_gate_result.json
 build/
 dist/
 *.log
