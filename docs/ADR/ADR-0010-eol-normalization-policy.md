@@ -121,7 +121,21 @@ and aegis-2.
 | 2 | manifest re-emitted after landing; tracked rows report `raw` and match in the main tree **and** in a fresh worktree | harbor | open |
 | 3 | generator `--check` run from both a fresh worktree and the main tree, exit non-zero on any divergence (ADR-0009 EV-7) | harbor | open |
 | 4 | A8 keeps its current pins; any failure is triaged as content drift, not EOL | aegis-2 / harbor | open |
-| 5 | freeze-window slot confirmed by the lead; the manifest and the A8 re-baseline land in the same window | team-lead | open |
+| 5 | landing sequence fixed by the lead: **`.gitattributes` lands as its own commit, before the freeze window, and does not share a window with the A8 re-baseline** (ADR-0010 §Sequence) | team-lead | **landed first, per lead** |
+
+## Sequence (lead's ruling, 2026-09-25)
+
+`.gitattributes` is **not** part of the A8 re-baseline window. The two are independent — EOL affects
+the checkout side only, not the A8 pin's normalisation (GA-3) — so bundling them would couple two
+unrelated changes and make either one's rollback ambiguous. The order is:
+
+1. `.gitattributes` lands, on its own, before the freeze window opens (this ADR).
+2. The A8 re-baseline lands later, inside the freeze window the lead opens, sharing nothing with step 1.
+
+If the manifest is still uncommitted when step 1 lands (condition 1 above), condition 2 is carried
+forward instead of being skipped: the manifest is re-emitted and its tracked rows relabelled `raw` in
+the **first** commit of the freeze window, and that commit is the one that satisfies condition 1 —
+not vice versa.
 
 Rollback is the inverse: delete `.gitattributes`, restore `core.autocrlf = true`, force a re-checkout.
 A8 pins are unaffected (measured `12/12`), only raw-byte manifest reproducibility regresses. No

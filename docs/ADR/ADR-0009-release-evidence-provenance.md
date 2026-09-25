@@ -13,7 +13,7 @@
   §6 item 9; the §1.4 provenance incident (a verdict backed only by a gitignored log).
 - **Implementing artefact:** `scripts/emit_release_evidence.py` (**owner: harbor** — this ADR
   records the contract; it does not own the code).
-- **Change control:** decisions in this ADR are **EV-1…EV-9** and may only be altered by a
+- **Change control:** decisions in this ADR are **EV-1…EV-12** and may only be altered by a
   superseding ADR or an explicit lead ruling. Altering any of them silently would re-create the exact
   defect this document exists to close.
 
@@ -134,17 +134,63 @@ a **tracked** file. A row that points at a git-ignored path is a digest of somet
 obtain: `--check` verifies it only for whoever still happens to hold the working tree, which is the
 condition EV-5 ("recomputable, not pasteable") exists to prevent.
 
-This was a live defect at `frozen_at: "3936c96"`, where 6 of the 10 entries pointed into
-`artifacts/acceptance/` — a directory that, per EV-1, stays ignored. All 6 rows were **individually
-recomputable today** (their raw digests match) and still **unverifiable after a clone**, which is the
-worst of both. Remediation is one of exactly two shapes; neither is a relaxation:
+Measured at `frozen_at: "3936c96"`: **7 of the 10** entries point into `artifacts/`
+(`artifacts/acceptance/**`), and `git ls-files artifacts/` lists exactly **one** path —
+`artifacts/acceptance/p3_gate_run.py`, force-added before EV-1 existed. So after a clone a reader
+receives the 3 `packages/**` rows and **nothing else**; the other 7 are digests of files that never
+reached them. Recorded here because the naive reading ("most of the manifest is fine") is wrong in
+both directions: 7 rows are unreachable, and 1 of the reachable 3 has a further defect (EV-11).
 
-- **preferred** — emit a manifest whose `entries` are drawn from `artifacts/release/**` only (the
-  directory that EV-1 makes tracked), and carry the wider per-run record in the run JSON instead; or
-- **permitted** — widen the negation with **explicit, file-level** allow-list lines for named records,
-  never a directory or `**` rule. Any such line is an EV-3 decision and needs the ADR owner to sign it.
+Remediation is **promotion, not an allowance** (see EV-12). The one shape that is *no longer
+permitted* is a per-file allow-list inside `artifacts/acceptance/`: see EV-12 for the reasoning.
 
 The manifest is not the place where run artefacts are archived; run artefacts stay out (EV-6).
+
+### EV-11 — An entry must be reproducible, not merely present
+
+EV-10 says the file must be reachable; EV-11 says it must be **obtainable by rerunning the command**.
+A digest of a file containing a wall-clock timestamp, a machine-local absolute path, a PID or a random
+basetemp directory cannot pass `--check` twice in a row — `--check` compares *the bytes currently on
+disk* to *the bytes recorded at freeze time*, which is not the same question as "would regenerating
+this give the same bytes". Such a row yields **zero reproducibility with a harmful zero**: it is not
+merely absent evidence, it makes the manifest look closed when it is not.
+
+Therefore:
+
+- **An entry MUST be byte-reproducible on the same commit.** Any output that embeds wall-clock time,
+  host paths, PIDs or randomised temporary directories MUST NOT be an manifest entry.
+- **Test before entry:** run the producing command **twice** on the same commit and compare `sha256`.
+  Equal → it may be accounted. Different → it may not, without exception.
+- **Stripping, not hiding.** Volatile fields are stripped into a separate sidecar file **that is not
+  accounted**; the stable remainder is what enters the manifest. Stripping the *fields* keeps the
+  record honest; stripping the *row* would discard the stable part for the sake of the unstable one.
+- `--check` recomputes digests and sizes. It is not, and must not be extended into, a re-execution
+  harness; the two-run measurement is the gate that decides whether something may be entered, and it
+  is a human/owner act, not a `--check` act.
+
+### EV-12 — Evidence is promoted into the release directory; `artifacts/acceptance/` stays ignored
+
+Anything that is to be retained as evidence is **promoted** into `artifacts/release/` (generated
+scripts go to `scripts/`). `artifacts/acceptance/` remains ignored as a whole, permanently.
+
+**Why not an explicit per-file allow-list inside `artifacts/acceptance/`** (the alternative shape
+recorded in EV-10 before this ADR was amended):
+
+1. **It re-imports the noise it was meant to escape.** `artifacts/acceptance/` is where every gate run
+   drops its captures. Allow-listing one file today means the next run adds another; within a week the
+   archive re-acquires the churn that EV-3's non-recursive rule exists to keep out of history.
+2. **It trades a one-shot problem for a recurring one.** The defect EV-10 describes happens once per
+   record. An allow-list makes it happen on every run that produces a record — and, worse, it happens
+   silently, because the ignore rule still looks intact from the outside.
+3. **It dirties the working tree on every run.** Promote-on-demand is explicit and reviewable: an
+   entry appears because someone decided to promote it. An allow-list is passive: the directory fills
+   up and `git status` stops being a signal about *changes* rather than *archives*.
+4. **It weakens the fail-closed property.** `artifacts/*` + `!artifacts/release/**` fails closed by
+   construction. Each added negation is one more way for an unintended artefact to become tracked, and
+   every such line has to be re-reviewed against EV-6 (no keys, no logs, no transcripts, no scratch).
+
+Promotion also composes with EV-11: a run JSON that carries `ran_at` and `basetemp` stays out of the
+manifest, the stable digest of the code it exercised goes in.
 
 ---
 
@@ -314,9 +360,9 @@ artifacts/release/manifest.json` returns exit 1 — which is the reason EV-9 exi
 
 Applied to the **real** manifest already produced by harbor. It was re-emitted once during P4 and the
 snapshot recorded here moved with it — the first emission was `frozen_at: "9972288"`, and the one on
-disk at the time of this edit is `frozen_at: "3936c96"` with **10 entries** (4 tracked rows using the
-`crlf_to_lf` convention, 6 ignored `artifacts/acceptance/**` rows using `raw`). Both figures are
-reproducible with `python -c "import json;m=json.load(open('artifacts/release/manifest.json'));print(m['frozen_at'],len(m['entries']))"`;
+disk at the time of this edit is `frozen_at: "3936c96"` with **10 entries** (3 tracked `packages/**`
+rows using the `crlf_to_lf` convention, 7 ignored `artifacts/acceptance/**` rows using `raw`). Both
+figures are reproducible with `python -c "import json;m=json.load(open('artifacts/release/manifest.json'));print(m['frozen_at'],len(m['entries']))"`;
 if they no longer match this paragraph, the generator was re-run again and this paragraph is the thing
 that is stale — correct the record, not the manifest.
 
@@ -327,9 +373,20 @@ $ git add --dry-run artifacts/release/manifest.json
 add 'artifacts/release/manifest.json'                      # exit 0
 $ git add --dry-run artifacts/release/manifest.sha256
 add 'artifacts/release/manifest.sha256'                    # exit 0 (sidecar, see Consequences)
+$ git ls-files artifacts/
+artifacts/acceptance/p3_gate_run.py                        # 1 path only -> EV-10
 ```
 
 The manifest is now trackable; committing it is the next step and is harbor's to make.
+
+**EV-11 measurement, assigned and not yet returned.** `artifacts/acceptance/p3_gate_result.json`
+carries `ran_at` (`2026-09-25T02:52:40.616338+00:00`) and `basetemp`
+(`C:\Windows\TEMP\jev-pytest-runs\g20260925_025203_008090`) — a wall-clock stamp and a machine-local
+path, so its digest is not reproducible across runs (lead, 2026-09-25). The gate for admitting such a
+file is the two-run comparison on one commit, and the numbers are harbor's to produce:
+emit the artefact twice at a fixed commit, compare `sha256`, and record both values. Equal → it may be
+accounted; different → it may not (EV-11). Until that measurement exists, **no** artefact that embeds
+a timestamp or a host path enters the manifest, whatever its location.
 
 Pattern matrix, produced in throwaway probe repos (`.workbuddy/scratch/negmatrix/`), verdict taken
 from real traversal (`git add --dry-run`), not from `check-ignore`:

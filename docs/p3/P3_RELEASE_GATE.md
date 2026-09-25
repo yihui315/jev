@@ -292,8 +292,10 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
    mass-mark files modified during closeout.
    **Decided in P4 (owner atlas-2): `docs/ADR/ADR-0010-eol-normalization-policy.md`.** The three
    rules are approved; the cost is zero (1 of 122 tracked files carries CRLF); the A8 pins do **not**
-   move, because `_sha()` normalises first, so re-baselining here would fabricate history. Five
-   landing conditions and a rollback are in that ADR; the lead still owns the freeze-window slot.
+   move, because `_sha()` normalises first, so re-baselining here would fabricate history.
+   **Lead's sequence ruling: `.gitattributes` lands as its own commit before the freeze window and
+   does not share a window with the A8 re-baseline** (the two are independent). Committed as its own
+   commit; the landing conditions and the rollback are in ADR-0010.
 9. **Verdict-artifact durability:** `artifacts/` is gitignored, so the gate's machine evidence is not
    revision-controlled (§1.2). **Decided in P4 (task #78 / ADR-0009):** `artifacts/release/` is the
    one tracked hole, and the anchors are reconciled by `scripts/emit_release_evidence.py --check`.
@@ -312,11 +314,18 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
     both files owned by harbor.
 13. Metric evaluation activates only with real shadow sessions (corpus-gated; nothing evaluated at P3).
 14. `Actuator.execute` must remain unreachable from any port (D-41 must not regress).
-15. **Authorise + perform the A8 re-baseline.** The pin table has not moved since `3936c96` while the
-    product has (run.py, budget.py). Re-baseline ONLY in the commit that freezes the SHA, record
-    old→new in `docs/p3/A8_REBASELINE.json` and `p3_gate_result.json`, and keep the reason string.
-    Do not use the `.gitattributes` window as cover for a silent re-anchor. Owner: aegis-2/harbor,
-    authorised by team-lead. **Blocks freeze certification.**
+15. **Perform the A8 re-baseline. Owner: team-lead (lead ruling, 2026-09-25 — not atlas-2, not
+    harbor), on traceability grounds: the 12 pins' old→new must sit on one unbroken chain of
+    recorded approvals, and a handover mid-chain breaks it.**
+    The pin table has not moved since `3936c96` while the product has (run.py drifted; budget.py is
+    in the same state). Re-baseline ONLY in the commit that freezes the SHA, record old→new in
+    `docs/p3/A8_REBASELINE.json` and `p3_gate_result.json`, and keep the reason string. Do not use
+    the `.gitattributes` landing as cover for a silent re-anchor — that commit shares no window with
+    this one.
+    **Effective immediately: neither atlas-2 nor harbor touches `_BASELINE_HASHES` in
+    `packages/jcc_core/tests/test_p3_acceptance_gate.py`, and neither of them generates a re-baseline
+    record.** This item stays blocked until the lead opens the freeze window. **Blocks freeze
+    certification.**
 16. Refresh the two rows in `artifacts/acceptance/P3_ACCEPTANCE_HARNESS_READY.md` that still describe
     `#62` as un-landed (F-p3-2 / F-p3-3). Owner: harbor; P4 item 16. Not a version-control fix.
 15. Annotate (do not rewrite) the `02bdb3f` / `7aa56f6` record.
