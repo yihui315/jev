@@ -40,9 +40,11 @@ nothing was absorbed.
 
 ### 1.2 The evidence is NOT in version control — and this document is the anchor
 
-`artifacts/` is gitignored (`.gitignore:8`). Therefore **every machine artifact of this gate —
-including the canonical `p3_gate_result.json` and harbor's own `P3_SRE_GATE_HARBOR.md` — lives
-outside version control.** Only the runner itself was force-added (`e74b3f2`).
+`artifacts/` is gitignored (`.gitignore:18`, `artifacts/*`; the `artifacts/release/` re-inclusion is
+at `.gitignore:19-20`). Therefore **every machine artifact of this gate — including the canonical
+`p3_gate_result.json` and harbor's own `P3_SRE_GATE_HARBOR.md` — lives outside version control.**
+Only the runner itself was force-added (`e74b3f2`). *Amended in P4: `artifacts/release/` is now the
+one tracked exception — see the amendment at the end of this section.*
 
 This is the real root cause of the §1.4 provenance incident: that incident was reported as "the
 claim was backed only by a gitignored log", and the deeper truth is that *all* the machine evidence
@@ -80,6 +82,17 @@ what this revision fixes).
 
 **Residual (P4):** make verdict artifacts revision-controlled, or hash-anchor them automatically.
 This section is a manual, interim version of that fix.
+
+**P4 amendment (atlas-2, task #78 / ADR-0009) — the release-evidence half is now done.** Since
+2026-09-25 `artifacts/release/` is the one directory under `artifacts/` that **is** revision-controlled
+(`.gitignore:19-20`, decided in `docs/ADR/ADR-0009-release-evidence-provenance.md`; the pattern is
+load-bearing and is documented in that ADR). **No anchor in this section is altered by this
+amendment** — the table above remains the authoritative record of the P3 certification and is never
+rewritten to match reality. What changed is only *how it is checked*: the table is now
+machine-reconcileable via `scripts/emit_release_evidence.py --check`, which embeds these digests and
+exits non-zero if a file on disk diverges. Outstanding (raised to harbor, not by me): `scripts/` is
+**untracked**, so the generator that makes the evidence recomputable is itself outside version
+control; and the generator's own header still describes the pre-amendment `.gitignore` wording.
 
 ### 1.3 What changed across the freeze window
 
@@ -130,7 +143,7 @@ Root cause and fix:
 | # | Condition | Status |
 |---|---|---|
 | **C1** | `budget.py:256` `COST_UNITS.get(action, 0.0)` fail-open (governor charged 0.0 for an uncostable action, so the `cost_units` ceiling could never fire) | **CLOSED — `280bfa8`.** `commit()` now indexes `COST_UNITS[action]` directly and raises on an uncostable action; `action is None` preserved; `CONTINUE`'s legitimate 0.0 remains a *table hit*. Contained by `Sentinel.on_event` (`sentinel.py:116-130`, counted as `persistence_failures`); production call site `sentinel.py:215` only ever passes a real `DirectiveAction`. Pinned by 5 tests (alias **identity**, table↔enum **totality**, raise-on-uncostable, exact-value non-vacuity, assessment-path untouched). |
-| **C2** | Two stale `server.py` citations in the spec (E-2 `:174-183`→`:184-193`; E-6 `:173`→`:183`) | **Deferred to P4** — task #72. Doc-only; changes no verdict. Every post-verdict commit drifts the SHA and forces the SRE leg to re-run, so the deferral is deliberate, and the task is left *pending* so it cannot become a silent drop. |
+| **C2** | Stale `server.py` citations in the spec — E-2 `:174-183`→`:184-193`; E-6 `:173`→`:183` — **plus two more found while re-checking item by item**: spec `:435` `server.py:133-136`→`server.py:144-146` (the `AEPEnvelope(**body)` / `except ValidationError` pair, which moved with the `_assess` handler), and spec `:495` `server.py:149`→`server.py:183` (the seam that is actually enforced) | **CLOSED in P4** — task #72, docs-only, no verdict change. Every `server.py` citation in `P3_ARCHITECTURE_SPEC.md` was re-derived against `packages/jcc_core/server.py` at `9972288`; the four above are the only moves, and the reason for them is `#62` (the manual endpoints were rewritten to route through `dispatch` instead of `Actuator.execute`). All four `core.py` citations inside E-2 (`84-89`, `119`, `138-147`, `215`) were checked separately and remain accurate as siting windows — none was moved, so none was "refreshed". |
 | **C3** | Release-record integrity (`02bdb3f` message/content mismatch; orphan `7aa56f6`; no alias-identity pin) | **CLOSED in substance — `280bfa8`**: the alias-identity pin that `02bdb3f` claimed but never wrote now exists. The commit-record annotations are below (§4.1). |
 | **H-C1** | Release doc's provenance line not backed by an artifact | **CLOSED** by the `665909a` rewrite + §1.2/§1.4 here. |
 | **H-C2** | Accept the A8 pin-portability fix (`4cc657f`) | **Accepted.** |
@@ -148,8 +161,18 @@ pin is updated "in the same commit that freezes the SHA". **Net state is correct
 (A8 PASSED in the `3936c96` verdict). The separation was not an oversight: the fix belongs to
 sentinel (`packages/supervisor/`) and the pin to harbor
 (`packages/jcc_core/tests/test_p3_acceptance_gate.py`), and the ownership rules forbid one member
-editing another's file — so a single commit was not available without violating ownership. The
-**rule text should be relaxed to "the same freeze *window*"**, and that is §6 item 12.
+editing another's file — so a single commit was not available without violating ownership.
+
+**Ruling applied (P4 item 12 / task #79a):** the rule is **relaxed from "the same commit" to "the
+same freeze *window*"**. The operative wording, the definition of a freeze window, and the
+machine-readable P3 re-baseline record live in `docs/p3/A8_REBASELINE.json` (`rule:
+"A8_FREEZE_WINDOW"`); the document carries the registered windows, including
+**P3-FREEZE-W-1 = `280bfa8` … `3936c96`** — the batch that contains both the `budget.py` byte change
+and its pin update. **What I landed is the docs half only:** the docs rule text and the
+`A8_REBASELINE` backfill. The literal rule string in the test
+(`test_p3_acceptance_gate.py:407`) and the runner's `A8_REBASELINE` field
+(`artifacts/acceptance/p3_gate_run.py:155`, still `null`) are harbor-owned and are raised as a change
+request here, not edited by me.
 
 ---
 
@@ -225,6 +248,11 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
   `280bfa8` adds both the alias-identity and the table↔enum totality pins.
 - Root cause of both: concurrent writers on one shared branch. Mitigation: path-scoped commits only;
   serialise commits at freeze windows. **Annotation only — history is not rewritten.**
+- **Re-verified in P4 (2026-09-25, at `9972288`):** `git merge-base --is-ancestor 7aa56f6 HEAD` still
+  exits **1** (`git cat-file -t 7aa56f6` = `commit`, so it exists but is not an ancestor) — the
+  orphan annotation stands unchanged. `02bdb3f` also re-checked clean: author-date `2026-09-25
+  06:43:37 +0800`, message "test(p3): pin supervisor COST_UNITS as an alias of the single core cost
+  authority (D-34, #63)". Neither commit's content is altered by this record.
 
 ---
 
@@ -241,14 +269,17 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
 | `forced_escalate` skips `commit` (`sentinel.py:214`) → a budget-forced escalation is never charged to `cost_units_used` | **Recorded as a deliberate-choice-under-review** (atlas-2 finding; pre-existing and out of C1's scope). Folded into the file's own test matrix, and put to the file's owner (sentinel) to rule deliberate vs oversight. **P4 either way** — not treated as a defect anyone missed. |
 | `budget_snapshot` `cost_units`/`scorer_tokens` dimensions (store returns `0.0`) | **Open question, P4** — raised by sentinel as the residual of `#63`. Needs an A-or-B ruling before metric calibration. Recorded as an open question, not asserted as a defect. |
 | `7aa56f6` orphan; `02bdb3f` message/content mismatch | **Recorded** (§4.1). Not rewritten. |
-| The gate's own evidence is outside version control (§1.2) | **Residual, partially mitigated by hash-anchoring in this document.** §6 item 9. |
+| The gate's own evidence is outside version control (§1.2) | **Residual narrows in P4.** `artifacts/release/` is now version-controlled (ADR-0009) and §1.2's anchors are machine-reconcileable via `scripts/emit_release_evidence.py --check`. The remaining gap is that the generator itself (`scripts/`, still untracked) and the acceptance `.json`/`.log` artefacts stay outside version control. §6 item 9. |
 
 ---
 
 ## 6. P4 backlog (carried forward)
 
 1. Wire the engine-side budget guard (D-5) — closes the F-3 DoS residual.
-2. Refresh the stale spec citations (C2 — **task #72**, owner atlas-2, gated on authorisation).
+2. ~~Refresh the stale spec citations (C2 — **task #72**, owner atlas-2, gated on authorisation).~~
+   **DONE in P4 (task #72 closed).** Four `server.py` citations refreshed in
+   `docs/p3/P3_ARCHITECTURE_SPEC.md` (`E-2`/`E-6` plus the two extra found on the item-by-item
+   re-check); all `core.py` citations verified and left alone. Doc-only.
 3. D-28 signing on the manual control-plane path (E-6).
 4. `audit.py` `BEGIN IMMEDIATE` + single-instance enforcement (F-5).
 5. Token-gate or document the read-only GET surface before any non-loopback bind (F-6).
@@ -258,13 +289,21 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
    `.gitattributes` is what made raw A8 hashes non-portable (F-H2). Deferred so it does not
    mass-mark files modified during closeout.
 9. **Verdict-artifact durability:** `artifacts/` is gitignored, so the gate's machine evidence is not
-   revision-controlled (§1.2). Commit it, or generate a tracked hash-anchor automatically on each
-   run. Interim mitigation is §1.2 of this document.
+   revision-controlled (§1.2). **Decided in P4 (task #78 / ADR-0009):** `artifacts/release/` is the
+   one tracked hole, and the anchors are reconciled by `scripts/emit_release_evidence.py --check`.
+   Two things remain before this item can be called closed: **(a) `scripts/` is untracked** — the
+   generator must be committed before "recomputable" means anything (owner: harbor); **(b)** the
+   generator's header comment still cites the pre-ADR-0009 `.gitignore` wording (owner: harbor).
 10. Rule `forced_escalate`'s charge behaviour as deliberate (**document it**) or fix it (falsifier).
 11. Rule the `budget_snapshot` `cost_units`/`scorer_tokens` dimensions anomaly.
 12. Relax the A8 rule text from "the same commit" to "the same freeze *window*" (§2.2), and populate
     the runner's `A8_REBASELINE` provenance line (currently `null`) so the old→new pin change is
-    machine-readable rather than comment-only.
+    machine-readable rather than comment-only. **Docs half DONE in P4 (task #79a):** rule text and
+    `A8_REBASELINE` backfill landed in `docs/p3/A8_REBASELINE.json` (window
+    `P3-FREEZE-W-1 = 280bfa8 … 3936c96`), cross-referenced from §2.2. **Runner half still open**
+    (harbor): `artifacts/acceptance/p3_gate_run.py:155` is `null` and
+    `test_p3_acceptance_gate.py:407` still carries the old string — both raised as a change request,
+    both files owned by harbor.
 13. Metric evaluation activates only with real shadow sessions (corpus-gated; nothing evaluated at P3).
 14. `Actuator.execute` must remain unreachable from any port (D-41 must not regress).
 15. Annotate (do not rewrite) the `02bdb3f` / `7aa56f6` record.

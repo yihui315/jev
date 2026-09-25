@@ -1,0 +1,112 @@
+{
+  "schema_version": "1.0",
+  "artifact": "docs/p3/A8_REBASELINE.json",
+  "title": "A8 freeze-pin re-baseline record (P3 instance) — machine-readable old->new",
+  "owner": "atlas-2 (docs backfill) — P4 item 12 / task #79a",
+  "phase": "P3",
+  "date": "2026-09-25",
+
+  "rule": "A8_FREEZE_WINDOW",
+  "rule_statement": "An A8 freeze pin MUST be updated inside the SAME FREEZE WINDOW as the commit that changes the pinned bytes. 'Same freeze window' REPLACES the previous 'same commit' wording: a pinned artifact's byte change and its pin update need not be in one commit, but they MUST NOT be in two different freeze windows. A freeze window is the maximal commit interval [start, end] of one authorised MUST-FIX batch, where start is the first commit of that batch that changes a pinned production artifact and end is the last commit of that batch (a trailing test-only re-baseline commit included). Both endpoints count, so a pin update that precedes or follows the byte change is compliant as long as the interval does not open or close in between.",
+  "rule_source": "docs/p3/P3_RELEASE_GATE.md §2.2 (relaxed from 'the same commit that freezes the SHA'); P4 item 12.",
+  "rule_history": "Prior text: 'Re-baseline ONLY in the same commit that freezes the SHA' (packages/jcc_core/tests/test_p3_acceptance_gate.py:407, owner harbor). Relaxed because the byte change and the pin update have different owners (forge vs harbor), so a single commit was not available without violating the ownership rule; the P3 net state is green.",
+
+  "registered_windows": [
+    {
+      "id": "P3-FREEZE-W-0",
+      "authorized_batch": "#65 / D-37 policy.version versioning batch",
+      "start": "9ee4507",
+      "end": "9ee4507",
+      "compliance_note": "Byte change and pin update are the same commit, so the pre-relaxation wording was satisfied."
+    },
+    {
+      "id": "P3-FREEZE-W-1",
+      "authorized_batch": "#70 / D-34 fail-closed cost charge batch",
+      "start": "280bfa8",
+      "end": "3936c96",
+      "compliance_note": "Contains BOTH the budget.py byte change (280bfa8) and the pin update (3936c96). Under the relaxed wording this re-baseline is compliant; under the old 'same commit' wording it would have been a violation. This is the case that motivated the relaxation."
+    }
+  ],
+
+  "old": {
+    "config/jcc.yaml": "70b5bdf9",
+    "packages/jcc_core/run.py": "910fefc6",
+    "packages/jcc_core/config.py": "fac5baa7",
+    "packages/supervisor/budget.py": "1efb9186"
+  },
+  "new": {
+    "config/jcc.yaml": "4ae55770",
+    "packages/jcc_core/run.py": "d820cd84",
+    "packages/jcc_core/config.py": "af0ddc18",
+    "packages/supervisor/budget.py": "96a11b69"
+  },
+  "new_full": {
+    "config/jcc.yaml": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+    "packages/jcc_core/run.py": "d820cd848befeac1ed99a66e710b5353a53a23409f0cfddb27e4b986606765f3",
+    "packages/jcc_core/config.py": "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
+    "packages/supervisor/budget.py": "96a11b69dd0414826735e98b932975cca50861968cd833b4bf9a3ef9c1d1c1b2"
+  },
+
+  "rebaselines": [
+    {
+      "artifact": "config/jcc.yaml",
+      "old": "70b5bdf9",
+      "new": "4ae55770",
+      "window": "P3-FREEZE-W-0",
+      "changed_in_commit": "9ee4507",
+      "pin_updated_in_commit": "9ee4507",
+      "reason": "#65 / D-37 policy.version -> p3.0.0 + SCHEMA_INTERNAL_VERSION",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/jcc_core/run.py",
+      "old": "910fefc6",
+      "new": "d820cd84",
+      "window": "P3-FREEZE-W-0",
+      "changed_in_commit": "9ee4507",
+      "pin_updated_in_commit": "9ee4507",
+      "reason": "#61 (R6-1 single threshold resolver injected into engine and Sentinel) + #64 fail-closed config",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/jcc_core/config.py",
+      "old": "fac5baa7",
+      "new": "af0ddc18",
+      "window": "P3-FREEZE-W-0",
+      "changed_in_commit": "9ee4507",
+      "pin_updated_in_commit": "9ee4507",
+      "reason": "#64 fail-closed config + #65 / D-37",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/supervisor/budget.py",
+      "old": "1efb9186",
+      "new": "96a11b69",
+      "window": "P3-FREEZE-W-1",
+      "changed_in_commit": "280bfa8",
+      "pin_updated_in_commit": "3936c96",
+      "reason": "#70 / D-34 fail-closed: an uncostable directive action no longer charges 0.0 (arch-gate C1)",
+      "authorized_by": "lead"
+    }
+  ],
+
+  "provenance": {
+    "derived_from": "packages/jcc_core/tests/test_p3_acceptance_gate.py:143-185 (_BASELINE_HASHES + A8_FROZEN_AT)",
+    "provenance_string": "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f; budget.py re-baselined @ 280bfa8/#70 (old 1efb9186.. -> new 96a11b69..)",
+    "hash_note": "8-hex form is the value width recorded in the source comments; 'new_full' carries the full digests from _BASELINE_HASHES['...']. The A8 test's own _sha() is CRLF-normalised; these digests are the values as recorded in the pin, not recomputed."
+  },
+
+  "runner_field": {
+    "field": "A8_REBASELINE",
+    "runner": "artifacts/acceptance/p3_gate_run.py:155 (A8_REBASELINE: dict | None = None), emitted as 'a8_rebaseline' in the run JSON",
+    "desired_shape": {
+      "old": { "<repo-relative path>": "<sha256>" },
+      "new": { "<repo-relative path>": "<sha256>" },
+      "reason": "<string>",
+      "authorized_by": "<string>"
+    },
+    "populate_from": "the 'old' / 'new' / 'reason' / 'authorized_by' keys of THIS document (verbatim values)",
+    "status": "NOT YET POPULATED — runner is owned by harbor; this document is the docs-side backfill. See docs/p3/P3_RELEASE_GATE.md §6 item 12.",
+    "warning": "artifacts/acceptance/p3_gate_run.py is itself gitignored (never force-added), so as of 2026-09-25 the runner that would emit this field is not in version control. Compare docs/ADR/ADR-0009-release-evidence-provenance.md, 'Status of the implementation'."
+  }
+}
