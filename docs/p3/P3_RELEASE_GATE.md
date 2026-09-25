@@ -337,6 +337,17 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
     while §0 marks them landed — annotate the rows. Owner: harbor/atlas-2. Note this file is inside
     the gitignored `artifacts/` tree, so it is not revision-controlled (§1.2) — which is itself the
     reason a stale row can sit there unnoticed.
+17. **Pre-F1 `directives` attribution (KD-004 protocol half). Decided in P4 (atlas-2):
+    `docs/ADR/ADR-0011-attribution-of-pre-f1-directive-rows.md`.** The M1 backfill derives `origin`
+    from `directive_plane_of()` only for `IS NULL` rows — `dir_→engine`, `shadow_→supervisor` — and
+    **refuses + reports unrecognised shapes rather than defaulting them to `engine`**; a database
+    with a non-empty "refused" list is not admissible as release evidence. `origin` keeps one column
+    through the freeze; its three readings (F1 validity, F2 gate, sentinel plane partition) are pinned
+    separately, and `budget_snapshot` must keep partitioning by `directive_event_key()`, never by
+    `origin`. Code half unshipped: owner of `packages/jcc_core/state_store.py` (forge). Measured:
+    1 648 pre-F1 rows in-tree, 0 unrecognised. Adapter for the freeze record: whichever A8 re-baseline
+    carries `state_store.py`, state whether M1 ran and what its report said — the column, not the
+    ADR, is what moves a pin.
 
 ---
 

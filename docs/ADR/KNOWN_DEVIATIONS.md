@@ -20,6 +20,13 @@ Format is deliberately boring: the deviations are behavioural, not narrative.
 | KD-003 | 2026-09-25 | Budget, `packages/jcc_core/state_store.py` `budget_snapshot` | The `directives` table holds **two rows per economic event** because two planes persist the same issued directive (engine `dir_<session>_<event>`, sentinel's charging copy `shadow_<session>_<event>`). `budget_snapshot` collapses them to one before deriving any counter, so the counters are correct; the duplication itself remains. | Removing the second writer changes `packages/supervisor/budget.py::_persist_directive`, which is outside `packages/jcc_core`. Collapsing the rows in the store is the part that is in scope and is sufficient to keep R1/R2 true. | `packages/jcc_core/tests/test_directive_identity.py` (all three measured scenarios) | `packages/supervisor` owner (sentinel) — root cause; the `origin` write (see KD-004) is what lets the two rows be told apart |
 | KD-004 | 2026-09-25 | Persistence, `packages/jcc_core/state_store.py` `directives.origin` | The `origin` column (F1/F2) is **not back-fillable in place**: a database written before it existed has `origin NULL` on every row, and the row is then refused by the F2 gate (`NULL != origin`), because an unattributed row is the exact thing F1/F2 exist to refuse. Writing a pre-F1 database therefore requires a MIGRATION that assigns each existing row to a plane, and that decision (how to attribute historical rows, and whether any exist at all) is a protocol decision, not an implementation detail. | P4 ships without a migration path; every store in the tree and every test creates the schema fresh, so the refusal is unreachable today. | `packages/jcc_core/tests/test_directive_identity.py::test_f2_a_cross_plane_overwrite_is_refused_and_leaves_the_row_alone` (the NULL-prior branch) | Protocol owner — reported to the lead 2026-09-25 |
 
+**Status note on KD-004 (protocol owner, 2026-09-25).** The protocol half is decided —
+**ADR-0011**, the M1 backfill rule: attribute only `origin IS NULL` rows, derive the value through
+`state_store.directive_plane_of` (the function F1 uses), and **never default** an unrecognised shape
+to `engine`; refuse and report instead. The **code half is still unshipped**, the entry therefore
+stays open, and no implementer may close it without a new ruling here. Measured basis for the ruling:
+1 648 pre-F1 rows in this tree, 1 452 `dir_…` + 196 `shadow_…`, **0** of unrecognised shape.
+
 ## Notes on what is deliberately NOT recorded
 
 * `model_units_used` reporting 0.0 is **not** a deviation: the `scorer_tokens`
