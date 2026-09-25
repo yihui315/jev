@@ -662,7 +662,12 @@ def run_state_machine(state: dict, once: bool = False) -> dict:
 
     backoff_idx = 0
     consecutive_recoverable = 0
-    deadline_total = time.time() + BACKOFF_MAX_S if not once else time.time() + 1
+    # `run --once` must drive the pipeline all the way to completion in a single
+    # invocation (no idle poll loop), so it must NOT be bounded by a 1-second
+    # backoff deadline -- that would kill it after the first step. Use an
+    # effectively unbounded deadline for the one-shot mode; the persistent `run`
+    # mode keeps the 300 s backoff budget as its recoverable-retry ceiling.
+    deadline_total = time.time() + (10 ** 9 if once else BACKOFF_MAX_S)
 
     try:
         while True:
