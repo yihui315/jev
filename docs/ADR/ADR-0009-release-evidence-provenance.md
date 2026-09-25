@@ -127,6 +127,25 @@ set follows the A8 pattern rather than a workaround: `--anchor-file` accepts a
 See *The version-control rule below*. The naive form `artifacts/` + `!artifacts/release/` **does not
 work** and must not be reintroduced in its place.
 
+### EV-10 — The evidence set is closed under version control
+
+Every `path` in a committed manifest MUST resolve to a file that a third party actually receives, i.e.
+a **tracked** file. A row that points at a git-ignored path is a digest of something the reader cannot
+obtain: `--check` verifies it only for whoever still happens to hold the working tree, which is the
+condition EV-5 ("recomputable, not pasteable") exists to prevent.
+
+This was a live defect at `frozen_at: "3936c96"`, where 6 of the 10 entries pointed into
+`artifacts/acceptance/` — a directory that, per EV-1, stays ignored. All 6 rows were **individually
+recomputable today** (their raw digests match) and still **unverifiable after a clone**, which is the
+worst of both. Remediation is one of exactly two shapes; neither is a relaxation:
+
+- **preferred** — emit a manifest whose `entries` are drawn from `artifacts/release/**` only (the
+  directory that EV-1 makes tracked), and carry the wider per-run record in the run JSON instead; or
+- **permitted** — widen the negation with **explicit, file-level** allow-list lines for named records,
+  never a directory or `**` rule. Any such line is an EV-3 decision and needs the ADR owner to sign it.
+
+The manifest is not the place where run artefacts are archived; run artefacts stay out (EV-6).
+
 ---
 
 ## Why — the three questions this ADR had to answer
@@ -293,8 +312,13 @@ $ git check-ignore -v --no-index artifacts/release/manifest.json
 and under the naive pair, in an isolated probe repo, `git add --dry-run
 artifacts/release/manifest.json` returns exit 1 — which is the reason EV-9 exists.
 
-Applied to the **real** manifest already produced by harbor at `9972288`
-(`artifacts/release/manifest.json`, `frozen_at: "9972288"`, 12 entries):
+Applied to the **real** manifest already produced by harbor. It was re-emitted once during P4 and the
+snapshot recorded here moved with it — the first emission was `frozen_at: "9972288"`, and the one on
+disk at the time of this edit is `frozen_at: "3936c96"` with **10 entries** (4 tracked rows using the
+`crlf_to_lf` convention, 6 ignored `artifacts/acceptance/**` rows using `raw`). Both figures are
+reproducible with `python -c "import json;m=json.load(open('artifacts/release/manifest.json'));print(m['frozen_at'],len(m['entries']))"`;
+if they no longer match this paragraph, the generator was re-run again and this paragraph is the thing
+that is stale — correct the record, not the manifest.
 
 ```
 $ git check-ignore -v --no-index artifacts/release/manifest.json

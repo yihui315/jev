@@ -270,6 +270,8 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
 | `budget_snapshot` `cost_units`/`scorer_tokens` dimensions (store returns `0.0`) | **Open question, P4** — raised by sentinel as the residual of `#63`. Needs an A-or-B ruling before metric calibration. Recorded as an open question, not asserted as a defect. |
 | `7aa56f6` orphan; `02bdb3f` message/content mismatch | **Recorded** (§4.1). Not rewritten. |
 | The gate's own evidence is outside version control (§1.2) | **Residual narrows in P4.** `artifacts/release/` is now version-controlled (ADR-0009) and §1.2's anchors are machine-reconcileable via `scripts/emit_release_evidence.py --check`. The remaining gap is that the generator itself (`scripts/`, still untracked) and the acceptance `.json`/`.log` artefacts stay outside version control. §6 item 9. |
+| **A8 pin no longer matches the product at HEAD** (`packages/jcc_core/run.py`) | **OPEN — blocker for any freeze certification, not an EOL artefact.** Measured in P4: `test_A8_negative_control_enabled_without_allowlist` **FAILS** at HEAD — `assert '0f9acd373fcc…' == 'd820cd848bef…'`; the last commit to touch the pin table is `3936c96`, while `run.py` moved afterwards. `packages/supervisor/budget.py` is in the same state (pin `96a11b69…`, file now 22875 LF bytes vs the 13674 the row records). Per the A8 rule, the remedy is an **authorised re-baseline in the freeze commit** with old→new recorded — never a relaxed check. Owner: aegis-2/harbor; authorisation: team-lead. §6 item 15. |
+| Stale acceptance record in an untracked file (P4 item 16, harbor) | **OPEN, no fix required from me, and not fixable by version-controlling `artifacts/`.** `artifacts/acceptance/P3_ACCEPTANCE_HARNESS_READY.md` still describes `#62` as un-landed in two rows whose §0 says landed; the reason nobody caught it is that the file is untracked, so the correction produced no diff. Correcting the rows is an edit, not a review. Kept out of the tracked evidence scope on purpose (ADR-0009 EV-3/EV-6). Owner: the report's author (harbor). §6 item 16. |
 
 ---
 
@@ -288,6 +290,10 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
 8. **Repo/hygiene:** add `.gitattributes` (`* text=auto eol=lf`) — `core.autocrlf=true` with no
    `.gitattributes` is what made raw A8 hashes non-portable (F-H2). Deferred so it does not
    mass-mark files modified during closeout.
+   **Decided in P4 (owner atlas-2): `docs/ADR/ADR-0010-eol-normalization-policy.md`.** The three
+   rules are approved; the cost is zero (1 of 122 tracked files carries CRLF); the A8 pins do **not**
+   move, because `_sha()` normalises first, so re-baselining here would fabricate history. Five
+   landing conditions and a rollback are in that ADR; the lead still owns the freeze-window slot.
 9. **Verdict-artifact durability:** `artifacts/` is gitignored, so the gate's machine evidence is not
    revision-controlled (§1.2). **Decided in P4 (task #78 / ADR-0009):** `artifacts/release/` is the
    one tracked hole, and the anchors are reconciled by `scripts/emit_release_evidence.py --check`.
@@ -306,6 +312,13 @@ is **unchanged**; its errata register stays E-1…E-4 and the decision range rem
     both files owned by harbor.
 13. Metric evaluation activates only with real shadow sessions (corpus-gated; nothing evaluated at P3).
 14. `Actuator.execute` must remain unreachable from any port (D-41 must not regress).
+15. **Authorise + perform the A8 re-baseline.** The pin table has not moved since `3936c96` while the
+    product has (run.py, budget.py). Re-baseline ONLY in the commit that freezes the SHA, record
+    old→new in `docs/p3/A8_REBASELINE.json` and `p3_gate_result.json`, and keep the reason string.
+    Do not use the `.gitattributes` window as cover for a silent re-anchor. Owner: aegis-2/harbor,
+    authorised by team-lead. **Blocks freeze certification.**
+16. Refresh the two rows in `artifacts/acceptance/P3_ACCEPTANCE_HARNESS_READY.md` that still describe
+    `#62` as un-landed (F-p3-2 / F-p3-3). Owner: harbor; P4 item 16. Not a version-control fix.
 15. Annotate (do not rewrite) the `02bdb3f` / `7aa56f6` record.
 16. `artifacts/acceptance/P3_ACCEPTANCE_HARNESS_READY.md` §4 rows F-p3-2/F-p3-3 still state
     pre-`#62` facts (manual path calling `execute`; returning `actuation_disabled` in the HTTP body)
