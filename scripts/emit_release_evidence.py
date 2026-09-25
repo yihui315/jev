@@ -150,12 +150,16 @@ HASH_PREFIX_LEN = 16
 # failure mode that produced the mis-attributed hash in the P3 record before it was fixed at 9972288.
 HASH_RAW = "raw"
 HASH_EOL_LF = "crlf_to_lf"
-# HASH_GIT_BLOB -- the canonical git blob digest, obtained via `git hash-object` (git's clean
-# filter applied). For a tracked file this is EXACTLY `git rev-parse HEAD:<path>` when the working
-# tree is clean, which is the value the release gate reconciles against (step 4). .gitattributes
-# (`* text=auto eol=lf`) means git applies a normalisation before hashing; recording the git blob
-# -- not the raw on-disk bytes -- is what makes the manifest survive a re-checkout unchanged and
-# agree with `git rev-parse HEAD:<path>`. Used for the 12 P4 A8-pinned production artifacts.
+# HASH_GIT_BLOB -- the sha256 of the canonical git blob, obtained via
+# `git cat-file blob <frozen_at>:<path>` then `hashlib.sha256` (64 hex). This is EXACTLY the A8
+# `_sha()` digest the release gate reconciles against (test_p3_acceptance_gate.py `_sha` /
+# `_BASELINE_HASHES`): because `.gitattributes` (`* text=auto eol=lf`) stores every tracked file's
+# blob as LF, the blob bytes already equal the CRLF->LF-normalised bytes, so sha256(blob) ==
+# sha256(_sha()). It is read at the FROZEN commit (default HEAD), not from the worktree, so it
+# survives a clean re-checkout and a re-clone. Used for the 12 P4 A8-pinned production artifacts.
+# The manifest records it under the `sha256` field, which is now correctly a real sha256: 40-hex
+# git SHA-1 object ids were NEVER sha256 and must never again be stored under that label (see
+# harbor's defect fix).
 HASH_GIT_BLOB = "git_blob"
 
 # --------------------------------------------------------------------------------------------
@@ -165,15 +169,17 @@ HASH_GIT_BLOB = "git_blob"
 #
 # For the P4 freeze the release evidence IS the set of 12 A8-pinned production artifacts. The
 # manifest's job is to certify, byte-exactly, the blobs frozen at `frozen_at`. Every entry here is
-# a TRACKED file; with `.gitattributes` (`* text=auto eol=lf`, ADR-0010) a checkout yields LF, so a
-# raw byte hash equals the git object-store blob and survives a clean re-checkout (ADR-0009 EV-4:
-# byte-level hashing, no EOL normalisation). HASH_RAW is therefore the correct AND reproducible
-# convention for all 12; this is verified against `git rev-parse HEAD:<path>` at emit time.
+# a TRACKED file; with `.gitattributes` (`* text=auto eol=lf`, ADR-0010) the stored blob is LF, so
+# the A8 `_sha()` baseline (CRLF->LF-normalised sha256) equals sha256(git cat-file blob <frozen>:path).
+# The convention is therefore HASH_GIT_BLOB -- sha256 of the canonical blob at the frozen commit --
+# which is both reproducible from a clean re-checkout/re-clone AND numerically equal to the A8
+# `_BASELINE_HASHES` the release gate enforces. This is what makes the manifest's `sha256` field
+# reconcile with the gate instead of carrying git's 40-hex SHA-1 object id (the prior defect).
 #
 # `generated_by` / `provenance_note` are free-form CLAIMS, advisory only; --check validates
 # digests and sizes, never those fields.
 #
-# The fourth element is the hashing convention (HASH_RAW / HASH_EOL_LF). No silent default.
+# The fourth element is the hashing convention (HASH_RAW / HASH_EOL_LF / HASH_GIT_BLOB). No silent default.
 
 # The 12 A8-pinned production artifacts for the P4 freeze. `hash_convention` is RAW for all (see
 # the note above). Order is alphabetical by path for a stable, diff-friendly manifest.
@@ -327,29 +333,61 @@ def sha256_file(path: str) -> Tuple[str, int]:
     return digest.hexdigest(), total
 
 
-def git_blob_hash(root: str, path: str) -> Tuple[str, int]:
-    """Canonical git blob digest of `path` via `git hash-object` (git's clean filter applied).
+def git_blob_hash(root: str, path: str, frozen_at: Optional[str] = None) -> Tuple[str, int]:
+    """sha256 of the canonical git blob, via `git cat-file blob <rev>:<path>`.
 
-    For a tracked file this is EXACTLY `git rev-parse HEAD:<path>` when the working tree is clean,
-    which is the A8 pin value and what the release gate reconciles against (step 4). It is
-    reproducible from a clean clone because git applies the same `.gitattributes` filter
-    deterministically. This is the right convention for the 12 P4 A8-pinned production artifacts.
+    This is the A8 pin's required digest. The release gate's `_sha()` is
+    `sha256(bytes.replace(b"\\r\\n", b"\\n"))` (see
+    packages/jcc_core/tests/test_p3_acceptance_gate.py), and because `.gitattributes`
+    (`* text=auto eol=lf`, ADR-0010) stores every tracked file's blob as LF, the
+    stored blob bytes ARE the CRLF->LF-normalised bytes. So `sha256(cat-file blob ...)`
+    is byte-identical to the A8 `_sha()` baseline (`_BASELINE_HASHES`), and the
+    manifest's `sha256` field is now genuinely a sha256 (64 hex) -- NOT git's 40-hex
+    SHA-1 object id.
+
+    The blob is read at the FROZEN commit (`frozen_at`, default HEAD) rather than from
+    the worktree, so the digest is checkout-independent and reproduces from a clean
+    clone regardless of `core.autocrlf`. The previously-shipped implementation used
+    `git hash-object` and therefore recorded git's SHA-1 object id under a `sha256`
+    label -- a defect corrected here (harbor).
     """
-    proc = subprocess.run(
-        ["git", "-C", root, "hash-object", path],
+    if frozen_at is None:
+        frozen_at = git_head(root)
+    # Resolve to a full SHA-1 so an abbreviated `frozen_at` cannot be ambiguous in
+    # the `<rev>:<path>` syntax.
+    resolved = subprocess.run(
+        ["git", "-C", root, "rev-parse", "--verify", frozen_at],
         capture_output=True,
         text=True,
         shell=False,
     )
+    if resolved.returncode != 0:
+        raise EnvironmentError(
+            "git rev-parse --verify failed for frozen_at={!r}: {}".format(
+                frozen_at, resolved.stderr.strip()
+            )
+        )
+    rev = resolved.stdout.strip()
+    rel = relpath(root, path)
+    blob_spec = "{}:{}".format(rev, rel)
+    proc = subprocess.run(
+        ["git", "-C", root, "cat-file", "blob", blob_spec],
+        capture_output=True,
+        text=False,
+        shell=False,
+    )
     if proc.returncode != 0:
-        raise EnvironmentError("git hash-object failed for {!r}: {}".format(path, proc.stderr.strip()))
-    digest = proc.stdout.strip()
-    if not digest:
-        raise EnvironmentError("git hash-object returned empty for {!r}".format(path))
-    return digest, os.path.getsize(path)
+        raise EnvironmentError(
+            "git cat-file blob failed for {!r}: {}".format(
+                blob_spec, proc.stderr.decode("utf-8", "replace").strip()
+            )
+        )
+    blob = proc.stdout  # bytes -- the canonical blob, already LF-normalised by .gitattributes
+    digest = hashlib.sha256(blob).hexdigest()
+    return digest, len(blob)
 
 
-def hash_artifact(root: str, path: str, convention: str) -> Tuple[str, int]:
+def hash_artifact(root: str, path: str, convention: str, frozen_at: Optional[str] = None) -> Tuple[str, int]:
     """Digest + size of `path` under the named convention.
 
     HASH_RAW      -- the bytes exactly as stored.
@@ -357,9 +395,12 @@ def hash_artifact(root: str, path: str, convention: str) -> Tuple[str, int]:
                      "smoothing an EOL difference away": it is the only digest of a tracked file
                      that still matches after `core.autocrlf=true` smudges the file on a fresh
                      checkout. It is what makes the manifest reproducible from a clean clone.
-    HASH_GIT_BLOB -- `git hash-object` of the file: the canonical git blob digest, equal to
-                     `git rev-parse HEAD:<path>` on a clean tree. This is what the release gate's
-                     step-4 reconciliation checks, so it is the convention used for the A8 pins.
+    HASH_GIT_BLOB -- sha256 of the canonical git blob (`git cat-file blob <frozen_at>:<path>`),
+                     NOT git's SHA-1 object id. This equals the A8 `_sha()` baseline (the gate's
+                     `_BASELINE_HASHES`) because the stored blob is already LF-normalised by
+                     `.gitattributes`. It is the convention used for the 12 P4 A8-pinned
+                     production artifacts, and it is recorded under the `sha256` field, which is
+                     genuinely a sha256.
 
     An unrecognised convention is a hard error rather than a silent fallback to raw, because a
     silently-wrong convention is exactly how a hash gets mis-attributed without anyone noticing.
@@ -389,7 +430,7 @@ def hash_artifact(root: str, path: str, convention: str) -> Tuple[str, int]:
             total += 1
         return digest.hexdigest(), total
     if convention == HASH_GIT_BLOB:
-        return git_blob_hash(root, path)
+        return git_blob_hash(root, path, frozen_at)
     raise EnvironmentError(
         "unknown hash convention {!r} for {!r} (expected {!r}, {!r} or {!r})".format(
             convention, path, HASH_RAW, HASH_EOL_LF, HASH_GIT_BLOB
@@ -562,7 +603,7 @@ def build_manifest(root: str, targets: Iterable[str], frozen_at: Optional[str] =
         if not os.path.isfile(abs_path):
             raise EnvironmentError("evidence target missing: {}".format(rel))
         convention = CONVENTION_BY_PATH.get(rel, HASH_RAW)
-        digest, size = hash_artifact(root, abs_path, convention)
+        digest, size = hash_artifact(root, abs_path, convention, frozen)
         entry: Dict[str, object] = {
             "path": rel,
             "sha256": digest,
@@ -689,6 +730,10 @@ def reconcile(
     ok: List[str] = []
     drift: List[str] = []
 
+    # The frozen commit the A8 pins were read from; passed to HASH_GIT_BLOB so reconcile reads
+    # the same blob the manifest was emitted against (checkout-independent).
+    frozen_at = manifest.get("frozen_at")
+
     # --- schema -------------------------------------------------------------------------
     if manifest.get("schema_version") != SCHEMA_VERSION:
         drift.append(
@@ -757,7 +802,7 @@ def reconcile(
         seen.append(rel)
         convention = str(m.get("hash_convention") or HASH_RAW)
         try:
-            actual_digest, actual_bytes = hash_artifact(root, abs_path, convention)
+            actual_digest, actual_bytes = hash_artifact(root, abs_path, convention, frozen_at)
         except EnvironmentError as exc:
             drift.append("CONVENTION  {}".format(exc))
             continue
