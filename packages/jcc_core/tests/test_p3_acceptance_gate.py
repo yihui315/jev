@@ -150,7 +150,11 @@ _PROD_ARTIFACTS = [
 #   config/jcc.yaml  old 70b5bdf9..  -> new 4ae55770..   (#65, D-37 versioning)
 #   run.py           old 910fefc6..  -> new d820cd84..   (#61 R6-1 + #64 fail-closed)
 #   config.py        old fac5baa7..  -> new af0ddc18..   (#64 + #65)
-A8_FROZEN_AT = "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f"
+#   budget.py        old 1efb9186..  -> new 96a11b69..   (#70, D-34 fail-closed: uncostable action no longer charges 0.0)
+A8_FROZEN_AT = (
+    "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f; "
+    "budget.py re-baselined @ 280bfa8/#70 (old 1efb9186.. -> new 96a11b69..)"
+)
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
@@ -177,7 +181,7 @@ _BASELINE_HASHES = {
     "packages/supervisor/shadow_store.py":
         "b101aebef464bab5f01ebb7cf3ef3318262d5cd4f73c61343ded92e3dcae5a3e",
     "packages/supervisor/budget.py":
-        "1efb9186fe2191b968508c81808124b5113235d1e86d593b780b213004a2a311",
+        "96a11b69dd0414826735e98b932975cca50861968cd833b4bf9a3ef9c1d1c1b2",
 }
 
 
