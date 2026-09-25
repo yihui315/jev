@@ -23,14 +23,14 @@
       "sha256": "5cd76e64b8c629b785537ce9772c813ef931114d499224188128f8275ed24b89"
     },
     {
-      "bytes": 28627,
+      "bytes": 31294,
       "hash_convention": "git_blob",
       "owner": "protocol-architect",
       "path": "docs/ADR/KNOWN_DEVIATIONS.md",
-      "sha256": "3e6f42afb307752d7367e170951a43bc73b5faa5fff3b85e2fe0e0bf5235b698"
+      "sha256": "e835300ff5774c4820ee0b299403af3a82d105e94beb6b24c6a912a77d417613"
     },
     {
-      "bytes": 4034,
+      "bytes": 3931,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/manifest.json",
@@ -51,18 +51,18 @@
       "sha256": "5b8f3f8cfda2dd485c59733eda0eb12ece3b40a2a21fb93f0a65c3a3a7d84ea1"
     },
     {
-      "bytes": 9750,
+      "bytes": 16809,
       "hash_convention": "git_blob",
       "owner": "core-platform",
       "path": "scripts/start.ps1",
-      "sha256": "7fea12f07cd1a4807f873ff2c0e8d120ff9354d2e0265e2231dbea2276897751"
+      "sha256": "bf17267e8c8e45cbd39ede328fd43aade243888fde9bc11424d50dd34c9e62f7"
     },
     {
-      "bytes": 6399,
+      "bytes": 7418,
       "hash_convention": "git_blob",
       "owner": "core-platform",
       "path": "scripts/stop.ps1",
-      "sha256": "f1b54b01a7d51c9c5da0e3d0ec84f2519c5995ec06f23aa31fc95899a3f36953"
+      "sha256": "498ff71584dc0fe1eaf3db04b140bf1be1470ed37243f3392da871ecdb432293"
     },
     {
       "bytes": 3167,
@@ -72,11 +72,11 @@
       "sha256": "7cd03caf92e206d1ccf78b10e281907f1c5b459e547980f9eafbc0160b4ef0ef"
     },
     {
-      "bytes": 4516,
+      "bytes": 4763,
       "hash_convention": "git_blob",
       "owner": "core-platform",
       "path": "scripts/status.ps1",
-      "sha256": "3c71fbebeb320ee9929ef4e5ebca6ff4646381b7272a7b115726503a9f079ef3"
+      "sha256": "600cdd7829e9c96204ac04b76151e7e29f823016fd666e29a074eecdd96b3784"
     },
     {
       "bytes": 10071,
@@ -186,13 +186,13 @@
     "present": true,
     "project_complete": false
   },
-  "generated_at": "2026-09-25T10:37:15.875328+00:00",
+  "generated_at": "2026-09-25T12:26:00.542504+00:00",
   "generated_by": "tools/emit_final_manifest.py",
   "generated_by_sha256": "8f9e6274bd5d7079178fc493830b6fbaec458581fc2d397c3ddc4501d62d6bac",
   "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(sorted content fingerprints) for directories",
   "product_freeze_frozen_at": "e6f5c15",
   "product_freeze_sha": "e6f5c15899b4bd5128d76366465d16f7b31aaca4",
-  "release_sha": "b38719f8dd76332b77b37eaa8129143ad5171732",
+  "release_sha": "e4d40e7cdfdadfa3b2f7e5e34c022069f4fef836",
   "schema": "jcc/final-manifest/1",
-  "test_sha": "b38719f8dd76332b77b37eaa8129143ad5171732"
+  "test_sha": "e4d40e7cdfdadfa3b2f7e5e34c022069f4fef836"
 }

@@ -1,0 +1,103 @@
+{
+  "schema_version": "1.0",
+  "generator": "scripts/emit_release_evidence.py",
+  "frozen_at": "e6f5c15",
+  "entries": [
+    {
+      "path": "config/jcc.yaml",
+      "sha256": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+      "bytes": 4740,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/actuator.py",
+      "sha256": "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
+      "bytes": 3388,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/config.py",
+      "sha256": "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
+      "bytes": 6056,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/core.py",
+      "sha256": "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",
+      "bytes": 15499,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/decision.py",
+      "sha256": "b61c88177e776aeacac4cda17bd14410a0f8ef4e88de91f3a6faa3262ad0e31c",
+      "bytes": 32139,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/policy.py",
+      "sha256": "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
+      "bytes": 4081,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/run.py",
+      "sha256": "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
+      "bytes": 12980,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/server.py",
+      "sha256": "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
+      "bytes": 12541,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/jcc_core/state_store.py",
+      "sha256": "b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95",
+      "bytes": 40981,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/supervisor/budget.py",
+      "sha256": "c47c85b91af5af1006e1620bc36dc559f43ef62da2b6e642dfa99ea9991e59ab",
+      "bytes": 23473,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/supervisor/sentinel.py",
+      "sha256": "21d8f5fa8a984ed741f97eaa3aac25fb3d18bc3c4b424fae36ec0e5d3486237f",
+      "bytes": 34589,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    },
+    {
+      "path": "packages/supervisor/shadow_store.py",
+      "sha256": "b101aebef464bab5f01ebb7cf3ef3318262d5cd4f73c61343ded92e3dcae5a3e",
+      "bytes": 9198,
+      "generated_by": "version control (git; A8 pin, P4)",
+      "hash_convention": "git_blob",
+      "provenance_note": "A8 pinned production artifact"
+    }
+  ]
+}
