@@ -152,90 +152,28 @@ Remove-Item -LiteralPath $stderrLog -ErrorAction SilentlyContinue | Out-Null
 Write-Output ('')
 Write-Output ('starting: "' + $python + '" -m jcc_core.run   (cwd ' + $Root + ')')
 
-# CreateProcess is used directly (NOT System.Diagnostics.Process) for two
-# reasons, both measured on this host:
-#   1. ProcessStartInfo on .NET Framework always hands the child a COPY of this
-#      script's stdout/stderr handles. The JCC service is built to outlive the
-#      shell that started it, so that copy keeps the launcher's stdout open
-#      forever: any caller that captures the script with "2>&1" then blocks
-#      until the service dies (measured: no EOF for >120 s).
-#   2. ProcessStartInfo with RedirectStandardOutput=$true would create pipes
-#      that nobody reads; on PowerShell 5.1 the OutputDataReceived drain does
-#      not fire, and an unread pipe stalls the service once its buffer fills.
-# CreateProcess gives the child EXACTLY the two log-file handles and nothing
-# else: bInheritHandles=FALSE, STARTF_USESTDHANDLES for stdout+stderr only.
-if (-not ('JccProc.Native' -as [type])) {
-    Add-Type -TypeDefinition @'
-using System;
-using System.Runtime.InteropServices;
-using System.Text;
-using System.Runtime.ConstrainedExecution;
-namespace JccProc {
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    public struct STARTUPINFO {
-        public int cb; public string lpReserved; public string lpDesktop; public string lpTitle;
-        public int dwX; public int dwY; public int dwXSize; public int dwYSize;
-        public int dwXCountChars; public int dwYCountChars;
-        public int dwFillAttribute; public int dwFlags;
-        public short wShowWindow; public short cbReserved2;
-        public IntPtr hStdInput; public IntPtr hStdOutput; public IntPtr hStdError;
-    }
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PROCESS_INFORMATION {
-        public IntPtr hProcess; public IntPtr hThread; public int dwProcessId; public int dwThreadId;
-    }
-    public static class Native {
-        [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode, EntryPoint = "CreateProcessW")]
-        public static extern bool CreateProcess(
-            string lpApplicationName, StringBuilder lpCommandLine, IntPtr lpProcessAttributes,
-            IntPtr lpThreadAttributes, bool bInheritHandles, uint dwCreationFlags,
-            IntPtr lpEnvironment, string lpCurrentDirectory,
-            ref STARTUPINFO lpStartupInfo, out PROCESS_INFORMATION lpProcessInformation);
-    }
-}
-'@ -Language CSharp -ErrorAction Stop
-}
+# The child's stdout/stderr are handed straight to the two log files: cmd.exe
+# opens them and the service inherits them, so the SERVICE -- not this script --
+# owns the descriptors. No pipe, hence no OutputDataReceived event, no
+# BeginOutputReadLine, and no buffer that could fill up and stall the service.
+# "python -m jcc_core.run" needs the package directory on PYTHONPATH BEFORE
+# run.py executes (run.py's own sys.path bootstrap never runs under -m), so it is
+# set HERE, in this process, and inherited by the child.
+# NOTE: System.Diagnostics.Process cannot do this on Windows PowerShell 5.1:
+# EnvironmentVariables reads $null on first access (measured: NullArray), and
+# RedirectStandardOutput builds pipes that this script would have to drain --
+# the OutputDataReceived drain does not fire there at all.
+$psi = New-Object System.Diagnostics.ProcessStartInfo
+$psi.FileName = (Join-Path $env:SystemRoot 'system32\cmd.exe')
+$psi.Arguments = '/c "' + $python + ' -m jcc_core.run > "' + $stdoutLog + '" 2> "' + $stderrLog + '"'
+$psi.WorkingDirectory = $Root
+$psi.UseShellExecute = $false
+$psi.CreateNoWindow = $true
 
-$launcherPid = 0
-$psi = $null
-$proc = $null
-try {
-    $outStream = [System.IO.File]::Open($stdoutLog, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-    $errStream = [System.IO.File]::Open($stderrLog, [System.IO.FileMode]::Create, [System.IO.FileAccess]::Write, [System.IO.FileShare]::Read)
-    $si = New-Object JccProc.STARTUPINFO
-    $si.cb = [System.Runtime.InteropServices.Marshal]::SizeOf($si)
-    $si.dwFlags = 0x00000100   # STARTF_USESTDHANDLES
-    $si.hStdInput = [IntPtr]::Zero
-    $si.hStdOutput = $outStream.Handle
-    $si.hStdError = $errStream.Handle
-    $pi = New-Object JccProc.PROCESS_INFORMATION
-    $cmdLine = New-Object System.Text.StringBuilder ('"' + $python + '" -m jcc_core.run')
-    $ok = [JccProc.Native]::CreateProcess(
-        $python, $cmdLine, [IntPtr]::Zero, [IntPtr]::Zero, $false, 0x08000000,
-        [IntPtr]::Zero, $Root, [ref]$si, [ref]$pi)
-    if (-not $ok) {
-        throw ('CreateProcess failed, error ' + [System.Runtime.InteropServices.Marshal]::GetLastWin32Error())
-    }
-    $launcherPid = [int]$pi.dwProcessId
-    if ($outStream) { $outStream.Dispose() }
-    if ($errStream) { $errStream.Dispose() }
-} catch {
-    if ($outStream) { $outStream.Dispose() }
-    if ($errStream) { $errStream.Dispose() }
-    Write-Output ('CreateProcess path failed (' + $_.Exception.Message + '); falling back to cmd.exe redirection.')
-    $psi = New-Object System.Diagnostics.ProcessStartInfo
-    $psi.FileName = (Join-Path $env:SystemRoot 'system32\cmd.exe')
-    $psi.Arguments = '/c "' + $python + ' -m jcc_core.run > "' + $stdoutLog + '" 2> "' + $stderrLog + '"'
-    $psi.WorkingDirectory = $Root
-    $psi.UseShellExecute = $false
-    $psi.CreateNoWindow = $true
-    $proc = New-Object System.Diagnostics.Process
-    $proc.StartInfo = $psi
-    [void]$proc.Start()
-    $launcherPid = $proc.Id
-}
-Write-JccOwnershipMarker -Paths $Paths -Port $resolvedPort -PythonExe $python -Root $Root -LauncherPid $launcherPid | Out-Null
-
+$proc = New-Object System.Diagnostics.Process
+$proc.StartInfo = $psi
+[void]$proc.Start()
+$launcherPid = $proc.Id
 Write-Output ('launcher pid: ' + $launcherPid)
 Write-Output ('logs      : ' + $stdoutLog + ', ' + $stderrLog)
 
