@@ -153,7 +153,34 @@ _PROD_ARTIFACTS = [
 #   budget.py        old 1efb9186..  -> new 96a11b69..   (#70, D-34 fail-closed: uncostable action no longer charges 0.0)
 A8_FROZEN_AT = (
     "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f; "
-    "budget.py re-baselined @ 280bfa8/#70 (old 1efb9186.. -> new 96a11b69..)"
+    "budget.py re-baselined @ 280bfa8/#70 (old 1efb9186.. -> new 96a11b69..).\n"
+    "RE-BASELINED AGAIN in the P4 freeze window (6 pinned files moved, all of them "
+    "by work that is already in HEAD at the freeze commit -- no dirty values):\n"
+    "  packages/jcc_core/core.py\n"
+    "    old 6e44314a9578… -> new 7d19e0c62def…\n"
+    "    #82 R1-R4 (959231e) + F1/F2 + M1 + M2 (b29d587, 973217f, d91a09f). core.py\n"
+    "    is what the engine writes through, so each attribution change moves it.\n"
+    "  packages/jcc_core/state_store.py\n"
+    "    old 399b08994b23… -> new b66674356a29…\n"
+    "    the 12 pinned files' most-churned one: #82 collapse (959231e), F1/F2 and the\n"
+    "    rate_used semantic (b29d587), M1 backfill (973217f), M2 legacy-schema repair\n"
+    "    (d91a09f).\n"
+    "  packages/jcc_core/run.py\n"
+    "    old d820cd848befe… -> new 0f9acd373fcc…\n"
+    "    #77 loopback-bind fix, committed after the 9ee4507 freeze; no forge edit.\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 92ac49cf2949… -> new 9bca4bd4a499…\n"
+    "    server-side wiring moved with the #82 counter collapse (959231e).\n"
+    "  packages/supervisor/sentinel.py\n"
+    "    old 65dbfea5050e… -> new 21d8f5fa8a98…\n"
+    "    sentinel's S-1..S-4 persistence contract + the supervisor-side origin write\n"
+    "    (632f0dd, owner: sentinel).\n"
+    "  packages/supervisor/budget.py\n"
+    "    old 96a11b69dd04… -> new c47c85b91af5…\n"
+    "    the fail-closed cost table plus the ``origin=SUPERVISOR_ORIGIN`` write\n"
+    "    (632f0dd, owner: sentinel).\n"
+    "  Nothing above is a silent edit: each value is the blob at the freeze commit, "
+    "taken with ``git rev-parse <freeze>:<path>``, never from a worktree."
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -161,27 +188,27 @@ _BASELINE_HASHES = {
     "config/jcc.yaml":
         "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
     "packages/jcc_core/core.py":
-        "6e44314a9578d2ced819bbf2c220b366a37323e82c51cf644392b915a4a6d117",
+        "7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84",
     "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
     "packages/jcc_core/decision.py":
         "b61c88177e776aeacac4cda17bd14410a0f8ef4e88de91f3a6faa3262ad0e31c",
     "packages/jcc_core/state_store.py":
-        "399b08994b231e624a286d90b8c946f76bb14912e45490806a227c4d1be41587",
+        "b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95",
     "packages/jcc_core/policy.py":
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
-        "d820cd848befeac1ed99a66e710b5353a53a23409f0cfddb27e4b986606765f3",
+        "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
     "packages/jcc_core/server.py":
-        "92ac49cf294935c7c7d187dce5eea09b10cbd90a41ea150e5ae1a005c810beff",
+        "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
-        "65dbfea5050e9e6a0087354b219c88a741d2b4ff4cb9598c8beff7987b2655eb",
+        "21d8f5fa8a984ed741f97eaa3aac25fb3d18bc3c4b424fae36ec0e5d3486237f",
     "packages/supervisor/shadow_store.py":
         "b101aebef464bab5f01ebb7cf3ef3318262d5cd4f73c61343ded92e3dcae5a3e",
     "packages/supervisor/budget.py":
-        "96a11b69dd0414826735e98b932975cca50861968cd833b4bf9a3ef9c1d1c1b2",
+        "c47c85b91af5af1006e1620bc36dc559f43ef62da2b6e642dfa99ea9991e59ab",
 }
 
 
