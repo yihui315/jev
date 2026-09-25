@@ -180,7 +180,7 @@ class Gate:
 def check_declared(g: Gate, cid: str, key: str, collected: set) -> None:
     ev = ART / "component_evidence" / f"{cid}.json"
     if not ev.is_file():
-        g.missing(cid, f"no evidence file {ev.relative_to(REPO)}; owner has not declared this component")
+        g.missing(cid, f"no evidence file {_rel(ev)}; owner has not declared this component")
         return
     try:
         claims = json.loads(ev.read_text(encoding="utf-8"))
@@ -226,7 +226,7 @@ def check_adapters(g: Gate, collected: set) -> None:
         if not ev.is_file():
             g.missing(
                 cid,
-                f"no capability probe for adapter '{name}' (expected {ev.relative_to(REPO)}); "
+                f"no capability probe for adapter '{name}' (expected {_rel(ev)}); "
                 "an unprobed adapter is MISSING, never DEGRADED",
             )
             continue
@@ -284,7 +284,7 @@ def check_windows_scripts(g: Gate) -> None:
     ):
         path = REPO / "scripts" / name
         if not path.is_file():
-            g.missing(cid, f"{path.relative_to(REPO)} does not exist")
+            g.missing(cid, f"{_rel(path)} does not exist")
             continue
         try:
             out = subprocess.run(
@@ -304,7 +304,66 @@ def check_windows_scripts(g: Gate) -> None:
 # G. tests -- computed here, never reused from a previous phase
 # ---------------------------------------------------------------------------
 
-_STATUS_RE = re.compile(r"^(?P<nodeid>\S+)::\S*\s*(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\s*$")
+# Test scopes the gate must execute. A path that does not exist is NOT skipped:
+# a scope the gate cannot evaluate is a FAIL (no fail-open, sec. "No fail-open").
+# The lead owns this list and edits it as surfaces land; an owner declares its
+# evidence, the gate decides which of those tests it actually runs.
+TEST_SCOPES: List[Tuple[str, str, List[str]]] = [
+    ("T-10", "unit and contract", [
+        "packages/jcc_core/tests",
+        "packages/supervisor/tests",
+    ]),
+    ("T-11", "platform surfaces (skill / mcp / observability)", [
+        "packages/operator_skill/tests",
+        "packages/mcp_facade/tests",
+        "packages/observability/tests",
+    ]),
+    ("T-12", "control UI and demo", [
+        "apps/control_ui/tests",
+    ]),
+    ("T-13", "projection facades", [
+        "facades/session_center/tests",
+        "facades/claw3d/tests",
+    ]),
+    ("T-14", "end to end", [
+        "tests/e2e",
+    ]),
+]
+
+_SUMMARY_PATS = (
+    ("passed", r"(\d+) passed"),
+    ("failed", r"(\d+) failed"),
+    ("errors", r"(\d+) errors?"),
+    ("skipped", r"(\d+) skipped"),
+    ("deselected", r"(\d+) deselected"),
+    ("xfailed", r"(\d+) xfailed"),
+    ("xpassed", r"(\d+) xpassed"),
+)
+
+
+def _parse_summary(out: str) -> Dict[str, int]:
+    """pytest's own summary line is the ground truth for the counts."""
+    summary: Dict[str, int] = {}
+    for key, pat in _SUMMARY_PATS:
+        m = re.search(pat, out)
+        if m:
+            summary[key] = int(m.group(1))
+    return summary
+
+
+def _parse_tallies(out: str) -> Dict[str, int]:
+    """Cross-check only. A node id can contain spaces, so this may under-count
+    a PASSED; it must never manufacture a FAILED (a false FAIL is as much a
+    harness defect as an absorbed one)."""
+    tallies: Dict[str, int] = {}
+    for line in out.splitlines():
+        if "::" not in line or " " not in line:
+            continue
+        for tok in line.split():
+            if tok in ("PASSED", "FAILED", "ERROR", "SKIPPED", "XFAIL", "XPASS"):
+                tallies[tok] = tallies.get(tok, 0) + 1
+                break
+    return tallies
 
 
 def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
@@ -327,9 +386,14 @@ def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
 
 
 def collect_test_ids() -> set:
-    """Collect the suite's node ids so declared pin tests can be verified."""
-    proc = _run_pytest(["--collect-only", "packages/jcc_core/tests", "packages/supervisor/tests"])
-    ids = set()
+    """Collect the suite's node ids so declared pin tests can be verified.
+    Every declared scope path that exists is collected; a scope path that does
+    not exist is a FAIL of its own T-xx check, not a reason to abscond here."""
+    ids: set = set()
+    paths = [p for _, _, ps in TEST_SCOPES for p in ps if (REPO / p).is_dir()]
+    if not paths:
+        return ids
+    proc = _run_pytest(["--collect-only", *paths])
     for line in (proc.stdout or "").splitlines():
         line = line.strip()
         if "<" in line and "::" in line:
@@ -337,72 +401,108 @@ def collect_test_ids() -> set:
     return ids
 
 
-def run_full_tests(g: Gate) -> None:
-    proc = _run_pytest(["packages/jcc_core/tests", "packages/supervisor/tests"])
+def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[str, int]]:
+    """Run one scope and judge it. Returns its summary for the grand tally."""
+    absent = [p for p in paths if not (REPO / p).is_dir()]
+    if absent:
+        g.fail(cid, "scope '{}' paths do not exist: {} -- the gate cannot evaluate "
+                    "what it cannot find".format(label, ", ".join(absent)))
+        return None
+
+    proc = _run_pytest(paths)
     out = (proc.stdout or "") + (proc.stderr or "")
+    summary = _parse_summary(out)
+    tallies = _parse_tallies(out)
 
-    tallies: Dict[str, int] = {}
-    for line in out.splitlines():
-        line = line.strip()
-        if "::" in line and " " in line:
-            parts = line.split()
-            for tok in parts:
-                if tok in ("PASSED", "FAILED", "ERROR", "SKIPPED", "XFAIL", "XPASS"):
-                    tallies[tok] = tallies.get(tok, 0) + 1
-                    break
+    parsed_failed = tallies.get("FAILED", 0)
+    parsed_errors = tallies.get("ERROR", 0)
 
-    summary = {}
-    for key, pat in (("passed", r"(\d+) passed"),
-                     ("failed", r"(\d+) failed"),
-                     ("errors", r"(\d+) errors?"),
-                     ("skipped", r"(\d+) skipped")):
-        m = re.search(pat, out)
-        if m:
-            summary[key] = int(m.group(1))
-
-    parsed_passed = tally_by_status.get("PASSED", 0)
-    parsed_failed = tally_by_status.get("FAILED", 0)
-    parsed_errors = tally_by_status.get("ERROR", 0)
-
-    # T-01 collection must be non-zero
     if not summary:
-        g.fail("T-01", "no pytest summary line at all: the tally could not be parsed")
-    elif parsed_passed == 0 and "passed" in summary and summary["passed"] == 0:
-        g.fail("T-01", "zero tests collected")
-    else:
-        g.ok("T-01", "{} tests collected".format(summary.get("passed", parsed_passed)))
+        g.fail(cid, "no pytest summary line for scope '{}': the tally could not be "
+                    "parsed, so nothing is known".format(label))
+        return summary
 
-    # T-02..T-05: pytest's own summary is the ground truth for the counts. The
-    # per-line parse is only a cross-check, because a node id containing spaces
-    # can legitimately be under-counted by a naive split; an under-count must
-    # not manufacture a "false FAIL" (that was one of the defects found in the
-    # P3 harness). But a parse reporting MORE failures than the summary states
-    # is a genuine inconsistency and must fail.
-    if not summary:
-        g.fail("T-02", "tally unparsable; refusing to pass on an unknown tally")
-    elif "failed" in summary and parsed_failed > summary["failed"]:
-        g.fail("T-03", "parse found {} FAILED but pytest summary says {} failed".format(
-            parsed_failed, summary["failed"]))
-    elif "errors" in summary and parsed_errors > summary["errors"]:
-        g.fail("T-04", "parse found {} ERROR but pytest summary says {} errors".format(
-            parsed_errors, summary["errors"]))
+    details = []
+    ok_all = True
+    for key, cid2 in (("failed", "FAILED"), ("errors", "ERROR"), ("skipped", "SKIPPED")):
+        if key in summary:
+            details.append("{}={}".format(key, summary[key]))
+            if summary[key] != 0:
+                ok_all = False
+        if "failed" in summary and parsed_failed > summary["failed"]:
+            g.fail(cid, "scope '{}': per-line parse found {} FAILED but pytest's own "
+                        "summary says {} failed".format(label, parsed_failed, summary["failed"]))
+            ok_all = False
+            break
+        if "errors" in summary and parsed_errors > summary["errors"]:
+            g.fail(cid, "scope '{}': per-line parse found {} ERROR but pytest's own "
+                        "summary says {} errors".format(label, parsed_errors, summary["errors"]))
+            ok_all = False
+            break
+
+    collected = summary.get("passed", 0) + summary.get("failed", 0) + summary.get("errors", 0)
+    if collected == 0:
+        g.fail(cid, "scope '{}': zero tests collected (a scope with no tests is a "
+                    "FAIL, never a skip)".format(label))
+        ok_all = False
+
+    if proc.returncode != 0:
+        g.fail(cid, "scope '{}': pytest exit code {}".format(label, proc.returncode))
+        ok_all = False
+    elif ok_all:
+        g.ok(cid, "scope '{}': {} -- {}".format(label, ", ".join(details), ", ".join(paths)))
+    return summary
+
+
+def run_full_tests(g: Gate) -> None:
+    grand: Dict[str, int] = {}
+    any_collected = False
+
+    for cid, label, paths in TEST_SCOPES:
+        summary = run_scope(g, cid, label, paths)
+        if not summary:
+            continue
+        for key, value in summary.items():
+            grand[key] = grand.get(key, 0) + value
+        if summary.get("passed", 0) + summary.get("failed", 0) + summary.get("errors", 0) > 0:
+            any_collected = True
+
+    # T-01 the gate must have collected something at all
+    if any_collected:
+        g.ok("T-01", "gate collected its own totals across {} scope(s): {}".format(
+            len(TEST_SCOPES), grand))
     else:
-        g.ok("T-02", "tally reconciles with pytest summary: {}".format(summary))
+        g.fail("T-01", "no scope produced a collected test count")
+
+    # T-02 a tally that could not be reconciled is not a pass
+    unknown = [k for k in ("failed", "errors", "skipped") if k not in grand]
+    if unknown:
+        g.fail("T-02", "tally incomplete, {} count(s) unknown: {}".format(
+            len(unknown), ", ".join(unknown)))
+    elif grand.get("failed", 0) == 0 and grand.get("errors", 0) == 0 and grand.get("skipped", 0) == 0:
+        g.ok("T-02", "aggregate tally reconciles with zero failed/error/skipped: {}".format(grand))
+    else:
+        g.fail("T-02", "aggregate tally not clean: {}".format(grand))
 
     for cid, key in (("T-03", "failed"), ("T-04", "errors"), ("T-05", "skipped")):
-        value = summary.get(key)
+        value = grand.get(key)
         if value is None:
-            g.fail(cid, "{} count absent from pytest's summary".format(key))
+            g.fail(cid, "aggregate {} count unknown".format(key))
         elif value != 0:
-            g.fail(cid, "{} {} reported by pytest".format(value, key))
+            g.fail(cid, "{} {} across all scopes".format(value, key))
         else:
             g.ok(cid, "0 {}".format(key))
 
-    # T-06 exit code
-    if proc.returncode != 0:
-        g.fail("T-06", f"pytest exit code {proc.returncode} (non-zero is a FAIL, never a skip)")
+    # T-06 derived, never vacuous: an OK here means every per-scope T-1x line is OK.
+    scope_bad = [
+        c["id"] for c in g.checks
+        if c["id"].startswith("T-1")
+        and c["status"] in (STATUS_MISSING, STATUS_FAILED)
+    ]
+    if scope_bad:
+        g.fail("T-06", "scope exit codes not all clean: {}".format(", ".join(scope_bad)))
     else:
-        g.ok("T-06", "pytest exit code 0")
+        g.ok("T-06", "every declared scope ran and exited clean")
 
     # T-07 provider calls must remain zero
     if os.environ.get("PAID_PROVIDER_CALLS") == "0":
@@ -432,7 +532,7 @@ def check_provenance(g: Gate) -> None:
     # P-02 release manifest vs A8 gate vs committed blobs
     manifest = RELEASE / "manifest.json"
     if not manifest.is_file():
-        g.fail("P-02", f"{manifest.relative_to(REPO)} does not exist")
+        g.fail("P-02", f"{_rel(manifest)} does not exist")
         return
     try:
         data = json.loads(manifest.read_text(encoding="utf-8"))
@@ -587,20 +687,37 @@ def main(argv: Optional[List[str]] = None) -> int:
     return 0 if complete else 1
 
 
+def _search_dirs() -> List[Path]:
+    """Every place a surface's tests may legitimately live (scope dirs plus the
+    two legacy suites plus the demo fixtures)."""
+    roots: List[Path] = []
+    for _, _, paths in TEST_SCOPES:
+        roots.extend(REPO / p for p in paths)
+    roots.extend([REPO / "packages" / "jcc_core" / "tests",
+                  REPO / "packages" / "supervisor" / "tests",
+                  REPO / "fixtures"])
+    seen, out = set(), []
+    for r in roots:
+        key = str(r).lower()
+        if r.is_dir() and key not in seen:
+            seen.add(key)
+            out.append(r)
+    return out
+
+
+def _find_test(needle: str) -> Optional[Path]:
+    for d in _search_dirs():
+        hit = [f for f in d.glob("*.py") if needle in f.name.lower()]
+        if hit:
+            return sorted(hit)[0]
+    return None
+
+
 def check_surfaces_structural(g: Gate, collected: set) -> None:
     """S-04 Control UI and S-05 Demo Mode: structural, non-fabricated."""
     # S-04 Control UI must exist and be wired to the real API, not a mock page.
     apps = REPO / "apps"
-    smoke = None
-    for cand in (REPO / "packages" / "jcc_core" / "tests", *([REPO / "tests"] if (REPO / "tests").is_dir() else [])):
-        if cand.is_dir():
-            for f in cand.glob("*.py"):
-                low = f.name.lower()
-                if "ui" in low or "smoke" in low:
-                    smoke = f
-                    break
-        if smoke:
-            break
+    smoke = _find_test("smoke")
     if not apps.is_dir() or not any(apps.rglob("*.py")):
         g.missing("S-04", "no Control UI application present (apps/ has no modules)")
     elif smoke is None:
@@ -614,13 +731,7 @@ def check_surfaces_structural(g: Gate, collected: set) -> None:
 
     # S-05 Demo Mode: fixtures + an E2E that is labelled DEMO.
     fixtures = REPO / "fixtures"
-    demo_test = None
-    for d in (REPO / "packages" / "jcc_core" / "tests", REPO / "packages" / "supervisor" / "tests"):
-        if not d.is_dir():
-            continue
-        for f in d.glob("*.py"):
-            if "demo" in f.name.lower():
-                demo_test = f
+    demo_test = _find_test("demo")
     if not fixtures.is_dir() or not any(fixtures.rglob("*")):
         g.missing("S-05", "no demo fixtures directory")
     elif demo_test is None:
@@ -633,6 +744,14 @@ def check_surfaces_structural(g: Gate, collected: set) -> None:
             g.degraded("S-05", f"demo fixture + DEMO-labelled e2e present ({demo_test.name})")
 
 
+def _rel(path: Path) -> str:
+    """Repo-relative display path that degrades gracefully if the tree moved."""
+    try:
+        return str(path.relative_to(REPO))
+    except ValueError:
+        return str(path)
+
+
 def check_e2e(g: Gate, collected: set) -> None:
     pairs = {
         "E-01": ("demo_e2e", "demo e2e"),
@@ -641,12 +760,39 @@ def check_e2e(g: Gate, collected: set) -> None:
         "E-04": ("restart_recovery", "Windows restart recovery"),
     }
     accept = ART
+    # Exact file names, not a substring search: a note accidentally named
+    # "notes_about_api_e2e" must never read as evidence that the API E2E passed.
     for cid, (needle, label) in pairs.items():
-        hit = [p for p in accept.rglob("*") if needle in p.name.lower()] if accept.is_dir() else []
+        names = {f"{needle}.json", f"{needle}.md",
+                 f"{needle}_result.json", f"{needle}_result.md"}
+        hit = sorted(p for p in accept.rglob("*")
+                     if p.name.lower() in names) if accept.is_dir() else []
         if not hit:
-            g.missing(cid, f"no {label} result artifact under {accept.relative_to(REPO)}")
+            g.missing(cid, f"no {label} result artifact under {_rel(accept)} "
+                           f"(expected one of: {', '.join(sorted(names))})")
+            continue
+        verdict_ok = True
+        detail = []
+        for p in hit:
+            if p.suffix == ".json":
+                try:
+                    rec = json.loads(p.read_text(encoding="utf-8"))
+                except (OSError, ValueError) as exc:
+                    verdict_ok = False
+                    detail.append(f"{p.name}: unreadable ({exc})")
+                    continue
+                ok = any(rec.get(k) is True or str(rec.get(k, "")).upper() == "PASS"
+                         for k in ("passed", "ok", "success", "pass", "gate_pass"))
+                if not ok:
+                    verdict_ok = False
+                detail.append(f"{p.name}: passed={rec.get('passed')} "
+                              f"failed={rec.get('failed')} status={rec.get('status')}")
+            else:
+                detail.append(f"{p.name}: report present")
+        if verdict_ok:
+            g.ok(cid, f"{label}: " + "; ".join(detail))
         else:
-            g.ok(cid, f"{label} result: {', '.join(sorted(p.name for p in hit)[:3])}")
+            g.fail(cid, f"{label} evidence does not record a PASS: " + "; ".join(detail))
 
     # E-05..E-07 three-leg GOs must be re-signed against the FINAL release SHA,
     # never inherited from P3/P4.
