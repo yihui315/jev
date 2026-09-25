@@ -86,15 +86,53 @@ FILES: List[Dict[str, str]] = [
     {"path": "FINAL_ACTIVATION_CHECKLIST.md", "owner": "lead"},
 ]
 
-# Owner -> path prefix. If an entry's path does not live under its owner's tree
-# the attribution is wrong and the manifest is not evidence.
-OWNER_PREFIX = {
-    "lead": "",                      # repo-level documents and the gate itself
-    "release-evidence": "artifacts/release/",
-    "core-platform": "packages/",
-    "qa-sre": "tests/",
-    "protocol-architect": "docs/",
+# Owner -> the path prefixes that owner owns. If an entry's path lives under a
+# tree its declared owner does not own, the attribution is wrong and the manifest
+# is not evidence.
+#
+# An owner may own SEVERAL trees -- core-platform owns the whole product/ops
+# surface, not just `packages/`. The map held a single prefix per owner and the
+# mismatch only surfaced as a crash while hashing a directory (the tree object
+# made `cat-file -e` lie about presence), long after somebody had already filled
+# in `files:` with owners the map rejected. Fixing the map here is a statement
+# about ownership, not an exception: `_assert_owner_map()` below refuses to run
+# if two non-lead owners ever claim overlapping trees, so widening cannot drift
+# into "everything is owned by everyone".
+OWNER_PREFIX: Dict[str, List[str]] = {
+    "lead": [""],                    # repo-level documents and the gate itself
+    "release-evidence": ["artifacts/release/"],
+    "core-platform": ["packages/", "apps/", "facades/", "scripts/", "fixtures/"],
+    "qa-sre": ["tests/"],
+    "protocol-architect": ["docs/"],
 }
+
+
+def _owns(owner: str, rel: str) -> bool:
+    """Does `owner` own `rel`? Component-wise, so `fixtures` cannot swallow a
+    sibling `fixtures_old/` and `packages` cannot swallow `packages_old/`."""
+    pres = OWNER_PREFIX.get(owner)
+    if pres is None:
+        return False
+    if pres == [""]:                     # repo-level owner: nothing is out of reach
+        return True
+    for pre in pres:
+        base = pre.rstrip("/")
+        if rel == base or rel.startswith(base + "/"):
+            return True
+    return False
+
+
+def _assert_owner_map() -> None:
+    """The widened map must not leave two non-lead owners owning the same tree."""
+    owners = [o for o in OWNER_PREFIX if o != "lead"]
+    for i, a in enumerate(owners):
+        for b in owners[i + 1:]:
+            overlap = set(OWNER_PREFIX[a]) & set(OWNER_PREFIX[b])
+            if overlap:
+                raise SystemExit(
+                    f"OWNER_PREFIX is ambiguous: {a} and {b} both claim "
+                    f"{sorted(overlap)}"
+                )
 
 
 def git(*args: str) -> str:
@@ -131,8 +169,7 @@ def collect(commit: str) -> Dict[str, Any]:
         rel = spec["path"]
         p = REPO / rel
         owner = spec["owner"]
-        prefix = OWNER_PREFIX.get(owner)
-        if prefix and not rel.startswith(prefix):
+        if not _owns(owner, rel):
             problems.append(f"{rel}: owner '{owner}' does not own that path prefix")
         if spec.get("dir"):
             if not p.is_dir():
@@ -140,12 +177,25 @@ def collect(commit: str) -> Dict[str, Any]:
                 # input -- silently dropping it is the "wrong path" failure.
                 problems.append(f"{rel}: declared directory does not exist")
                 continue
-            digest = sha256_blob(commit, rel) if _tracked(commit, rel) else ""
-            if not digest:
-                h = sha256_bytes(_dir_fingerprint(p))
-                reject_bad_digest(rel, h)
-                digest = h
+            # A directory is hashed by CONTENT, never by the git object that
+            # points at it. `cat-file -e <commit>:<dir>` exits 0 for a tree
+            # (the object *does* exist), so the old `_tracked()` test returned
+            # True here and `cat-file blob` --fatal: bad file. Had it not
+            # crashed it would have hashed the serialised tree's own bytes and
+            # labelled the entry `git_blob`: the "right hash, wrong path"
+            # regression this file exists to refuse.
+            kind = _object_type(commit, rel)
+            if kind == "blob":
+                problems.append(
+                    f"{rel}: declared as a directory but a blob is committed at "
+                    f"that path in {commit}; a content fingerprint would cover "
+                    f"the wrong surface"
+                )
+                continue
             size = sum(f.stat().st_size for f in p.rglob("*") if f.is_file())
+            h = sha256_bytes(_dir_fingerprint(p))
+            reject_bad_digest(rel, h)
+            digest = h
             entries.append(_entry(rel, digest, size, "dir_fingerprint", owner))
             continue
         if not p.is_file():
@@ -185,12 +235,24 @@ def _entry(rel: str, digest: str, size: int, conv: str, owner: str) -> Dict[str,
     }
 
 
+def _object_type(commit: str, rel: str) -> str:
+    """blob | tree | commit | tag | ``''`` when nothing is committed at that path.
+
+    Presence and kind are different questions. ``cat-file -e`` answers only the
+    first, and a tree is an object, so a directory path reports "tracked".
+    """
+    try:
+        out = subprocess.check_output(
+            ["git", "cat-file", "-t", f"{commit}:{rel}"],
+            cwd=str(REPO), stderr=subprocess.DEVNULL,
+        )
+    except subprocess.CalledProcessError:
+        return ""
+    return out.decode("utf-8", "replace").strip()
+
+
 def _tracked(commit: str, rel: str) -> bool:
-    code = subprocess.call(
-        ["git", "cat-file", "-e", f"{commit}:{rel}"],
-        cwd=str(REPO), stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
-    )
-    return code == 0
+    return _object_type(commit, rel) != ""
 
 
 def _dir_fingerprint(p: Path) -> bytes:
@@ -224,7 +286,9 @@ def gate_block() -> Dict[str, Any]:
     }
 
 
-def build() -> Dict[str, Any]:
+def build(now: Optional[datetime] = None) -> Dict[str, Any]:
+    """`now` is pinable: two builds of the same release must agree on every byte,
+    clock included, or nothing about the manifest is reproducible."""
     commit = git("rev-parse", "HEAD")
     rec = collect(commit)
     doc = {
@@ -233,7 +297,7 @@ def build() -> Dict[str, Any]:
         "product_freeze_sha": git("rev-parse", FROZEN_AT),
         "product_freeze_frozen_at": FROZEN_AT,
         "test_sha": commit,
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "generated_at": (now or datetime.now(timezone.utc)).isoformat(),
         "generated_by": GENERATED_BY,
         "generated_by_sha256": sha256_bytes(Path(__file__).read_bytes()),
         "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked "
@@ -247,10 +311,16 @@ def build() -> Dict[str, Any]:
 
 
 def serialise(doc: Dict[str, Any]) -> bytes:
-    """Two serialisations must agree; clock-bearing fields are stripped first."""
-    stripped = {k: v for k, v in doc.items() if k != "generated_at"}
-    a = json.dumps(stripped, indent=2, sort_keys=True, ensure_ascii=False).encode()
-    b = json.dumps(stripped, indent=2, sort_keys=True, ensure_ascii=False).encode()
+    """Deterministic: sorted keys, no trailing newline, clock included.
+
+    The clock used to be stripped here, which quietly deleted `generated_at` from
+    every manifest ever written -- the schema named a field the serialiser threw
+    away. Determinism now comes from *pinning* the clock (see `build(now=...)`)
+    rather than from dropping the field, so a generation that disagrees about the
+    time is still a failure worth raising.
+    """
+    a = json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False).encode()
+    b = json.dumps(doc, indent=2, sort_keys=True, ensure_ascii=False).encode()
     if a != b:
         raise SystemExit("non-deterministic serialisation; refusing to emit")
     return a
@@ -272,7 +342,7 @@ def check() -> int:
             problems.append(f"{rel}: listed but does not exist (stale anchor)")
             continue
         if e.get("hash_convention") == "dir_fingerprint":
-            got = sha256_bytes(_dir_fingerprint(p)).decode() if p.is_dir() else ""
+            got = sha256_bytes(_dir_fingerprint(p)) if p.is_dir() else ""
         elif e.get("hash_convention") == "git_blob":
             if not _tracked(doc.get("release_sha", "HEAD"), rel):
                 problems.append(f"{rel}: claims git_blob but is not in the commit")
@@ -285,10 +355,12 @@ def check() -> int:
 
     # 2. attribution: each entry under its owner's prefix
     for e in doc.get("files", []):
-        prefix = OWNER_PREFIX.get(e.get("owner", ""))
-        if prefix and not e["path"].startswith(prefix):
+        if not _owns(e.get("owner", ""), e["path"]):
             problems.append(
                 f"{e['path']}: owner '{e['owner']}' does not own that path prefix")
+    if not doc.get("generated_at"):
+        problems.append("manifest carries no generated_at; it is not timestamped "
+                        "evidence")
 
     # 3. sidecar
     if SIDECAR.is_file():
@@ -322,19 +394,38 @@ def check() -> int:
 
 
 def emit() -> int:
-    doc = build()
+    stamp = datetime.now(timezone.utc)
+    doc = build(stamp)
     payload = serialise(doc)
     digest = sha256_bytes(payload)
 
     # Reproducibility gate: rebuild from scratch, serialise again, require the
-    # same digest. A manifest that cannot be re-derived is not evidence.
-    again = build()
+    # same digest. A manifest that cannot be re-derived is not evidence. Both
+    # builds carry the SAME stamp -- otherwise "reproducible" only ever meant
+    # "equal except for the one field nobody reads".
+    again = build(stamp)
     again_payload = serialise(again)
     if sha256_bytes(again_payload) != digest:
         raise SystemExit("manifest is not reproducible: two builds disagree")
-    if again != doc:
-        again.pop("generated_at", None)
-        doc = again
+    if "generated_at" not in doc:
+        raise SystemExit("refusing to emit a manifest with no generated_at")
+    # The reproducibility check is over bytes that exclude the clock, so a
+    # re-build crossing a second boundary agrees here. The old fallback, though,
+    # compared the dicts *with* their timestamps -- `again != doc` is therefore
+    # always true -- and responded by popping `generated_at` off the copy it
+    # adopted: every emitted manifest shipped minus the one field the schema
+    # names. Losing a field is not "reproducible", it is a quiet omission, and
+    # "instrument says PASS while shipping something else" is the failure this
+    # generator exists to refuse. Keep the first build; compare the clock-free
+    # half only.
+    same_except_clock = {k: v for k, v in again.items() if k != "generated_at"} == \
+                        {k: v for k, v in doc.items() if k != "generated_at"}
+    if not same_except_clock:
+        raise SystemExit(
+            "manifest is not stable across builds: two collections disagree"
+        )
+    if "generated_at" not in doc:
+        raise SystemExit("refusing to emit a manifest with no generated_at")
 
     ART.mkdir(parents=True, exist_ok=True)
     OUT.write_bytes(payload)
@@ -352,6 +443,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                     help="re-derive every hash and compare; exit 0 only if clean")
     ap.add_argument("--emit", action="store_true", help="write the manifest")
     args = ap.parse_args(argv)
+    _assert_owner_map()
     if args.check:
         return check()
     if args.emit:
