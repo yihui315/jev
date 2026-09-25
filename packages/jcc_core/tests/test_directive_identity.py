@@ -890,3 +890,31 @@ def test_the_governor_reads_the_deduplicated_counters(tmp_path):
 
     assert gs.directives_used == snap["directives_used"] == 2
     assert gs.cost_units_used == pytest.approx(snap["cost_units_used"])
+
+
+def test_a_refused_row_never_carries_an_origin_after_m1(tmp_path):
+    """Falsifier for KD-004 (atlas-3, 2026-09-25).
+
+    An unattributable row may be REFUSED, never attributed. Green here is a
+    REGRESSION SIGNAL: it goes red if M1 has started stamping a shape it cannot
+    read, which is ADR-0011 clause 3 fabricated with the migration's own hands.
+    """
+    from jcc_core.state_store import (
+        StateStore, backfill_directive_origins, directive_plane_of)
+
+    s = StateStore(str(tmp_path / "c.db"))
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action) "
+            "VALUES (?,?,?,?)", ("dir0", "s-c", 1.0, "PAUSE"))
+        conn.commit()
+    backfill_directive_origins(s.db_path)
+    backfill_directive_origins(s.db_path)          # twice: a re-run must not fabricate
+
+    with s.connection() as conn:
+        origins = dict(conn.execute(
+            "SELECT directive_id, origin FROM directives").fetchall())
+    assert directive_plane_of("dir0") is None, "the fixture must be unattributable"
+    assert origins == {"dir0": None}, (
+        f"an unattributable row was attributed: {origins}; ADR-0011 clause 3 "
+        "refuses, and never falls back to 'engine'")
