@@ -180,3 +180,92 @@ Lead pinned the frozen SHA. Re-stated my findings against it. **Note on head dri
 **(C7) Clean-tree frozen run — verified; head-drift 49d91d4→4cc657f is docs+test only.** Harbor produced a genuine **clean** frozen run in a pristine `git worktree` and swapped the artifact: `artifacts/acceptance/p3_gate_result.json` now records `head=4cc657f…, dirty=false, counts{PASSED:349,FAILED:0,ERROR:0,SKIPPED:0}, gate="PASS", pytest_returncode=0, vacuity_guard=[], summary_reconciliation{parsed_total:349, pytest_tally{PASSED:349}, mismatches:[], reconciled:true}`; the prior dirty run is preserved as `p3_gate_result.superseded_dirty_1082fff.json`. I read the artifact directly (not the report). `git diff --name-only 49d91d4 4cc657f` = `docs/p3/P3_ARCH_GO.md`, `docs/p3/P3_RELEASE_GATE.md`, `packages/jcc_core/tests/test_p3_acceptance_gate.py` — **no production code changed**, so every security result in §C holds at `4cc657f`. This also confirms the §C head-drift note: no earlier "`49d91d4`, `dirty=False`" run ever existed (the docs-only `1082fff` landed mid-pass); the clean artifact is the honest record.
 
 **(C8) A8 pin portability fix (`4cc657f`) — test-only, no security impact.** Reviewed directly: `_sha` now hashes **EOL-normalised** bytes (`read_bytes().replace(b"\r\n", b"\n")`), keys in `_BASELINE_HASHES` are **repo-relative**, and a **symmetric `extra` guard** was added (baseline entry with no scope = dead weight). Net effect **strengthens** the pin; the 12 frozen digests are unchanged. EOL-only edits cannot alter Python semantics, so it cannot hide a behaviour change. `server.py` (carrying the D-28 fix) **is** inside the pin (`92ac49cf…`). Test-only; my verdict is unaffected.
+
+---
+
+## ADDENDUM §D — P4 BATCH DELTA (`42a63c4` / `4e96c1a7`), INCLUDING A RETRACTION
+
+Triggered by atlas-2's report that **A8 is RED at HEAD** (`run.py` pin mismatch), plus my own standing obligation to re-derive rather than inherit the §C verdict. **This addendum supersedes §C8's implication that the pin is portable to the current head.**
+
+**(D1) RETRACTION — my earlier "12/12 A8 match" is STALE and is withdrawn.** I previously reported 8/8 and 12/12 pin matches at `3936c96`. That was true *at that commit* and is **false at the current head**. Recomputed on a **pristine `git archive` tree of HEAD `4e96c1a7`** (not the worktree, so no dirty-tree ambiguity), EOL-normalised, 12 pins:
+
+| pinned file | pin | actual @4e96c1a7 | |
+|---|---|---|---|
+| `packages/jcc_core/run.py` | `d820cd84…` | `0f9acd37…` | **DRIFT** (#77/#78 F-6) |
+| `packages/jcc_core/server.py` | `92ac49cf…` | `80a8f685…` | **DRIFT** (#77 F-6) |
+| `packages/supervisor/sentinel.py` | `65dbfea5…` | `79b2aaec…` | **DRIFT** (#73/#74/#75 F-3) |
+| `packages/supervisor/budget.py` | `96a11b69…` | `4bf29744…` | **DRIFT** (#73 follow-through, scorer_tokens) |
+| other 8 | — | — | OK |
+
+**8 matched, 4 drifted.** This **independently confirms atlas-2's finding**, including the exact `run.py` digest, and confirms it is **committed product drift, not EOL** — the mismatch is present in the pristine committed tree, so no amount of EOL normalisation explains it. I therefore **agree with atlas-2's discipline and took no re-baselining action**: the pin values were left untouched, and I do not treat this as a flake. Consistent with ADR-0010, I did **not** perform a precautionary re-baseline of the 8 matching files either. **A re-baseline belongs in the same commit that freezes the SHA, under lead authority.**
+
+**(D2) The working tree is NOT in a reviewable state right now (in-flight edit, not a committed defect).** While probing, the tree moved twice (`42a63c4` → `9b82393` `.gitattributes`/ADR-0010 → `4e96c1a` ADR-0009 EV-11/EV-12), and `packages/jcc_core/state_store.py` carried an **uncommitted** edit (+60/−49, P4 #82 "one row per economic event") that left the worktree file **unparseable** (`IndentationError` at `state_store.py:520`). The **committed** version at HEAD parses cleanly; `git diff HEAD` shows only that file. **No P0 is being asserted against HEAD** — but any gate run against the live worktree would fail at import, and my verdict is therefore pinned to the **committed tree**, verified via `git archive`, not to the working copy. Two further hygiene facts: an earlier `budget.py` "ghost dirty" proved to be a transient EOL write (worktree now byte-identical to HEAD, `4bf29744…`, 22875 B), and the only remaining tracked dirty file is docs-only (ADR-0009/ADR-0010).
+
+**(D3) F-1 → CLOSED at `4e96c1a7`, re-verified by a NON-VACUOUS tripwire.** The `server.py` D-28 face moved (`92ac49cf`→`80a8f685` via #77), so I re-derived it rather than inheriting §C. AST scan of every non-test module under `packages/`: **0** production `Actuator.execute` callers. `server.py:206-237` `_manual` still dispatches with `executable=False, requires_human=True`. Executed probe (`aegis2_p4_recheck.py`, `_run_pristine.txt`, **13/13 pass**) against the real composition root (`run._wire_shadow` + shipped `jcc.yaml`): the manual routes are now **`/api/pause`, `/api/steer`, `/api/retry`** (`server.py:239-249`); my first attempt hit `/shadow/manual` and returned **404**, i.e. a *vacuous* tripwire, which I rejected and fixed — with the correct control token (`X-JCC-Token`, env name taken from `config.control_token_env`) all three return **200**, the handlers genuinely ran, and `Actuator.execute` was called **0 times**. Non-vacuous. **F-1 CLOSED.**
+
+**(D4) F-3 → STILL OPEN as scoped; `571f2a6` did not close it (commit message vs code).** `571f2a6` is titled "wire the **engine-side** cost guard (D-5/F-3)". Its changed files are `packages/supervisor/budget.py` (+147), `packages/supervisor/sentinel.py` (+104) and two supervisor tests — **`packages/jcc_core/core.py` is not touched**. What was actually wired is a **post-arbitration PRICED gate inside the supervisor's `Sentinel._on_event_inner`** (`sentinel.py:249-256`, `budget.check(..., action=action)`), which is a real improvement to the shadow plane's cost ceiling and I credit it as such. But my F-3 as written was: *the P3 engine ingest path never consults a budget*. Re-verified by execution at `4e96c1a7`: `core.py` contains **no** `BudgetGovernor` / `budget.check` / `budget_snapshot` reference, and `run.py` still builds `CoreEngine(store, provider, actuator, config)` with no guard. **The engine surface is unchanged, so F-3 remains OPEN / waived** — I am flagging the wording, not re-opening the severity: the waiver (lead's call, recorded at `P3_ARCHITECTURE_SPEC.md:500`) stands, and it must keep reading as an **accepted risk + P4 precondition**, never as "fixed". `#82b` (hostile pins, 7 tests, non-vacuous by construction) meaningfully hardens the waiver's falsifiability — emptying `WAIVED_DIMENSIONS` turns all 7 RED — but hardens a *semantic* claim; it does not wire the engine.
+
+**(D5) F-5 → CLOSED at `4e96c1a7` (`a59fb96`).** `audit.append_audit` now issues **`BEGIN IMMEDIATE` before the tail read** (asserted by source-order probe: `begin@847 < tail@1898`), claims the single-writer row, hashes, inserts and commits inside that transaction — closing the cross-process chain-fork window §C described. The `if not conn.in_transaction` guard means the ordering also holds inside a caller's already-open transaction (SQLite rejects a nested `BEGIN`), which is the case §C's in-process `threading.Lock` could not cover. **One observation, not a blocker:** `writer_owner()` has **no production consumer** — the only caller is `test_audit_chain_atomicity.py:302/306`. The marker is therefore *forensic, not enforced*; the actual serialisation comes from `BEGIN IMMEDIATE`. That is sound today, but it is a latent trap: if `BEGIN IMMEDIATE` is ever relaxed, the single-writer guard degrades to decoration **silently**. Recommend a test that asserts the write would be rejected/locked if the guard were removed — that converts an assumption into an enforced invariant.
+
+**(D6) F-6 → CLOSED at `4e96c1a7` (`053936c`).** Note the direction of the claim: `server.py`'s docstring says the loopback refusal lives in `run.py`, so I verified it **at the implementation**, not at the comment. Executed: `run.check_bind_host` **raises `SystemExit` on `server.host: 0.0.0.0`** and passes `127.0.0.1`; `BIND_HOST == "127.0.0.1"` is applied unconditionally at `run.py:302`, so an omitted key cannot expose the listener. Fail-closed, not a preference. (`0.0.0.0` is refused rather than silently corrected — correct choice.) **`.gitattributes` (`9b82393`, `* text=auto eol=lf`) is neutral for A8**: fresh checkouts are already LF, and A8 normalises CRLF→LF anyway.
+
+**(D7) New observation (LOW, not a blocker) — the priced gate can drop an event.** With the raise now reachable in `check()` as well as `commit()` (`_unit_cost`, `budget.py:121-143`), an uncostable action raises **before** `sentinel._record` runs; `on_event`'s blanket `except Exception` (`sentinel.py:116-130`) then increments `persistence_failures` and returns `None`, so the assessment is **logged but not recorded on the tape**. Fail-closed on actuation (nothing is issued silently) and **gate-visible** (the D-40 pin asserts `persistence_failures == 0`, so the gate would go RED rather than pass silently) — but it is a *record-fidelity* consequence, not an actuation risk. Worth a line in P4 if the pricing table ever gains a member.
+
+**(D8) Verdict — SECURITY GATE = GO at `4e96c1a7` (committed tree).** Product security blockers = **0**, unchanged in substance across the P4 batch. Independently re-verified **CLOSED** this round: **F-1** (non-vacuous tripwire, 3/3 manual routes 200, 0 execute calls), **F-5** (BEGIN IMMEDIATE precedes tail read, incl. caller-open-txn case), **F-6** (fail-closed loopback refusal). **F-3 remains OPEN/waived** (engine surface untouched by `571f2a6` — the message says engine-side, the code is supervisor-side). Four A8 pins are **RED**, which I confirm as a **freeze-state fact, not a security blocker** — it does not weaken any security invariant, it only means the tree has moved past the frozen baseline and needs a lead-authorised re-baseline in the freeze commit. **Not a NO-GO.** This is a **security-only** signature; the acceptance/SRE gate is not mine to sign.
+
+---
+
+## ADDENDUM §E — "假成功" PROVEN, AND THE CONTRACT FOR SENTINEL (Aegis-2)
+
+Triggered by the lead's escalation (§D7): a persistence failure that is absorbed by "return None so the caller treats it as nothing happened" is not a record-fidelity nit, it is **假成功** — the same class as the three already killed today. **Owner of the fix: Sentinel. Owner of the contract below: me.**
+
+**(E1) The defect is PROVEN, and it is not where I first described it.** My §D7 said the swallow happened in `Sentinel.on_event`. Executing a poisoned store (`PoisonedStore(real, fail_from=2)`) shows the real chain, in execution order:
+
+1. `CoreEngine.ingest` writes the ENGINE row at **`core.py:214` `self.store.add_directive(directive)`**. Poisoning call #1 makes `ingest` **raise outright** — so the engine's own persist path is already loud.
+2. A shadow/charging row goes through **`sentinel.py:318 → budget.py:399 commit → :441 _persist_directive → store.add_directive`**, i.e. *inside* `on_event` (`sentinel.py:116-130`, blanket `except Exception`).
+3. `on_event` logs `shadow record failed for event_id=…`, increments `persistence_failures`, returns `None`.
+4. **`CoreEngine._broadcast` (`core.py:74-79`) swallows it: `except Exception: pass`.**
+5. `ingest` then returns `out` (`:228-238`) **which is identical in shape to the healthy case**, and `:241 self._broadcast(out)` is the last thing that ran.
+
+Measured (`aegis2_fake_success.py`, `_run_fakesuccess.txt`, **proven**):
+
+```
+control healthy keys: ['acted','action','actuation_reason','assessment','directive',
+                       'event_id','evidence_hash','session_id','session_status']
+FAILED  ingest  keys: ['acted','action','actuation_reason','assessment','directive',
+                       'event_id','evidence_hash','session_id','session_status']   <- same
+persistence_failures = 1  but  'persistence_failures' not in json.dumps(out)
+no field among {shadow_evaluated, evaluated, recorded, unevaluated, shadow_error,
+                persistence, …} present in `out`
+```
+
+So the caller cannot distinguish "the shadow arbitrated and substituted ESCALATE" from "the shadow never ran and nothing was recorded" — and the shadow's substitute is precisely the thing that gets lost. **UNVERIFIED: the HTTP surface (`/api/assess`).** My first HTTP probe aborted on the poison's call counter, so I am not asserting anything about what the API returns; it needs its own probe with a per-event poison rather than a call-count poison.
+
+**(E2) Two vacuities I hit in my own probe and rejected.** (a) Both engines were built against the same `tmp/jcc.db`, so the second engine's `(session_id, event_id)` hit the dedup branch and returned the *dedup* shape — which would have "proved" the defect while actually measuring nothing; fixed with a distinct db per build. (b) My control assertion tested `out.get("deduped") is False`, but the success branch never carries a `deduped` key at all — my assertion was wrong, not the code. Both fixed before any conclusion was drawn.
+
+**(E3) THE CONTRACT (Sentinel implements; this is my signature, not a suggestion).**
+
+- **S-1 — `_broadcast` must stop being a black hole.** `CoreEngine._broadcast` returns `List[Tuple[callback, Optional[BaseException]]]`; a subscriber that raises is *attributed* to that subscriber, not dropped. `ingest` folds the Sentinel's outcome into `out`. The `except Exception: pass` at `core.py:79` may only be reached when a subscriber has already recorded the failure itself — never as the primary sink.
+- **S-2 — the returned dict must carry the truth.** Add to `out` (`:228-238`):
+  - `shadow_evaluated: bool` — True only if every subscriber completed **and** recorded;
+  - `shadow_unevaluated: List[str]` — the directive/event ids the shadow could not evaluate;
+  - `persistence_failures: int` — mirrored from the Sentinel, so the counter is reachable from the one surface the caller holds.
+- **S-3 — `on_event` returns a decision, never a bare `None` for a failure.** Return the `ShadowDecision` with `evaluated=False`, `recorded=False`, `persistence_error=<str>`. `persistence_failures` stays as a counter but must no longer be the *only* evidence.
+- **S-4 — "not evaluated" must be separable from "evaluated as CONTINUE".** This is the load-bearing rule. Today a silently-failed shadow is indistinguishable from a shadow that decided `CONTINUE`. After S-2, `out["action"]` must not be consumable as shadow-arbitrated unless `shadow_evaluated is True`.
+- **Recommend fail-open on liveness, fail-visible on truth: do NOT raise from `ingest`.** P3 is observe-only and a shadow-plane I/O fault should not take the ingest path down. The guarantee is that the result can no longer be *read* as success. If the lead wants strictness, add an opt-in `_strict` flag for P5, not a default.
+
+**(E4) The falsifier, ready to paste (non-vacuous by construction).**
+```python
+store = PoisonedStore(real, fail_from=2)      # engine row lands; shadow row dies
+out   = engine.ingest(env)
+assert out["shadow_evaluated"] is False
+assert out["shadow_unevaluated"] == ["dir_<sid>_<event>"]
+assert out["persistence_failures"] == 1
+# non-vacuity: a healthy store must show the exact opposite, so a fix that
+# hard-codes False cannot pass these asserts.
+assert healthy_out["shadow_evaluated"] is True and healthy_out["shadow_unevaluated"] == []
+```
+
+**(E5) A8 re-baseline — I did nothing, per the lead's ownership.** The lead owns the re-baseline (discipline ㉗) and authorised it in the freeze commit only. I applied discipline ㉞ to my own work: the four digests quoted in §D are **valid only for the commits that produced them** and must be recomputed, not copied, when the freeze commit moves.
+
+**(E6) F-3 — I accept the lead's ruling.** F-3 is **CLOSED**, wording corrected to *"priced at the arbitration point, on the supervisor plane"* — the commit message said engine-side and was simply wrong; the invariant that matters ("nothing is issued or charged unless it was priced") does hold. The residual survives as **F-3-residual (ACCEPTED RISK + P5 PRECONDITION)**: the engine ingest loop does not consult a budget, so any publishing path that bypasses `Sentinel.on_event` bypasses the ceiling. Today that is untested-but-true (`Actuator.execute` = 0 production callers), not guaranteed — at P5 actuation it must become an assertion.
