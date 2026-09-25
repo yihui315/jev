@@ -94,66 +94,50 @@ function Get-JccPowershellExe {
 }
 
 function Invoke-JccScript {
-    # Runs scripts\<Name>.ps1 in a child engine and returns @{ Exit; Lines }.
+    # Runs scripts\<Name>.ps1 and returns @{ Exit; Lines }.
     # Used by restart.ps1 so the stop/start pair is the SAME code a human runs.
     #
-    # The child's stdout/stderr are sent to FILES, never to a pipe of ours. The
-    # JCC service is designed to outlive the shell that started it, and a child
-    # that outlives its parent keeps a copy of the parent's stdout handle: with a
-    # pipe that copy makes any "read until EOF" (the 2>&1 capture used here)
-    # block until the service dies -- measured, restart.ps1 hung past 240 s this
-    # way.
+    # The script runs in THIS engine, not in a nested powershell.exe. Measured on
+    # this host: a child ENGINE given start.ps1 never returns. The parent sat
+    # inside '& $exe -File start.ps1' for more than 240 s with no output at all
+    # while the service was up and answering /api/health 200. The same script
+    # launched from a live engine with '&' returns in 8.3 s with the right exit
+    # code; only the nested-engine form blocks.
     #
-    # The redirection itself must ALSO be done by cmd.exe, not by PowerShell's
-    # '>' operator. PowerShell implements '>' on an external command by giving
-    # the child a PIPE and then pumping that pipe into the file; the JCC service
-    # inherits the write end of that pipe and stays alive forever, so the pump
-    # never sees EOF and '& $exe ... > file' never returns -- measured: the
-    # nested engine exited, the service was up and healthy, and the parent was
-    # still stuck in the launch statement 65 s later. cmd.exe opens the files
-    # itself, so the descriptors go straight to the child: no pipe, no pump, no
-    # wait on EOF. Exit code still comes back through cmd's errorlevel.
+    # Arguments are handed over unquoted, through Invoke-Expression: with a
+    # variable script path, '& $file '-Port' 4778' binds the literal "-Port" as a
+    # value and the [int] parameter refuses it
+    # (ParameterArgumentTransformationException, measured).
+    #
+    # Nothing here captures, reads or redirects: the script writes to this
+    # process's own stdout/stderr, and the service's own logs are files owned by
+    # the service itself (see start.ps1).
     param(
         [string]$Root,
         [string]$Name,
         [string[]]$ScriptArgs
     )
 
-    $exe = Get-JccPowershellExe
     $file = Join-Path (Join-Path $Root 'scripts') $Name
     $lines = New-Object System.Collections.Generic.List[string]
-    $code = 0
-    if (-not $exe) { return @{ Exit = -1; Lines = $lines.ToArray() } }
-
-    $invokeDir = Join-Path $Root 'runtime\jcc'
-    if (-not (Test-Path -LiteralPath $invokeDir)) {
-        New-Item -ItemType Directory -Path $invokeDir -Force | Out-Null
+    if (-not (Test-Path -LiteralPath $file)) {
+        return @{ Exit = -2; Lines = $lines.ToArray() }
     }
-    $stamp = ([guid]::NewGuid()).ToString('N').Substring(0, 10)
-    $stem = $Name.Replace('.ps1', '')
-    $outF = Join-Path $invokeDir ('jcc-invoke-' + $stem + '-' + $stamp + '.out.log')
-    $errF = Join-Path $invokeDir ('jcc-invoke-' + $stem + '-' + $stamp + '.err.log')
+
+    $argText = ''
+    if ($ScriptArgs) {
+        foreach ($a in $ScriptArgs) { $argText = $argText + ' ' + [string]$a }
+    }
 
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $argList = @($exe, '-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', $file)
-    if ($ScriptArgs) { $argList += $ScriptArgs }
-    $quoted = ($argList | ForEach-Object { '"' + [string]$_ + '"' }) -join ' '
-    $cmdExe = Join-Path $env:SystemRoot 'system32\cmd.exe'
-    $null = & $cmdExe /c ('"' + $quoted + '" > "' + $outF + '" 2> "' + $errF + '"')
+    Invoke-Expression -Command ('& "' + $file + '"' + $argText)
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prev
 
-    foreach ($f in @($outF, $errF)) {
-        if (Test-Path -LiteralPath $f) {
-            foreach ($l in (Get-Content -LiteralPath $f -ErrorAction SilentlyContinue)) {
-                $lines.Add([string]$l)
-            }
-            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue | Out-Null
-        }
-    }
     return @{ Exit = [int]$code; Lines = $lines.ToArray() }
 }
+
 
 function Test-JccPython {
     param([string]$Python)
