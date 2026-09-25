@@ -180,9 +180,12 @@ def listening_pid(port: int) -> int | None:
 def http_json(url: str, timeout_s: float = 5.0):
     # Bypass any loopback proxy: urllib would otherwise route 127.0.0.1 through
     # HTTP_PROXY / the IE/WinINET self-referencing proxy and the probe would fail
-    # with 502 instead of reaching the local service. Disabling the proxy handlers
-    # makes every in-system probe hit the loopback directly.
-    no_proxy = urllib.request.ProxyHandler({"http": None, "https": None})
+    # with 502 instead of reaching the local service. A ProxyHandler with an
+    # EXPLICIT empty dict disables proxying for every scheme (it overrides both
+    # the environment and the registry fallback), so the in-system probe hits the
+    # loopback directly. NOTE: {"http": None} raises TypeError in urllib -- the
+    # dict must be empty, not None-valued.
+    no_proxy = urllib.request.ProxyHandler({})
     opener = urllib.request.build_opener(no_proxy)
     req = urllib.request.Request(url, method="GET")
     try:
@@ -206,8 +209,19 @@ def run_ps1(name: str, args: list[str], timeout_s: int) -> dict:
     out_f = os.path.join(RUNTIME, "e07-%s.out.log" % name)
     err_f = os.path.join(RUNTIME, "e07-%s.err.log" % name)
     os.makedirs(RUNTIME, exist_ok=True)
+    # Launch via the LIVE-engine "&" form, NOT "-File <script>".
+    # JccCommon.ps1 :: Invoke-JccScript documents (measured) that a child ENGINE
+    # given "powershell.exe -File start.ps1" NEVER returns on this host while the
+    # service is up and answering /api/health 200 -- the parent sits inside the
+    # call for >240 s. The same script launched from a live engine with "&"
+    # returns in ~8 s. The harness therefore runs every .ps1 as
+    #   powershell.exe -Command "& '<script>' <args>"
+    # which is the certified-returning form.
+    script_path = os.path.join(SCRIPTS_DIR, name)
+    arg_str = " ".join(list(args))
+    ps_cmd = "& '%s' %s" % (script_path, arg_str)
     ps_args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
-               "-File", os.path.join(SCRIPTS_DIR, name)] + list(args)
+               "-Command", ps_cmd]
     env = dict(os.environ)
     for k in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy",
               "ALL_PROXY", "all_proxy"):
