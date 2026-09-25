@@ -15,10 +15,79 @@ Format is deliberately boring: the deviations are behavioural, not narrative.
 
 | ID | Date | Area | Deviation | Why it ships | Pinned by | Owner (may remove) |
 | --- | --- | --- | --- | --- | --- | --- |
-| KD-001 | 2026-09-25 | Control plane, `packages/jcc_core/server.py` `_manual` | The engine actuation port (`ActuationPort.dispatch`) has **two** call sites instead of the one ADR-0008 D-41 allows: `packages/jcc_core/core.py` (the engine's) and `server._manual`. The second routes a control-plane manual directive into the actuation seam from outside policy — a D-28 policy bypass. | Making the code match the ADR changes the D-28 manual-plane contract (who signs, who arbitrates), which is a protocol decision, not an implementation detail. | `packages/jcc_core/tests/test_server_surface.py::test_engine_port_dispatch_call_sites_are_pinned` (shape) and `::test_the_manual_path_produces_no_execution_result` (consequence) | Protocol owner (ADR-0008) — reported to the lead 2026-09-25 |
-| KD-002 | 2026-09-25 | Control plane, `packages/jcc_core/server.py` `_manual` | Manual directives carry **no signature and no verified identity**: `directive_id` is server-minted (`dir_manual_<ms>`), `evidence_hash` is null, and `requires_human=True` is a self-declaration by the server rather than a checked claim. | ADR-0008 errata E-6 defers the signing half of D-28 to P4. The trust anchor (which key verifies a control-plane manual directive; enforced by default or not) is unspecified. | `packages/jcc_core/tests/test_server_surface.py::test_the_manual_path_produces_no_execution_result` — the path is inert, so no real side-effect is reachable today | Protocol owner (ADR-0008) — reported to the lead 2026-09-25 |
+| KD-001 | 2026-09-25 | Control plane, `packages/jcc_core/server.py` `_manual` | The engine actuation port (`ActuationPort.dispatch`) has **two** call sites, not the one ADR-0008 D-41's frozen falsifier allows: `packages/jcc_core/core.py:311` (the engine's) and `packages/jcc_core/server.py:239` (`server._manual`). The second routes a control-plane manual directive (`executable=False`, `requires_human=True`) into the engine port from outside policy.**As re-characterised by erratum E-12-1 (2026-09-25): the deviation is the *call-site count against D-41's frozen falsifier wording*, and it is INERT — D-41 makes the engine port "permanently inert … never an attach point — in P3 or in P4+", so a real actuator can never be injected at `engine.actuator` however many places call it. It is therefore not a second attach point. It is also not a D-28 policy *bypass* in today's effect: the manual directive can never carry a signature.** The remedy (ADR-0012 §1/§Relationship — the endpoint becomes a verifier of a policy-signed directive) is **specified but unlanded**. | Making the code match the ADR changes the D-28 manual-plane contract (who signs, who arbitrates), and ADR-0012's replacement path does not exist in code yet, so there is nothing to reroute to. Both are protocol decisions, not implementation details. | `packages/jcc_core/tests/test_server_surface.py::test_engine_port_dispatch_call_sites_are_pinned` (shape) and `::test_the_manual_path_produces_no_execution_result` (consequence) — 5 passed, exit 0, 2026-09-25 | Protocol owner (ADR-0008) + platform owner (ADR-0012 implementer) — reported to the lead 2026-09-25 |
+| KD-002 | 2026-09-25 | Control plane, `packages/jcc_core/server.py` `_manual` | Manual directives carry **no signature and no verified identity**: `directive_id` is server-minted (`dir_manual_<ms>`), `evidence_hash` is null, and `requires_human=True` is a self-declaration by the server rather than a checked claim. **Measured 2026-09-25 (erratum E-12-1, probes 2–3): the manual directive is not merely unsigned but permanently un-signable — `verify_directive` returns `UNSIGNED` both with no key and with a key supplied, so it can never become a trusted directive at any future attach point. `requires_human` however IS checked, not self-declared: a correctly HMAC-signed directive that self-reports it is still refused unless an approval exists for that exact `directive_id` (probes 4–6).** | ADR-0008 errata E-6 defers the signing half of D-28 to P4. The trust anchor (which key verifies a control-plane manual directive; enforced by default or not) is unspecified. | `packages/jcc_core/tests/test_server_surface.py::test_the_manual_path_produces_no_execution_result` — the path is inert, so no real side-effect is reachable today | Protocol owner (ADR-0008) + platform owner (ADR-0012 implementer) — reported to the lead 2026-09-25 |
 | KD-003 | 2026-09-25 | Budget, `packages/jcc_core/state_store.py` `budget_snapshot` | The `directives` table holds **two rows per economic event** because two planes persist the same issued directive (engine `dir_<session>_<event>`, sentinel's charging copy `shadow_<session>_<event>`). `budget_snapshot` collapses them to one before deriving any counter, so the counters are correct; the duplication itself remains. | Removing the second writer changes `packages/supervisor/budget.py::_persist_directive`, which is outside `packages/jcc_core`. Collapsing the rows in the store is the part that is in scope and is sufficient to keep R1/R2 true. | `packages/jcc_core/tests/test_directive_identity.py` (all three measured scenarios) | `packages/supervisor` owner (sentinel) — root cause; the `origin` write (see KD-004) is what lets the two rows be told apart |
 | KD-004 | 2026-09-25 | Persistence, `packages/jcc_core/state_store.py` `directives.origin` | The `origin` column (F1/F2) is **not back-fillable in place**: a database written before it existed has `origin NULL` on every row, and the row is then refused by the F2 gate (`NULL != origin`), because an unattributed row is the exact thing F1/F2 exist to refuse. Writing a pre-F1 database therefore requires a MIGRATION that assigns each existing row to a plane, and that decision (how to attribute historical rows, and whether any exist at all) is a protocol decision, not an implementation detail. | P4 ships without a migration path. The clause that used to justify this entry — *"every store in the tree and every test creates the schema fresh, so the refusal is unreachable today"* — is **measurably FALSE** and has been corrected (census 2026-09-25, atlas-3): **1 172** stores in this tree carry a `directives` table with **no `origin` column at all**, and **1 734** rows are NULL priors. What survives the measurement is a narrower claim: every one of those stores is a test artefact under a pytest basetemp root or `runtime/`, and the release evidence set holds **0** `.db` files, so no *admitted* store is affected today. The refusal is therefore **not unreachable** — it is never triggered in-tree, which is a different claim from the one this cell used to make. | `packages/jcc_core/tests/test_directive_identity.py::test_f2_a_cross_plane_overwrite_is_refused_and_leaves_the_row_alone` (the NULL-prior branch); **and** the executable pin `docs/tools/census_directive_origins.py --strict` (exit 1 while any unattributable row exists in the corpus), plus the falsifier requisition in the status note. | Protocol owner — reported to the lead 2026-09-25; measurement + non-closure 2026-09-25 (atlas-3) |
+| KD-005 | 2026-09-25 | Operator skill, `packages/operator_skill/gates.py` `SignedDirectiveGate.issue` (mint site `gates.py:173`) | The operator-skill plane mints its **own** `Directive` outside the policy kernel: `params={"source": "operator-skill", "requires_human": True}`, `executable=False`, `shadow=True`, unsigned at issue and signed afterwards by `SignedDirectiveGate.sign`. This is the **third** production mint site in `packages/` (after `core.py:294`) and it was **not enumerated in this register** until 2026-09-25, although the register header claims every place where the code deviates is enumerated. It is **not** a deviation from ratified INV-41 — ADR-0012 erratum E-12-1 §E-12-1.5 clause 4 classifies the operator-skill gateway as an operator-intent record, which is what this code is. The deviation registered here is the **omission**, and with it the absence of any pin. | The site is intentional and shipped: it is the operator-skill gateway's request shape, and everything downstream of it is gated (capability → policy → signing → human approval → budget). It was omitted because the enumeration was done by hand and stopped at `packages/jcc_core`. | **UNPINNED — no test asserts the properties of this mint site.** `operator_skill/tests/test_gateway_refusal.py::test_budget_gate_absent_refuses` and `::test_budget_gate_exhausted_refuses` **exercise** `issue()` (at `test_gateway_refusal.py:175` and `:206`) but assert only the budget verdict; `test_negative.py:95-96` and `_helpers.py:328-329` construct the same shape inside a fixture without asserting the mint site produces it. **Run 2026-09-25:** `operator_skill/tests/test_gateway_refusal.py` **9 passed, exit 0.** Recorded unpinned rather than given a fake pin. | Protocol owner (`docs/ADR`) — removal requires a new ruling here |
+| KD-006 | 2026-09-25 | Supervisor, `packages/supervisor/sentinel.py` `arbitrate_and_record` (mint site `sentinel.py:414`) | The supervisor plane mints its **own** `Directive` — `shadow=True`, `executable=False`, `params` carrying no `source` key — outside the policy kernel. This is the **fourth** production mint site in `packages/` and one of the **two the E-05 architecture leg did not count** when it established that `server.py` is a second mint site. Not enumerated here until 2026-09-25. As with KD-005 it is **not** a deviation from ratified INV-41 (clause 3/4: the supervisor plane produces shadow-plane records); the deviation registered is the **omission**. | The shadow plane records independently of the engine by design — KD-003 exists precisely because two planes persist the same issued directive — and the mint lives in `packages/supervisor`, which an enumeration scoped to `packages/jcc_core` never reached. | `supervisor/tests/test_supervisor.py::test_no_recorded_directive_is_ever_executable` — **5 passed, exit 0, 2026-09-25** (parametrised over 5 signal overrides). It pins the **consequence** of this mint site (every stored row has `acted == 0`, the D-40 falsifier in on-disk form) but does **not** pin the mint site's existence or its `params`; no test anywhere in the tree enumerates mint sites. The load-bearing half of this entry is pinned, the identity half is not. | Protocol owner (`docs/ADR`) — removal requires a new ruling here |
+
+**Closure condition for KD-005 / KD-006 (protocol owner, 2026-09-25).** Both rows exist to keep the
+register's enumeration claim true, so they may be removed only when the command below yields **exactly**
+these four lines and no other production (non-test) construction site:
+
+```
+git grep -n "Directive(" -- 'packages/*/*.py' ':!*/tests/*' ':!*schemas.py'
+```
+
+Current output — **4 lines**, matching `packages/jcc_core/core.py:294`,
+`packages/jcc_core/server.py:208`, `packages/operator_skill/gates.py:173`,
+`packages/supervisor/sentinel.py:414`, all four listed in the table above. Verification run
+2026-09-25. Until this holds, the two rows stay: dropping either without a new ruling here is exactly the
+silent-resolution failure the register preamble forbids.
+
+| KD-007 | 2026-09-25 | Actuation, `packages/jcc_core/actuator.py` `class Actuator` | The engine actuation port is inert **by convention, not by construction**. `Actuator` is an ordinary class with no `@final` and no `__init_subclass__` guard, and `CoreEngine.__init__` (`core.py:69`) stores it as a plain attribute, so nothing in the type system stops a subclass from overriding `dispatch`. D-41's *"permanently inert \u2026 never an attach point"* is therefore an assertion about how the code happens to be written, not an enforced invariant. | Recorded by the lead on the E-05 leg's residual finding, 2026-09-25. `packages/jcc_core/actuator.py:32`. Not funded now because `packages/` is the product freeze: sealing it would invalidate the security leg signed at the freeze and stop the release for a change that alters no behaviour today. The hardenings item is to be funded in the next release, where the same edit costs nothing. | **None.** No test pins this and none can, without a product change: it is a static observation about the absence of an enforcement mechanism. A deviation that names no anchor is recorded as such rather than given a fake anchor. | Protocol owner (ADR-0008) + platform owner -- reported to the lead 2026-09-25 |
+
+## Ruling on KD-001 / KD-002, 2026-09-25 (protocol owner, `docs/ADR`): STILL OPEN — both re-characterised, neither closed, neither downgraded to "as designed"
+
+Raised by the E-05 architecture leg, which returned NO-GO on the ground that
+`server.py:206-239` breaks the invariant *"the policy kernel is the sole producer of directives"*.
+Ruling issued as **ADR-0012 erratum E-12-1**. Summary here because a register that disagrees with the
+ADR it registers is the drift this project fights; the full reasoning is in the erratum.
+
+**The three measured findings that decide it.**
+
+1. The invariant the leg NO-GO'd over is **not a normative statement in any ADR** — see finding F7 in
+   erratum E-12-1 §E-12-1.2 for the corrected wording (an earlier draft of this register claimed the
+   phrase appears "nowhere in `docs/`"; that was false at the moment it was written, because this very
+   sentence introduces the phrase. **Correct claim: the invariant has no normative force and exists only
+   as the paraphrase the register and the leg attached to KD-001.**), and `packages/` holds
+   **four** production `Directive(...)` mint sites, not the two the leg counted — `gates.py:173`
+   (operator-skill) and `sentinel.py:414` (supervisor) mint outside the policy kernel and were **not
+   enumerated here** until **KD-005** and **KD-006** were added on 2026-09-25. So the claim was already
+   false before the disputed site existed.
+2. The deviation in **KD-001 is real** — D-41's frozen falsifier says `ActuationPort.dispatch` has
+   *exactly ONE* call site (`core.py:143`) — but it is **inert**: D-41 makes the engine port never an
+   attach point, so no real actuator can ever be injected there however many call sites it has.
+3. **KD-002 is real and structural**: the manual directive is permanently un-signable, not temporarily
+   unsigned.
+
+**What changed in the two rows above.** Only the *characterisation* and the *owner* cells. Both entries
+remain OPEN. KD-001's "D-28 policy bypass" phrasing was corrected to what is measured — the call-site
+count against frozen text — because the register must not overstate today's effect while understating the
+future risk. The "downgrade KD-001 to as designed" option offered at the NO-GO is **rejected**: the
+register's own preamble forbids an entry being resolved silently, and the frozen text of D-41 currently
+contradicts "as designed". What the erratum *does* provide is a **recommended restatement of the
+invariant (INV-41)**, which is binding only on the lead's ratification; **if it is not ratified, D-41's
+frozen wording governs and KD-001 stays a live deviation.**
+
+**Boundary, so a future reader can classify the next mint site.** A mint-and-dispatch site is an
+operator-intent record, not a machine directive, iff all three hold: (B1) the port is the P4 attach port
+`DispatchPort` and the caller is `Sentinel._dispatch`; (B2) the directive carries `executable=False`; (B3)
+`requires_human=True` and the approval gate is a **check** on that exact `directive_id`. **Do not
+classify on `params["source"]`** — `core.py` sets no `params` and `sentinel.py` sets none with a `source`
+key, so that test mis-classifies two of the four sites.
+
+**Falsifier for this ruling.** Void if (i) any `ActuationPort.dispatch` call site returns a `reason`
+other than `"shadow_mode"`; or (ii) any `Directive(...)` site sets `executable=True`; or (iii) a
+construction site omits `executable=False` and its directive reaches a port; or (iv) a real actuation
+implementation is reachable from anywhere other than `Sentinel._dispatch`. Not observed today.
+
+**Not decided here** (protocol decisions still open, and outside `docs/`): deleting `server.py:239`, and
+rerouting it through the Sentinel — the latter changes who signs what, and ADR-0012's verifier has never
+been implemented, so there is no working alternative to route to today.
+
+---
 
 **Status note on KD-004 (protocol owner, 2026-09-25).** The protocol half is decided —
 **ADR-0011**, the M1 backfill rule: attribute only `origin IS NULL` rows, derive the value through
@@ -232,3 +301,13 @@ packages/` is empty, and the working-tree sha256 of `state_store.py`
   because the guard interrupts pytest's own `tmp_path` setup. The guarded run
   now ABORTS with ``pytest.UsageError`` (exit 4) instead of reporting those
   tests as skipped, so the configuration cannot read as a pass.
+
+### Mint sites outside `packages/` — resolved 2026-09-25
+
+The register had left this open. It is now closed by enumeration: `git grep -n "Directive("` over
+`scripts/ tools/ policies/ adapters/ evals/ config/ apps/ facades/` returns hits **only** in test
+code (`facades/*/tests/conftest.py`, `facades/*/tests/test_determinism.py`,
+`tests/e2e/test_api_e2e.py`). Production `Directive(...)` mint sites outside `packages/` are
+**zero**; inside `packages/` they are exactly four (`core.py:294`, `server.py:208`,
+`gates.py:173`, `sentinel.py:414`), matching the KD-005 cell above. `gates.py:173` remains
+UNPINNED, which is recorded rather than papered over.

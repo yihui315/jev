@@ -344,3 +344,170 @@ authority (architecture & protocol for `docs/`):
 - The platform engineer's subsequent implementation is a **separate gate**; atlas-4 does not sign off on
   the code being correct, only that this contract is the bar to meet. KD-002/KD-001 closure is
   conditional on that implementation landing and the §5 nails going green.
+
+---
+---
+
+# Errata E-12-1 — the scope of ADR-0008 D-41: machine directives vs operator-intent records
+
+- **Status:** **RULING, not yet ratified** — see *Ratification condition* below. Does not take effect
+  until the lead ratifies it or a superseding ADR is issued. Before ratification this section is a
+  **recommended reading of frozen D-1…D-41**, not an amendment of it.
+- **Date:** 2026-09-25
+- **Owner:** protocol-architect (`docs/ADR` only; `packages/` is not modified by this errata).
+- **Triggered by:** the E-05 architecture leg's NO-GO, which held that
+  `packages/jcc_core/server.py:206-239` breaks the invariant that *the policy kernel is the sole
+  producer of directives*.
+- **Extends (does not re-open):** ADR-0008 (D-1…D-41, **frozen**), ADR-0012 as above, ADR-0004.
+- **Changes:** `docs/ADR/KNOWN_DEVIATIONS.md` **KD-001** and **KD-002** (both are **re-characterised,
+  neither is closed** — see §5).
+
+## E-12-1.1 — Question
+
+Does ADR-0008 **D-41** govern a control-plane **manual** directive minted outside the policy kernel, or
+only **machine** directives?
+
+## E-12-1.2 — Findings, each measured rather than read
+
+| # | Finding | Label |
+|---|---|---|
+| F1 | `server._manual` (`server.py:206-239`) mints a manual `Directive` and calls `engine.actuator.dispatch(d)` at `server.py:239`. The engine port is therefore called from **two** sites: `core.py:311` and `server.py:239`. | **VERIFIED** (source read) |
+| F2 | The minted directive carries `signed=False`, `signature=None`, `evidence_hash=None`, `requires_human=True`, `executable=False`. | **VERIFIED** (probe 1) |
+| F3 | The real signing kernel refuses it: `verify_directive(d, None) -> (False, "UNSIGNED")` **and** `verify_directive(d, KEY) -> (False, "UNSIGNED")` — i.e. supplying a key does not rescue it, so it can never become a trusted directive. | **VERIFIED** (probe 2) |
+| F4 | `ActuationPort.dispatch` is permanently inert: returns `{'acted': False, 'executable': False, 'reason': 'shadow_mode', ...}` **even with `enabled=True` and the action allow-listed**. | **VERIFIED** (probe 3) |
+| F5 | `requires_human` is **checked, not self-declared**. A correctly HMAC-signed directive that self-reports `requires_human=True` is refused at the human-approval gate (`APPROVAL_MISSING`) unless an approval exists **for that exact `directive_id`**; an approval recorded for a different id does not carry over. Only an approval naming that id yields `(True, 'approved by a human for this directive id')`. | **VERIFIED** (probes 4–6) |
+| F6 | D-41's frozen falsifier text reads: *"`jcc_core.ports.ActuationPort.dispatch` has **exactly ONE** call site (`core.py:143`)"* (`ADR-0008:228`). The Round-5 precision fix #3 reframed *"exactly two call sites"* → *"exactly one call site **per distinct type**"*, reconciling the engine site with `Sentinel._dispatch`; it did **not** exempt any call site. | **VERIFIED** (`ADR-0008:228,258`) |
+| F6b | **The `core.py:143` reference inside that falsifier is a stale line number.** `core.py:143` today is a broadcast-failure comment; the engine dispatch site is `core.py:311`. A gate or reader grepping for `core.py:143` finds nothing and may conclude the falsifier has no referent. | **VERIFIED** (`core.py:138-148`, `:311`) |
+| F7 | **CORRECTED 2026-09-25 (team-lead review; the earlier wording of this row was false).** The phrase **"the policy kernel is the sole producer of directives"** is **not a normative statement in any ADR** — it appears in `docs/` only inside the **deviation register that cites it** and inside this erratum, never as a ruling a platform engineer must meet. Concretely, `git grep -in "sole producer" -- docs/` returns 4 hits: three in this erratum (this row, the INV-41 header, and §E-12-1.7) and one at `KNOWN_DEVIATIONS.md:26` — the sentence in the KD-001 ruling where the invariant is named as the criterion the deviation breaks. **The defensible claim is therefore: the invariant has no normative force; it exists only as the paraphrase that the register (and the E-05 leg) attached to KD-001.** An earlier draft of this row asserted "does not occur anywhere in `docs/`"; that was measured **before** this erratum was written, and the erratum itself then introduced the phrase, which made the row false at the moment of writing. Recorded here rather than quietly amended, because the same staleness can recur. | **VERIFIED, and self-corrected** (`git grep -in`, run 2026-09-25) |
+| F8 | `packages/` holds **four** production `Directive(...)` mint sites, not two: `core.py:294` (policy kernel), `server.py:208` (control plane), `gates.py:173` (`operator-skill`, `params={"source": "operator-skill", "requires_human": True}`, `executable=False`, `shadow=True`), `sentinel.py:414` (supervisor, `shadow=True`). `apps/` holds none. | **VERIFIED** (grep) |
+| F9 | Only `gates.py` and `server.py` set `params["source"]`. `core.py:294-304` sets no `params` at all and `sentinel.py:421-425` sets `params` **without** a `source` key. A classifier built on `params["source"]` therefore mis-classifies two of the four sites. | **VERIFIED** (source read) |
+| F10 | `sentinel.py:507-514` annotates its own seam *"The only actuation call site in the supervisor plane"* and cites D-41 — i.e. D-41 is already applied **per plane** in the code. | **VERIFIED** (source read) |
+| F11 | The behaviour is pinned green today: `test_server_surface.py::test_engine_port_dispatch_call_sites_are_pinned`, `::test_the_manual_path_produces_no_execution_result[/api/pause|steer|retry]`, `::test_the_manual_path_and_the_real_port_refuse_differently_but_equally` — **5 passed, exit 0** (`2026-09-25 18:1x`). The third asserts `actuation.reason == "shadow_mode"`, i.e. the manual path **does** reach the engine port. | **VERIFIED** (pytest run) |
+
+## E-12-1.3 — Ruling
+
+**D-41 does not distinguish machine directives from operator-intent records, and no exemption for
+operator intent can be read into it.** Its subject is the **P4 attach point**, not directive provenance
+(D-41's title; *"The ONLY P4 attach point is `Sentinel._dispatch`"*). Its frozen falsifier counts call
+sites of a port **type**, with no carve-out for what the directive is. Attempting to read a
+machine/manual exemption into the *falsifier* fails on the text.
+
+**But that does not make `server.py:239` a competing attach point**, and this is the load-bearing part:
+
+> A future actuator attaches to `supervisor.ports.DispatchPort` and is invoked **only** from
+> `Sentinel._dispatch`. The engine port's implementation is, by D-41 itself, *"permanently inert … never
+> an attach point — in P3 or in P4+"* (`ADR-0008:225`). A real actuator can therefore **never** be
+> injected at `engine.actuator`, however many places call it. The call-site *count* is a proxy the frozen
+> falsifier uses for attach-point uniqueness; it is not itself the property that matters. `server.py:239`
+> fails the attach-point predicate, so it is not governed by D-41's attach-point clause.
+
+So the deviation is real but misdescribed in the register, and the invariant the leg NO-GO'd over
+(F7/F8) was never true.
+
+### The boundary — stated so it can be applied
+
+A mint-and-dispatch site is an **operator-intent record**, not a machine directive, iff **all three**
+hold. All three are mechanically checkable.
+
+- **B1 Attachability** — the port is the P4 attach port (`DispatchPort`) **and** the caller is
+  `Sentinel._dispatch` (D-41's single attach point). Otherwise the site has **0** attach points.
+- **B2 Executability** — the constructed directive carries `executable=False` (schema default is `False`;
+  `schemas.py:165`). No construction site may set it true.
+- **B3 Human standing** — the site records `requires_human=True`, and the human-approval gate is
+  evaluated as a **check** (F5), not taken from the directive's own self-report.
+
+`server.py:208-239` passes B1 (engine port, not the attach port), B2 (`executable=False`) and B3
+(`requires_human=True`, and F5 proves the gate is checked rather than self-declared). It is therefore an
+operator-intent record. **`server.py` is the fourth such site, not the second** (F8): `gates.py:173`
+already established the pattern and is not registered as a deviation at all.
+
+> **Trap, named so it is not walked into:** do **not** build the classifier on
+> `params["source"]`. Two of the four sites (F9) do not set it, so that test would mis-classify the
+> engine and supervisor planes. The classification is by the **plane that owns the mint site**, not by
+> any field.
+
+### Falsifier for this errata
+
+This reading is void if any of the following becomes true:
+
+> (i) any `ActuationPort.dispatch` call site returns a `reason` other than `"shadow_mode"`; (ii) any
+> `Directive(...)` construction site in `packages/` sets `executable=True`; (iii) a `Directive(`
+> construction site omits `executable=False` **and** its directive reaches a port; (iv) a real
+> actuation implementation is reachable from anywhere other than `Sentinel._dispatch`.
+
+None of (i)–(iv) holds today (F4, F11).
+
+## E-12-1.4 — Consequences
+
+- **The invariant is restated, not defended.** See §E-12-1.5 for the verbatim replacement. The old
+  statement is **withdrawn as false** — it was already false before `server.py:239` existed, because
+  `gates.py:173` and `sentinel.py:414` mint outside the kernel (F8).
+- **`/api/pause|steer|retry` keep their behaviour and their Directive-shaped record.** Removing the site
+  would break the D-28 manual-plane contract, terminate the `dir_manual_*` audit record, and force edits
+  to three green pins (F11) — including one that asserts the manual path *does* reach the engine port.
+  There is also **no verifier path to reroute to**: ADR-0012 §1's policy-signed envelope has never been
+  implemented, so "reroute through the Sentinel" would change who signs what with nothing on the other
+  side of the seam. Both remain open protocol decisions (the position `server.py:222-238` already takes).
+- **KD-001 / KD-002 are re-characterised and stay OPEN** (§5). The "as designed" downgrade is
+  **rejected** — see §E-12-1.6.
+- **Nothing here exempts `server.py:239` from the ADR-0012 remediation.** It is the site ADR-0012
+  §Relationship was written to fix.
+
+## E-12-1.5 — Replacement invariant (verbatim — the E-05 leg re-signs against this, not the old claim)
+
+> **INV-41 — directives and actuation in `packages/` (replaces the "policy kernel is the sole producer of
+> directives" invariant; ADR-0008 D-41, as read by erratum E-12-1).**
+>
+> 1. **Every `Directive` constructed anywhere in `packages/` carries `executable=False`.** The schema
+>    default is `False` (`schemas.py:165`) and no construction site overrides it.
+> 2. **The engine actuation port (`ActuationPort.dispatch`) is permanently inert and is never an attach
+>    point**, in P3 or later. The number of sites that call it is not a measure of attach-point
+>    uniqueness.
+> 3. **The only attach point for a future real actuator is `Sentinel._dispatch`**, which invokes an
+>    injected `DispatchPort` and nothing else.
+> 4. **A mint site is classified by the plane that owns it, not by `params["source"]`.** The `engine`
+>    ingest path (`core.py:294`) produces a **machine directive**. The control-plane endpoint
+>    (`server._manual`, `server.py:208`), the operator-skill gateway
+>    (`gates.SignedDirectiveGate.issue`, `gates.py:173`) and the supervisor plane
+>    (`sentinel.py:414`) produce **operator-intent / shadow-plane records**.
+> 5. **No mint site may produce `executable=True`.** An operator-intent record carries
+>    `requires_human=True` and does not reach any actuation implementation.
+
+**Answer to the question asked of this ruling:** after this errata, *"the policy kernel is the sole
+producer of machine directives"* is **false** about `packages/`, and was false before the disputed site
+existed. Re-signing against it would be re-signing against a claim with no source in `docs/` (F7) and
+three counter-examples in `packages/` (F8).
+
+## E-12-1.6 — What is explicitly NOT allowed to be inferred from this errata
+
+1. **Not** that `server.py:239` is correct, approved, or safe to keep as an actuation path. It remains a
+   real deviation from D-41's frozen falsifier wording (F1, F6) and remains open as KD-001.
+2. **Not** that ADR-0008 D-1…D-41 is amended. The range is frozen; this errata is a **recommended
+   reading** whose binding force requires the ratification condition below. Nothing here re-opens it.
+3. **Not** that KD-001 or KD-002 is closed, downgraded to "as designed", or transferred to another owner.
+4. **Not** that the signature deficiency (KD-002) is resolved. F3 shows the manual directive is
+   *permanently* unsigned; the deviation is structural, not incidental.
+5. **Not** permission to delete `server.py:239` or to reroute it. Both are protocol decisions, and the
+   second has no working alternative today (§E-12-1.4).
+6. **Not** that `params["source"]` is authoritative for classification (F9).
+7. **Not** that the platform is thereby released: KD-003, KD-004 and the unlanded ADR-0012 gate are
+   unaffected by this errata.
+
+### Ratification condition
+
+This errata binds only when the lead ratifies §E-12-1.5 (INV-41) or a superseding ADR adopts it. **If it
+is not ratified, D-41's frozen falsifier stands as written, `server.py:239` is a live deviation against
+it, and the E-05 leg's finding on that point survives** — the answer to the leg then reverts to
+**NO-GO on KD-001** rather than to GO.
+
+## E-12-1.7 — Go / No-Go (scope of THIS errata)
+
+Within protocol-architect's authority (architecture & protocol, `docs/` only):
+
+- **GO WITH CONDITIONS** — adopt INV-41 (§E-12-1.5) as the wording the architecture leg re-signs
+  against, **conditional on** the leg (a) withdrawing the "sole producer of directives" claim in writing,
+  (b) recording that KD-001 and KD-002 stay open, and (c) recording that `gates.py:173` and
+  `sentinel.py:414` are mint sites the leg did not previously count.
+- **NO-GO (unconditional, on the ratification condition above)** — if the lead does not ratify,
+  D-41's frozen text governs and the deviation stands.
+- This errata does **not** sign off on any `packages/` code, and does not close KD-001/KD-002.
