@@ -190,6 +190,91 @@ def resolve_directive_origin(directive_id: str, origin: str) -> str:
     return origin
 
 
+# -- M1: attribution of pre-F1 rows (ADR-0011) ----------------------------- #
+
+
+def backfill_directive_origins(db_path: str, *, report_path: Optional[str] = None) -> Dict[str, Any]:
+    """Attribute the pre-F1 ``directives`` rows of ONE database (ADR-0011, M1).
+
+    A row written before F1/F2 has no ``origin``. M1 gives it one by
+    DERIVATION, never by assignment, and only in the three clauses the ADR
+    permits:
+
+    1. ONLY ``origin IS NULL`` rows are touched. A row that already carries an
+       origin is never rewritten -- whatever its id prefix suggests. A stored
+       origin is the one artefact that distinguishes a pre-F1 row from a
+       post-F1 one, and overwriting it erases the evidence of what M1 did.
+    2. The value is ``directive_plane_of(directive_id)`` -- the SAME lookup F1
+       calls, so M1 and F1 cannot disagree about what a shape means.
+    3. An unattributable shape is not attributed. ``directive_plane_of``
+       returning ``None`` leaves the row NULL; it stays refused by F2's
+       NULL-prior gate, and it is listed under ``refused``. ``"engine"`` is NOT
+       the fallback -- fabricating provenance for a row whose provenance the id
+       cannot record is the #82 defect, laundered.
+    4. A census report is written. ``admissible`` is False whenever ``refused``
+       is non-empty, because a database M1 could not attribute is not release
+       evidence (ADR-0009).
+
+    THIS IS NOT AN AUTOMATIC SIDE EFFECT AND MUST NOT BECOME ONE. Nothing on
+    the read or write path calls it: no import, no ``__init__``, no schema
+    upgrade, no ``add_directive``. A migration is code expected to run exactly
+    once, unattended, over data it has never seen, so it is invoked by an
+    operator, against an explicit path, and the report it leaves behind is the
+    record that it ran.
+
+    One database per call; ``databases_visited`` exists so that a caller
+    walking a corpus can concatenate the reports rather than invent a second
+    format. Report is a run artefact, not a recomputable one: it carries the
+    wall-clock time and the database mtime on purpose.
+    """
+    store = StateStore(db_path)  # idempotent schema; also validates the path
+    report: Dict[str, Any] = {
+        "db_path": str(db_path),
+        "database_mtime": os.path.getmtime(db_path),
+        "generated_at": time.time(),
+        "databases_visited": [str(db_path)],
+        "directive_rows": 0,
+        "null_priors": 0,
+        "attributed": 0,
+        "refused": [],       # unattributable shapes, clause 3
+        "still_null": [],    # NULL priors that were refused, i.e. left alone
+        "admissible_as_release_evidence": True,
+    }
+    with store.transaction() as conn:
+        rows = conn.execute(
+            "SELECT directive_id FROM directives WHERE origin IS NULL"
+        ).fetchall()
+        report["null_priors"] = len(rows)
+        for (directive_id,) in rows:
+            plane = directive_plane_of(directive_id)
+            if plane is None:
+                report["refused"].append(
+                    {"directive_id": directive_id,
+                     "reason": "no prefix owned by a writer, or a bare prefix "
+                               "naming no event (ADR-0011 clause 3): left NULL, "
+                               "left refused by the F2 gate"}
+                )
+                report["still_null"].append(directive_id)
+                continue
+            cur = conn.execute(
+                "UPDATE directives SET origin=? WHERE directive_id=? "
+                "AND origin IS NULL",
+                (plane, directive_id),
+            )
+            report["attributed"] += cur.rowcount
+        report["directive_rows"] = conn.execute(
+            "SELECT COUNT(*) FROM directives"
+        ).fetchone()[0]
+    report["admissible_as_release_evidence"] = not report["refused"]
+    if report_path:
+        parent = os.path.dirname(os.path.abspath(report_path))
+        if parent:
+            os.makedirs(parent, exist_ok=True)
+        with open(report_path, "w", encoding="utf-8") as fh:
+            json.dump(report, fh, indent=2, sort_keys=True)
+    return report
+
+
 def _action_matches(action: Optional[str], name: str) -> bool:
     """Compare a persisted ``action`` column against a ``DirectiveAction`` value.
 

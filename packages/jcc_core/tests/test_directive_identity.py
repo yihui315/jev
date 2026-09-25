@@ -455,7 +455,11 @@ def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts
     and was tried first: it stays green, because F2 still holds. Documented here
     because the natural guess is the wrong one.
     """
-    from jcc_core.state_store import StateStore, resolve_directive_origin
+    from jcc_core.state_store import (
+        StateStore,
+        backfill_directive_origins,
+        resolve_directive_origin,
+    )
 
     s = StateStore(str(tmp_path / "o.db"))
     # A historical row written by the wrong plane, straight to SQL: a `dir_`
@@ -468,6 +472,12 @@ def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts
             ("dir_s-contra_e1", "s-contra", 1.0, "PAUSE", "supervisor"),
         )
         conn.commit()
+
+    # M1 HAS RUN by the time we assert anything below -- see "must stay red".
+    # It must walk straight past this row: a non-NULL stored origin is not
+    # M1's to touch (ADR-0011 clause 1).
+    report = backfill_directive_origins(s.db_path)
+    assert report["refused"] == [] and report["attributed"] == 0
 
     # 0) PROOF THAT F1 DOES NOT FIRE HERE, i.e. that F2 is the only gate: the
     #    namespace rule is satisfied by this (id, origin) pair.
@@ -490,6 +500,121 @@ def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts
         "the mis-attributed row must survive unmodified: rewriting a stored "
         "origin from the id prefix would be inventing provenance"
     )
+
+
+# --------------------------------------------------------------------------- #
+# M1 -- the pre-F1 backfill (ADR-0011), falsified against the clause list
+# --------------------------------------------------------------------------- #
+def _insert_raw(s, directive_id, origin=None, action="PAUSE", session="s-m1"):
+    """Write a row the way a pre-F1 writer or a contaminated one would."""
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action, "
+            "origin) VALUES (?,?,?,?,?)",
+            (directive_id, session, 1.0, action, origin),
+        )
+        conn.commit()
+
+
+def test_m1_derives_the_value_through_the_same_lookup_f1_uses_and_refuses_the_rest(tmp_path):
+    """ADR-0011 clause 2 + 3 + 4.
+
+    Clause 2 says M1 must NOT carry its own opinion of what a shape means: it
+    must call ``directive_plane_of``, the function F1 calls. So the derived
+    value is pinned here to the same table F1 pins, and an unattributable
+    shape is left NULL rather than stamped ``engine``.
+    """
+    from jcc_core.state_store import (
+        StateStore,
+        backfill_directive_origins,
+        directive_plane_of,
+    )
+
+    s = StateStore(str(tmp_path / "pre.db"))
+    _insert_raw(s, "dir_s-m1_e1", origin=None)          # attributable: engine
+    _insert_raw(s, "shadow_s-m1_e1", origin=None)       # attributable: supervisor
+    _insert_raw(s, "oops_s-m1_e1", origin=None)         # no owner at all
+    assert directive_plane_of("oops_s-m1_e1") is None
+
+    report = backfill_directive_origins(s.db_path)
+
+    with s.connection() as conn:
+        origins = dict(conn.execute(
+            "SELECT directive_id, origin FROM directives").fetchall())
+    assert origins == {
+        "dir_s-m1_e1": "engine",
+        "shadow_s-m1_e1": "supervisor",
+        "oops_s-m1_e1": None,          # clause 3: NOT defaulted
+    }, origins
+
+    # clause 4: the census, and inadmissibility when something was refused
+    assert report["null_priors"] == 3
+    assert report["attributed"] == 2
+    assert report["directive_rows"] == 3
+    assert [r["directive_id"] for r in report["refused"]] == ["oops_s-m1_e1"]
+    assert report["still_null"] == ["oops_s-m1_e1"]
+    assert report["admissible_as_release_evidence"] is False
+    assert report["databases_visited"] == [s.db_path]
+
+
+def test_m1_writes_the_census_report_it_was_asked_for(tmp_path):
+    """ADR-0011 clause 4: the report is the record that the migration ran.
+
+    It travels next to the release evidence as a sidecar (ADR-0009 EV-11a), so
+    the shape is pinned here: a run artefact carries its own timing and is not
+    meant to be byte-reproducible. What IS reproducible is the count and the
+    inadmissibility.
+    """
+    from jcc_core.state_store import StateStore, backfill_directive_origins
+
+    s = StateStore(str(tmp_path / "pre.db"))
+    _insert_raw(s, "dir_s-m1_e1", origin=None)
+    report_path = str(tmp_path / "m1-report.json")
+
+    report = backfill_directive_origins(s.db_path, report_path=report_path)
+
+    import json as _json
+    on_disk = _json.loads(Path(report_path).read_text(encoding="utf-8"))
+    assert on_disk == report, "the sidecar must be what the run actually reported"
+    assert on_disk["attributed"] == 1
+    assert on_disk["admissible_as_release_evidence"] is True
+    # a run artefact, not a recomputable digest: timing is expected to differ
+    assert "generated_at" in on_disk and "database_mtime" in on_disk
+
+
+def test_m1_never_rewrites_a_stored_origin_even_an_invented_wrong_one(tmp_path):
+    """ADR-0011 clause 1, read against the F2 nail above.
+
+    "Only NULL priors are touched" is not about safety -- it is the only way to
+    keep a pre-F1 row distinguishable from a post-F1 one. So a row whose stored
+    origin is *wrong* (`dir_` id, `origin='supervisor'`) is what M1 must walk
+    past without blinking: it is not unattributed, it is mis-attributed, and
+    the F2 gate -- not M1 -- is the thing that refuses it.
+    """
+    from jcc_core.state_store import StateStore, backfill_directive_origins
+
+    s = StateStore(str(tmp_path / "pre.db"))
+    _insert_raw(s, "dir_s-m1_e1", origin="supervisor")   # mis-attributed
+    _insert_raw(s, "dir_s-m1_e2", origin=None)           # genuinely pre-F1
+
+    report = backfill_directive_origins(s.db_path)
+
+    with s.connection() as conn:
+        row = conn.execute(
+            "SELECT origin, action FROM directives "
+            "WHERE directive_id='dir_s-m1_e1'"
+        ).fetchone()
+        n2 = conn.execute(
+            "SELECT origin FROM directives WHERE directive_id='dir_s-m1_e2'"
+        ).fetchone()[0]
+    assert row == ("supervisor", "PAUSE"), (
+        "M1 rewrote a stored origin: the pre-F1 evidence is gone"
+    )
+    assert n2 == "engine"
+    assert report["attributed"] == 1 and report["refused"] == []
+    # and the mis-attributed row is still the one F2 refuses
+    with pytest.raises(ValueError, match="already persisted as"):
+        s.add_directive(_mint("dir_s-m1_e1"), origin="engine")
 
 
 def test_the_persisted_row_carries_the_attribution_it_was_written_with(tmp_path):
