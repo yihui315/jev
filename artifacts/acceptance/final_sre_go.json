@@ -73,6 +73,137 @@
         "evidence set I signed (17 entries)"
       ],
       "effect": "a truth repair to a measurement record, not a verdict change; the leg stays NO-GO"
+    },
+    {
+      "what": "the nine-item operator lifecycle cycle executed against commit 46c92a14e4e45b5eeaa52c8aa8e1b4d6640921d3 in the quiet window granted by team-lead (21:55-22:20 local). Result: NO-GO for THIS cycle, triggered by item 7. Item 7 (restart.ps1) printed 'RESTART OK' and exited 0 in 13.90 s, yet afterwards 127.0.0.1:4778 had no LISTENING socket, /api/health was unreachable and the pid recorded in jcc.pid (19812) did not exist -- while server.err.log in the same run recorded 'Uvicorn running on http://127.0.0.1:4778'. A green restart whose service is down is the failure the ownership work was meant to make impossible; the leg does not soften it. Per team-lead's instruction the fix, if one is needed, comes from the owner of scripts/ under a task I did not write. PER-ITEM BYTES: the cycle's blob ids and mtimes are in the 'cycle' block above, and the tree was verified clean before and after (22:21:02 re-check, all six scripts SAME against HEAD).",
+      "why": "an operator who restarts the service must end up with a service. restart.ps1 currently reports success for a restart that produced a dead port, and the only places that difference is visible are the port table, the health probe, and the log content -- none of which the script consults before printing OK.",
+      "effect": "verdict for this cycle is NO-GO; the file's overall verdict was already NO-GO and is unchanged, release_sha unchanged at df3e7d91ac274d971ef110199d5b65acf131aacd.",
+      "measured_by": "srefinal-1, harness under .workbuddy\\scratch\\sre07\\cycle2\\, every number timestamped separately."
+    },
+    {
+      "what": "a correction to how this file's own bytes are to be verified, raised because I had previously blurred two hash spaces. Three different numbers describe the same document and none may be compared to another. They are left as figures only in the log, deliberately, for the reason below. (3) The git blob id, which is a SHA-1 and not a SHA-256 at all: git hash-object returns it identically whether the file on disk is the CRLF or the LF form, because .gitattributes pins '* text=auto eol=lf' and git normalises before hashing. So the safe reading is: hash the CRLF file if that is the form you were handed, and if you want git's own number, take the blob id -- but never treat the two strings as the same hash of the same bytes. ON SELF-REFERENCE: this text lives inside the file it describes, so writing the answer there changes the question. The figures are therefore recorded in the harness log .workbuddy\\scratch\\sre07\\cycle2\\sre07_leg_final.json, written by the same tool run, and are the only authoritative ones; the same run prints the pre-write figures here. A separate observation, recorded because it bears on stability: between the 22:25 and 22:27 runs the on-disk file was found byte-identical to the HEAD blob (35085 B, LF, no CR at all), meaning something outside my toolchain had reset it to HEAD. No git hook is installed to account for that. It did not affect the verdict.",
+      "why": "an earlier reading of mine compared an LF-normalised sha256 against a git blob id as though they were the same string. They are not: one is SHA-256, the other SHA-1. The comparison was not load-bearing for the verdict, but leaving it in a signature invites someone to reproduce a hash that cannot be reproduced.",
+      "effect": "no change to verdict or release_sha; the numbers to verify against are listed here on purpose.",
+      "measured_by": "srefinal-1, .workbuddy\\scratch\\sre07\\cycle2\\sre07_hashspace.py, 22:26 local."
     }
-  ]
+  ],
+  "cycle": {
+    "commit_under_test": "46c92a14e4e45b5eeaa52c8aa8e1b4d6640921d3",
+    "commit_subject": "[JCC][FINAL][E-07][forge-5] fix Windows service lifecycle (d3d66a2)",
+    "tree_at_start": "clean (sre07_preflight.py, 21:55)",
+    "tree_at_end": "clean within the measurement window 21:55-22:21, re-checked after the cycle. Re-checked again at 22:25:54 for this signature and tools/jcc_continuation.py now also shows as modified by work outside this cycle -- I did not touch it, and it is not one of the six scripts itemised above, so it does not qualify any reading here.",
+    "check_at": "2026-09-25T22:21:02+08:00",
+    "note_provenance": "the lead initially described the measured object as d7f1fef committed bytes; d7f1fef does not touch this path. Measured here: HEAD 46c92a1, Invoke-JccScript blob ccd4d2e406af8fbd629e95df8dacaf789771d23d, 22492 B.",
+    "scripts_in_force": {
+      "scripts/start.ps1": {
+        "bytes": 13311,
+        "mtime": "2026-09-25T21:09:36+08:00",
+        "blob": "ed5fe5047d14"
+      },
+      "scripts/lib/JccCommon.ps1": {
+        "bytes": 22492,
+        "mtime": "2026-09-25T21:49:06+08:00",
+        "blob": "ccd4d2e406af"
+      },
+      "scripts/status.ps1": {
+        "bytes": 4763,
+        "mtime": "2026-09-25T20:02:57+08:00",
+        "blob": "25fd4ba24cd1"
+      },
+      "scripts/stop.ps1": {
+        "bytes": 7418,
+        "mtime": "2026-09-25T20:02:51+08:00",
+        "blob": "f66cc534df57"
+      },
+      "scripts/restart.ps1": {
+        "bytes": 3083,
+        "mtime": "2026-09-25T21:41:18+08:00",
+        "blob": "f8b206290d55"
+      },
+      "scripts/doctor.ps1": {
+        "bytes": 10071,
+        "mtime": "2026-09-25T17:39:29+08:00",
+        "blob": "eb42e979969e"
+      }
+    },
+    "verdict_for_this_cycle": "NO-GO (item 7 failed: restart.ps1 reported OK with exit 0 while 4778 never came back up)",
+    "items": [
+      {
+        "item": 1,
+        "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/stop.ps1",
+        "at": "2026-09-25T21:55:49+08:00",
+        "exit": 0,
+        "result": "NOT RUNNING: no PID file (...\\jcc.pid) and no listener on port 4778. Nothing to stop.",
+        "pass": true,
+        "caveat": "there was no live service to stop; JCC-marker (pid=24024, pid long dead) was left in place by design, read-only."
+      },
+      {
+        "item": 2,
+        "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/start.ps1",
+        "at": "2026-09-25T22:12:45+08:00",
+        "exit": "not captured",
+        "result": "the powershell engine was still alive at t=5.3 s, the service answered HTTP 200 on 127.0.0.1:4778 at t=8.8 s, the powershell process exited on its own by t=12.1 s, and the service answered 200 for the whole remaining 63 s of observation.",
+        "pass": true,
+        "caveat": "exit code NOT recorded: the first harness captured stdout through a pipe, and the service inherits the pipe's write end and outlives the shell, so the reader waits for an EOF that never arrives. That was the instrument failing, not the product. Item 1 of the verdict rule ('NO-GO if a script could not be run or a run produced an unexpected exit code') is therefore satisfied on substance but the exit code is missing from the record."
+      },
+      {
+        "item": 3,
+        "command": "read runtime\\jcc\\jcc.pid",
+        "at": "2026-09-25T22:17:23+08:00",
+        "result": "7 bytes, raw 50 51 51 52 48 13 10, one non-empty line, '23340', is-single-int True, [int] cast 23340",
+        "pass": true
+      },
+      {
+        "item": 4,
+        "command": "Get-NetTCPConnection -LocalPort 4778 -State Listen",
+        "at": "2026-09-25T22:17:23+08:00",
+        "result": "LocalAddress 127.0.0.1, LocalPort 4778, State Listen, OwningProcess 23340 (python.exe, 'F:\\jev\\.venv\\Scripts\\python.exe  -m jcc_core.run ')",
+        "pass": true,
+        "note": "OwningProcess 23340 equals item 3's 23340."
+      },
+      {
+        "item": 5,
+        "command": "GET http://127.0.0.1:4778/api/health (WebClient, Proxy = $null)",
+        "at": "2026-09-25T22:17:23+08:00",
+        "result": "{\"status\":\"ok\",\"jev_provider\":\"mock\",\"actuation_enabled\":false,\"policy_version\":\"p3.0.0\",\"localhost_only\":true,\"wal\":true,...}",
+        "pass": true,
+        "note": "status=ok provider=mock actuation=False policy=p3.0.0 wal=True as specified."
+      },
+      {
+        "item": 6,
+        "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/status.ps1",
+        "at": "2026-09-25T22:17:31+08:00",
+        "exit": 0,
+        "result": "service : UP / pid : 23340 (service pid: holds the socket) / launcher pid : 19080 / port owner : pid 23340 / health : status=ok provider=mock actuation=False policy=p3.0.0 wal=True / RESULT: UP (verified: pid, ownership marker, command line and port owner agree)",
+        "pass": true
+      },
+      {
+        "item": 7,
+        "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/restart.ps1",
+        "at": "2026-09-25T22:17:42+08:00 (run finished 22:17:56)",
+        "exit": 0,
+        "result": "elapsed 13.90 s, stdout 217 bytes, 'stop.ps1 exit code: 0', 'RESTART OK'. But immediately after: jcc.pid holds '19812'; a first probe at 22:18:04 and a second at 22:18:16 both report NO LISTENING connection on 4778 (only TIME_WAIT from the old polls), /api/health raises 'cannot connect to the remote server', and pid 19812 no longer exists. runtime\\jcc\\server.err.log at 22:17:52 records 'Started server process [19812]' and 'Uvicorn running on http://127.0.0.1:4778' -- the service came up in that process and then died.",
+        "pass": false
+      },
+      {
+        "item": 8,
+        "command": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/stop.ps1",
+        "at": "2026-09-25T22:18:34+08:00",
+        "exit": 2,
+        "result": "REFUSED: not signalled. Verification failed for pid 19812. reason: recorded pid 19812 is not running. process state : not running. runtime/jcc unchanged.",
+        "pass": false,
+        "caveat": "after the failed item 7 there was no live JCC tree to stop, so 'only the JCC tree dies, other python/node unaffected' could not be executed. What was measured instead is the refusal path: the script declined to signal a pid it could not verify."
+      },
+      {
+        "item": 9,
+        "command": "drain probe, 130 s, 10 s sampling of netstat for :4778",
+        "at": "2026-09-25T22:20:01+08:00 to 22:20:51+08:00",
+        "result": "13 samples; listen=0 in every one of them, i.e. 127.0.0.1:4778 was not bound for the whole window, well past the 120 s required.",
+        "pass": true,
+        "caveat": "the strict three-condition window stayed red for the whole window because runtime\\jcc\\jcc.pid and JCC-marker still name the dead pid 19812 -- bookkeeping files, not a listener."
+      }
+    ],
+    "harness": "F:\\jev\\.workbuddy\\scratch\\sre07\\cycle2\\ -- sre07_step2.py (child stdout/stderr to FILES, so no EOF wait), sre07_bounded_start.py (hard wall clock), sre07_probe345.ps1 (items 3-5), sre07_inforce.py (per-item blob ids and mtimes), sre07_quietwatch.py (drain).",
+    "no_script_was_edited": true
+  }
 }

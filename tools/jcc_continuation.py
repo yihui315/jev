@@ -384,13 +384,30 @@ def snapshot_frozen_scripts() -> dict:
 
 
 def detect_moving_target(frozen_sha: str, snapshot: dict) -> None:
-    """§五: any change to a frozen script aborts E-07."""
+    """§五: any change to a frozen script aborts E-07.
+
+    The authoritative per-script baseline is the freeze manifest written by
+    S_HASH_SNAPSHOT (FREEZE_MANIFEST["hashes"]), which records each frozen
+    script's *file* sha256. We compare the current snapshot against that, NOT
+    against `scripts_freeze_sha` -- the latter is a git COMMIT sha (40 hex) and
+    lives in a different hash space from a file sha256 (64 hex); comparing the
+    two makes every run look like a moving target.
+    """
+    if not os.path.isfile(FREEZE_MANIFEST):
+        # No baseline captured yet (e.g. resumed before S_HASH_SNAPSHOT ran);
+        # the E-07 runner's own --expected-manifest check is the backstop.
+        return
+    manifest = load_json(FREEZE_MANIFEST) or {}
+    frozen = manifest.get("hashes") or {}
+    if not frozen:
+        return
     for rel, meta in snapshot.items():
-        known = (frozen_sha or "").split(".")[0]
-        cur = meta["sha256"] or ""
-        if known and cur and not cur.startswith(known):
+        cur = meta.get("sha256") or ""
+        known = frozen.get(rel) or ""
+        if known and cur and cur != known:
             raise MovingTarget(
-                "frozen script changed: %s -> sha256 %s" % (rel, cur),
+                "frozen script changed: %s -> sha256 %s (expected %s)"
+                % (rel, cur, known),
                 path=rel, sha256_now=cur,
             )
 
@@ -453,7 +470,10 @@ def step_lock_acquire(state: dict) -> dict:
 def step_probe_baseline(state: dict) -> dict:
     """Record what is on 4778 BEFORE touching it -- never assume it is ours."""
     info: dict[str, Any] = {"port": PORT, "checked_at": iso()}
-    pidf = load_json(PID_FILE.replace("\\", os.sep)) or {}
+    # jcc.pid may legitimately hold a bare integer (e.g. just "21480") rather than
+    # a JSON object. Guard so a non-dict payload does not crash the probe.
+    raw_pidf = load_json(PID_FILE.replace("\\", os.sep))
+    pidf = raw_pidf if isinstance(raw_pidf, dict) else {}
     info["pid_file"] = pidf
     info["pid_file_pid"] = pidf.get("pid")
     info["pid_file_service_pid"] = pidf.get("service_pid")
