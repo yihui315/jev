@@ -1,9 +1,9 @@
 # P4 Freeze Record — JEV COMMAND CENTER
 
 **Date:** 2026-09-25
-**Freeze record commit:** _(this commit)_
+**Freeze record commit:** `ccb040dc61111c2d9341f63e7f2778012844aa27`
 **Product-blob `frozen_at` (manifest):** `e6f5c15`
-**Full suite baseline run:** HEAD `8e4e5e1`, `CODEBUDDY_SAFE_DELETE_ENABLED=0` → **476 passed, 0 failed** (441s).
+**Authority gate:** `artifacts/acceptance/p3_gate_run.py --full` at HEAD `ccb040d`, clean tree (`dirty=False`), `CODEBUDDY_SAFE_DELETE_ENABLED=0` → **GATE = PASS** — §5 A1–A11 all PASSED, D-40(a–e) falsifiers all PASSED, totals **476 passed / 0 failed / 0 error / 0 skipped**; result at `artifacts/acceptance/p3_gate_result.json` (gitignored by design). No failure absorbed (no known-pending exemption).
 
 This document is the TRACKED freeze record. Its sha256 anchors MUST match
 `artifacts/release/manifest.json` and `packages/jcc_core/tests/test_p3_acceptance_gate.py::_BASELINE_HASHES`
