@@ -46,6 +46,8 @@ from typing import Any, Callable, Dict, Optional, Tuple
 from jcc_core.policy import COST_UNITS_PER_ACTION
 from jcc_core.schemas import Directive, DirectiveAction
 
+from .sentinel import SUPERVISOR_ORIGIN
+
 log = logging.getLogger("jcc.supervisor.budget")
 
 #: Counter keys ``BudgetGovernor`` expects from ``store.budget_snapshot(session_id)``.
@@ -438,7 +440,14 @@ class BudgetGovernor:
                 "Directive to persist the charge; refusing to charge against a "
                 "counter source this governor does not control"
             )
-        adder(directive)
+        # P4 #82 / S-3: this row is the SUPERVISOR's record of an event the
+        # ENGINE also wrote (``dir_<session>_<event>``). Without ``origin`` the
+        # store cannot attribute it, and the two rows then read as FOUR
+        # directives -- the #82 defect. ``origin`` is keyword-only and required
+        # on purpose: a default would turn a forgotten argument into an
+        # unattributed row. The paired prefix is asserted on the id side by
+        # ``Sentinel.directive_plane`` before the directive is ever built.
+        adder(directive, origin=SUPERVISOR_ORIGIN)
 
     def snapshot(self, session_id: str) -> BudgetSnapshot:
         try:

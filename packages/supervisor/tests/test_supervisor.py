@@ -338,7 +338,18 @@ def test_persistence_failure_is_counted_when_the_store_raises(tmp_path):
 
 
 def test_degraded_store_memory_fallback_is_counted(tmp_path):
-    """No persistence surface ⇒ NOT durable, and the counter says so out loud."""
+    """No persistence surface ⇒ NOT durable, counted, AND NO decision returned.
+
+    S-1/S-4 (P4 #82). The degraded branch used to hand back a perfectly formed
+    ``ShadowDecision`` describing a record that existed only in a list on the
+    heap. That is the #54 "records nothing" defect with a decision bolted on:
+    the caller read ``d.action`` and concluded the shadow plane had evaluated
+    and acted, when the plane had recorded nothing an audit could ever find.
+
+    So a non-durable record now returns ``None``. The in-memory copy is still
+    kept and still counted -- the test asserts both -- but it is no longer
+    dressed up as a durable trace.
+    """
 
     class _NoSurfaceStore:
         """Defines NOTHING (no transaction) — the degraded branch."""
@@ -349,8 +360,11 @@ def test_degraded_store_memory_fallback_is_counted(tmp_path):
     assert s.persistence_failures == 1
     assert s.persistence_durable_writes == 0
     assert s.persistence_ok is False
-    assert d.acted is False                      # degraded still never actuates
+    assert d is None, "a record that was not durable must not come back as a decision"
+    # the in-memory fallback is still exercised, and still never actuates
     assert len(s._memory) == 1
+    assert s._memory[0]["action"] == "FINISH"
+    assert all(r["acted"] == 0 for r in s._memory)
 
 
 # --------------------------------------------------------------------------- #

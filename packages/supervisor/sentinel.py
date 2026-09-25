@@ -27,6 +27,22 @@ Invariants enforced here, all falsifiable:
   (task #75a) — one charge per issued directive, never two.
 * **No silent defaults** (task #74): thresholds come from an explicit source or
   the constructor raises. ``thresholds_source`` records which one supplied them.
+* **A directive that was not persisted is NOT a completed directive** (P4 #82
+  **S-1**): after the shadow record is appended, durability is checked against
+  the very counter that append increments. A lost record returns ``None`` —
+  never a ``ShadowDecision`` carrying a settled action, because "ESCALATE, but
+  the plane recorded nothing" is the #54 defect wearing a decision.
+* **Resume re-runs what was never folded** (P4 #82 **S-2**): "was this event
+  evaluated?" is answered from the SAME economic-event folding the store uses,
+  and a row the fold did not yield counts as **un-evaluated**.
+* **Plane identity is stated, never inferred** (P4 #82 **S-3**): a ``directives``
+  row names its plane (``origin``) and demonstrates it (``directive_id``
+  prefix). The two must agree, and disagreement fails closed.
+* **A lost record cannot be mistaken for a trace** (P4 #82 **S-4**): the return
+  value is the failure signal, the counters carry it, and a caller that looks at
+  ``persistence_ok`` sees ``False``. The engine's ``_broadcast`` swallows
+  subscriber exceptions (``core.py:74-79``), so a failure that is only *logged*
+  is a failure that did not happen — nothing here relies on log delivery.
 """
 from __future__ import annotations
 
@@ -38,6 +54,7 @@ from enum import Enum
 from typing import Any, Callable, Dict, Optional
 
 from jcc_core import signing as signing_kernel
+from jcc_core import state_store
 from jcc_core.decision import Thresholds, ThresholdsConfig
 from jcc_core.schemas import Assessment, Directive, DirectiveAction, SessionStatus, ShadowDecision
 
@@ -48,6 +65,32 @@ log = logging.getLogger("jcc.supervisor.sentinel")
 
 #: Default directive TTL when the caller does not supply one (design §3.6.1).
 DEFAULT_TTL_S = 120.0
+
+# -- Plane identity (P4 #82 / S-3) ----------------------------------------- #
+#
+# Two planes write a row to the engine's ``directives`` table for the SAME
+# economic event: the engine (``core.py``, ``dir_<session>_<event>``) and this
+# plane's charging copy (``BudgetGovernor._persist_directive``,
+# ``shadow_<session>_<event>``). They are not two directives — they are the
+# engine's decision and this plane's view of it — so they must be counted ONCE,
+# and the count must be attributed by ``origin`` rather than inferred.
+#
+# ``origin`` and the ``directive_id`` prefix are the same fact written twice.
+# The pairing is CLOSED and PINNED here: a row that says "engine" while its id
+# says ``shadow_`` is a fail-closed bug, because the only alternative is to be
+# unable to tell which plane a budget charge belongs to.
+SUPERVISOR_ORIGIN = "supervisor"
+ENGINE_ORIGIN = "engine"
+SHADOW_DIRECTIVE_PREFIX = "shadow_"
+ENGINE_DIRECTIVE_PREFIX = "dir_"
+
+#: The complete set of legal (origin -> id prefix) pairings. Adding a plane
+#: means editing this dict AND the store's ``_DIRECTIVE_EVENT_PREFIXES``, so the
+#: two planes cannot drift apart on the identity they claim.
+DIRECTIVE_ORIGIN_PREFIXES = {
+    ENGINE_ORIGIN: ENGINE_DIRECTIVE_PREFIX,
+    SUPERVISOR_ORIGIN: SHADOW_DIRECTIVE_PREFIX,
+}
 
 
 class BlockerCode(str, Enum):
@@ -168,9 +211,103 @@ class Sentinel:
             and self.persistence_durable_writes == self.persistence_attempts
         )
 
+    # -- S-3: plane identity is STATED, not inferred ----------------------- #
+    @staticmethod
+    def directive_plane(directive_id: str, origin: str) -> str:
+        """Verify that a ``directives`` row names the plane its id proves (S-3).
+
+        Raises unless ``origin`` is a known plane AND ``directive_id`` carries
+        that plane's pinned prefix. The point is narrower than it looks: the
+        failure mode being closed is *inferring* the plane from whichever field
+        happens to be populated. A ``shadow_`` row written with
+        ``origin="engine"`` is not a third plane — it is a charge that will be
+        counted against the wrong budget, so it fails closed here rather than
+        being reconciled later by somebody reading the table.
+        """
+        expected = DIRECTIVE_ORIGIN_PREFIXES.get(origin)
+        if expected is None:
+            raise ValueError(
+                f"unknown directive origin {origin!r}; the closed set is "
+                f"{sorted(DIRECTIVE_ORIGIN_PREFIXES)}"
+            )
+        if not str(directive_id).startswith(expected):
+            raise RuntimeError(
+                f"directive {directive_id!r} claims origin {origin!r} but does not "
+                f"carry the pinned prefix {expected!r}. The plane would have to be "
+                "INFERRED from the row's shape, which is exactly what S-3 bans; "
+                "refusing rather than guessing which budget to charge"
+            )
+        return origin
+
+    # -- S-2: "was this economic event evaluated?" ------------------------- #
+    def evaluated_directive_events(self, session_id: str) -> Dict[str, Any]:
+        """Economic events present in the engine's ``directives`` table.
+
+        Folding is NOT re-implemented here. ``state_store._directive_events``
+        owns "which row survives for one event" (last written wins, and the
+        surviving row is the sentinel's charging record); copying that rule into
+        the supervisor plane would give the two planes a second, driftable
+        definition of "one event". This folds the store's OWN public reader
+        through the store's OWN public ``directive_event_key``, so the key set
+        is identical by construction.
+
+        Only EXISTENCE is derived here. Which action a surviving row carries is
+        a budget question and is answered by ``StateStore.budget_snapshot``.
+        """
+        key_fn = getattr(state_store, "directive_event_key", None)
+        if not callable(key_fn):
+            raise RuntimeError(
+                "jcc_core.state_store no longer exposes directive_event_key(); the "
+                "event identity the engine's fold uses is gone, so an un-evaluated "
+                "event cannot be told apart from an evaluated one (S-2)"
+            )
+        reader = getattr(self.store, "get_directives", None)
+        if not callable(reader):
+            raise RuntimeError(
+                f"store {type(self.store).__name__} exposes no get_directives(); "
+                "directive rows cannot be read back, so nothing can be judged "
+                "evaluated (S-2)"
+            )
+        keys = set()
+        for row in reader(session_id=session_id) or []:
+            keys.add(key_fn(row["directive_id"], session_id))
+        return keys
+
+    def is_event_evaluated(self, session_id: str, directive_id: str) -> bool:
+        """True iff the economic event behind ``directive_id`` was evaluated.
+
+        P4 #82 **S-2**. The question is deliberately "is there a row for this
+        event's key", not "is there a row for this id": the engine and this
+        plane each write their own row for the same event, so answering from the
+        id would report a shadow row as evidence the ENGINE evaluated something.
+
+        A row the fold did not yield is UN-EVALUATED — the safe direction. A
+        missing event must cause a re-run, never be read as a completed
+        evaluation.
+        """
+        key_fn = getattr(state_store, "directive_event_key", None)
+        if not callable(key_fn):
+            raise RuntimeError(
+                "jcc_core.state_store no longer exposes directive_event_key(); an "
+                "un-evaluated event cannot be distinguished from an evaluated one"
+            )
+        return key_fn(directive_id, session_id) in self.evaluated_directive_events(session_id)
+
     # -- engine subscriber (D-2) --------------------------------------------
     def on_event(self, out: Dict[str, Any]) -> Optional[ShadowDecision]:
-        """Broadcast handler. Must never raise into the engine's loop."""
+        """Broadcast handler. Must never raise into the engine's loop.
+
+        P4 #82 **S-4**. The engine's ``_broadcast`` ends in a bare
+        ``except Exception: pass`` (``core.py:74-79``), so ANY failure raised
+        out of here is swallowed with no signal to the ingest caller — an
+        exception alone is NOT a visible failure on this path. What makes the
+        failure visible is the RETURN VALUE plus the counters: a lost record
+        returns ``None`` (never a ``ShadowDecision``), ``persistence_failures``
+        is incremented exactly once, and ``persistence_ok`` goes ``False``. A
+        caller that treats a non-``None`` return as "the shadow left a trace"
+        will therefore be wrong in the only direction that matters — it cannot
+        be wrong into a false success.
+        """
         try:
             return self._on_event_inner(out)
         except Exception:  # noqa: BLE001 — observe-only: never break ingest
@@ -208,7 +345,12 @@ class Sentinel:
         project: str = "",
         evidence_hash: Optional[str] = None,
         session_status: Optional[str] = None,
-    ) -> ShadowDecision:
+    ) -> Optional[ShadowDecision]:
+        """Arbitrate one event and record it.
+
+        Returns ``None`` when the record did not become DURABLE (P4 #82 S-1) —
+        a lost record is the failure signal, not an absent-but-successful event.
+        """
         session_id = assessment.session_id
         agent_name = agent or getattr(assessment.agent, "value", assessment.agent)
         thresholds: Thresholds = self.thresholds.for_agent(agent_name)
@@ -261,8 +403,17 @@ class Sentinel:
 
         # 3) Build + sign the directive (never executable in P3).
         now = self._clock()
+        # The id shape is NOT cosmetic: it is half of the (origin, prefix)
+        # pairing S-3 pins, and the store derives the economic-event key by
+        # stripping the prefix, so ``shadow_<session>_<event>`` must carry EXACTLY
+        # ONE underscore after the prefix (the engine writes ``dir_<session>_``
+        # the same way). A second one turns the row into its own event and the
+        # fold then counts this directive twice (R1/R2) -- identical in a log,
+        # invisible until the cost ceiling fires at half the real rate.
+        # Pinned by ``test_the_two_planes_agree_on_the_economic_event_key``.
         directive = Directive(
-            directive_id=f"shadow_{session_id}_{event_id or uuid.uuid4().hex[:12]}",
+            directive_id=(f"{SHADOW_DIRECTIVE_PREFIX}{session_id}_"
+                          f"{event_id or uuid.uuid4().hex[:12]}"),
             session_id=session_id,
             timestamp=now,
             action=action,
@@ -282,6 +433,9 @@ class Sentinel:
             requires_human=bool(blocked or action is DirectiveAction.ESCALATE),
             shadow=True,
         )
+        # S-3: this plane's row STATES its origin and its id proves it. Asserted
+        # at the write site, before any charge depends on the attribution.
+        self.directive_plane(directive.directive_id, SUPERVISOR_ORIGIN)
         self._apply_signature(directive)
 
         # 4) The ONE seam: dispatch through the injected port.
@@ -318,7 +472,21 @@ class Sentinel:
         self.budget.commit(session_id, kind="directive", units=0, action=action,
                            directive=directive)
 
-        # 5) Record (hash-chained).
+        # 5) Record (hash-chained) — and HOLD THE LINE on durability (S-1).
+        #
+        # ``_append_shadow`` is the only thing that increments
+        # ``persistence_durable_writes``, so comparing it across the append is a
+        # direct read of "did THIS record land" rather than a re-derivation of
+        # durability that could disagree with the counter.
+        #
+        # S-1: an action that left no durable shadow trail is NOT a completed
+        # directive. Returning the ``ShadowDecision`` here is the specific trap
+        # being closed — the caller reads ``decision.action`` ("ESCALATE") and
+        # reasonably concludes the shadow plane evaluated and escalated, while
+        # the plane recorded nothing at all. That is #54 with a decision bolted
+        # on, and it is worse than #54 because the audit answer now looks
+        # authoritative. So a non-durable record yields NO decision.
+        durable_before = self.persistence_durable_writes
         decision = self._record(
             assessment=assessment, directive=directive, result=result,
             thresholds=thresholds, session_id=session_id, event_id=event_id,
@@ -326,6 +494,14 @@ class Sentinel:
             session_status=session_status, blocked=blocked,
             blocker_code=blocker_code, budget_code=budget_code,
         )
+        if self.persistence_durable_writes == durable_before:
+            # Already counted once, by whichever branch lost the record.
+            log.error(
+                "shadow record for event_id=%s (session=%s) was NOT durable; "
+                "returning no decision rather than one with no trail behind it "
+                "(S-1)", event_id, session_id,
+            )
+            return None
         return decision
 
     # -- THE seam (D-3/D-41) -------------------------------------------------
