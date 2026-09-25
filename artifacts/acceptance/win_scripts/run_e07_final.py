@@ -37,6 +37,7 @@ import socket
 import subprocess
 import sys
 import time
+import threading
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone, timedelta
@@ -77,6 +78,72 @@ FROZEN = [
 
 TZ = timezone(timedelta(hours=8))
 EXPECTED_STEPS = 22
+
+E07_TOTAL_TIMEOUT = 900
+PROGRESS_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                             "E07_PROGRESS.jsonl")
+STATE = {"active_step": None, "active_name": None, "active_started": None,
+         "head": None, "hashes": {}}
+
+
+def progress(step, name, event, status=None, duration_ms=None):
+    """PHASE 4 side-car: one flushed line per step BEGIN/END."""
+    row = {"timestamp": now_iso(), "step": step, "name": name, "event": event}
+    if status is not None:
+        row["status"] = status
+    if duration_ms is not None:
+        row["duration_ms"] = duration_ms
+    try:
+        with io.open(PROGRESS_PATH, "a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps(row, ensure_ascii=False) + "\n")
+            fh.flush()
+    except Exception:
+        pass
+
+
+def begin_step(step, name):
+    STATE["active_step"] = step
+    STATE["active_name"] = name
+    STATE["active_started"] = time.time()
+    progress(step, name, "BEGIN")
+
+
+def process_snapshot():
+    """Best-effort snapshot of test-relevant processes, for a timeout abort."""
+    ps = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
+                      "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    try:
+        r = subprocess.run(
+            [ps, "-NoProfile", "-NonInteractive", "-Command",
+             "Get-CimInstance Win32_Process | Where-Object "
+             "{$_.CommandLine -match 'jcc_core|run_e07|deathmode|sre07|sustain'} | "
+             "ForEach-Object { \"$($_.ProcessId)|$($_.ParentProcessId)|$($_.Name)\" }"],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=20)
+        return [l for l in (r.stdout or "").splitlines() if l.strip()]
+    except Exception as exc:
+        return ["snapshot_failed: %s" % exc]
+
+
+def _watchdog():
+    """PHASE 3: the harness must never run unbounded."""
+    t0 = time.time()
+    while True:
+        time.sleep(1.0)
+        if time.time() - t0 > E07_TOTAL_TIMEOUT:
+            try:
+                EV.abort(0, "TOTAL_TIMEOUT",
+                         "E07_TOTAL_TIMEOUT=%ds exceeded; active_step=%s (%s)"
+                         % (E07_TOTAL_TIMEOUT, STATE.get("active_step"),
+                            STATE.get("active_name")),
+                         active_step=STATE.get("active_step"),
+                         active_name=STATE.get("active_name"),
+                         process_snapshot=process_snapshot())
+                write_evidence(STATE.get("head"), STATE.get("hashes", {}), "NO-GO")
+            except Exception:
+                pass
+            os._exit(3)
+
 
 
 def now_iso() -> str:
@@ -124,6 +191,11 @@ class Evidence:
         }
         self.steps.append(row)
         print("  step %2d %-26s %s" % (step, name, row["result"]), flush=True)
+        try:
+            _dur = int((time.time() - (STATE.get("active_started") or time.time())) * 1000)
+            progress(step, name, "END", status=row["result"], duration_ms=_dur)
+        except Exception:
+            pass
         return row
 
     def abort(self, step: int, name: str, reason: str, **fields) -> None:
@@ -228,11 +300,20 @@ def run_ps1(name: str, args: list[str], timeout_s: int) -> dict:
         env.pop(k, None)
     env["NO_PROXY"] = "127.0.0.1,localhost"
     started = time.time()
-    proc = subprocess.run([POWERSHELL] + ps_args, cwd=ROOT, capture_output=True,
-                          timeout=timeout_s, env=env)
+    # PHASE 3 FIX (the E-07 hang): redirect to FILES, never pipes.
+    # start.ps1/restart.ps1 launch cmd.exe with UseShellExecute=$false and
+    # NO output redirect, so cmd.exe INHERITS whatever handles powershell owns.
+    # With capture_output=True those handles are PIPES, and cmd.exe runs until
+    # the jcc_core.run server exits -- i.e. never -- so the pipe is never closed
+    # and subprocess.run blocks forever in the post-exit drain; timeout never
+    # fires because powershell itself already exited. Files need no drain, so
+    # subprocess.run returns the moment powershell exits.
+    with io.open(out_f, "wb") as fo, io.open(err_f, "wb") as fe:
+        proc = subprocess.run([POWERSHELL] + ps_args, cwd=ROOT,
+                              stdout=fo, stderr=fe, timeout=timeout_s, env=env)
     elapsed = round(time.time() - started, 3)
-    out_b = proc.stdout or b""
-    err_b = proc.stderr or b""
+    out_b = b""
+    err_b = b""
     if not out_b and os.path.isfile(out_f):
         out_b = io.open(out_f, "rb").read()
     if not err_b and os.path.isfile(err_f):
@@ -303,8 +384,11 @@ def main(argv: list[str] | None = None) -> int:
 
     head = git("rev-parse", "HEAD").splitlines()
     head = head[0] if head else None
+    STATE["head"] = head
+    threading.Thread(target=_watchdog, daemon=True).start()
 
     # --- 1 environment -------------------------------------------------------
+    begin_step(1, "ENV")
     env = {
         "python": sys.version.split()[0],
         "platform": platform.platform(),
@@ -316,6 +400,7 @@ def main(argv: list[str] | None = None) -> int:
     EV.record(1, "ENV", "record the interpreter and platform under test", **env)
 
     # --- 2 frozen-bytes check -------------------------------------------------
+    begin_step(2, "FROZEN_BYTES")
     hashes = {}
     missing = []
     for rel in FROZEN:
@@ -324,6 +409,7 @@ def main(argv: list[str] | None = None) -> int:
         hashes[rel] = h
         if not h:
             missing.append(rel)
+    STATE["hashes"] = hashes
     if missing:
         EV.record(2, "FROZEN_BYTES", "all frozen scripts present",
                   result="FAIL", missing=missing)
@@ -333,6 +419,7 @@ def main(argv: list[str] | None = None) -> int:
               head_sha=head, hashes=hashes)
 
     # --- 3 moving target ------------------------------------------------------
+    begin_step(3, "MOVING_TARGET")
     if manifest:
         moved = []
         for rel, want in (manifest.get("hashes") or {}).items():
@@ -352,6 +439,7 @@ def main(argv: list[str] | None = None) -> int:
                   result="PASS", note="skipped", hashes=hashes)
 
     # --- 4 clean tree ---------------------------------------------------------
+    begin_step(4, "TREE_CLEAN")
     status = [l for l in git("status", "--porcelain", "-uall").splitlines() if l.strip()]
     EV.record(4, "TREE_CLEAN", "working tree carries no uncommitted change",
               result="PASS" if not status else "FAIL", dirty=status)
@@ -360,6 +448,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 5 pre-probe: is anything already on the port? ------------------------
+    begin_step(5, "PORT_PRE_PROBE")
     pre_pid = listening_pid(port)
     pre_pidfile = read_pid_file()
     pre_marker = bool(pre_pidfile)
@@ -371,6 +460,7 @@ def main(argv: list[str] | None = None) -> int:
               foreign_listener=foreign)
 
     # --- 6 start.ps1 -----------------------------------------------------------
+    begin_step(6, "START")
     if foreign:
         # Never signal a service we cannot prove is ours.
         EV.abort(6, "START",
@@ -394,6 +484,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 7 who actually holds the socket --------------------------------------
+    begin_step(7, "SERVICE_PID")
     svc_pid = listening_pid(port)
     EV.record(7, "SERVICE_PID",
               "the listening socket is owned by a live process (read from netstat)",
@@ -404,6 +495,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 8 pid file agrees with the OS ----------------------------------------
+    begin_step(8, "PID_FILE")
     pf = read_pid_file()
     agrees = pf.get("service_pid") == svc_pid
     EV.record(8, "PID_FILE", "jcc.pid service_pid equals the owning pid",
@@ -416,6 +508,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 9 health --------------------------------------------------------------
+    begin_step(9, "HEALTH")
     code, body = http_json(url)
     try:
         parsed = json.loads(body) if body else {}
@@ -430,6 +523,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 10 launcher/service separation (KD-0010) -------------------------------
+    begin_step(10, "PID_OWNERSHIP")
     launcher = pf.get("launcher_pid")
     separated = (launcher is not None and launcher != svc_pid) or not pid_alive(launcher)
     EV.record(10, "PID_OWNERSHIP",
@@ -443,6 +537,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 11 restart.ps1: the measurement this phase exists for ------------------
+    begin_step(11, "RESTART")
     r_restart = run_ps1("restart.ps1", ["-Port", str(port)], args.timeout)
     returned = (not r_restart["timed_out"]) and r_restart["exit_code"] == 0
     EV.record(11, "RESTART", "restart.ps1 returns with the service still up",
@@ -463,6 +558,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 12 health after restart ------------------------------------------------
+    begin_step(12, "HEALTH_AFTER_RESTART")
     code2, body2 = http_json(url)
     EV.record(12, "HEALTH_AFTER_RESTART", "the service survived the restart",
               measured_port=port, measured_pid=listening_pid(port),
@@ -474,6 +570,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 13 the restarted process is the one the pid file names ------------------
+    begin_step(13, "PID_AFTER_RESTART")
     pf2 = read_pid_file()
     svc2 = listening_pid(port)
     ok13 = pf2.get("service_pid") == svc2 and svc2 is not None
@@ -484,6 +581,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 14 throughput -----------------------------------------------------------
+    begin_step(14, "THROUGHPUT")
     deadline = time.time() + args.throughput
     ok_n, fail_n, last_code = 0, 0, None
     t0 = time.time()
@@ -510,6 +608,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 15 status.ps1 ------------------------------------------------------------
+    begin_step(15, "STATUS")
     r_status = run_ps1("status.ps1", ["-Port", str(port)], args.timeout)
     EV.record(15, "STATUS", "status.ps1 reports the service",
               command=r_status["command"], exit_code=r_status["exit_code"],
@@ -519,6 +618,7 @@ def main(argv: list[str] | None = None) -> int:
               **{k: r_status[k] for k in ("stdout_tail", "stderr_tail", "timed_out")})
 
     # --- 16 stop.ps1 ---------------------------------------------------------------
+    begin_step(16, "STOP")
     r_stop = run_ps1("stop.ps1", ["-Port", str(port)], args.timeout)
     EV.record(16, "STOP", "stop.ps1 stops the service",
               command=r_stop["command"], exit_code=r_stop["exit_code"],
@@ -531,6 +631,7 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 17 port actually free --------------------------------------------------------
+    begin_step(17, "PORT_FREED")
     for _ in range(30):
         if is_port_free(port):
             break
@@ -545,12 +646,14 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 18 pid file cleaned -------------------------------------------------------
+    begin_step(18, "PID_FILE_CLEANED")
     pf3 = read_pid_file()
     cleaned = (not pf3) or (not pid_alive(pf3.get("service_pid")))
     EV.record(18, "PID_FILE_CLEANED", "the pid file no longer claims a live owner",
               pid_file=pf3, result="PASS" if cleaned else "FAIL")
 
     # --- 19 restart the service for the final state -----------------------------------
+    begin_step(19, "START_AGAIN")
     r_start2 = run_ps1("start.ps1", ["-Port", str(port)], args.timeout)
     EV.record(19, "START_AGAIN", "a second start cycle also returns and goes healthy",
               command=r_start2["command"], exit_code=r_start2["exit_code"],
@@ -563,17 +666,20 @@ def main(argv: list[str] | None = None) -> int:
         return write_evidence(head, hashes, "NO-GO")
 
     # --- 20 health again -----------------------------------------------------------
+    begin_step(20, "HEALTH_FINAL")
     code3, body3 = http_json(url)
     EV.record(20, "HEALTH_FINAL", "the service is healthy at the end of the run",
               measured_port=port, measured_pid=listening_pid(port),
               result="PASS" if code3 == 200 else "FAIL", http_status=code3)
 
     # --- 21 write the evidence file --------------------------------------------------
+    begin_step(21, "EVIDENCE_WRITE")
     verdict = "GO" if (code3 == 200 and code2 == 200 and not EV.aborted) else "NO-GO"
     path = write_evidence(head, hashes, verdict)
     EV.record(21, "EVIDENCE_WRITE", "evidence written", path=path, verdict=verdict)
 
     # --- 22 self-check the evidence --------------------------------------------------
+    begin_step(22, "SELF_CHECK")
     doc = json.load(io.open(path, encoding="utf-8"))
     steps = doc.get("steps") or []
     bad = []
