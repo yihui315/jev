@@ -52,6 +52,9 @@ SERVER_PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 if not os.path.isfile(SERVER_PY):
     SERVER_PY = sys.executable
 
+POWERSHELL = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
+                         "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+
 FROZEN = [
     "scripts/acceptance.ps1",
     "scripts/bootstrap.ps1",
@@ -143,19 +146,25 @@ def is_port_free(port: int) -> bool:
 
 
 def listening_pid(port: int) -> int | None:
-    """PID that owns the LISTENING socket, taken from the OS, not from a file."""
-    out = subprocess.run(["netstat", "-ano", "-p", "TCP"], capture_output=True,
-                         text=True, encoding="utf-8", errors="replace", timeout=120)
-    for line in (out.stdout or "").splitlines():
-        parts = line.split()
-        if len(parts) < 5 or parts[0] != "TCP":
-            continue
-        local = parts[1] if len(parts) > 4 else ""
-        if ":" + str(port) in local and parts[3] == "LISTENING":
-            try:
-                return int(parts[-1])
-            except ValueError:
-                return None
+    """PID that owns the LISTENING socket, taken from the OS, not from a file.
+
+    Uses Get-NetTCPConnection (reliable on this Windows host) instead of netstat,
+    whose output is not consistently available in every execution environment.
+    """
+    ps = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
+                      "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
+    try:
+        r = subprocess.run(
+            [ps, "-NoProfile", "-NonInteractive", "-Command",
+             "(Get-NetTCPConnection -LocalPort %d -State Listen "
+             "-ErrorAction SilentlyContinue).OwningProcess" % port],
+            capture_output=True, text=True, encoding="utf-8", errors="replace",
+            timeout=30)
+        txt = (r.stdout or "").strip()
+        if txt:
+            return int(txt.split()[-1])
+    except (subprocess.SubprocessError, ValueError, OSError):
+        return None
     return None
 
 
@@ -171,18 +180,27 @@ def http_json(url: str, timeout_s: float = 5.0):
 
 
 def run_ps1(name: str, args: list[str], timeout_s: int) -> dict:
-    """Run a JCC script the way a human would: via cmd.exe, output to FILES."""
+    """Run a JCC .ps1 script the way a human would: via Windows PowerShell 5.1.
+
+    The previous implementation launched ``python.exe`` with ``-File`` (PowerShell
+    flags), which made every script fail immediately with exit=1. PowerShell is the
+    correct host for *.ps1. The child env has the loopback proxy stripped so the
+    in-system health probes hit 127.0.0.1 directly instead of the misconfigured
+    IE/WinINET proxy that points at the JCC port itself.
+    """
     out_f = os.path.join(RUNTIME, "e07-%s.out.log" % name)
     err_f = os.path.join(RUNTIME, "e07-%s.err.log" % name)
     os.makedirs(RUNTIME, exist_ok=True)
-    cmd_exe = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
-                           "system32", "cmd.exe")
-    quoted_cmd = '"%s" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "%s" %s' % (
-        SERVER_PY, os.path.join(SCRIPTS_DIR, name), " ".join(shlex.quote(a) for a in args))
-    full = '"%s" /c %s > "%s" 2> "%s"' % (cmd_exe, quoted_cmd, out_f, err_f)
+    ps_args = ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass",
+               "-File", os.path.join(SCRIPTS_DIR, name)] + list(args)
+    env = dict(os.environ)
+    for k in ("HTTP_PROXY", "http_proxy", "HTTPS_PROXY", "https_proxy",
+              "ALL_PROXY", "all_proxy"):
+        env.pop(k, None)
+    env["NO_PROXY"] = "127.0.0.1,localhost"
     started = time.time()
-    proc = subprocess.run([cmd_exe, "/c", full], cwd=ROOT, capture_output=True,
-                          timeout=timeout_s)
+    proc = subprocess.run([POWERSHELL] + ps_args, cwd=ROOT, capture_output=True,
+                          timeout=timeout_s, env=env)
     elapsed = round(time.time() - started, 3)
     out_b = proc.stdout or b""
     err_b = proc.stderr or b""
@@ -191,7 +209,7 @@ def run_ps1(name: str, args: list[str], timeout_s: int) -> dict:
     if not err_b and os.path.isfile(err_f):
         err_b = io.open(err_f, "rb").read()
     return {
-        "command": full,
+        "command": " ".join([POWERSHELL] + ps_args),
         "exit_code": proc.returncode,
         "duration_s": elapsed,
         "stdout_sha256": sha256_bytes(out_b),
