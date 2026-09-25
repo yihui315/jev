@@ -4,6 +4,11 @@ Loads configuration, wires the engine (StateStore + provider + actuator),
 starts uvicorn on 127.0.0.1 ONLY (fail-closed bind), and writes the
 ADR-0006 marker/PID lock under the runtime dir for clean stop/restart/rollback.
 
+The loopback rule is a REFUSAL, not a preference (P4 #77.2): a configured
+``server.host`` that is not loopback makes this entrypoint exit non-zero before
+it builds or binds anything. A configuration that is silently "corrected" behind
+a log line is a fail-open control.
+
 Launch:
     F:/jev/.venv/Scripts/python -m jcc_core.run
 Env:
@@ -42,7 +47,39 @@ log = logging.getLogger("jcc.run")
 # Force localhost-only. ADR-0002/0004/0005: never 0.0.0.0.
 BIND_HOST = "127.0.0.1"
 
+#: Addresses the entrypoint is willing to BIND. Anything else (0.0.0.0, a routable
+#: LAN address) is refused, not quietly corrected (P4 #77.2).
+LOOPBACK_HOSTS = frozenset({"127.0.0.1", "127.0.0.2", "localhost", "::1", "[::1]"})
+
 MARKER_NAME = "JCC-marker"
+
+
+def check_bind_host(config) -> None:
+    """Fail-closed loopback guard for the SERVER ENTRYPOINT (P4 #77.2).
+
+    ADR-0002/0004/0005: ``0.0.0.0`` is forbidden. This turns that rule into a
+    refusal instead of a preference.
+
+    The previous behaviour logged a warning and started anyway on
+    ``BIND_HOST``. That is a **fail-open** control: the operator who asked for
+    an exposed listener (or who pasted ``host: 0.0.0.0`` into ``jcc.yaml`` as a
+    guess) gets a process that starts, reports healthy on ``/api/health``, and
+    is reachable from the network -- the warning goes to a log nobody reads, and
+    a supervisor restarts it straight back into the same exposure.
+
+    Raises ``SystemExit`` (exit code 1, so a supervised restart does not loop on
+    a permanently invalid configuration) BEFORE the store, the provider, the
+    socket, or the marker are touched.
+    """
+    host = str(getattr(getattr(config, "server", None), "host", "") or "").strip()
+    if host and host not in LOOPBACK_HOSTS:
+        allowed = ", ".join(sorted(LOOPBACK_HOSTS))
+        raise SystemExit(
+            f"refusing to start: server.host={host!r} is not loopback; JCC Core "
+            f"is a localhost-only control plane (ADR-0002/0004/0005). Set "
+            f"server.host to one of {allowed}, or remove the key -- the entrypoint "
+            f"binds {BIND_HOST!r} regardless of what is configured."
+        )
 
 
 def _marker_path(config) -> Path:
@@ -229,8 +266,10 @@ def main() -> None:
             "(fail-closed, ADR-0008 D-30)"
         )
     config = load_config()
-    if config.server.host != BIND_HOST:
-        log.warning("config.server.host=%s overridden to %s (localhost-only)", config.server.host, BIND_HOST)
+    # LOOPBACK-ONLY, fail-closed (P4 #77.2). Refuse a non-loopback request here,
+    # before anything is built or bound; anything loopback-shaped binds BIND_HOST
+    # unconditionally. See `check_bind_host`.
+    check_bind_host(config)
 
     store = StateStore(config.state_store_db_path)
     provider = build_provider(config)

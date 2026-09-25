@@ -7,9 +7,20 @@ Hard constraints (ADR-0002 / ADR-0004 / ADR-0005):
     ``require_control_token`` which uses ``hmac.compare_digest`` (constant-time)
     against ``JCC_CONTROL_TOKEN``. Unset token -> 401 (control locked).
   * CORS is an EXPLICIT allowlist (from config). No wildcard.
-  * Read-only endpoints (health/sessions/audit/decisions) are open by design.
+  * Read-only endpoints (health/sessions/audit/decisions) are open BY DESIGN and
+    declared, machine-readably, in the ``open_get_endpoints`` field of
+    ``/api/health`` (P4 #77.1). The declaration is what an operator or a
+    scanner reads; ``test_server_surface.py`` fails if a GET route is added
+    without declaring it, or vice versa -- an undeclared open route is
+    otherwise invisible to every review that does not read this file.
   * /ws is gated: the control token is presented as the WebSocket subprotocol
     (proven pattern in this runtime; ws.query_params is unreliable here).
+
+  The surface below is LOOPBACK-ONLY and enforced, not documented only
+  (P4 #77.2): ``run.main`` binds 127.0.0.1 regardless of configuration and
+  REFUSES to start at all on a non-loopback ``server.host`` (ADR-0002/0004/0005;
+  "never 0.0.0.0"). This module never binds anything -- the bind decision lives
+  in ``run.py`` so that a library import of ``create_app`` cannot expose a port.
 """
 from __future__ import annotations
 
@@ -29,6 +40,20 @@ from .core import CoreEngine
 from .schemas import AEPEnvelope, Directive, DirectiveAction
 
 logger = logging.getLogger("jcc.server")
+
+#: The open (unauthenticated) READ-only GET surface, declared as data so that
+#: both the server and a scanner read the same list (P4 #77.1).
+#:
+#: ``/ws`` is deliberately NOT here: it is a WebSocket route, not a GET, and it
+#: is token-gated like any mutating endpoint.
+OPEN_GET_ENDPOINTS = (
+    "/api/health",
+    "/api/sessions",
+    "/api/sessions/{sid}",
+    "/api/audit",
+    "/api/decisions",
+    "/api/audit/verify",
+)
 
 
 class ProjectionManager:
@@ -57,7 +82,20 @@ class ProjectionManager:
 
 
 def create_app(engine: CoreEngine, config) -> FastAPI:
-    app = FastAPI(title="JCC Core Control Plane", version="p1.0.0")
+    app = FastAPI(
+        title="JCC Core Control Plane",
+        version="p1.0.0",
+        # P4 #77.1: no Swagger / ReDoc / OpenAPI routes. FastAPI serves four
+        # GET routes by default (``/docs``, ``/redoc``, ``/openapi.json``,
+        # ``/docs/oauth2-redirect``) and every one of them is an UNDECLARED open
+        # read -- /openapi.json hands a scanner the whole route table. Leaving
+        # them on would make ``open_get_endpoints`` a lie, and the anti-drift
+        # test below is precisely what makes that impossible: the declaration is
+        # compared against the routes the app actually serves.
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
+    )
     app.add_middleware(
         CORSMiddleware,
         allow_origins=config.server.cors_origins,
@@ -102,6 +140,11 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             "policy_version": config.policy.version,
             "localhost_only": True,
             "wal": engine.store.is_wal,
+            # Declared, machine-readable read-only surface (P4 #77.1). The
+            # anti-drift test asserts this equals the routes FastAPI actually
+            # serves -- a route added here without a declaration FAILS the suite,
+            # which is the only way "open" stays reviewable over time.
+            "open_get_endpoints": list(OPEN_GET_ENDPOINTS),
         }
 
     @app.get("/api/sessions")
