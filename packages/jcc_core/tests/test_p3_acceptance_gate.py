@@ -95,12 +95,30 @@ FOUR_AGENTS = {"workbuddy", "claude", "codex", "hermes"}
 # helpers
 # --------------------------------------------------------------------------- #
 def _sha(path: Path) -> str:
-    return hashlib.sha256(path.read_bytes()).hexdigest()
+    """EOL-normalised sha256 for the A8 freeze pin.
+
+    The repo runs with ``core.autocrlf=true`` and NO ``.gitattributes``, so a FRESH
+    checkout (``git worktree`` / clone) smudges committed LF to CRLF while the main
+    working tree holds LF. A raw byte hash therefore does NOT survive a re-checkout
+    of the SAME commit (measured at frozen SHA ``49d91d4``: a clean worktree hashed
+    0/12 against a main-tree baseline, 12/12 once CRLF->LF was normalised). The
+    normalisation keeps the pin checkout-independent while still failing on any
+    real content change.
+    """
+    return hashlib.sha256(path.read_bytes().replace(b"\r\n", b"\n")).hexdigest()
 
 
 def _key(path) -> str:
     """Canonical posix key so pin scope and pin baseline compare reliably on Windows."""
     return Path(path).as_posix()
+
+
+def _rel(path) -> str:
+    """Repo-relative posix key. The A8 scope==baseline consistency check must hold
+    from ANY checkout root; absolute ``F:/jev/...`` keys made a relocated
+    ``git worktree`` false-fail as 'scope/baseline mismatch' (measured at frozen
+    SHA ``49d91d4``), i.e. the pin was not portable across checkouts."""
+    return Path(path).resolve().relative_to(REPO_ROOT.resolve()).as_posix()
 
 
 #: Production artifacts whose bytes are PINNED (A8 negative-control / freeze guard).
@@ -133,30 +151,32 @@ _PROD_ARTIFACTS = [
 #   run.py           old 910fefc6..  -> new d820cd84..   (#61 R6-1 + #64 fail-closed)
 #   config.py        old fac5baa7..  -> new af0ddc18..   (#64 + #65)
 A8_FROZEN_AT = "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f"
+# Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
+# consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
-    "F:/jev/config/jcc.yaml":
+    "config/jcc.yaml":
         "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-    "F:/jev/packages/jcc_core/core.py":
+    "packages/jcc_core/core.py":
         "6e44314a9578d2ced819bbf2c220b366a37323e82c51cf644392b915a4a6d117",
-    "F:/jev/packages/jcc_core/actuator.py":
+    "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
-    "F:/jev/packages/jcc_core/decision.py":
+    "packages/jcc_core/decision.py":
         "b61c88177e776aeacac4cda17bd14410a0f8ef4e88de91f3a6faa3262ad0e31c",
-    "F:/jev/packages/jcc_core/state_store.py":
+    "packages/jcc_core/state_store.py":
         "399b08994b231e624a286d90b8c946f76bb14912e45490806a227c4d1be41587",
-    "F:/jev/packages/jcc_core/policy.py":
+    "packages/jcc_core/policy.py":
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
-    "F:/jev/packages/jcc_core/run.py":
+    "packages/jcc_core/run.py":
         "d820cd848befeac1ed99a66e710b5353a53a23409f0cfddb27e4b986606765f3",
-    "F:/jev/packages/jcc_core/server.py":
+    "packages/jcc_core/server.py":
         "92ac49cf294935c7c7d187dce5eea09b10cbd90a41ea150e5ae1a005c810beff",
-    "F:/jev/packages/jcc_core/config.py":
+    "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
-    "F:/jev/packages/supervisor/sentinel.py":
+    "packages/supervisor/sentinel.py":
         "65dbfea5050e9e6a0087354b219c88a741d2b4ff4cb9598c8beff7987b2655eb",
-    "F:/jev/packages/supervisor/shadow_store.py":
+    "packages/supervisor/shadow_store.py":
         "b101aebef464bab5f01ebb7cf3ef3318262d5cd4f73c61343ded92e3dcae5a3e",
-    "F:/jev/packages/supervisor/budget.py":
+    "packages/supervisor/budget.py":
         "1efb9186fe2191b968508c81808124b5113235d1e86d593b780b213004a2a311",
 }
 
@@ -363,16 +383,21 @@ def test_A8_negative_control_enabled_without_allowlist(tmp_path):
     a2 = Actuator(enabled=True, allowed_actions=["ESCALATE"])
     assert a2.execute(d)["reason"] == "real_actuation_not_implemented"
     # Pin scope MUST equal pin baseline, else an artifact is silently unchecked.
-    pinned = {_key(p) for p in _PROD_ARTIFACTS}
+    pinned = {_rel(p) for p in _PROD_ARTIFACTS}
     unbaselined = sorted(pinned - set(_BASELINE_HASHES))
     assert not unbaselined, (
         f"PIN SCOPE/BASELINE MISMATCH: {unbaselined} are listed in _PROD_ARTIFACTS "
         "but have no entry in _BASELINE_HASHES, so they would be SILENTLY UNCHECKED. "
         "Add their hashes in the freeze commit (old->new recorded)."
     )
-    for path, digest in _BASELINE_HASHES.items():
-        assert _sha(Path(path)) == digest, (
-            f"PINNED production artifact changed: {path}\n"
+    extra = sorted(set(_BASELINE_HASHES) - pinned)
+    assert not extra, (
+        f"PIN BASELINE/SCOPE MISMATCH: {extra} carry a baseline hash but are NOT in "
+        "_PROD_ARTIFACTS, so the digest is dead weight (stale/renamed entry)."
+    )
+    for rel, digest in _BASELINE_HASHES.items():
+        assert _sha(REPO_ROOT / rel) == digest, (
+            f"PINNED production artifact changed: {rel}\n"
             f"  frozen at: {A8_FROZEN_AT}\n"
             "  => either the frozen SHA moved without a re-baseline, or the tree is "
             "dirty. Re-baseline ONLY in the same commit that freezes the SHA, and "
