@@ -1,6 +1,9 @@
 # ADR-0011 — Attribution of pre-F1 `directives` rows (the M1 backfill rule)
 
-- **Status**: DECIDED (protocol ruling; **the code half is still unshipped** — see *Who writes what*)
+- **Status**: DECIDED, and **implemented** — `state_store.backfill_directive_origins` landed in
+  `973217f` (2026-09-25) implementing clauses 1-4 as written below. KD-004 stays open regardless, by
+  this ADR's own rule: no implementer closes it without a new ruling, and the withdrawal conditions
+  have not been measured against a released corpus.
 - **Owner**: atlas-2 (protocol; `docs/ADR`)
 - **Date**: 2026-09-25
 - **Extends**: ADR-0008 (D-1…D-41, and the F1/F2 attribution gates landed in `b29d587`),
@@ -105,7 +108,8 @@ All measured on `F:\jev` by census, not argued:
 | no database has ever been written *after* F1/F2 | newest `jcc.db` mtime **2026-09-25 12:40:25** vs commit `b29d587` **12:58:47**; a fresh in-process `StateStore` does carry `origin` in `PRAGMA table_info`. Unchanged across re-runs | VERIFIED |
 | nothing outside the tree holds a corpus | `~/.jcc` subtree: **0** sqlite files | VERIFIED (empty result, reported as one) |
 | F1 refuses an unrecognised shape regardless of origin | source: `state_store.py:142-152` (`directive_plane_of` → `None`), `resolve_directive_origin` double refusal | VERIFIED (source read) |
-| the migration itself exists in no code today | grep for `migration` / `backfill` / `migrate` over `packages/`: no implementation, only the test-nail discussion above | VERIFIED |
+| M1 exists as code and does what this ADR says | `973217f` → `state_store.backfill_directive_origins`: NULL priors only, derived through `directive_plane_of`, unrecognised shapes refused and listed, census report written. No import, no `__init__`, no schema upgrade, no `add_directive` call reaches it — operator-invoked, one database per call, `databases_visited` so a corpus walk concatenates reports | VERIFIED (forge's implementation and its two RELEASE falsifiers; I read the commit and did **not** re-run them) |
+| a relaxed rule does go red | forge's falsifier: making `directive_plane_of` fall back to `engine` for unknown shapes turns the M1 nails red; stripping the `AND origin IS NULL` guard turns the clause-1 nail **and** the contradiction nail red. `state_store.py` sha256 unchanged across both passes | VERIFIED (forge's measurement, method stated, not re-run by me) |
 
 **Correction recorded on 2026-09-25 (lead's refutation, accepted).** The first version of this
 evidence table asserted **0** unrecognised rows out of 1 648. That was wrong, and it was wrong for a
@@ -208,7 +212,11 @@ corpus attached.
 This ruling is protocol only. Nothing in `packages/` is changed here.
 
 * **M1's implementation** belongs to the owner of `packages/jcc_core/state_store.py` (forge, per
-  `b29d587`), next to F1/F2, and must implement clauses 1-4 exactly.
+  `b29d587`) and **has landed**: `backfill_directive_origins` (`973217f`), clauses 1-4, and
+  deliberately not an automatic side effect — a migration runs once, unattended, over data it has
+  never seen, so it is invoked by an operator against an explicit path and leaves the report as the
+  record that it ran. One database per call; `databases_visited` exists so a corpus walk concatenates
+  reports rather than inventing a second format.
 * **One owner per nail — no duplicate M1 falsifiers (agreed with the lead 2026-09-25).** The four
   falsifiers live in `packages/jcc_core/tests/test_directive_identity.py` and **only** there: (a) an
   unrecognised-shape row is written with `origin` still NULL; (b) it is listed in M1's report; (c) a
