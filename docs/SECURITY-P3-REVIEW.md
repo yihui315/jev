@@ -269,3 +269,113 @@ assert healthy_out["shadow_evaluated"] is True and healthy_out["shadow_unevaluat
 **(E5) A8 re-baseline — I did nothing, per the lead's ownership.** The lead owns the re-baseline (discipline ㉗) and authorised it in the freeze commit only. I applied discipline ㉞ to my own work: the four digests quoted in §D are **valid only for the commits that produced them** and must be recomputed, not copied, when the freeze commit moves.
 
 **(E6) F-3 — I accept the lead's ruling.** F-3 is **CLOSED**, wording corrected to *"priced at the arbitration point, on the supervisor plane"* — the commit message said engine-side and was simply wrong; the invariant that matters ("nothing is issued or charged unless it was priced") does hold. The residual survives as **F-3-residual (ACCEPTED RISK + P5 PRECONDITION)**: the engine ingest loop does not consult a budget, so any publishing path that bypasses `Sentinel.on_event` bypasses the ceiling. Today that is untested-but-true (`Actuator.execute` = 0 production callers), not guaranteed — at P5 actuation it must become an assertion.
+
+---
+
+## ADDENDUM #82 — P4 独立安全复核 (Aegis, 2026-09-25)
+
+- **Reviewer:** Aegis（独立安全工程师）
+- **Reviewed at:** commit `83d32a8`（HEAD, master）之前；复核对象为 #82 已落地的五笔改动
+- **Date:** 2026-09-25
+- **Scope:** `packages/jcc_core/state_store.py`、`packages/jcc_core/core.py`、`packages/supervisor/sentinel.py`、`packages/supervisor/budget.py`
+- **Constraint honoured:** **只读**产品代码 + 写安全评审文档；唯一新增的可执行产物是测试**钉子** `packages/jcc_core/tests/test_aegis_p4_review_82.py`（位于 `packages/*/tests/` 下，符合约束）。未改动任何产品实现文件。
+- **复核对象 commit：**
+  - forge `b29d587` — F1/F2 origin 归属 + A2 按前缀分区
+  - forge `959231e` — 预算计数器折叠两平面 R1-R4
+  - forge `973217f` — M1 回填迁移
+  - forge `d91a09f` — M2：老库可写 + 回填后 F2 仍活
+  - sentinel `632f0dd` — S-1~S-4 持久化失败可见性契约 + supervisor 侧 `origin="supervisor"` 写入
+
+**方法学：** 四点结论均不是"读代码觉得对"，而是实际构造攻击并**观测防御是否成立**（每点下方的"证伪"均运行了真实代码，证据见 `test_aegis_p4_review_82.py`，18 个 nails 全绿）。本复核与 ADDENDUM §E 的关系：§E 是 Aegis-2 在 S-1..S-4 **实现前**拟定的合同；本复核是**实现后**的实测，重点标记实现与 §E 合同的偏差。
+
+---
+
+### 1. 新 `origin` 列的三个攻击面 — **CLOSED**
+
+**(1a) 调用方不传 `origin` 必须 `TypeError`，不能默认成 `engine`。**
+- 构造：`StateStore.add_directive(_mint("dir_s-origin_e1"))`（完全省略）→ 期望 `TypeError`；`add_directive(_mint(...), "engine")`（位置传参）→ 期望 `TypeError`。
+- 结果（实测）：两者都抛 `TypeError`，且 `get_directives("s-origin") == []`——拒绝发生在写入**之前**，没有任何 `origin='engine'` 默认行落地。
+- 额外核对：`inspect.signature` 显示 `origin` 的 `default is empty` 且 `kind is KEYWORD_ONLY`。
+- 结论：默认归因不可达。
+
+**(1b) 伪造 origin 让一行被记成 engine 或 supervisor。**
+- 构造（参数化 5 例）：`("dir_..","supervisor")`（engine 命名空间 + sentinel 名）、`("shadow_..","engine")` 反向、`("weird_..","engine"/"supervisor")`（无法识别形状）、`("dir_","engine")`（裸前缀无事件）。
+- 结果：全部 `ValueError`，且 `get_directives` 为空——F1 `resolve_directive_origin` 的前缀归属拦住了。再用两个合法写入（`dir_`→engine、`shadow_`→supervisor）确认正常路径仍可写且归属正确。
+- 结论：F1 前缀白名单 + 交叉拒绝成立，伪造 origin 无法落地。
+
+**(1c) M1 回填能否被诱导"补"成某 origin 而非留 NULL 进 refuse 名单。**
+- 读 `backfill_directive_origins`（`state_store.py:196-283`）：它只动 `origin IS NULL` 的行，取值为 `directive_plane_of(directive_id)`（与 F1 同一查找），`None` 则留 NULL、进 `refused`/`still_null`，**永不**写成某 origin。
+- 构造：插入一行形状无可归属（`weird_s-x_e1`，`origin=NULL`），调用 `backfill_directive_origins`。
+- 结果（实测）：`report["refused"]==["weird_s-x_e1"]`、`report["still_null"]==["weird_s-x_e1"]`、`admissible_as_release_evidence is False`；**回读该行 `origin` 仍为 `NULL`**（非 `engine`/非 `supervisor`）。可归属行则按 `directive_plane_of` 推导（engine/supervisor），`attributed==2`。
+- 结论：M1 不会为无法归属的行伪造 provenance；§E 担心的"把 #82 缺陷洗白成某 origin"被 fail-closed 挡住。
+
+---
+
+### 2. "假成功"现在是否真可见 — **PARTIALLY CLOSED（边界仍是黑洞）**
+
+手工构造 sentinel 持久化失败路径（覆盖 `transaction()` 使其抛 `RuntimeError`，即 §E 的"毒库"等价物），实测：
+
+- `on_event` 返回 `None`；`persistence_failures == 1`；`persistence_durable_writes == 0`；`persistence_ok is False`（`test_p2_on_event_returns_none_and_counts_the_failure_once`）。**计数只一次**（不是 `on_event` 的 except 与 `_append_shadow` 双重计数）。
+- 这证明 S-1..S-4（commit `632f0dd`）**确实**把"丢失的记录"变成了一个被计数、可观测的信号——相对 §E 之前"被 `except: pass` 吞掉、完全不可见"的状态，这是**真实改进**。
+
+**但**本复核独立发现两件事，使得"真可见"只在 sentinel 进程内成立，在引擎边界不成立：
+
+**(2i) 引擎调用方（engine.ingest 的返回）仍无法区分"shadow 仲裁并替换成 ESCALATE"与"shadow 根本没跑"。**
+- 构造 A/B 两组**引擎侧逐字节相同**的 ingest（用确定性 `_FixedProvider` 固定 assessment，隔离 shadow 为唯一变量）：A 组 shadow 正常落库；B 组 shadow 的 `shadow_decisions` 追加失败。
+- 结果（实测）：`out_a["action"] == out_b["action"]`；折叠后的预算计数器 `directives_used/escalations_used/cost_units_used/rate_used` 在 A/B 间**完全相同**；`out` 中**不含** `shadow`/`persistence`/`escalate` 任一键；唯一差异是 `sent_b.persistence_ok is False`（只存在于 sentinel 对象上）。
+- 原因：`core.py:74-79` 的 `_broadcast` 用 `except Exception: pass` 吞掉订阅者异常，且它本身**丢弃** `on_event` 的返回值；`ingest` 末尾返回的 `out`（`core.py:229-245`）只装引擎自己的决策。**所以 S-1..S-4 把失败变可见了，但引擎边界把信号扔掉了。**
+
+**(2ii) 独立修正题面前提：`is_event_evaluated` 在 shadow-only 失败时并不会变 `False`。**
+- 题面声称"persistence_failures 只计一次、`is_event_evaluated` 因此为假"。实测**不成立**：S-2 按"经济事件 key"折叠，引擎的 `dir_` 行（或实测中 sentinel 自己的 `directives` 充电行）已满足该 key，所以事件仍判为"已评估"。`is_event_evaluated` 检测的是"**事件缺行**"，不是"shadow 单独失败"。真实信号在 `sentinel.persistence_ok`，既不在引擎侧、也不在 S-2。
+
+**(2iii) 关键独立发现：`add_directive` 不走 `transaction()`。**
+- `StateStore.add_directive`（`state_store.py:610`）用 `self._lock` + `self._conn()` **直接**写，**不调用** `self.transaction()`。而 `Sentinel._append_via_store_transaction`（`sentinel.py:557`）才走 `transaction()`。
+- 后果：覆盖 `transaction()` 让 `shadow_decisions`（哈希链审计记录）追加失败，但 sentinel 的 `directives` **充电行**仍通过 `budget.commit → _persist_directive → add_directive` 落库（实测 `test_p2_directives_charge_survives_shadow_decision_failure`：即便 `persistence_ok is False`，`shadow_` 充电行已写入且 `origin=="supervisor"`）。
+- 评价：对 #82 而言这是**好事**——归因行比审计哈希链更健壮，归因缺陷（#82 真正关心的事）不受该失败模式影响。但它意味着"§E 式 `on_event` 返回 None ⇒ 什么都没持久化"的解读是错的：`directives` 充电行可能已写。两个持久化是**相互独立**的。
+
+**(2iv) 与 §E 合同的偏差。** §E 的 S-1/S-2/S-3 明确要求把 `shadow_evaluated`/`shadow_unevaluated`/`persistence_failures` **注入 `out`** 并让 `_broadcast` 归因失败而非丢弃。**实测 `632f0dd` 未实现这些边界改动**：`out` 结构未变，`_broadcast` 仍是 `except: pass`。所以 §E 的"假成功不再能被读成成功"在**进程内 sentinel 观测者**层面达成（persistence_ok），在**引擎外部调用方**层面**未达成**。
+
+---
+
+### 3. 归属反转的时序依赖 — **CURRENTLY HONORED，但只靠代码顺序，无钉子**
+
+折叠规则是"保留最后写入者"（`_directive_events`，`state_store.py:330-333`："ORDER MATTERS … the surviving row is the LAST written"；`budget_snapshot` 注释 `state_store.py:860-866`："the surviving row is the LAST one written … the sentinel's charging record"）。
+
+- 依赖写在哪里：`core.py` 的 `ingest` 在**步骤 8** 先写引擎 `dir_` 行（`core.py:217 self.store.add_directive(directive, origin="engine")`），**然后**才 `core.py:244 self._broadcast(out)` 触发 sentinel 写 `shadow_` 行。因此 shadow 行**总是**后写、总是存活。
+- 若反过来（引擎后写）：实测（`test_p3_reversed_order_loses_the_escalation_no_nail_blocks_it`）——先写 shadow ESCALATE、再写 engine CONTINUE，**折叠保留 CONTINUE，ESCALATE 丢失**，`escalations_used==0`。
+- **是否有钉子挡住：** **没有。** 现有 `test_the_fold_takes_the_substituted_action_not_the_engine_action`（`packages/supervisor/tests/test_p4_directive_origin_pins.py`）只是手工先插引擎行再跑 sentinel，证明"正确顺序有效"，但**不会**在顺序被反转时失败。当前仅由代码顺序保护。
+- **需要新增的钉子（不实现产品代码）：** 一个集成回归测试，把"引擎 `add_directive` 必须在 `_broadcast` 之前"固化为不变量——更稳妥的做法是让折叠在事件两平面都出现时**优先保留 charging 记录的 action**（而非依赖 rowid 顺序）。在 P5 前至少应加一条"若 `ingest` 把 `_broadcast` 移到 `add_directive` 之前，escalation 必须仍被保留"的会失败型回归钉。
+
+---
+
+### 4. K-分叉方向性 — **CLOSED（保守方向，且不可由攻击触发）**
+
+`directive_event_key`（`state_store.py:114-127`）对无法识别的形状返回包含 `unrecognised:` 的唯一 key，永不并入已识别事件。
+
+- 构造：`directive_event_key("zog_s_1","s") != directive_event_key("dir_zog_s_1","s")`；相同形状 key 稳定；含 `"unrecognised"`。
+- 实测（`test_p4_unrecognised_shapes_never_merge_and_only_over_count`）：插入一行无法识别形状，独立成 1 个 `directives_used`（**多算**方向），未消失进已识别事件。
+- **"多算=保守"的判定：** 漏计费（少算）才是 #82 的病；多算只会让预算更早触发，不会让事件被当作"没发生"。
+- **多算会不会把预算永久吃满、后续事件全拒？** 不可由攻击触发：`add_directive` 在写入时强制 F1 前缀归属，构造 `("zog_..","engine"/"supervisor")` 均被 `ValueError` 拒绝（`test_p4_attacker_cannot_inject_unrecognised_rows_through_the_write_path`），所以攻击者**无法**注入无法识别形状的行来膨胀预算。多算仅限 legacy/预-F1 残留，是有界的一次性量，正常事件仍每事件折成 1。
+- **二级发现（保守、fail-closed，非 #82 新面）：** 一行无法识别形状若带**不可计价** `action`（如 `NOT_A_REAL_ACTION`），`budget_snapshot` 的 `cost_units_used` 推导会抛 `ValueError`（`test_p4_a_corrupted_legacy_row_with_bad_action_raises_not_silent_undercount`）→ 治理器转 `CODE_CHECK_ERROR`（耗尽）。这是 **fail-closed**（宁可阻断也不少算），仅对已损坏的 legacy 数据有可用性影响，非新攻击面，记为 residual。
+
+---
+
+### 结论（GO / NO-GO）
+
+**GO** — #82 的根因（同一经济事件被两平面各写一行 `directives` 且归属缺失）已被 F1/F2/M1/M2 + S-3 的 `origin` 写入实质性修复，且本复核独立构造了四类攻击全部被拦下（点 1/3/4 闭合，点 3 仅缺钉子）。
+
+| 点 | 结论 | 证据 |
+|----|------|------|
+| (1) origin 三攻击面 | **CLOSED** | `p1a`/`p1b`/`p1c` 三个 nail 实测全绿 |
+| (2) 假成功可见性 | **PARTIAL** | S-1..S-4 在 sentinel 进程内可见（`persistence_ok`/None），但引擎边界仍是黑洞（见 2i/2iv，与 §E 合同偏差） |
+| (3) 时序依赖 | **HONORED·无钉** | 当前顺序正确；反序实测丢失 ESCALATE；无回归钉 |
+| (4) K-分叉方向 | **CLOSED** | 仅多算、不可由攻击触发；legacy 残留有界 |
+
+**唯一 residual（不阻塞 P4 冻结，需跟进）：**
+- **点 2 边界**：`core.py:74-79` `_broadcast` 仍丢弃 `on_event` 返回值并吞异常，`out` 未承载 §E 的 `shadow_evaluated`/`persistence_failures` 字段。需要谁修：**Sentinel / lead**（按 §E 合同收尾，建议 P5 完成边界注入；或至少加钉断言"引擎调用方应能从 `out` 区分 shadow 成败"）。本复核不擅自改产品代码。
+- **点 3 缺钉**：建议新增"引擎 `add_directive` 必须先于 `_broadcast`"或"折叠优先保留 charging 记录 action"的回归钉（见点 3）。
+- **点 4 二级**：legacy 坏 `action` 行会让 `budget_snapshot` 抛错→`CODE_CHECK_ERROR`；建议对 `backfill` 拒绝集外的行做 `action` 可计价预检（residual，保守方向）。
+
+**可复现证据：** `packages/jcc_core/tests/test_aegis_p4_review_82.py`（18 passed，`CODEBUDDY_SAFE_DELETE_ENABLED=0` 下运行以绕过沙箱安全删除守卫对 pytest 临时目录的误触发）。
+
+> 注：本复核未修改任何生产实现文件，仅新增上述测试钉子与安全文档，符合"只读 + 写评审文档"约束。
