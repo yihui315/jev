@@ -23,9 +23,18 @@ Format is deliberately boring: the deviations are behavioural, not narrative.
 **Status note on KD-004 (protocol owner, 2026-09-25).** The protocol half is decided —
 **ADR-0011**, the M1 backfill rule: attribute only `origin IS NULL` rows, derive the value through
 `state_store.directive_plane_of` (the function F1 uses), and **never default** an unrecognised shape
-to `engine`; refuse and report instead. The **code half is still unshipped**, the entry therefore
-stays open, and no implementer may close it without a new ruling here. Measured basis for the ruling:
+to `engine`; refuse and report instead. Measured basis for the ruling:
 1 648 pre-F1 rows in this tree, 1 452 `dir_…` + 196 `shadow_…`, **0** of unrecognised shape.
+
+The code half is **shipped** as of `973217f` (ADR-0011 M1,
+`state_store.backfill_directive_origins`): operator-invoked only, no automatic
+side effect, clauses 1-4 as ruled, pinned by
+`test_directive_identity.py::test_m1_*` and by the contradiction nail that must
+stay red. **The entry stays open anyway**: ADR-0011 states that no implementer
+may close KD-004 without a new ruling here, and the ADR's own withdrawal
+conditions (census showing zero NULL priors in every admitted store) have not
+been measured against a released corpus. Also still open: M1 has never been run
+against a real `jcc.db` — only against test fixtures.
 
 ## Notes on what is deliberately NOT recorded
 
@@ -41,5 +50,6 @@ stays open, and no implementer may close it without a new ruling here. Measured 
   as a run precondition, not as a deviation of the product:
   ``CODEBUDDY_SAFE_DELETE_ENABLED=0`` in `packages/conftest.py`. With the
   machine's safe-delete guard on, the same tree measures "0 failed, N errors"
-  because the guard interrupts pytest's own `tmp_path` setup; those tests are
-  skipped with a warning instead of being reported as errors.
+  because the guard interrupts pytest's own `tmp_path` setup. The guarded run
+  now ABORTS with ``pytest.UsageError`` (exit 4) instead of reporting those
+  tests as skipped, so the configuration cannot read as a pass.
