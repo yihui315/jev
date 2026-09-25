@@ -123,12 +123,28 @@ ownership marker + known port/process identity required.
 | E-06 | Security Gate | GO |
 | E-07 | SRE/QA Gate | GO |
 
-`GO` means **both**: the file's `verdict` field is `"GO"` *and* its `release_sha` is
-one of the two accepted positions. A leg whose `verdict` is `NO-GO` is a **FAIL**,
-not a pass. The gate used to check only the SHA, so a NO-GO signature became green
-the moment its SHA was corrected — the SHA says where a signature was written, the
-verdict says what it concluded, and checking one without the other lets a refusal
-through as a pass.
+`GO` means **all three**: the file's `verdict` field is one of the two accepted
+GO-bearing strings *and* its `release_sha` is one of the two accepted positions
+*and* — for the softer string — the `conditions` list names what is still open.
+A leg whose `verdict` is `NO-GO` is a **FAIL**, not a pass. The gate used to check
+only the SHA, so a NO-GO signature became green the moment its SHA was corrected
+— the SHA says where a signature was written, the verdict says what it concluded,
+and checking one without the other lets a refusal through as a pass.
+
+Both accepted strings, and why the gate refuses the rest:
+
+| `verdict` | Gate | Requires |
+| --- | --- | --- |
+| `GO` | pass | nothing further |
+| `GO WITH CONDITIONS` | pass | a **non-empty** `conditions` list |
+| anything else (`NO-GO`, `BLOCKED`, `CONDITIONAL GO`, a typo) | **FAIL** | — |
+
+`GO WITH CONDITIONS` is in this project's vocabulary — `docs/p3/P3_ARCH_GO.md`
+signed it at `49d91d4` — so a gate demanding the literal string `GO` would have
+recorded an honest leg as a FAIL for using a word the release has always used,
+which pressures a leg's author toward the only string that passes. Accepting the
+family is only safe if the hedge earns its word: a `GO WITH CONDITIONS` that
+names no conditions is a plain GO wearing a softer word, and that is refused.
 
 ### How the freeze is identified (do not just read the constant)
 
