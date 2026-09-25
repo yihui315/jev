@@ -207,8 +207,8 @@ A8_FROZEN_AT = (
 _BASELINE_HASHES = {
     "config/jcc.yaml":
         "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-    "packages/jcc_core/core.py":
-        "7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84",
+    "packages/jcc_core/core.py":  # A8 re-baseline (lead, 2026-09-25): P5 _broadcast fix (a74f1d9) moved this blob.
+        "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",  # old: 7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84 (frozen_at e6f5c15)
     "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
     "packages/jcc_core/decision.py":

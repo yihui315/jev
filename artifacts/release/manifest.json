@@ -29,8 +29,8 @@
     },
     {
       "path": "packages/jcc_core/core.py",
-      "sha256": "7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84",
-      "bytes": 10075,
+      "sha256": "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",
+      "bytes": 15499,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
