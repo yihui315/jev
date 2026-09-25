@@ -96,6 +96,13 @@ function Get-JccPowershellExe {
 function Invoke-JccScript {
     # Runs scripts\<Name>.ps1 in a child engine and returns @{ Exit; Lines }.
     # Used by restart.ps1 so the stop/start pair is the SAME code a human runs.
+    #
+    # The child's stdout/stderr are sent to FILES, never to a pipe of ours. The
+    # JCC service is designed to outlive the shell that started it, and a child
+    # that outlives its parent keeps a copy of the parent's stdout handle: with a
+    # pipe that copy makes any "read until EOF" (the 2>&1 capture used here)
+    # block until the service dies. Files remove the pipe, so the capture returns
+    # as soon as the scripts themselves are done.
     param(
         [string]$Root,
         [string]$Name,
@@ -107,12 +114,30 @@ function Invoke-JccScript {
     $lines = New-Object System.Collections.Generic.List[string]
     $code = 0
     if (-not $exe) { return @{ Exit = -1; Lines = $lines.ToArray() } }
+
+    $invokeDir = Join-Path $Root 'runtime\jcc'
+    if (-not (Test-Path -LiteralPath $invokeDir)) {
+        New-Item -ItemType Directory -Path $invokeDir -Force | Out-Null
+    }
+    $stamp = ([guid]::NewGuid()).ToString('N').Substring(0, 10)
+    $stem = $Name.Replace('.ps1', '')
+    $outF = Join-Path $invokeDir ('jcc-invoke-' + $stem + '-' + $stamp + '.out.log')
+    $errF = Join-Path $invokeDir ('jcc-invoke-' + $stem + '-' + $stamp + '.err.log')
+
     $prev = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
-    $raw = & $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $file @ScriptArgs 2>&1
+    $null = & $exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $file @ScriptArgs > $outF 2> $errF
     $code = $LASTEXITCODE
     $ErrorActionPreference = $prev
-    foreach ($l in $raw) { $lines.Add([string]$l) }
+
+    foreach ($f in @($outF, $errF)) {
+        if (Test-Path -LiteralPath $f) {
+            foreach ($l in (Get-Content -LiteralPath $f -ErrorAction SilentlyContinue)) {
+                $lines.Add([string]$l)
+            }
+            Remove-Item -LiteralPath $f -Force -ErrorAction SilentlyContinue | Out-Null
+        }
+    }
     return @{ Exit = [int]$code; Lines = $lines.ToArray() }
 }
 
