@@ -511,3 +511,9 @@ Within protocol-architect's authority (architecture & protocol, `docs/` only):
 - **NO-GO (unconditional, on the ratification condition above)** — if the lead does not ratify,
   D-41's frozen text governs and the deviation stands.
 - This errata does **not** sign off on any `packages/` code, and does not close KD-001/KD-002.
+
+> **Path taken — 2026-09-25, team-lead ruling (this closes the open choice left at §E-12-1.4 and
+> §E-12-1.6 item 5). 路径 A, the attach-point reading of D-41 as stated in INV-41 (§E-12-1.5):
+> `server.py:239` is an operator-intent record, retained as built and neither deleted nor rerouted
+> through the Sentinel, because the E-05 leg attests the architecture as built and KD-001 / KD-002
+> therefore stay OPEN and are not downgraded to "as designed".**
