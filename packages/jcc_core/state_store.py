@@ -241,6 +241,14 @@ def backfill_directive_origins(db_path: str, *, report_path: Optional[str] = Non
         "admissible_as_release_evidence": True,
     }
     with store.transaction() as conn:
+        # A pre-F1 database has NO origin column at all (M2 diagnoses this), and
+        # "attribute the rows whose origin IS NULL" is not even evaluable without
+        # one: measured, M1 died here with ``OperationalError: no such column:
+        # origin`` on every pre-F1 database in the tree. So the schema repair
+        # comes FIRST -- and it is the same repair M2 performs, not a second
+        # opinion. Afterwards every row that predates F1 genuinely reads as a
+        # NULL prior, so clause 1 is applied to exactly the intended corpus.
+        _ensure_directives_origin_column(conn)
         rows = conn.execute(
             "SELECT directive_id FROM directives WHERE origin IS NULL"
         ).fetchall()
@@ -273,6 +281,32 @@ def backfill_directive_origins(db_path: str, *, report_path: Optional[str] = Non
         with open(report_path, "w", encoding="utf-8") as fh:
             json.dump(report, fh, indent=2, sort_keys=True)
     return report
+
+
+def _ensure_directives_origin_column(conn) -> bool:
+    """Add the ``origin`` column to a ``directives`` table that predates F1 (M2).
+
+    A database written before F1/F2 did not merely leave ``origin`` NULL -- the
+    COLUMN WAS NOT THERE, and ``CREATE TABLE IF NOT EXISTS`` will not add it.
+    Every read and write that names the column therefore dies with
+    ``sqlite3.OperationalError: no such column: origin``, which is a SQL-layer
+    error and NOT the gate's refusal: a caller catching it sees an exception
+    with no attribution in it. Measured (``.workbuddy/scratch/forge_legacy_probe.py``):
+    on a legacy table ``StateStore()`` adds nothing and ``add_directive`` raises
+    ``OperationalError`` from the very first statement.
+
+    So the write path repairs the schema FIRST, then runs the gates, and the
+    caller only ever sees F1's or F2's ``ValueError``. This is a SCHEMA repair
+    and nothing else: it leaves every row's origin NULL, which is precisely what
+    keeps it distinct from M1 (ADR-0011). M1 attributes rows; M2 adds a column.
+
+    Returns True when the column had to be added.
+    """
+    have = {row[1] for row in conn.execute("PRAGMA table_info(directives)")}
+    if "origin" in have:
+        return False
+    conn.execute("ALTER TABLE directives ADD COLUMN origin TEXT")
+    return True
 
 
 def _action_matches(action: Optional[str], name: str) -> bool:
@@ -599,6 +633,10 @@ class StateStore:
         with self._lock:
             conn = self._conn()
             try:
+                # M2: heal a pre-F1 table BEFORE naming the column, so a legacy
+                # database is still writable. Schema repair only -- no row is
+                # attributed here, which is M1's job and M1's alone.
+                _ensure_directives_origin_column(conn)
                 prior = conn.execute(
                     "SELECT origin FROM directives WHERE directive_id=?",
                     (d.directive_id,),
@@ -761,6 +799,14 @@ class StateStore:
         ``directive_event_key`` BEFORE any counter below is derived, so
         ``rate_used`` == ``directives_used`` in shape; the semantic change from
         "rows" to "events" lands here and is recorded in the commit message.
+
+        THE SEMANTIC CHANGE, IN THE LEAD'S WORDS (release record wording to
+        match): the counter's meaning is now **"number of events" -> "number of
+        events, AFTER the two planes have been folded"**. It is NOT "rows" and
+        it is NOT "events before folding". Two values that differ by exactly the
+        #82 double-write factor must never be spoken of interchangeably again:
+        a caller that reads 4 where the truth is 2 has read the row count, and
+        the ceiling it enforces fires at half the true rate.
 
         CLOCK DOMAIN (load-bearing): ``first_seen`` is a WALL-CLOCK epoch second
         (``sessions.created_at``, written from ``time.time()``). A store-backed

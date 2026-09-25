@@ -483,12 +483,25 @@ def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts
     #    namespace rule is satisfied by this (id, origin) pair.
     assert resolve_directive_origin("dir_s-contra_e1", "engine") == "engine"
 
-    # 1) F2 refuses the overwrite -- and the message must be F2's, not F1's.
-    #    "already persisted as" is the F2 wording; "can only be issued by" is
-    #    F1's and would mean this proof-of-exclusivity was wrong.
-    with pytest.raises(ValueError, match="already persisted as"):
+    # 1) F2 refuses the overwrite -- and the exception must be F2's OWN raise,
+    #    not an error the SQL layer produced on the way. This distinction is the
+    #    whole point: ``sqlite3.OperationalError: no such column: origin`` also
+    #    contains the word "origin", and on a pre-F1 table that IS what the
+    #    caller used to get (measured, see M2 below). A nail that only matched
+    #    ``match="origin"`` would therefore pass for the wrong reason and stay
+    #    green while the gate was dead. So: exact type, exact F2 wording, and
+    #    no SQL error text anywhere in the traceback.
+    with pytest.raises(ValueError) as excinfo:
         s.add_directive(_mint("dir_s-contra_e1", action=DirectiveAction.ESCALATE),
                         origin="engine")
+    assert excinfo.type is ValueError, (
+        f"the refusal came from {excinfo.type}, not from F2's own raise")
+    assert "already persisted as" in str(excinfo.value), (
+        "F1's wording would mean step 0 above was wrong and F1 fired first")
+    for sql_error in ("no such column", "no such table", "OperationalError"):
+        assert sql_error not in excinfo.exconly(), (
+            f"a SQL-layer error leaked into the caller's exception ({sql_error}); "
+            "the refusal must come from F2, not from sqlite")
 
     # 2) the refused write left the row exactly as it found it
     with s.connection() as conn:
@@ -503,6 +516,204 @@ def test_f2_the_independently_load_bearing_case_a_stored_origin_that_contradicts
 
 
 # --------------------------------------------------------------------------- #
+# M2 -- a pre-F1 DATABASE must still be writable
+# --------------------------------------------------------------------------- #
+#: The 12-column ``directives`` table as it existed before F1/F2: the ``origin``
+#: COLUMN IS ABSENT, not NULL. ``CREATE TABLE IF NOT EXISTS`` will never add it,
+#: so every statement that names the column dies.
+_LEGACY_DIRECTIVES_SCHEMA = """
+CREATE TABLE directives (
+  directive_id    TEXT PRIMARY KEY,
+  session_id      TEXT,
+  timestamp       REAL,
+  action          TEXT,
+  target_actuator TEXT,
+  params          TEXT,
+  policy_version  TEXT,
+  signed          INTEGER,
+  signature       TEXT,
+  evidence_hash   TEXT,
+  acted           INTEGER,
+  actuation_reason TEXT
+);
+"""
+
+
+def _columns(s):
+    """The ``directives`` columns as the database actually has them right now."""
+    with s.connection() as conn:
+        return [r[1] for r in conn.execute("PRAGMA table_info(directives)")]
+
+
+def _legacy_store(tmp_path, name="legacy.db"):
+    """A StateStore whose ``directives`` table has no ``origin`` column at all."""
+    import sqlite3
+    from jcc_core.state_store import StateStore
+
+    path = str(tmp_path / name)
+    conn = sqlite3.connect(path)
+    conn.executescript(_LEGACY_DIRECTIVES_SCHEMA)
+    conn.commit()
+    conn.close()
+    return StateStore(path)
+
+
+def test_m2_the_origin_column_is_added_before_the_first_write(tmp_path):
+    """M2 (lead, 2026-09-25): an old database must still be WRITABLE.
+
+    Measured baseline before the fix (``.workbuddy/scratch/forge_legacy_probe.py``):
+    ``StateStore()`` adds nothing to a legacy table and the first ``add_directive``
+    raises ``sqlite3.OperationalError: no such column: origin``. That is a SQL
+    error, not a gate refusal, and the caller had no way to tell the difference.
+
+    After the fix the write must (a) not raise, (b) add the column FIRST, and
+    (c) land the row with the correct attribution. Note what this is NOT: the
+    repair sets every row's origin to NULL, so it is M2 (schema) and stays
+    strictly separate from M1 (attribution).
+    """
+    from jcc_core.state_store import StateStore
+
+    s = _legacy_store(tmp_path)
+    assert "origin" not in _columns(s), "the fixture must really be pre-F1"
+
+    s.add_directive(_mint("dir_s-m2_e1", action=DirectiveAction.PAUSE),
+                    origin="engine")
+
+    assert "origin" in _columns(s), "M2 did not add the column"
+    row = s.get_directives("s-origin")[0]
+    assert row["directive_id"] == "dir_s-m2_e1"
+    assert row["origin"] == "engine"
+
+
+def test_m2_after_the_backfill_the_refusal_is_still_f2s_own_raise(tmp_path):
+    """M2b: F2 must be alive ON A DATABASE M1 HAS ALREADY BACKFILLED.
+
+    "There are no NULLs left" is exactly the moment a gate gets relaxed, so this
+    is asserted, not assumed. The row is a ``shadow_`` id -- the #82 double-write
+    shape -- whose stored origin says ``engine``: a mis-attributed row, which
+    M1's clause 1 walks straight past (non-NULL), yet which F2 must still refuse
+    for a supervisor caller.
+
+    And the exception must be F2's OWN raise. After M1 the database has been
+    written to, so a naive version of this nail would be satisfied by any
+    ``ValueError``; the assertion pins the type, the wording and the absence of
+    SQL error text.
+    """
+    from jcc_core.state_store import (
+        StateStore,
+        _ensure_directives_origin_column,
+        backfill_directive_origins,
+    )
+
+    # Timeline matters here, and it is the real one: a mis-attributed row can
+    # only EXIST on a database that already carries the column, because writing
+    # an origin is what makes a row mis-attributed rather than unattributed.
+    # So: M2's repair first (any write does it), then the bad row.
+    s = _legacy_store(tmp_path, "legacy.db")
+    s.add_directive(_mint("dir_s-m2_e0", action=DirectiveAction.PAUSE),
+                    origin="engine")
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action, "
+            "origin) VALUES (?,?,?,?,?)",
+            ("shadow_s-m2_e1", "s-m2", 1.0, "PAUSE", "engine"),
+        )
+        conn.commit()
+
+    # M1 has run: nothing attributable in this database, nothing refused.
+    report = backfill_directive_origins(s.db_path)
+    assert report["attributed"] == 0 and report["refused"] == []
+    with s.connection() as conn:
+        assert _ensure_directives_origin_column(conn) is False, (
+            "M1 must not have needed a schema repair to claim success")
+
+    with pytest.raises(ValueError) as excinfo:
+        s.add_directive(_mint("shadow_s-m2_e1", action=DirectiveAction.ESCALATE),
+                        origin="supervisor")
+    assert excinfo.type is ValueError
+    assert "already persisted as" in str(excinfo.value)
+    for sql_error in ("no such column", "no such table", "OperationalError"):
+        assert sql_error not in excinfo.exconly()
+
+    with s.connection() as conn:
+        stored = conn.execute(
+            "SELECT action, origin FROM directives "
+            "WHERE directive_id='shadow_s-m2_e1'"
+        ).fetchone()
+    assert stored == ("PAUSE", "engine"), "the refused write must not have landed"
+
+
+def test_m2_a_null_prior_is_still_refused_on_a_post_backfill_database(tmp_path):
+    """M2c: the branch M1 erases must not be the branch F2 drops.
+
+    M1 fills every NULL in, so "no NULL priors exist" becomes true on a
+    migrated database. That is the moment to keep the NULL-prior refusal --
+    otherwise the first row written by anyone after the migration is unguarded.
+    """
+    from jcc_core.state_store import (
+        StateStore,
+        backfill_directive_origins,
+    )
+
+    s = _legacy_store(tmp_path, "legacy.db")
+    s.add_directive(_mint("dir_s-m2_e1", action=DirectiveAction.PAUSE),
+                    origin="engine")
+    backfill_directive_origins(s.db_path)
+
+    # back to a NULL prior, into a database M1 has already processed
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action) "
+            "VALUES (?,?,?,?)",
+            ("dir_s-m2_e2", "s-m2", 2.0, "PAUSE"),
+        )
+        conn.commit()
+
+    with pytest.raises(ValueError) as excinfo:
+        s.add_directive(_mint("dir_s-m2_e2", action=DirectiveAction.ESCALATE),
+                        origin="engine")
+    assert excinfo.type is ValueError
+    assert "UNATTRIBUTED" in str(excinfo.value), (
+        "the NULL-prior refusal is gone: F2 now lets an unattributed row be "
+        "silently replaced by whatever writer shows up next")
+    assert "no such column" not in excinfo.exconly()
+
+
+def test_m1_is_not_reachable_from_any_automatic_path():
+    """M1 must not be one import away from running itself.
+
+    A function that turns a NULL into an attribution is exactly the kind of
+    thing that gets wired into ``_init_db`` or ``add_directive`` "for
+    convenience", at which point a real database is rewritten without an
+    operator ever asking. Today nothing references it -- but "nobody
+    references it" is not a property anyone tests, so it is asserted here at
+    source level: the definition is the ONLY occurrence, it is not inside
+    ``_init_db``, it is not inside ``add_directive``, and importing the module
+    executes nothing.
+    """
+    import inspect
+
+    from jcc_core import state_store
+    from jcc_core.state_store import StateStore, backfill_directive_origins
+
+    source = inspect.getsource(state_store)
+    name = backfill_directive_origins.__name__
+
+    occurrences = [i for i, line in enumerate(source.splitlines())
+                   if name in line]
+    assert len(occurrences) == 1, (
+        f"{name} appears {len(occurrences)} times in state_store.py; the "
+        "automatic-path nail cannot tell a definition from a call site")
+    def_line = source.splitlines()[occurrences[0]]
+    assert def_line.lstrip().startswith("def "), (
+        f"the only occurrence is not a def: {def_line!r}")
+
+    for fn in (StateStore._init_db, StateStore.add_directive):
+        body = inspect.getsource(fn)
+        assert name not in body, f"{fn.__qualname__} reaches into M1"
+
+
+# --------------------------------------------------------------------------- #
 # M1 -- the pre-F1 backfill (ADR-0011), falsified against the clause list
 # --------------------------------------------------------------------------- #
 def _insert_raw(s, directive_id, origin=None, action="PAUSE", session="s-m1"):
@@ -514,6 +725,38 @@ def _insert_raw(s, directive_id, origin=None, action="PAUSE", session="s-m1"):
             (directive_id, session, 1.0, action, origin),
         )
         conn.commit()
+
+
+def test_m1_opens_a_database_that_has_no_origin_column_at_all(tmp_path):
+    """ADR-0011 measure-then-fix: M1 targets pre-F1 databases, and a pre-F1
+    database does not have the column -- it is ABSENT, not NULL. Its first
+    statement (``WHERE origin IS NULL``) is therefore not evaluable at all.
+
+    MEASURED before the fix: ``OperationalError: no such column: origin``. The
+    migration -- the one whose entire purpose is these databases -- could not
+    open a single one of them. The fix reuses M2's repair inside M1, so the
+    ordering is explicit: add the column, THEN attribute the rows that now read
+    as NULL priors. Clause 1 is unaffected: every row that predates F1 is a NULL
+    prior by the time the clause is applied, which is exactly the corpus.
+    """
+    from jcc_core.state_store import StateStore, backfill_directive_origins
+
+    s = _legacy_store(tmp_path, "old.db")
+    with s.connection() as conn:
+        conn.execute(
+            "INSERT INTO directives (directive_id, session_id, timestamp, action) "
+            "VALUES (?,?,?,?)",
+            ("dir_s-old_e1", "s-old", 1.0, "PAUSE"),
+        )
+        conn.commit()
+    assert "origin" not in _columns(s)
+
+    report = backfill_directive_origins(s.db_path)
+
+    assert report["attributed"] == 1, report
+    assert report["refused"] == [], report
+    assert "origin" in _columns(s)
+    assert s.get_directives("s-old")[0]["origin"] == "engine"
 
 
 def test_m1_derives_the_value_through_the_same_lookup_f1_uses_and_refuses_the_rest(tmp_path):
