@@ -34,8 +34,13 @@ so that the answer is produced by a command that can fail.
 1. **No fail-open.** If a required check cannot be evaluated, the gate answers `false`,
    never `true`.
 2. **Zero tests is a FAIL**, not a skip.
-3. **An unparsable tally is a FAIL.** The gate parses pytest's own summary and
-   reconciles it against a per-test parse; any disagreement is fatal.
+3. **An unparsable tally is a FAIL.** The gate takes its counts from pytest's
+   junit report, which records the outcome of **every** testcase, and
+   cross-checks them against the human summary line; any disagreement is fatal.
+   The summary line alone cannot prove "0 failed" — pytest prints a counter only
+   when it is non-zero, so a fully green run says `627 passed` and never mentions
+   the zeros. Parsing it made a 627/627-green suite report failed/errors/skipped
+   as UNKNOWN (a false FAIL); the junit report does not have that blind spot.
 4. **Evidence that disagrees with ground truth is a FAIL** — wrong hash, wrong path,
    stale anchor, SHA-1 in a sha256 field.
 5. **Unexplained dirty/freeze provenance is a FAIL.**
@@ -118,6 +123,18 @@ ownership marker + known port/process identity required.
 | E-06 | Security Gate | GO |
 | E-07 | SRE/QA Gate | GO |
 
+Each leg's signature must name either the current `HEAD` **or the release
+freeze** (`RELEASE_FREEZE`, a constant in the gate). The freeze position exists
+because a signature cannot contain itself and simultaneously claim to have been
+written at the very commit that contains it — demanding `release_sha ==
+rev-parse HEAD` makes every leg off by one commit and unsatisfiable by any real
+signature. When a leg is signed at the freeze, the gate proves the signature is
+still about the product in `HEAD` by diffing `HEAD` against the freeze and
+requiring every changed path to be release evidence (`artifacts/`, `docs/`,
+`tools/`, `scripts/`, `.gitignore`, the root checklist). Anything else moving
+after the freeze means the signer described a different product. A GO must never
+be inherited from P3/P4.
+
 ## F. Final evidence — all must be COMPLETE / 0
 
 | ID | Item | Condition |
@@ -158,7 +175,21 @@ cannot evaluate what it cannot find, and "not found" must never read as "not nee
 A scope that collects zero tests is a FAIL. A per-line parse reporting more FAILED/ERROR than
 pytest's own summary is a FAIL (that is an inconsistency), but a per-line parse reporting fewer
 is not, because a node id may contain spaces — an instrument that cries false-FAIL is as much a
-defect as one that absorbs a failure.
+defect as one that absorbs a failure. That asymmetry is why the authoritative tally comes from
+the junit report: the per-line parse stays as a cheap sanity bound, never as the source of truth.
+
+## I. Windows scripts are parsed — running them is a separate question
+
+W-01..W-07 assert only that each script **parses** under Windows PowerShell 5.1
+(`[System.Management.Automation.Language.Parser]::ParseFile`). That is a weak
+claim and it bit us: `scripts\doctor.ps1` parses cleanly and then **crashes at
+runtime** (a PowerShell mixed-type `+` chain coerces `' GiB free / '` into
+`System.Double` and throws `InvalidCastFromStringToDoubleOrSingle`), exiting 1
+half-way through its own self-check. A check that only parses cannot see that.
+
+Consequence for the activation checklist (F-02): after running it, read the
+output of `scripts\doctor.ps1` end to end, not just its exit code, and treat any
+script that aborts mid-report as a defect rather than a partially-good run.
 
 ## H. Provenance — a FAIL if unexplained
 
