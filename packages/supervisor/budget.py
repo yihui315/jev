@@ -13,9 +13,20 @@ Fail-closed rules (all from D-34):
 * Any exhausted dimension ⇒ ``allowed=False`` with a code. The caller **replaces**
   the action with ``ESCALATE`` — never suppresses it, never ``CONTINUE``.
 * A counter read that raises ⇒ exhausted with ``budget_check_error``.
-* An action with no entry in the cost table ⇒ ``commit`` RAISES; it is never
+* An action with no entry in the cost table ⇒ RAISES, in BOTH the pre-decision
+  gate (``check``) and the post-decision writer (``commit``); it is never
   silently charged 0.0. A 0.0 charge is fail-OPEN — the ``cost_units`` ceiling
   could then never fire for that action. Mirrors the store-side derivation (#63).
+* ``check`` prices the pending ``action`` through the SAME table, so the
+  pre-decision gate cannot be blind to cost (D-5: an unpriced pre-check is what
+  made the ``cost_units`` ceiling decorative). It never "looks up a cost and
+  finds nothing, so treats it as 0" — that branch does not exist here.
+* A dimension is REPORTED, never left at a silent 0.0: a dimension pinned at 0.0
+  is what makes a ceiling *look* dead. ``cost_units_used`` is published on the
+  snapshot; ``scorer_tokens`` has no persisted column and is therefore INERT
+  against a store-backed governor (``StateStore.budget_snapshot`` says so), so
+  it is LABELLED ``scorer_tokens_inert`` instead of masquerading as "0 of 200000,
+  healthy" (#75b).
 * There is **no** ``budget.enabled`` off-switch. A flippable off-switch is how a
   budget becomes decorative.
 """
@@ -47,16 +58,43 @@ BUDGET_SNAPSHOT_KEYS: Tuple[str, ...] = (
     "first_seen",         # -> wall_clock_s limit (session start)
 )
 
-#: Static cost table (D-34). ``commit`` indexes it DIRECTLY (``COST_UNITS[action]``,
-#: never ``.get(action, 0.0)``) so an uncostable action fails CLOSED — a missing
-#: entry raises instead of being silently priced at 0.0, which would let the
-#: ``cost_units`` ceiling never fire (fail-open). The table itself is defined once,
-#: in ``jcc_core.policy``, and imported here as an ALIAS (identity pinned in tests):
-#: ``jcc_core`` must not import ``supervisor`` (D-2), so the shared authority lives
-#: core-side, and ``StateStore.budget_snapshot`` derives the persisted
-#: ``cost_units_used`` from that same object. A second literal would be a drift
-#: surface.
+#: Static cost table (D-34). BOTH ``check`` (pre-decision gate, task #73) and
+#: ``commit`` (post-decision writer) price an action through ``_unit_cost``, which
+#: indexes this DIRECTLY (``COST_UNITS[action]``, never ``.get(action, 0.0)``) so
+#: an uncostable action fails CLOSED — a missing entry raises instead of being
+#: silently priced at 0.0, which would let the ``cost_units`` ceiling never fire
+#: (fail-open). The table itself is defined once, in ``jcc_core.policy``, and
+#: imported here as an ALIAS (identity pinned in tests): ``jcc_core`` must not
+#: import ``supervisor`` (D-2), so the shared authority lives core-side, and
+#: ``StateStore.budget_snapshot`` derives the persisted ``cost_units_used`` from
+#: that same object. A second literal would be a drift surface.
 COST_UNITS: Dict[DirectiveAction, float] = COST_UNITS_PER_ACTION
+
+
+def _unit_cost(action: Optional[DirectiveAction]) -> float:
+    """The ONE action → cost lookup (D-34 single cost authority).
+
+    ``COST_UNITS`` is an ALIAS of ``jcc_core.policy.COST_UNITS_PER_ACTION`` and
+    this is the ONLY place the supervisor plane reads it — no second literal
+    table, no ``.get(action, 0.0)``. An uncostable action **RAISES** here, which
+    is the same fail-closed read the store-side derivation performs
+    (``StateStore.budget_snapshot``) and the same one ``commit`` performs, so the
+    pre-decision gate, the post-decision writer and the persisted row cannot
+    disagree about what a directive cost.
+
+    ``action=None`` (no action priced, e.g. a pure status read) is 0.0 — that is
+    "nothing is being charged", not "this action is free".
+    """
+    if action is None:
+        return 0.0
+    try:
+        return COST_UNITS[action]
+    except (KeyError, ValueError) as exc:
+        raise ValueError(
+            f"uncostable directive action {action!r}: cost_units_used cannot be "
+            "derived, and under-counting would make the cost dimension fail-open"
+        ) from exc
+
 
 CODE_ASSESS_CALLS = "assess_calls"
 CODE_SCORER_TOKENS = "scorer_tokens"
@@ -102,6 +140,11 @@ class BudgetSnapshot:
     model_units_used: float
     limits: BudgetLimits
     exhausted_code: Optional[str] = None
+    # -- #75b: a dimension is either LIVE or LABELED INERT. A bare 0.0 is the
+    # one reading that cannot be told apart from "0 used, ceiling healthy", and
+    # a run of those is exactly what makes a ceiling look like decoration.
+    cost_units_used: float = 0.0
+    scorer_tokens_inert: bool = False
 
     @property
     def healthy(self) -> bool:
@@ -194,18 +237,40 @@ class BudgetGovernor:
         return dict(self._ledger_row(session_id))
 
     # -- evaluation ----------------------------------------------------------
-    def check(self, session_id: str, *, kind: str, units: int = 0) -> BudgetDecision:
-        """Return whether a further ``kind`` step is allowed under ``session_id``."""
+    def check(self, session_id: str, *, kind: str, units: int = 0,
+              action: Optional[DirectiveAction] = None) -> BudgetDecision:
+        """Return whether a further ``kind`` step is allowed under ``session_id``.
+
+        ``units`` is the numeric cost of the step; ``action`` is the *directive
+        action* about to be issued, priced through the ONE cost table. Passing
+        neither is a pure status read and behaves exactly as it always did.
+
+        WHY THIS CANNOT DOUBLE-BILL ``commit``
+        --------------------------------------
+        ``check`` is a pure READ. ``cost_units_used`` has exactly one writer,
+        ``commit``, which the caller invokes once per *issued and recorded*
+        directive. ``check`` does not reserve, place-hold or decrement anything:
+        it projects the counter onto the limit dimensions, that projection
+        includes the pending action's cost so the ceiling is judged on the
+        post-decision state, and the counter itself is untouched. ``commit`` then
+        adds that same cost once. Net effect per directive: **one** charge.
+
+        The projection therefore over-states the pending action's cost for the
+        duration of a single step, which trips the ceiling EARLY — i.e. in the
+        fail-CLOSED direction. It can never trip late, which is the direction
+        that makes a budget decorative.
+        """
         try:
             counters = self._counters(session_id)
         except Exception:  # noqa: BLE001 — a counter read that raises is exhausted
             snap = BudgetSnapshot(
                 assessments_used=0, directives_used=0, rate_used=0,
                 model_units_used=0.0, limits=self.limits, exhausted_code=CODE_CHECK_ERROR,
+                cost_units_used=0.0, scorer_tokens_inert=self._scorer_tokens_inert(),
             )
             return BudgetDecision(allowed=False, code=CODE_CHECK_ERROR, snapshot=snap)
 
-        observed = self._observed(counters, kind, units)
+        observed = self._observed(counters, kind, units, action)
         exhausted = self._first_exhausted(observed)
         snap = BudgetSnapshot(
             assessments_used=int(counters.get("assessments_used", 0)),
@@ -214,10 +279,25 @@ class BudgetGovernor:
             model_units_used=float(counters.get("model_units_used", 0.0)),
             limits=self.limits,
             exhausted_code=exhausted,
+            cost_units_used=float(counters.get("cost_units_used", 0.0)),
+            scorer_tokens_inert=self._scorer_tokens_inert(),
         )
         return BudgetDecision(allowed=exhausted is None, code=exhausted, snapshot=snap)
 
-    def _observed(self, counters: Dict[str, float], kind: str, units: int) -> Dict[str, float]:
+    def _scorer_tokens_inert(self) -> bool:
+        """True iff ``scorer_tokens`` CANNOT fire for this governor's counters.
+
+        Against the in-memory ledger ``commit`` fills ``model_units_used``, so the
+        dimension is live. Against a store the value is whatever the store
+        derives, and ``StateStore.budget_snapshot`` reports ``model_units_used``
+        as a hard 0.0 because no persisted column carries scorer token usage.
+        That is a WAIVED dimension, not a broken one — so it is labelled, never
+        left to read like "0 of 200000, healthy" (#75b).
+        """
+        return self.store is not None and hasattr(self.store, "budget_snapshot")
+
+    def _observed(self, counters: Dict[str, float], kind: str, units: int,
+                  action: Optional[DirectiveAction] = None) -> Dict[str, float]:
         """Project the counters onto the limit dimensions, *prospectively*.
 
         The counts are read **before** the current step is recorded (the D-34
@@ -232,7 +312,9 @@ class BudgetGovernor:
             CODE_RETRIES: counters.get("retries_used", 0.0),
             CODE_ESCALATIONS: counters.get("escalations_used", 0.0),
             CODE_WALL_CLOCK: elapsed,
-            CODE_COST_UNITS: counters.get("cost_units_used", 0.0) + float(units),
+            CODE_COST_UNITS: (
+                counters.get("cost_units_used", 0.0) + float(units) + _unit_cost(action)
+            ),
             CODE_RATE: counters.get("rate_used", 0.0),
         }
 
@@ -259,24 +341,16 @@ class BudgetGovernor:
             row["directives_used"] += 1
             row["rate_used"] += 1
             if action is not None:
-                try:
-                    unit_cost = COST_UNITS[action]
-                except (KeyError, ValueError) as exc:
-                    # D-34 fail-CLOSED: an uncostable action must NOT be silently
-                    # priced at 0.0, or the ``cost_units`` ceiling can never fire for
-                    # it (fail-OPEN — the mode D-5/D-34 forbid). This mirrors the
-                    # store-side derivation (#63, ``StateStore.budget_snapshot``),
-                    # which raises on the same input, so the two halves of the ONE
-                    # cost authority cannot disagree. Contained by
-                    # ``Sentinel.on_event`` (observe-only: it counts a persistence
-                    # failure and never breaks the engine's ingest loop), so this
-                    # SURFACES rather than crashing the daemon.
-                    raise ValueError(
-                        f"uncostable directive action {action!r}: cost_units_used "
-                        "cannot be derived, and under-counting would make the cost "
-                        "dimension fail-open"
-                    ) from exc
-                row["cost_units_used"] += unit_cost
+                # D-34 fail-CLOSED, via the SAME reader ``check`` uses (task #73).
+                # An uncostable action RAISES instead of being silently priced at
+                # 0.0, which mirrors the store-side derivation (#63,
+                # ``StateStore.budget_snapshot``) that raises on the same input, so
+                # the pre-decision gate, this writer and the persisted row all read
+                # the ONE cost table identically. Contained by ``Sentinel.on_event``
+                # (observe-only: it counts a persistence failure and never breaks
+                # the engine's ingest loop), so this SURFACES rather than crashing
+                # the daemon. This is the ONLY writer of ``cost_units_used``.
+                row["cost_units_used"] += _unit_cost(action)
             if action is DirectiveAction.RETRY:
                 row["retries_used"] += 1
             if action is DirectiveAction.ESCALATE:
@@ -295,9 +369,14 @@ class BudgetGovernor:
                 model_units_used=float(counters.get("model_units_used", 0.0)),
                 limits=self.limits,
                 exhausted_code=code,
+                cost_units_used=float(counters.get("cost_units_used", 0.0)),
+                scorer_tokens_inert=self._scorer_tokens_inert(),
             )
         except Exception:  # noqa: BLE001
-            return BudgetSnapshot(0, 0, 0, 0.0, self.limits, CODE_CHECK_ERROR)
+            return BudgetSnapshot(
+                0, 0, 0, 0.0, self.limits, CODE_CHECK_ERROR,
+                scorer_tokens_inert=self._scorer_tokens_inert(),
+            )
 
     # -- AssessmentBudgetGuard shim (jcc_core.ports) -------------------------
     def allow(self, session_id: str, units: int = 0) -> bool:

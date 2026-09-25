@@ -20,6 +20,13 @@ Invariants enforced here, all falsifiable:
   ``SELECT tail → INSERT`` pair, so two appends could fork the chain), and never
   a private ``_conn`` poke (``_conn`` is a *method*, not a connection: the #54
   defect that silently recorded ZERO rows).
+* **The budget ceiling is wired, not decorative** (D-5 / F-3, task #73): the
+  pre-arbitration gate cannot know the action, so a SECOND gate re-checks with
+  the real, arbitrated action and prices it off the ONE cost table. A
+  forced-ESCALATE directive is issued and recorded, so it is charged too
+  (task #75a) — one charge per issued directive, never two.
+* **No silent defaults** (task #74): thresholds come from an explicit source or
+  the constructor raises. ``thresholds_source`` records which one supplied them.
 """
 from __future__ import annotations
 
@@ -70,6 +77,7 @@ class Sentinel:
         budget: Any,
         dispatch_port: Optional[DispatchPort] = None,
         thresholds: Optional[ThresholdsConfig] = None,
+        thresholds_resolver: Optional[Callable[[], Any]] = None,
         policy_version: str = "p3.0.0",
         policy_table_version: Optional[str] = None,
         require_signature: bool = False,
@@ -81,7 +89,9 @@ class Sentinel:
         self.signer = signer
         self.budget = budget
         self.dispatch_port: DispatchPort = dispatch_port or ShadowActuationPort()
-        self.thresholds = thresholds or ThresholdsConfig()
+        self.thresholds, self.thresholds_source = self._resolve_thresholds(
+            thresholds, thresholds_resolver
+        )
         self.policy_version = policy_version
         self.policy_table_version = policy_table_version or arbitration.decision.POLICY_TABLE_VERSION
         self.require_signature = bool(require_signature)
@@ -103,6 +113,52 @@ class Sentinel:
         self.persistence_attempts = 0
         self.persistence_failures = 0
         self.persistence_durable_writes = 0
+
+    @staticmethod
+    def _resolve_thresholds(thresholds, thresholds_resolver):
+        """Resolve the threshold surface EXPLICITLY, and FAIL CLOSED if it cannot.
+
+        ``thresholds or ThresholdsConfig()`` (task #74) made a wiring mistake
+        — an omitted argument — run the whole plane on kernel-default
+        thresholds. That is worse than a crash: the recorded
+        ``policy_config_hash`` (D-21) would describe a policy nobody ever chose,
+        and every label would be attributed to a threshold set that never ran, so
+        the shadow tape would look authoritative while describing a different
+        policy. A default is a *choice*; inventing one here is not.
+
+        One of the two sources MUST exist:
+        ``"injected"`` — the caller handed a ``ThresholdsConfig``;
+        ``"resolver"``  — a resolver produced the surface (parse errors propagate);
+        otherwise RAISE at construction, before any directive exists.
+        """
+        if thresholds is not None:
+            if not isinstance(thresholds, ThresholdsConfig):
+                # Reject a duck-typed stand-in outright: ``for_agent`` /
+                # ``config_hash`` are load-bearing on the record, and a partial
+                # object would fail later and far away from this line.
+                raise TypeError(
+                    "thresholds must be a ThresholdsConfig, got "
+                    f"{type(thresholds).__name__}. Pass thresholds=<ThresholdsConfig> "
+                    "or thresholds_resolver=<callable>."
+                )
+            return thresholds, "injected"
+        if thresholds_resolver is not None:
+            if not callable(thresholds_resolver):
+                raise TypeError(
+                    f"thresholds_resolver must be callable, got "
+                    f"{type(thresholds_resolver).__name__}"
+                )
+            resolved = thresholds_resolver()
+            if isinstance(resolved, ThresholdsConfig):
+                return resolved, "resolver"
+            # A resolver returning raw config goes through the canonical parser, so
+            # a malformed surface fails here rather than silently at first use.
+            return ThresholdsConfig.from_config(resolved), "resolver"
+        raise ValueError(
+            "no thresholds source: pass thresholds=<ThresholdsConfig> or "
+            "thresholds_resolver=<callable>. Falling back to the kernel's "
+            "module-private defaults is the #74 defect (fail closed, not silent)."
+        )
 
     @property
     def persistence_ok(self) -> bool:
@@ -176,6 +232,29 @@ class Sentinel:
         # 2) Arbitration through the ONE kernel.
         result = arbitration.arbitrate(assessment, thresholds)
         action = DirectiveAction.ESCALATE if forced_escalate else result.action
+
+        # 2b) POST-arbitration, PRICED gate — D-5 / F-3 (task #73).
+        #
+        # The gate above runs BEFORE the kernel decides, so it cannot know which
+        # action is about to be issued and was priced with ``units=0``: the
+        # ``cost_units`` ceiling therefore only ever saw the *already committed*
+        # total and was DECORATIVE. Re-check now, with the real action, and let
+        # the governor price it off the ONE cost table.
+        #
+        # This deliberately does NOT reverse the arbitration order: the kernel
+        # still decides first, and ``forced_escalate`` semantics are unchanged —
+        # refusal still means "replace with ESCALATE and record", never suppress.
+        # The only thing added is that the ceiling is now evaluated against the
+        # action that is actually about to be signed, dispatched and recorded.
+        if not forced_escalate:
+            priced = self.budget.check(session_id, kind="directive", units=0, action=action)
+            if not priced.allowed:
+                forced_escalate = True
+                budget_code = priced.code
+                if blocker_code is BlockerCode.NONE:
+                    blocker_code = BlockerCode.BUDGET_EXHAUSTED
+                action = DirectiveAction.ESCALATE
+
         if result.blocked and blocker_code is BlockerCode.NONE:
             blocker_code = BlockerCode.EXACT_BLOCKER
         blocked = bool(result.blocked or forced_escalate)
@@ -211,8 +290,27 @@ class Sentinel:
         directive.actuation_reason = dispatch_result.get("reason")
         directive.executable = bool(dispatch_result.get("executable", False))
 
-        if not forced_escalate:
-            self.budget.commit(session_id, kind="directive", units=0, action=action)
+        # 4b) Charge EVERY directive that is issued AND recorded (task #75a).
+        #
+        # Adjudication: the previous ``if not forced_escalate:`` was a DEFECT, and
+        # it was the same defect twice over.
+        #   * SIGNING_REQUIRED_UNAVAILABLE — the signer being unavailable granted
+        #     that session an UNMETERED directive budget: every event after it
+        #     still ran arbitration, signing, dispatch and a hash-chained append,
+        #     and none of it was charged. A failure must never be cheaper than
+        #     success.
+        #   * BUDGET_EXHAUSTED — the replacement ESCALATE is still issued, signed,
+        #     dispatched and recorded, so it is still work the plane performed.
+        #     Skipping its charge does not "save" the session anything (it is
+        #     already over budget); it just stops the counter describing reality.
+        #     Charging it once is uniform with the signer case, and the two paths
+        #     cannot drift apart again.
+        #
+        # DEFINITIVELY NOT double-billing #73's priced pre-check: ``check`` is a
+        # pure read (it reserves nothing), and ``commit`` below is the single
+        # writer of ``cost_units_used``. One issued directive => exactly one
+        # charge here, whatever path produced the ESCALATE.
+        self.budget.commit(session_id, kind="directive", units=0, action=action)
 
         # 5) Record (hash-chained).
         decision = self._record(
