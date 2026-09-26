@@ -1,0 +1,28 @@
+{
+  "module": "packages/mcp_facade",
+  "pin_tests": [
+    "packages/mcp_facade/tests/test_manifest.py::TestManifestDeclaresMode::test_list_mcp_tools_declares_mode",
+    "packages/mcp_facade/tests/test_manifest.py::TestManifestDeclaresMode::test_capabilities_json_maps_name_to_mode_and_requires_approval",
+    "packages/mcp_facade/tests/test_manifest.py::TestManifestDeclaresMode::test_capabilities_json_writable",
+    "packages/mcp_facade/tests/test_mutation_capability.py::TestMutationRequiresVerifiedCapability::test_gateway_refused_when_capability_unverified",
+    "packages/mcp_facade/tests/test_mutation_capability.py::TestMutationRequiresVerifiedCapability::test_gateway_proceeds_when_capability_verified",
+    "packages/mcp_facade/tests/test_mutation_capability.py::TestMutationRequiresVerifiedCapability::test_gateway_forwards_request_and_records_only",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_unknown_tool_refused",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_unknown_argument_refused",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_missing_session_id_refused",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_malformed_session_id_refused",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_gateway_without_token_refused",
+    "packages/mcp_facade/tests/test_negative.py::TestNegative::test_assess_requires_token",
+    "packages/mcp_facade/tests/test_privilege_escalation.py::TestPrivilegeEscalation::test_observer_refused_on_gateway_capability_gate",
+    "packages/mcp_facade/tests/test_privilege_escalation.py::TestPrivilegeEscalation::test_read_tool_succeeds_for_observer",
+    "packages/mcp_facade/tests/test_privilege_escalation.py::TestPrivilegeEscalation::test_operator_principal_not_denied_at_capability_gate",
+    "packages/mcp_facade/tests/test_prompt_injection.py::TestPromptInjection::test_read_tool_rejects_injected_mutation_arguments",
+    "packages/mcp_facade/tests/test_prompt_injection.py::TestPromptInjection::test_session_id_injection_refused",
+    "packages/mcp_facade/tests/test_prompt_injection.py::TestPromptInjection::test_no_escalation_via_tool_argument",
+    "packages/mcp_facade/tests/test_token_log.py::TestTokenNeverLogged::test_token_absent_from_logs_and_trace",
+    "packages/mcp_facade/tests/test_trace.py::TestTrace::test_every_call_writes_one_trace_record",
+    "packages/mcp_facade/tests/test_trace.py::TestTrace::test_trace_redacts_control_token"
+  ],
+  "owner": "weaver-3",
+  "note": "S-02 MCP facade: a THIN transport surface over the Operator Skill (packages/operator_skill). It owns NO authority -- tool definitions come from operator_skill.manifest.TOOLS (single source of truth), tool execution is delegated to OperatorSkill.call, and gateway (mutation) tools add exactly ONE extra pre-check: refuse when the control capability is not VERIFIED, then delegate to the same OperatorSkill path that re-validates through its five gates (capability / policy / signed-directive / human-approval / budget). The facade therefore never duplicates authority and never actuates (can_actuate=false for all 12 tools; gateway tools forward control REQUESTS, they do not execute). The control token is carried to the API as the X-JCC-Token header and is never logged (redacted by construction; the recording backend stores only token_present=true, never the value). A machine-readable capabilities manifest (artifacts/acceptance/mcp_facade_capabilities.json, schema jcc-mcp-capabilities/1) is derived from the same source so the gate reads modes/capabilities without guessing. 21 tests across 7 classes: TRACE (every call writes one trace record; token redacted), NEGATIVE (unknown tool/arg, missing/malformed session_id, gateway-without-token -> MISSING_CONTROL_TOKEN, assess requires token), PROMPT-INJECTION (read tool rejects injected action/approve args, session_id injection refused, no escalation via tool= arg), PRIVILEGE-ESCALATION (observer refused at capability gate CAPABILITY_DENIED; observer reads OK; operator not denied at capability gate -> GATE_UNAVAILABLE), plus TestMutationRequiresVerifiedCapability (gateway refused unless capability VERIFIED, no API call; proceeds when verified; forwards request with token carried, executed=false), TestTokenNeverLogged (LEAK_TOKEN absent from both logs and trace; token WAS carried), and TestManifestDeclaresMode (list declares mode; capabilities JSON maps name->mode+requires_approval; JSON writable). Negative control: the gateway pre-check was temporarily disabled (if False and s.mode=='gateway') and test_gateway_refused_when_capability_unverified FAILED as expected (got GATE_UNAVAILABLE instead of CAPABILITY_UNVERIFIED), proving the test catches the defect; the defect has been reverted and the suite is green (21 passed). Run with CODEBUDDY_SAFE_DELETE_ENABLED=0 and a fresh --basetemp. CAVEATS: (1) packages/operator_skill/backends.py on disk is 7503 null bytes and untracked (import SyntaxError); S-02 must not edit S-01-owned files, so it handles this via a runtime shim in packages/mcp_facade/_compat.py that registers a stub operator_skill.backends in sys.modules before import -- the real file is S-01's responsibility to repair. (2) AdapterCapabilityProbe defaults to jcc_core.adapters.discovery; on this host no agent adapter is CONNECTED and there is no real control token, so its real verdict is UNVERIFIED (fail-closed) -- tests use StubProbe for determinism. (3) McpServer.run (JSON-RPC stdio loop) is implemented and unit-covered indirectly via facade tests, but is not exercised as a forked subprocess in the pytest suite."
+}

@@ -1,0 +1,25 @@
+{
+  "module": "packages/supervisor/budget.py",
+  "pin_tests": [
+    "packages/supervisor/tests/test_budget_cost_failclosed.py::test_cost_units_is_the_same_object_as_the_core_authority",
+    "packages/supervisor/tests/test_budget_cost_failclosed.py::test_every_current_directive_action_is_costable",
+    "packages/supervisor/tests/test_budget_cost_failclosed.py::test_uncostable_action_raises_and_never_charges_zero",
+    "packages/supervisor/tests/test_budget_cost_failclosed.py::test_costable_action_charges_its_exact_table_value",
+    "packages/supervisor/tests/test_budget_cost_failclosed.py::test_assessment_commit_path_does_not_consult_the_cost_table",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_cost_units_ceiling_fires_and_prices_the_real_action",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_unpriced_pre_check_is_blind_to_the_pending_action",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_signer_unavailable_does_not_grant_a_free_directive_budget",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_budget_exhaustion_does_not_grant_a_free_directive_budget",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_priced_gate_is_load_bearing",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_ceiling_also_fires_when_the_real_store_derives_the_counters",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_a_store_that_cannot_be_written_refuses_the_charge",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_a_directive_is_never_charged_twice",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_enforced_dimension_set_is_identical_across_counter_sources",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_a_waived_dimension_cannot_enter_the_code_even_when_the_limit_is_blown",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_enforced_set_is_not_vacuously_empty_in_either_mode",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_the_waiver_is_published_on_every_snapshot_surface",
+    "packages/supervisor/tests/test_p4_cost_guard.py::test_cost_units_is_published_not_left_at_zero"
+  ],
+  "owner": "lead (orion)",
+  "note": "C-08 pins packages/supervisor/budget.py. Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest --collect-only -q` on this host (collected 18 ids across the declared test files). The gate re-runs EACH node id; a vacuous count-only check is exactly the #54 failure mode."
+}

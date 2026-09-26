@@ -1,0 +1,13 @@
+{
+  "at": "2026-09-26T03:27:47.822321+00:00",
+  "checks": [
+    {
+      "detail": "passed",
+      "name": "test_state_survives_restart",
+      "ok": true
+    }
+  ],
+  "failed": 0,
+  "passed": true,
+  "status": "PASS"
+}

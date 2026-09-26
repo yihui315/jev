@@ -1,0 +1,32 @@
+{
+  "module": "facades/claw3d",
+  "pin_tests": [
+    "facades/claw3d/tests/test_c3d_contract.py::test_contract_file_matches_module",
+    "facades/claw3d/tests/test_c3d_contract.py::test_contract_path_is_on_disk",
+    "facades/claw3d/tests/test_c3d_contract.py::test_contract_is_read_only",
+    "facades/claw3d/tests/test_c3d_contract.py::test_external_product_marked_unavailable",
+    "facades/claw3d/tests/test_c3d_contract.py::test_every_declared_field_is_projected",
+    "facades/claw3d/tests/test_c3d_contract.py::test_excluded_fields_never_reach_payload",
+    "facades/claw3d/tests/test_c3d_contract.py::test_contract_version_is_pinned",
+    "facades/claw3d/tests/test_c3d_determinism.py::test_byte_identical_across_two_stores",
+    "facades/claw3d/tests/test_c3d_determinism.py::test_byte_identical_repeat_calls",
+    "facades/claw3d/tests/test_c3d_determinism.py::test_ordering_is_canonical_by_node_id",
+    "facades/claw3d/tests/test_c3d_determinism.py::test_geometry_is_deterministic",
+    "facades/claw3d/tests/test_c3d_determinism.py::test_canonical_encoding_is_stable_json",
+    "facades/claw3d/tests/test_c3d_failure_isolation.py::test_render_event_raises_to_caller",
+    "facades/claw3d/tests/test_c3d_failure_isolation.py::test_on_event_contains_failure_and_surfaces_it",
+    "facades/claw3d/tests/test_c3d_failure_isolation.py::test_core_survives_facade_death",
+    "facades/claw3d/tests/test_c3d_failure_isolation.py::test_failure_logged_with_traceback",
+    "facades/claw3d/tests/test_c3d_read_only.py::test_facade_advertises_no_mutating_api",
+    "facades/claw3d/tests/test_c3d_read_only.py::test_store_guard_refuses_writers",
+    "facades/claw3d/tests/test_c3d_read_only.py::test_facade_never_writes_through_project_scene",
+    "facades/claw3d/tests/test_c3d_read_only.py::test_mutating_entry_point_refuses",
+    "facades/claw3d/tests/test_c3d_read_only.py::test_read_only_violation_is_runtime_error",
+    "facades/claw3d/tests/test_c3d_secret_leakage.py::test_sentinel_never_reaches_payload",
+    "facades/claw3d/tests/test_c3d_secret_leakage.py::test_excluded_secret_key_not_projected",
+    "facades/claw3d/tests/test_c3d_secret_leakage.py::test_scrub_removes_sentinel_in_free_text",
+    "facades/claw3d/tests/test_c3d_secret_leakage.py::test_read_only_payload_has_no_control_token_field"
+  ],
+  "owner": "meridian",
+  "note": "S-07 read-only Claw3D 3D-scene projection of JCC Core session state. Created from scratch (package was missing). 25 tests mirroring S-06: contract conformance, determinism (byte-identical + deterministic geometry from sha256(session_id), no randomness), read-only enforcement, failure isolation (core survives facade death), secret-leakage. External Claw3D product absent -> OPTIONAL VISUAL INTEGRATION."
+}

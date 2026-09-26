@@ -1,0 +1,18 @@
+{
+  "module": "packages/jcc_core/policy.py",
+  "pin_tests": [
+    "packages/jcc_core/tests/test_policy.py::test_priority_escalate_highest",
+    "packages/jcc_core/tests/test_policy.py::test_priority_pause_over_verify",
+    "packages/jcc_core/tests/test_policy.py::test_priority_verify_over_steer",
+    "packages/jcc_core/tests/test_policy.py::test_priority_steer_over_retry",
+    "packages/jcc_core/tests/test_policy.py::test_priority_retry_over_finish",
+    "packages/jcc_core/tests/test_policy.py::test_priority_finish_over_continue",
+    "packages/jcc_core/tests/test_policy.py::test_continue_floor",
+    "packages/jcc_core/tests/test_policy.py::test_priority_index_ordering",
+    "packages/jcc_core/tests/test_policy.py::test_priority_list_matches_the_kernel_row_table",
+    "packages/jcc_core/tests/test_policy.py::test_decide_is_the_same_authority_as_arbitrate",
+    "packages/jcc_core/tests/test_policy.py::test_status_argument_is_accepted_and_ignored"
+  ],
+  "owner": "lead (orion)",
+  "note": "C-07 pins packages/jcc_core/policy.py. Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest --collect-only -q` on this host (collected 11 ids across the declared test files). The gate re-runs EACH node id; a vacuous count-only check is exactly the #54 failure mode."
+}

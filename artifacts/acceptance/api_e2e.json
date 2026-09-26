@@ -1,0 +1,68 @@
+{
+  "at": "2026-09-26T03:27:47.819971+00:00",
+  "checks": [
+    {
+      "detail": "passed",
+      "name": "test_loopback_bind_only",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/assess]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/pause]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/steer]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/retry]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_accept_bearer_token",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_when_token_unset",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_open_endpoints_match_health_declaration",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_cors_is_allowlist_not_wildcard",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_signed_directive_roundtrip",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_audit_chain_hash_linked_and_tamper_detected",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_session_isolation",
+      "ok": true
+    }
+  ],
+  "failed": 0,
+  "passed": true,
+  "status": "PASS"
+}

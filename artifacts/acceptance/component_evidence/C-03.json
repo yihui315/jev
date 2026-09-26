@@ -1,0 +1,23 @@
+{
+  "module": "packages/jcc_core/state_store.py",
+  "pin_tests": [
+    "packages/jcc_core/tests/test_state_store.py::test_wal_enabled",
+    "packages/jcc_core/tests/test_state_store.py::test_dedup_event_and_delivery",
+    "packages/jcc_core/tests/test_state_store.py::test_session_roundtrip",
+    "packages/jcc_core/tests/test_state_store.py::test_audit_persist_and_verify",
+    "packages/jcc_core/tests/test_state_store.py::test_directive_persist",
+    "packages/jcc_core/tests/test_state_store.py::test_evidence_persist",
+    "packages/jcc_core/tests/test_state_store.py::test_connection_is_public_fresh_and_closed_on_exit",
+    "packages/jcc_core/tests/test_state_store.py::test_transaction_is_public_lock_scoped_and_commits",
+    "packages/jcc_core/tests/test_state_store.py::test_transaction_serialises_concurrent_read_modify_write",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_snapshot_is_derived_from_persisted_state",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_snapshot_cost_units_is_derived_from_actions",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_snapshot_cost_is_uncostable_action_fails_closed",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_snapshot_unknown_session_is_empty_and_dated_now",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_snapshot_satisfies_the_governor_contract",
+    "packages/jcc_core/tests/test_state_store.py::test_budget_first_seen_is_wall_clock_so_the_governor_needs_time_time",
+    "packages/jcc_core/tests/test_state_store.py::test_transaction_rolls_back_and_releases_the_lock_on_exception"
+  ],
+  "owner": "lead (orion)",
+  "note": "C-03 pins packages/jcc_core/state_store.py. Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest --collect-only -q` on this host (collected 16 ids across the declared test files). The gate re-runs EACH node id; a vacuous count-only check is exactly the #54 failure mode."
+}

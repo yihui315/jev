@@ -1,0 +1,30 @@
+{
+  "finished_at": "2026-09-26T10:58:19+0800",
+  "duration_s": 1200,
+  "interval_s": 2.0,
+  "rows": 246,
+  "port": 4778,
+  "start_ps1_rc": 0,
+  "start_ps1_s": 6.74,
+  "service_listener_first": 19496,
+  "service_pids_observed": [
+    19496
+  ],
+  "svc_pid_changes": 1,
+  "first_health_failure": null,
+  "service_survived_full_window": true,
+  "throughput_60s": {
+    "ok": 849,
+    "failed": 0,
+    "window_s": 60.0,
+    "rate_per_s": 14.15,
+    "latency_mean_ms": 70.7,
+    "latency_p50_ms": 64.05,
+    "latency_max_ms": 181.85,
+    "bar_met": false
+  },
+  "scene": {
+    "head": "edb8c26cea6d5cf0585a86ceddbab7c7eb88d535",
+    "tree_dirty": true
+  }
+}

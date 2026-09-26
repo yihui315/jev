@@ -1,0 +1,24 @@
+{
+  "module": "packages/observability/tests/test_obs_s03.py",
+  "pin_tests": [
+    "packages/observability/tests/test_obs_s03.py::test_exporter_off_zero_behaviour_change",
+    "packages/observability/tests/test_obs_s03.py::test_exporter_unavailable_records_failure",
+    "packages/observability/tests/test_obs_s03.py::test_exporter_timeout_records_failure",
+    "packages/observability/tests/test_obs_s03.py::test_exporter_raises_records_failure",
+    "packages/observability/tests/test_obs_s03.py::test_partial_export_failure",
+    "packages/observability/tests/test_obs_s03.py::test_default_path_drops_without_error",
+    "packages/observability/tests/test_obs_s03.py::test_deathmode_raises_supervision_survives",
+    "packages/observability/tests/test_obs_s03.py::test_deathmode_blocks_supervision_survives",
+    "packages/observability/tests/test_obs_s03.py::test_deathmode_returns_none_supervision_survives",
+    "packages/observability/tests/test_obs_s03.py::test_deathmode_absent_supervision_survives",
+    "packages/observability/tests/test_obs_s03.py::test_redaction_set_attribute_strips_secret",
+    "packages/observability/tests/test_obs_s03.py::test_redaction_render_gate_strips_secret",
+    "packages/observability/tests/test_obs_s03.py::test_redaction_memory_exporter_no_secret",
+    "packages/observability/tests/test_obs_s03.py::test_redaction_file_exporter_no_secret",
+    "packages/observability/tests/test_obs_s03.py::test_redaction_log_exporter_no_secret",
+    "packages/observability/tests/test_obs_s03.py::test_determinism_span_serialization",
+    "packages/observability/tests/test_obs_s03.py::test_determinism_tracer_health_stable"
+  ],
+  "owner": "vantage",
+  "note": "S-03 observability exporter-abstraction + death-mode isolation. Tracer (packages/observability/tracer.py) reconstructed from the documented contract after the previous worker's file was found corrupted (all-null bytes, untracked, no git history). 17 tests: exporter OFF is a zero-output no-op; exporter UNAVAILABLE (otel/openinference w/o SDK) records exporter_unavailable and reads unhealthy; TIMEOUT, RAISES, RETURNS-NONE and ABSENT exporters are all isolated on a daemon worker thread so the supervision decision + audit record are still produced; partial export failure is counted (exporter_partial); redaction strips a sentinel secret at attach-time and at render-time across memory/file/log exporters; span serialization is deterministic. Run with CODEBUDDY_SAFE_DELETE_ENABLED=0 and a fresh --basetemp under tempfile.gettempdir(); node ids copied verbatim from `pytest --collect-only -q`. Host has NO OpenTelemetry SDK importable, so the otel/openinference adapters degrade to a counted no-op (every batch reported failed, exporter_available=False), which these tests exercise directly."
+}

@@ -1,0 +1,23 @@
+{
+  "at": "2026-09-25T08:52:18.501654+00:00",
+  "checks": [
+    {
+      "detail": "passed",
+      "name": "test_demo_run_is_labelled_demo_everywhere",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_demo_audit_tape_records_demo_project",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_demo_directives_are_inert",
+      "ok": true
+    }
+  ],
+  "failed": 0,
+  "passed": true,
+  "status": "PASS"
+}

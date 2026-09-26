@@ -1,0 +1,48 @@
+{
+  "at": "2026-09-25T08:53:09.665149+00:00",
+  "checks": [
+    {
+      "detail": "passed",
+      "name": "test_read_only_endpoints_are_open",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoint_refuses_without_token",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_all_eight_screens_return_real_data",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_dashboard_shows_real_provider_and_agents",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_sessions_screen_lists_seeded_sessions",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_session_detail_shows_live_assessment",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_security_screen_proves_refusal",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_demo_label_present_for_demo_sessions",
+      "ok": true
+    }
+  ],
+  "failed": 0,
+  "passed": true,
+  "status": "PASS"
+}

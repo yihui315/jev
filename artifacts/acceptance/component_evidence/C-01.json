@@ -1,0 +1,29 @@
+{
+  "module": "packages/jcc_core/core.py",
+  "pin_tests": [
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[valid-token+valid-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[valid-token+malformed-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[no-token+valid-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[no-token+malformed-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[bad-token+valid-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_assess_boundary_matrix[bad-token+malformed-body]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_malformed_rejection_is_recorded_as_exact_blocker",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_valid_ingest_reports_inert_engine_reason",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_engine_path_is_identical_to_p2_on_every_evidence_fixture",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_engine_path_missing_evidence_corner_is_measured_not_hidden",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_wire_shadow_persists_against_the_real_state_store",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_wire_shadow_disabled_subscribes_nothing",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_R6_1_engine_and_shadow_resolve_the_SAME_threshold_surface",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_manual_endpoints_never_reach_actuator_execute[/api/pause-PAUSE]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_manual_endpoints_never_reach_actuator_execute[/api/steer-STEER]",
+    "packages/jcc_core/tests/test_p3_core_integration.py::test_manual_endpoints_never_reach_actuator_execute[/api/retry-RETRY]",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_subscriber_failure_is_recorded_and_does_not_crash_caller",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_subscriber_failure_in_observe_only_mode_still_emits_broadcast_failed",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_healthy_subscriber_records_no_false_failure",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_own_subscriber_failure_is_reraised_not_silently_dropped",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_external_failure_keeps_ingest_green_while_metric_flips",
+    "packages/jcc_core/tests/test_broadcast_failure.py::test_failure_count_resets_each_broadcast_and_accumulates_total"
+  ],
+  "owner": "lead (orion)",
+  "note": "C-01 pins packages/jcc_core/core.py. Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest --collect-only -q` on this host (collected 22 ids across the declared test files). The gate re-runs EACH node id; a vacuous count-only check is exactly the #54 failure mode."
+}

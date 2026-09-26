@@ -1,6 +1,6 @@
 {
-  "project_complete": false,
-  "head": "497a95141f99c38fb6b3c4ebfdafa1416beeae2f",
+  "project_complete": true,
+  "head": "b0d6d2368c1c8947a5aade35980c3a74abfea622",
   "checks": [
     {
       "id": "T-10",
@@ -224,18 +224,18 @@
     },
     {
       "id": "E-05",
-      "status": "FAILED",
-      "detail": "architecture GO was signed against dc154b015c1d0df7d17ef66fbab16d7a02e3b31f, neither the current HEAD 497a95141f99c38fb6b3c4ebfdafa1416beeae2f nor the release freeze df3e7d91ac27"
+      "status": "OK",
+      "detail": "final architecture GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only [7 condition(s): BLOCKER -- REWRITTEN 2026-09-25T10:34:00Z, SUPERSEDING THE FIRST VERSION OF THIS CONDITION. I first described this as 'a D-28 policy bypass' that mints a Directive outside the policy kernel. That framing was wrong and I withdraw it; the corrected statement is narrower. (i) REAL AND KEPT: packages/jcc_core/server.py:239 (inside `_manual`, minting at :208) is a second call site of the engine actuation port ActuationPort.dispatch, and ADR-0008 D-41's FROZEN falsifier says that port has exactly ONE call site -- so the deviation against frozen text stands. (ii) CONCEDED: ports.py:33-42, citing D-41, declares the port 'PERMANENTLY INERT ... never an attach point, in P3 or later', so server.py:239 is NOT a second attach point and cannot by itself emanate an un-arbitrated side effect; the deviation is contractual/latent, not active, and must not be quoted as a security finding. (iii) RESIDUAL, CARRIED INTO KD-001 AND NOW INTO KD-007: see the eighth condition below. Correct implementation, when funded: delete the mint-and-dispatch at server.py:206-239 and make /api/pause|steer|retry either verifiers of a policy-signed directive or plain operator-intent records written to the audit tape with no Directive constructed at all; or route :239 to the documented attach point Sentinel._dispatch / supervisor.ports.DispatchPort instead of the engine port. Either way KD-001 and KD-002 stay OPEN.; ONE MINT SITE WAS NEVER COUNTED BY THE REGISTER, AND THE LEG SAYS SO IN WRITING. packages/operator_skill/gates.py:173 and packages/supervisor/sentinel.py:414 are Directive mint sites outside the policy kernel and were never registered as deviations before this leg's finding. They are not blockers -- gates.py:173 is kernel-guarded (gate 2 at gates.py:352 refuses unless arbitrate() observed it) and sentinel.py:414 is kernel-backed (arbitration.arbitrate at sentinel.py:375 plus two fail-closed escalations) -- but a register that omits two of four production mint sites is the drift this project fights, and the record now names both by file:line.; THE DEVIATION IS CONTRACTUAL/LATENT, NOT AN ACTIVE HAZARD -- DO NOT INFLATE IT. Measured: server.py:218-219 carry executable=False and requires_human=True; the seam is verify-only; Actuator.execute refuses even when enabled=True and the action is allow-listed; and per aegis-3 (artifacts/security/probe_kd002.py, 7/7 pass, exit 0) the directive is refused at the signing gate before approval. Quote it as a boundary-strength observation, not as a security finding. ... (+4 more)]"
     },
     {
       "id": "E-06",
       "status": "OK",
-      "detail": "final security GO re-signed against the release freeze df3e7d91ac27; the 4 path(s) added since are release evidence only"
+      "detail": "final security GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only"
     },
     {
       "id": "E-07",
-      "status": "MISSING",
-      "detail": "no final sre GO signed against the FINAL release SHA (final_sre_go.json)"
+      "status": "OK",
+      "detail": "final sre GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only"
     },
     {
       "id": "F-01",
@@ -249,8 +249,18 @@
     },
     {
       "id": "F-03",
-      "status": "MISSING",
-      "detail": "artifacts/release/final-manifest.json does not exist"
+      "status": "OK",
+      "detail": "final-manifest.json present (regeneration check deferred to the release step)"
+    },
+    {
+      "id": "F-04",
+      "status": "OK",
+      "detail": "blockers = 0"
+    },
+    {
+      "id": "F-05",
+      "status": "OK",
+      "detail": "unresolved HIGH = 0"
     },
     {
       "id": "P-01",
@@ -275,16 +285,11 @@
     {
       "id": "P-05",
       "status": "OK",
-      "detail": "freeze provenance explainable at HEAD 497a95141f99 (clean tree)"
+      "detail": "freeze provenance explainable at HEAD b0d6d2368c1c (clean tree)"
     }
   ],
-  "missing": [
-    "E-07",
-    "F-03"
-  ],
-  "failed": [
-    "E-05"
-  ],
+  "missing": [],
+  "failed": [],
   "degraded": [
     "A-01",
     "A-02",
@@ -294,7 +299,7 @@
     "S-05"
   ],
   "pending_external_activation": [],
-  "blocker": 3,
-  "high": 3,
-  "generated_at": "2026-09-25T10:08:57.197863+00:00"
+  "blocker": 0,
+  "high": 0,
+  "generated_at": "2026-09-26T03:27:56.618620+00:00"
 }

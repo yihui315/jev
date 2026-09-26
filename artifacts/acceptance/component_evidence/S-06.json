@@ -1,0 +1,31 @@
+{
+  "module": "facades/session_center",
+  "pin_tests": [
+    "facades/session_center/tests/test_contract.py::test_contract_file_matches_module",
+    "facades/session_center/tests/test_contract.py::test_contract_path_is_on_disk",
+    "facades/session_center/tests/test_contract.py::test_contract_is_read_only",
+    "facades/session_center/tests/test_contract.py::test_external_product_marked_unavailable",
+    "facades/session_center/tests/test_contract.py::test_every_declared_field_is_projected",
+    "facades/session_center/tests/test_contract.py::test_excluded_fields_never_reach_payload",
+    "facades/session_center/tests/test_contract.py::test_contract_version_is_pinned",
+    "facades/session_center/tests/test_determinism.py::test_byte_identical_across_two_stores",
+    "facades/session_center/tests/test_determinism.py::test_byte_identical_repeat_calls",
+    "facades/session_center/tests/test_determinism.py::test_ordering_is_canonical_by_session_id",
+    "facades/session_center/tests/test_determinism.py::test_canonical_encoding_is_stable_json",
+    "facades/session_center/tests/test_failure_isolation.py::test_render_event_raises_to_caller",
+    "facades/session_center/tests/test_failure_isolation.py::test_on_event_contains_failure_and_surfaces_it",
+    "facades/session_center/tests/test_failure_isolation.py::test_core_survives_facade_death",
+    "facades/session_center/tests/test_failure_isolation.py::test_failure_logged_with_traceback",
+    "facades/session_center/tests/test_read_only.py::test_facade_advertises_no_mutating_api",
+    "facades/session_center/tests/test_read_only.py::test_store_guard_refuses_writers",
+    "facades/session_center/tests/test_read_only.py::test_facade_never_writes_through_project_all",
+    "facades/session_center/tests/test_read_only.py::test_mutating_entry_point_refuses",
+    "facades/session_center/tests/test_read_only.py::test_read_only_violation_is_runtime_error",
+    "facades/session_center/tests/test_secret_leakage.py::test_sentinel_never_reaches_payload",
+    "facades/session_center/tests/test_secret_leakage.py::test_excluded_secret_key_not_projected",
+    "facades/session_center/tests/test_secret_leakage.py::test_scrub_removes_sentinel_in_free_text",
+    "facades/session_center/tests/test_secret_leakage.py::test_read_only_payload_has_no_control_token_field"
+  ],
+  "owner": "meridian",
+  "note": "S-06 read-only Session Center projection of JCC Core session state. 24 tests: contract conformance, determinism (byte-identical + canonical ordering), read-only enforcement (StoreGuard refuses writers; facade never writes), failure isolation (core survives facade death; failure counted + logged with traceback, never swallowed; strict path raises to caller), and secret-leakage (sentinel never reaches payload). External product absent -> OPTIONAL VISUAL INTEGRATION. contract.py was rebuilt from contract.json (previous worker left it as null bytes)."
+}

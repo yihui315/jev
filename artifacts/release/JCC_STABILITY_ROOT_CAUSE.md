@@ -4,9 +4,10 @@
 
 ```
 ROOT_CAUSE_1 = ENVIRONMENT / JOB_OBJECT_LIFETIME_BINDING
-               agent 宿主把每条命令放进带 KILL_ON_JOB_CLOSE 的 Job Object；
+               agent 宿主把每条命令放进一个"命令一返回就杀掉整棵树"的 Job Object；
                start.ps1 的 Start-Process 未 CREATE_BREAKAWAY_FROM_JOB
                => 服务随启动它的那条命令一起被 TerminateProcess。
+               （KILL_ON_JOB_CLOSE 标志位本身未读出，是由行为推定的；见 §1.4 更正与 §6。）
 
 ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
                验收 harness 的 http_json 每个请求重建 urllib opener，
@@ -89,6 +90,31 @@ service_in_job    = true      <-- jcc_core 也在里面
 
 WMI 启动的追踪器实测：`in_job=false`，父链 `WmiPrvSE.exe` ← `svchost.exe` ← `services.exe`。
 本报告的全部寿命/吞吐证据均由该方式产出。
+
+> **2026-09-26 12:20 更正 —— 上面那个 `in_job=false` 不能当作"工作进程在 job 外"的证据。**
+>
+> 交叉核对（`probe_job_context.py` / `probe_job_launch.py`）发现同一条启动链上两个进程读数相反，
+> 且两种测量方式（进程内自测 / 外部 `OpenProcess` 后测）在各自进程上完全一致：
+>
+> | 进程 | 测法 | `IsProcessInJob` |
+> |---|---|---|
+> | WMI 建的 `cmd.exe`（**包装器**） | 外部 + 内部 | **False** |
+> | 它随后拉起的 `python`（**真正干活的**） | 外部 + 内部 | **True** |
+>
+> 原因：`IsProcessInJob(h, NULL, ...)` 回答的是"**是否在任何 job 内**"，而不是"是否在 agent 宿主的
+> `KILL_ON_JOB_CLOSE` job 内"。包装器脱离了，工作者又落在*某个* job 里 —— 而那个 job 显然**不会**杀它
+> （40 分钟浸泡正是在这条路径上跑完的）。
+>
+> ⇒ 判据必须换成**行为**，而不是 API 读数。新增持久化金丝雀（`canary_survive.py`，
+> 证据 `CANARY_SURVIVAL.json`）：金丝雀每秒写一次心跳，**装填命令返回**后由**后续命令**回来核对。
+>
+> | 启动方式 | 装填命令返回后仍存活 | 期望剩余寿命 | 判定 |
+> |---|---|---|---|
+> | 普通 `subprocess.Popen` 子进程 | **4.37 s** | 144 s | **随命令一起死** |
+> | WMI `Win32_Process.Create` | **88.36 s**（且仍在跑） | 144 s | **存活** |
+>
+> 这与 §1.3 的三金丝雀（8.7 s 后 3/3 全灭）方向一致，并把它从"三个样本"升级为**同一次实验内的
+> A/B 对照**。**`in_job` 这个词在本报告中此后只作为"读数"引用，不再作为结论使用。**
 
 ### 1.5 与既有记录的衔接
 
@@ -240,10 +266,15 @@ F:\jev\.venv\Scripts\python.exe .workbuddy\scratch\continuation\scene_check.py
 
 ## 6. 未取证 / 边界
 
-* **未**证明该 Job Object 归 WorkBuddy 还是更外层终端；只证明了"**存在**且 `KILL_ON_JOB_CLOSE` 生效"，
+* **未**证明被杀的根源归 WorkBuddy 还是更外层终端；只证明了"宿主命令返回后树被杀"这一**行为**，
   以及"继承是死因"。这已足以定性与选择修法。
 * **未**在真实运维者控制台（无 job）下重跑 E-07 —— §1.4 的 A/B/C 已覆盖同一机理，
   且 §3 的 1200 s 追踪就是在 job 外跑的产品生命周期脚本。
+* `KILL_ON_JOB_CLOSE` 这个**标志位本身从未被读出**（没有 `QueryInformationJobObject` 查
+  `JOBOBJECT_EXTENDED_LIMIT_INFORMATION`）。它是由**行为**推定的：子进程在宿主命令返回后
+  数秒内集体死亡、现场无任何 killer 痕迹、且 WMI 路径不死。**主张是行为，不是标志位。**
+* 每个进程的 job **归属**也无法归属到具体是谁建的（`IsProcessInJob` 只回答"是否在任何 job 内"，
+  且实测同一启动链上包装器与工作者读数相反）。**§1.4 已把判据改为行为存活。**
 * §2.4 中"首跑 114 ms/请求"含当时并发负载，**未**单独复现该 114；其成因已由 §2.2/§2.3 的
   静止态分解独立解释（57 ms 常数 + 争用）。
 * `stop.ps1` 的 exit code、`status.ps1` 的括号文案、`start.ps1 -Port` 不被转发

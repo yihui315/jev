@@ -1,0 +1,15 @@
+{
+  "module": "packages/jcc_core/actuator.py",
+  "pin_tests": [
+    "packages/jcc_core/tests/test_actuator.py::test_disabled_refuses_all",
+    "packages/jcc_core/tests/test_actuator.py::test_every_action_refused_when_disabled",
+    "packages/jcc_core/tests/test_actuator.py::test_enabled_but_action_not_allowed",
+    "packages/jcc_core/tests/test_actuator.py::test_enabled_allowed_action_still_not_implemented_in_p1",
+    "packages/jcc_core/tests/test_manual_actuation.py::test_manual_path_dispatches_and_never_executes[pause]",
+    "packages/jcc_core/tests/test_manual_actuation.py::test_manual_path_dispatches_and_never_executes[steer]",
+    "packages/jcc_core/tests/test_manual_actuation.py::test_manual_path_dispatches_and_never_executes[retry]",
+    "packages/jcc_core/tests/test_manual_actuation.py::test_manual_path_is_inert_even_when_actuation_is_enabled"
+  ],
+  "owner": "lead (orion)",
+  "note": "C-10 pins packages/jcc_core/actuator.py. Node ids are VERBATIM from `F:/jev/.venv/Scripts/python.exe -m pytest --collect-only -q` on this host (collected 8 ids across the declared test files). The gate re-runs EACH node id; a vacuous count-only check is exactly the #54 failure mode."
+}

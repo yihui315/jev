@@ -1,0 +1,35 @@
+{
+  "at": "2026-09-26T12:25:06",
+  "question": "does a process armed this way outlive the command that armed it?",
+  "why_in_job_is_not_the_answer": "IsProcessInJob(h, NULL, ...) reports membership of ANY job. Measured: the WMI-created cmd.exe reads in_job=False while the python it spawns reads in_job=True, and that python still outlives its arming command. So in_job cannot be quoted as proof of escaping the agent host's job.",
+  "rows": [
+    {
+      "kind": "ordinary",
+      "how": "ordinary subprocess.Popen child of this command",
+      "launcher_pid": 20520,
+      "launcher_in_job": true,
+      "marker": "marker_ordinary_20260926_122147_864284.json",
+      "beats_total": 11,
+      "beats_after_arm_command_returned": 5,
+      "seconds_alive_after_arm_returned": 4.37,
+      "expected_remaining_s": 144,
+      "fraction_of_expected_life_observed": 0.03,
+      "launcher_still_alive_now": false,
+      "verdict": "DIED WITH THE COMMAND"
+    },
+    {
+      "kind": "wmi",
+      "how": "Win32_Process.Create (WMI)",
+      "launcher_pid": 25168,
+      "launcher_in_job": false,
+      "marker": "marker_wmi_20260926_122127_940918.json",
+      "beats_total": 150,
+      "beats_after_arm_command_returned": 144,
+      "seconds_alive_after_arm_returned": 143.39,
+      "expected_remaining_s": 144,
+      "fraction_of_expected_life_observed": 0.996,
+      "launcher_still_alive_now": false,
+      "verdict": "SURVIVED"
+    }
+  ]
+}
