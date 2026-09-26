@@ -18,7 +18,7 @@ T: watchdog recovery. T1 proves the shipped watchdog's decision procedure in an
    isolated replica. T2 is the substantive one: stop the service, let status.ps1
    DETECT the outage, then recover with start.ps1 and prove a new pid.
 """
-import io, json, os, subprocess, sys, time, datetime
+import hashlib, io, json, os, subprocess, sys, time, datetime
 
 ROOT = r"F:\jev"
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
@@ -142,11 +142,18 @@ def wait_health(seconds=60):
 
 
 def ownership():
+    # utf-8-sig, not utf-8. The marker is written by scripts/lib/JccCommon.ps1,
+    # and Windows PowerShell 5.1's `-Encoding UTF8` prepends a BOM. Reading with
+    # plain utf-8 makes json.load raise, the `except` below turns that into
+    # None, and the soak report then says "ownership marker written: False" for
+    # a marker that exists and is correct -- a false negative in the very
+    # evidence FINAL-08 rests on. The writer no longer emits a BOM; this stays
+    # tolerant so a marker produced before that fix still reads as present.
     p = os.path.join(ROOT, "runtime", "jcc", "jcc.ownership.json")
     if not os.path.isfile(p):
         return None
     try:
-        return json.load(io.open(p, encoding="utf-8"))
+        return json.load(io.open(p, encoding="utf-8-sig"))
     except (OSError, ValueError):
         return None
 
@@ -267,12 +274,18 @@ def main():
 
     # ---------------- T1: watchdog decision procedure ----------------
     log("=== PHASE T1: watchdog decision procedure (replica) ===")
-    wr_path = os.path.join(ACC, "WATCHDOG_RECOVERY_PROOF.json")
+    # The TRACKED instrument, not a scratch copy, and its own artifact. It used to
+    # run `.workbuddy/scratch/continuation/watchdog_proof.py` and to write
+    # WATCHDOG_RECOVERY_PROOF.json -- which FINAL-09 also writes. So this step's
+    # recorded claim named a copy that is not in version control and pointed at
+    # bytes a later step then replaced: unreproducible, and unverifiable after the
+    # fact. A soak report is not allowed to be either.
+    t1_script = os.path.join(ROOT, "tools", "continuation", "watchdog_proof.py")
+    t1_script_sha = hashlib.sha256(open(t1_script, "rb").read()).hexdigest()
+    wr_path = os.path.join(ACC, "SOAK_WATCHDOG_PROOF.json")
     wr_before = os.path.getmtime(wr_path) if os.path.isfile(wr_path) else None
     t1_start = time.time()
-    wr = subprocess.run([PY, os.path.join(ROOT, ".workbuddy", "scratch", "continuation",
-                                          "watchdog_proof.py")],
-                        capture_output=True, timeout=600)
+    wr = subprocess.run([PY, t1_script], capture_output=True, timeout=600)
     w_out = decode_out(wr.stdout)
     w_err = decode_out(wr.stderr)
     # BOTH streams are kept. The first run of this step exited non-zero and only
@@ -296,7 +309,11 @@ def main():
     t1_ok = (wr.returncode == 0 and t1_fresh and t1_verdict == "PASS")
     R["watchdog_proof"] = {"exit_code": wr.returncode, "stdout_tail": w_out[-2500:],
                            "stderr_tail": w_err[-2500:],
+                           "instrument": "tools/continuation/watchdog_proof.py",
+                           "instrument_sha256": t1_script_sha,
                            "artifact": wr_path,
+                           "artifact_sha256": (hashlib.sha256(open(wr_path, "rb").read())
+                                               .hexdigest() if os.path.isfile(wr_path) else None),
                            "artifact_fresh_for_this_step": t1_fresh,
                            "artifact_verdict": t1_verdict,
                            "artifact_run_stamp": (t1_doc or {}).get("run_stamp"),

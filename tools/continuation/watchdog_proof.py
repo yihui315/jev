@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """PHASE T -- watchdog recovery proof.
 
-WHAT THIS PROVES, PRECISELY. tools/continuation-watchdog.ps1 is a DECISION
-PROCEDURE with three rules; what is being proved here is that the procedure
+WHAT THIS PROVES, PRECISELY. scripts/continuation-watchdog.ps1 is a DECISION
+PROCEDURE with four rules; what is being proved here is that the procedure
 recovers a dead controller and never resurrects a finished pipeline. The
 controller itself is replaced by a stub that implements only the documented
 lock handshake, because the real controller's next step is a full E-07 plus the
@@ -11,14 +11,34 @@ measurement. So this is a proof of the RECOVERY MECHANISM, not of the
 controller's pipeline; the pipeline is proved separately by the gate.
 
 The replica root exists so the real repository's controller state and locks are
-never touched. The only edit to the shipped script is $ProjectRoot, and the
-script reports how many lines that edit touched.
+never touched. NOTHING ABOUT THE SHIPPED SCRIPT IS EDITED: the replica is built
+by tools/continuation/replica.py, ``scripts/`` is copied verbatim, and the tick
+is told where its root is through ``-Root`` -- a parameter the product already
+has and which tools/tests/test_continuation_infra.py uses for the same reason.
+
+This script used to carry its OWN copy of the replica build and to patch the
+script's ``$ProjectRoot``. That is exactly how it went stale: the watchdog moved
+to ``scripts/`` and learned ``-Root``, the local patch stopped touching one
+line, and the instrument would have died on its own assert the first time a soak
+used it -- a forty-minute soak that cannot fail until minute forty-one. There is
+one replica builder now, and the lineage is recorded instead of re-implemented.
+
+The artifact is its OWN file (``artifacts/acceptance/SOAK_WATCHDOG_PROOF.json``),
+not WATCHDOG_RECOVERY_PROOF.json. Both producers used to write the latter, so the
+soak's recorded claim was about bytes that FINAL-09 then overwrote -- a claim no
+reader could ever re-verify from disk. Two claims, two files.
 
 WHAT THIS DOES NOT PROVE. That jcc_core itself is supervised. It is not: the
 shipped watchdog watches the continuation controller, and no component in this
 repository restarts the service if it dies. That gap is reported, not papered over.
 """
-import io, json, os, re, shutil, subprocess, sys, time, datetime
+import io, json, os, subprocess, sys, time, datetime
+
+# The replica builder lives next to this file. Executed as a file, sys.path[0] is
+# already this directory; loaded by path from a test, it is not -- so the
+# directory is added explicitly rather than left to how the caller invoked it.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import replica                                              # noqa: E402
 
 ROOT = r"F:\jev"
 # Line-buffer stdout. When a parent captures this script through a pipe, an
@@ -66,33 +86,11 @@ STUB_SLEEP = 45          # long enough for the next tick to observe a LIVE contr
 # a reader can re-derive any printed line from the bytes on disk.
 RUN_FILES = []
 
-STUB = r'''"""Stub controller: implements ONLY the documented lock handshake."""
-import json, os, time, datetime, sys
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-LOCK = os.path.join(ROOT, ".workbuddy", "locks", "jcc-continuation.lock.json")
-os.makedirs(os.path.dirname(LOCK), exist_ok=True)
-try:
-    cur = json.load(open(LOCK, encoding="utf-8"))
-    pid = int(cur.get("pid", 0))
-    if pid > 0:
-        try:
-            os.kill(pid, 0)
-            print("stub controller: lock held by live pid %d; exiting" % pid)
-            sys.exit(0)
-        except OSError:
-            pass
-except (OSError, ValueError):
-    pass
-rec = {"pid": os.getpid(),
-       "expires_at": (datetime.datetime.now() + datetime.timedelta(minutes=10)).isoformat(),
-       "task_id": "watchdog-proof-stub"}
-tmp = LOCK + ".tmp.%d" % os.getpid()
-open(tmp, "w", encoding="utf-8").write(json.dumps(rec))
-os.replace(tmp, LOCK)
-print("stub controller: acquired lock pid=%d" % os.getpid())
-time.sleep(int(os.environ.get("STUB_SLEEP", "6")))
-print("stub controller: exiting")
-'''
+# The stub controller is NOT defined here any more. It is
+# replica.STUB_CONTROLLER, and its lifetime is handed over through JCC_STUB_SLEEP
+# (see ps_run). The local copy that used to live here read STUB_SLEEP, which the
+# replica stub does not look at -- so the two had already drifted apart in the one
+# detail that decides whether the next tick observes a live controller or a corpse.
 
 
 def ps_run(script, env=None, drop=(), timeout=120, tag=None):
@@ -110,7 +108,7 @@ def ps_run(script, env=None, drop=(), timeout=120, tag=None):
     for k in list(e):
         if k.lower() in tuple(d.lower() for d in drop):
             e.pop(k, None)
-    e["STUB_SLEEP"] = str(STUB_SLEEP)
+    e["JCC_STUB_SLEEP"] = str(STUB_SLEEP)
     if env:
         e.update(env)
     # One file pair PER CALL, stamped per run. With a single shared tag each case
@@ -122,7 +120,7 @@ def ps_run(script, env=None, drop=(), timeout=120, tag=None):
     RUN_FILES.append((os.path.basename(o), os.path.basename(r)))
     with io.open(o, "wb") as fo, io.open(r, "wb") as fe:
         p = subprocess.run([PS, "-NoProfile", "-NonInteractive", "-ExecutionPolicy",
-                            "Bypass", "-File", script],
+                            "Bypass", "-File", script, "-Root", REP],
                            stdout=fo, stderr=fe, env=e, timeout=timeout)
     return (p.returncode,
             decode_out(open(o, "rb").read()).strip(),
@@ -263,34 +261,17 @@ def dead_pid():
 
 
 # --- build the replica ---------------------------------------------------------
-os.makedirs(os.path.join(REP, ".workbuddy", "locks"), exist_ok=True)
-os.makedirs(os.path.join(REP, ".workbuddy", "scheduled", "logs"), exist_ok=True)
-os.makedirs(os.path.join(REP, "tools"), exist_ok=True)
-# The watchdog resolves its interpreter as <root>\.venv\Scripts\python.exe, so the
-# replica needs one or every case would fail with "no python interpreter found".
-# .venv\Scripts\python.exe is the Windows venv redirector and .venv\pyvenv.cfg
-# carries an ABSOLUTE home, so copying both gives the replica a working launcher
-# that points at the real base interpreter -- no fake interpreter is introduced.
-os.makedirs(os.path.join(REP, ".venv", "Scripts"), exist_ok=True)
-for rel in (os.path.join(".venv", "Scripts", "python.exe"),
-            os.path.join(".venv", "pyvenv.cfg")):
-    shutil.copyfile(os.path.join(ROOT, rel), os.path.join(REP, rel))
-_probe = subprocess.run([os.path.join(REP, ".venv", "Scripts", "python.exe"),
-                         "-c", "import sys;print(sys.executable)"],
-                        capture_output=True, timeout=60)
-print("replica interpreter: %s" % (decode_out(_probe.stdout).strip()
-                                  or decode_out(_probe.stderr).strip()))
-
-src = io.open(os.path.join(ROOT, "tools", "continuation-watchdog.ps1"),
-              encoding="utf-8").read()
-edited = src.replace("$ProjectRoot  = 'F:\\jev'", "$ProjectRoot  = '%s'" % REP)
-lines_edited = sum(1 for a, b in zip(src.splitlines(), edited.splitlines()) if a != b)
-assert lines_edited == 1, "the replica edit must touch exactly one line, touched %d" % lines_edited
-io.open(os.path.join(REP, "tools", "continuation-watchdog.ps1"), "w",
-        encoding="utf-8", newline="\r\n").write(edited)
-io.open(os.path.join(REP, "tools", "jcc_continuation.py"), "w",
-        encoding="utf-8", newline="\n").write(STUB)
-WD = os.path.join(REP, "tools", "continuation-watchdog.ps1")
+# ONE replica builder for the whole tree (tools/continuation/replica.py). It
+# copies `scripts/` verbatim, gives the replica a working venv launcher, and
+# installs the declared stub controller. The instrument below therefore drives the
+# SHIPPED tick, unmodified, through the product's own `-Root` parameter.
+_replica_info = replica.build_replica(REP)
+print("replica interpreter: %s (works=%s)"
+      % (_replica_info.get("replica_interpreter"),
+         _replica_info.get("replica_interpreter_works")))
+assert _replica_info.get("replica_interpreter_works"), \
+    "the replica has no working interpreter: %r" % (_replica_info,)
+WD = os.path.join(REP, "scripts", "continuation-watchdog.ps1")
 STATE = os.path.join(REP, ".workbuddy", "jcc_execution_state.json")
 
 results = []
@@ -315,13 +296,14 @@ def record(name, expect, rc, out, err, extra=None):
 
 
 print("replica root : %s" % REP)
-print("script edit  : 1 line ($ProjectRoot)  [verified: %d]" % lines_edited)
+print("script edit  : none -- scripts/ is copied verbatim and the tick is told "
+      "its root with -Root  [the shipped bytes are unmodified]")
 print()
 
 # --- Case A: Rule 3, no controller at all --------------------------------------
 print("A. no controller, no state -> must start one (Rule 3)")
 rc, out, err = ps_run(WD, tag="A_rule3")
-record("A Rule 3 starts a replacement", "started controller", rc, out, err)
+record("A Rule 3 starts a replacement", "launched detached", rc, out, err)
 time.sleep(0.5)
 lk = read_lock()
 a_pid = int((lk or {}).get("pid", 0))
@@ -333,7 +315,7 @@ results[-1]["extra"] = {"lock_pid": a_pid, "lock_pid_alive": pid_alive(a_pid)}
 print()
 print("B. live controller -> must do NOTHING (Rule 2, idempotent tick)")
 rc, out, err = ps_run(WD, tag="B_rule2")
-record("B Rule 2 no-ops on a live controller", "already running", rc, out, err)
+record("B Rule 2 no-ops on a live controller", "already live", rc, out, err)
 lk2 = read_lock()
 same = int((lk2 or {}).get("pid", 0)) == a_pid
 print("      lock pid unchanged=%s (%s)" % (same, (lk2 or {}).get("pid")))
@@ -352,7 +334,7 @@ io.open(os.path.join(REP, ".workbuddy", "locks", "jcc-continuation.lock.json"), 
                                       + datetime.timedelta(minutes=10)).isoformat()}))
 print("      planted stale lock naming dead pid %d (alive=%s)" % (d, pid_alive(d)))
 rc, out, err = ps_run(WD, tag="D_recovery")
-record("D recovery replaces a dead controller", "will start a replacement", rc, out, err)
+record("D recovery replaces a dead controller", "starting a replacement", rc, out, err)
 time.sleep(0.5)
 lk3 = read_lock()
 d_pid = int((lk3 or {}).get("pid", 0))
@@ -366,15 +348,20 @@ results[-1]["extra"] = {"dead_pid": d, "new_pid": d_pid, "replaced": replaced,
 # --- Case C: Rule 1, project complete -> permanent no-op -----------------------
 print()
 print("C. project_complete=true -> must be a PERMANENT no-op (Rule 1)")
+# Rule 1 is `runtime_state == 'COMPLETE' AND project_run == 'PASS'`. The fixture
+# used to write `project_complete: True`, which the shipped rule does not read --
+# so the case would have "passed" by matching a string in an ERROR line. Written
+# the way the controller actually persists it.
 io.open(STATE, "w", encoding="utf-8").write(json.dumps(
-    {"current_step": "S_COMPLETE", "project_complete": True,
-     "steps_completed": [], "head_sha": "", "scripts_freeze_sha": ""}))
+    {"phase": "FINAL", "current_step": "FINAL-13_PUBLISH", "pid": None,
+     "runtime_state": "COMPLETE", "project_run": "PASS",
+     "steps_completed": ["FINAL-01_CONTROLLER", "FINAL-13_PUBLISH"]}))
 try:
     os.remove(os.path.join(REP, ".workbuddy", "locks", "jcc-continuation.lock.json"))
 except OSError:
     pass
 rc, out, err = ps_run(WD, tag="C_rule1")
-record("C Rule 1 never resurrects a finished pipeline", "already complete", rc, out, err)
+record("C Rule 1 never resurrects a finished pipeline", "watchdog stays idle", rc, out, err)
 no_lock = read_lock() is None
 print("      no new controller started (lock absent)=%s" % no_lock)
 results[-1]["extra"] = {"lock_absent": no_lock}
@@ -457,16 +444,19 @@ doc = {
                        "continuation controller, and nothing in this repository restarts "
                        "the service if it dies"),
     "replica_root": REP,
-    "script_edit": {"file": "tools/continuation-watchdog.ps1",
-                    "lines_changed": lines_edited,
-                    "what": "$ProjectRoot reassigned to the replica root",
+    "script_edit": {"file": "scripts/continuation-watchdog.ps1",
+                    "lines_changed": 0,
+                    "what": "nothing: `scripts/` is copied verbatim by "
+                            "tools/continuation/replica.py and the tick is told its "
+                            "root with -Root, which the product already supports",
                     "controller": "replaced by a stub implementing only the lock handshake"},
     "cases": results,
     "stub_lifetime_s": STUB_SLEEP,
     "cleanup_of_our_own_stubs": CLEANUP,
+    "ok": not bad,
     "verdict": "PASS" if not bad else "FAIL",
 }
-out_path = os.path.join(ROOT, "artifacts", "acceptance", "WATCHDOG_RECOVERY_PROOF.json")
+out_path = os.path.join(ROOT, "artifacts", "acceptance", "SOAK_WATCHDOG_PROOF.json")
 io.open(out_path, "w", encoding="utf-8", newline="\n").write(
     json.dumps(doc, indent=2, ensure_ascii=False))
 print("evidence -> %s" % out_path)
