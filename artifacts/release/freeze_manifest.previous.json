@@ -1,0 +1,15 @@
+{
+  "scripts_freeze_sha": "cdbb3ca791aa341bc4e6e6c9cbf6064f689155e2",
+  "head_sha": "cdbb3ca791aa341bc4e6e6c9cbf6064f689155e2",
+  "taken_at": "2026-09-26T06:24:41.972440",
+  "hashes": {
+    "scripts/acceptance.ps1": "f3175809d79953c99945041ae2954504fa20cd26dff7352d69a5b24093d225ac",
+    "scripts/bootstrap.ps1": "90d739990609d8bb52b6aa9b11d44c9d449c8be22e20dda328c53532250f4cad",
+    "scripts/doctor.ps1": "5fd766d61d6cf408b96c6746174e5b27925eb196669219bb45bcb410a0393fd4",
+    "scripts/lib/JccCommon.ps1": "17016a3d69a1690a60f591978d3b1c0dfb92e7405cbcd2b6f95ae4f419473e1f",
+    "scripts/restart.ps1": "a46a0386fb13c55b6e14843896c24ef66963f8389b7e4190763dd7da8d29af3a",
+    "scripts/start.ps1": "f67a0c6e9214294a25fac13a649983970cf402b3f88d99aa502611c6d0db7f50",
+    "scripts/status.ps1": "76ed9bff12f485d3160b8eafe4164ac8d26d181c5d99496500ae6f3a202809e0",
+    "scripts/stop.ps1": "832bbbdfb7d05818a01e2cdd8a84a100dcb87c7c6cae3056d79b00c3ee4dde85"
+  }
+}

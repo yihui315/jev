@@ -1,313 +1,301 @@
 {
-  "schema": "jcc-final-gate/2",
-  "project_complete": false,
+  "blocker": 0,
   "checks": [
     {
+      "detail": "scope 'unit and contract': 483 passed, 0 failed, 0 errors, 0 skipped -- packages/jcc_core/tests, packages/supervisor/tests",
       "id": "T-10",
-      "status": "OK",
-      "detail": "scope 'unit and contract': 483 passed, 0 failed, 0 errors, 0 skipped -- packages/jcc_core/tests, packages/supervisor/tests"
+      "status": "OK"
     },
     {
+      "detail": "scope 'platform surfaces (skill / mcp / observability)': 71 passed, 0 failed, 0 errors, 0 skipped -- packages/operator_skill/tests, packages/mcp_facade/tests, packages/observability/tests",
       "id": "T-11",
-      "status": "OK",
-      "detail": "scope 'platform surfaces (skill / mcp / observability)': 71 passed, 0 failed, 0 errors, 0 skipped -- packages/operator_skill/tests, packages/mcp_facade/tests, packages/observability/tests"
+      "status": "OK"
     },
     {
+      "detail": "scope 'control UI and demo': 11 passed, 0 failed, 0 errors, 0 skipped -- apps/control_ui/tests",
       "id": "T-12",
-      "status": "OK",
-      "detail": "scope 'control UI and demo': 11 passed, 0 failed, 0 errors, 0 skipped -- apps/control_ui/tests"
+      "status": "OK"
     },
     {
+      "detail": "scope 'projection facades': 49 passed, 0 failed, 0 errors, 0 skipped -- facades/session_center/tests, facades/claw3d/tests",
       "id": "T-13",
-      "status": "OK",
-      "detail": "scope 'projection facades': 49 passed, 0 failed, 0 errors, 0 skipped -- facades/session_center/tests, facades/claw3d/tests"
+      "status": "OK"
     },
     {
+      "detail": "scope 'end to end': 13 passed, 0 failed, 0 errors, 0 skipped -- tests/e2e",
       "id": "T-14",
-      "status": "OK",
-      "detail": "scope 'end to end': 13 passed, 0 failed, 0 errors, 0 skipped -- tests/e2e"
+      "status": "OK"
     },
     {
+      "detail": "scope 'gate decision-rule falsifiers': 109 passed, 0 failed, 0 errors, 0 skipped -- tools/tests",
       "id": "T-15",
-      "status": "FAILED",
-      "detail": "scope 'gate decision-rule falsifiers': pytest exit code 1, and the output ends: =================== 1 failed, 87 passed in 61.45s (0:01:01) ==================="
+      "status": "OK"
     },
     {
+      "detail": "gate collected its own totals across 6 scope(s): {'passed': 736, 'failed': 0, 'errors': 0, 'skipped': 0}",
       "id": "T-01",
-      "status": "OK",
-      "detail": "gate collected its own totals across 6 scope(s): {'passed': 714, 'failed': 1, 'errors': 0, 'skipped': 0}"
+      "status": "OK"
     },
     {
+      "detail": "aggregate tally reconciles with zero failed/error/skipped: {'passed': 736, 'failed': 0, 'errors': 0, 'skipped': 0}",
       "id": "T-02",
-      "status": "FAILED",
-      "detail": "aggregate tally not clean: {'passed': 714, 'failed': 1, 'errors': 0, 'skipped': 0}"
+      "status": "OK"
     },
     {
+      "detail": "0 failed",
       "id": "T-03",
-      "status": "FAILED",
-      "detail": "1 failed across all scopes"
+      "status": "OK"
     },
     {
+      "detail": "0 errors",
       "id": "T-04",
-      "status": "OK",
-      "detail": "0 errors"
+      "status": "OK"
     },
     {
+      "detail": "0 skipped",
       "id": "T-05",
-      "status": "OK",
-      "detail": "0 skipped"
+      "status": "OK"
     },
     {
+      "detail": "every declared scope ran and exited clean",
       "id": "T-06",
-      "status": "FAILED",
-      "detail": "scope exit codes not all clean: T-15"
+      "status": "OK"
     },
     {
+      "detail": "PAID_PROVIDER_CALLS=0 held for the whole run (already 0 in the runner)",
       "id": "T-07",
-      "status": "OK",
-      "detail": "PAID_PROVIDER_CALLS=0 held for the whole run (already 0 in the runner)"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/core.py; 22 pin test(s) verified to exist",
       "id": "C-01",
-      "status": "OK",
-      "detail": "module packages/jcc_core/core.py; 22 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/schemas.py; 57 pin test(s) verified to exist",
       "id": "C-02",
-      "status": "OK",
-      "detail": "module packages/jcc_core/schemas.py; 57 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/state_store.py; 16 pin test(s) verified to exist",
       "id": "C-03",
-      "status": "OK",
-      "detail": "module packages/jcc_core/state_store.py; 16 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/audit.py; 11 pin test(s) verified to exist",
       "id": "C-04",
-      "status": "OK",
-      "detail": "module packages/jcc_core/audit.py; 11 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/providers; 10 pin test(s) verified to exist",
       "id": "C-05",
-      "status": "OK",
-      "detail": "module packages/jcc_core/providers; 10 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/supervisor/shadow_store.py; 38 pin test(s) verified to exist",
       "id": "C-06",
-      "status": "OK",
-      "detail": "module packages/supervisor/shadow_store.py; 38 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/policy.py; 11 pin test(s) verified to exist",
       "id": "C-07",
-      "status": "OK",
-      "detail": "module packages/jcc_core/policy.py; 11 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/supervisor/budget.py; 18 pin test(s) verified to exist",
       "id": "C-08",
-      "status": "OK",
-      "detail": "module packages/supervisor/budget.py; 18 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/signing.py; 38 pin test(s) verified to exist",
       "id": "C-09",
-      "status": "OK",
-      "detail": "module packages/jcc_core/signing.py; 38 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/jcc_core/actuator.py; 8 pin test(s) verified to exist",
       "id": "C-10",
-      "status": "OK",
-      "detail": "module packages/jcc_core/actuator.py; 8 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "probe UNSUPPORTED; capabilities: {\"approval\": {\"reason\": \"WorkBuddyAdapter.probe() reports permission_request_hooked=False mapped to capability 'approval': the adapter's own contract declares this capability not o",
       "id": "A-01",
-      "status": "DEGRADED",
-      "detail": "probe UNSUPPORTED; capabilities: {\"approval\": {\"reason\": \"WorkBuddyAdapter.probe() reports permission_request_hooked=False mapped to capability 'approval': the adapter's own contract declares this capability not o"
+      "status": "DEGRADED"
     },
     {
+      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: Claude Code carries a file-declared permission model in C:\\\\Users\\\\Administrator\\\\.claude\\\\settin",
       "id": "A-02",
-      "status": "DEGRADED",
-      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: Claude Code carries a file-declared permission model in C:\\\\Users\\\\Administrator\\\\.claude\\\\settin"
+      "status": "DEGRADED"
     },
     {
+      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: the installed codex binary (C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\codex.e",
       "id": "A-03",
-      "status": "DEGRADED",
-      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: the installed codex binary (C:\\\\Users\\\\Administrator\\\\AppData\\\\Local\\\\OpenAI\\\\Codex\\\\bin\\\\codex.e"
+      "status": "DEGRADED"
     },
     {
+      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind",
       "id": "A-04",
-      "status": "DEGRADED",
-      "detail": "probe UNVERIFIED; capabilities: {\"approval\": {\"reason\": \"mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind"
+      "status": "DEGRADED"
     },
     {
+      "detail": "module packages/operator_skill; 33 pin test(s) verified to exist",
       "id": "S-01",
-      "status": "OK",
-      "detail": "module packages/operator_skill; 33 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/mcp_facade; 21 pin test(s) verified to exist",
       "id": "S-02",
-      "status": "OK",
-      "detail": "module packages/mcp_facade; 21 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module packages/observability/tests/test_obs_s03.py; 17 pin test(s) verified to exist",
       "id": "S-03",
-      "status": "OK",
-      "detail": "module packages/observability/tests/test_obs_s03.py; 17 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module facades/session_center; 24 pin test(s) verified to exist",
       "id": "S-06",
-      "status": "OK",
-      "detail": "module facades/session_center; 24 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "module facades/claw3d; 25 pin test(s) verified to exist",
       "id": "S-07",
-      "status": "OK",
-      "detail": "module facades/claw3d; 25 pin test(s) verified to exist"
+      "status": "OK"
     },
     {
+      "detail": "Control UI: 8/8 screens fetched over real HTTP (4 seeded demo session(s)); all 200, all non-empty, all API-backed; evidence artifacts\\acceptance\\control_ui_smoke.json recomputable from source",
       "id": "S-04",
-      "status": "OK",
-      "detail": "Control UI: 8/8 screens fetched over real HTTP (4 seeded demo session(s)); all 200, all non-empty, all API-backed; evidence artifacts\\acceptance\\control_ui_smoke.json recomputable from source"
+      "status": "OK"
     },
     {
+      "detail": "Demo Mode: 8 deterministic AEP envelopes across the four agents; replay reproduced an identical chain (digest c7c361085e02) with 6 named, sourced volatile field(s); all directives inert; DEMO label on 5 screens; evidence artifacts\\acceptance\\demo_e2e.json recomputable from source",
       "id": "S-05",
-      "status": "OK",
-      "detail": "Demo Mode: 8 deterministic AEP envelopes across the four agents; replay reproduced an identical chain (digest c7c361085e02) with 6 named, sourced volatile field(s); all directives inert; DEMO label on 5 screens; evidence artifacts\\acceptance\\demo_e2e.json recomputable from source"
+      "status": "OK"
     },
     {
+      "detail": "bootstrap.ps1 parses under Windows PowerShell",
       "id": "W-01",
-      "status": "OK",
-      "detail": "bootstrap.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "start.ps1 parses under Windows PowerShell",
       "id": "W-02",
-      "status": "OK",
-      "detail": "start.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "stop.ps1 parses under Windows PowerShell",
       "id": "W-03",
-      "status": "OK",
-      "detail": "stop.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "restart.ps1 parses under Windows PowerShell",
       "id": "W-04",
-      "status": "OK",
-      "detail": "restart.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "status.ps1 parses under Windows PowerShell",
       "id": "W-05",
-      "status": "OK",
-      "detail": "status.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "doctor.ps1 parses under Windows PowerShell",
       "id": "W-06",
-      "status": "OK",
-      "detail": "doctor.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "acceptance.ps1 parses under Windows PowerShell",
       "id": "W-07",
-      "status": "OK",
-      "detail": "acceptance.ps1 parses under Windows PowerShell"
+      "status": "OK"
     },
     {
+      "detail": "demo e2e: demo_e2e.json: passed=True failed=None status=PASS",
       "id": "E-01",
-      "status": "OK",
-      "detail": "demo e2e: demo_e2e.json: passed=True failed=None status=PASS"
+      "status": "OK"
     },
     {
+      "detail": "api e2e: api_e2e.json: passed=True failed=0 status=PASS",
       "id": "E-02",
-      "status": "OK",
-      "detail": "api e2e: api_e2e.json: passed=True failed=0 status=PASS"
+      "status": "OK"
     },
     {
+      "detail": "UI smoke: ui_smoke.json: passed=True failed=0 status=PASS",
       "id": "E-03",
-      "status": "OK",
-      "detail": "UI smoke: ui_smoke.json: passed=True failed=0 status=PASS"
+      "status": "OK"
     },
     {
+      "detail": "Windows restart recovery: restart_recovery.json: passed=True failed=0 status=PASS",
       "id": "E-04",
-      "status": "OK",
-      "detail": "Windows restart recovery: restart_recovery.json: passed=True failed=0 status=PASS"
+      "status": "OK"
     },
     {
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence [7 condition(s): BLOCKER -- REWRITTEN 2026-09-25T10:34:00Z, SUPERSEDING THE FIRST VERSION OF THIS CONDITION. I first described this as 'a D-28 policy bypass' that mints a Directive outside the policy kernel. That framing was wrong and I withdraw it; the corrected statement is narrower. (i) REAL AND KEPT: packages/jcc_core/server.py:239 (inside `_manual`, minting at :208) is a second call site of the engine actuation port ActuationPort.dispatch, and ADR-0008 D-41's FROZEN falsifier says that port has exactly ONE call site -- so the deviation against frozen text stands. (ii) CONCEDED: ports.py:33-42, citing D-41, declares the port 'PERMANENTLY INERT ... never an attach point, in P3 or later', so server.py:239 is NOT a second attach point and cannot by itself emanate an un-arbitrated side effect; the deviation is contractual/latent, not active, and must not be quoted as a security finding. (iii) RESIDUAL, CARRIED INTO KD-001 AND NOW INTO KD-007: see the eighth condition below. Correct implementation, when funded: delete the mint-and-dispatch at server.py:206-239 and make /api/pause|steer|retry either verifiers of a policy-signed directive or plain operator-intent records written to the audit tape with no Directive constructed at all; or route :239 to the documented attach point Sentinel._dispatch / supervisor.ports.DispatchPort instead of the engine port. Either way KD-001 and KD-002 stay OPEN.; ONE MINT SITE WAS NEVER COUNTED BY THE REGISTER, AND THE LEG SAYS SO IN WRITING. packages/operator_skill/gates.py:173 and packages/supervisor/sentinel.py:414 are Directive mint sites outside the policy kernel and were never registered as deviations before this leg's finding. They are not blockers -- gates.py:173 is kernel-guarded (gate 2 at gates.py:352 refuses unless arbitrate() observed it) and sentinel.py:414 is kernel-backed (arbitration.arbitrate at sentinel.py:375 plus two fail-closed escalations) -- but a register that omits two of four production mint sites is the drift this project fights, and the record now names both by file:line.; THE DEVIATION IS CONTRACTUAL/LATENT, NOT AN ACTIVE HAZARD -- DO NOT INFLATE IT. Measured: server.py:218-219 carry executable=False and requires_human=True; the seam is verify-only; Actuator.execute refuses even when enabled=True and the action is allow-listed; and per aegis-3 (artifacts/security/probe_kd002.py, 7/7 pass, exit 0) the directive is refused at the signing gate before approval. Quote it as a boundary-strength observation, not as a security finding. ... (+4 more)]",
       "id": "E-05",
-      "status": "OK",
-      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence [7 condition(s): BLOCKER -- REWRITTEN 2026-09-25T10:34:00Z, SUPERSEDING THE FIRST VERSION OF THIS CONDITION. I first described this as 'a D-28 policy bypass' that mints a Directive outside the policy kernel. That framing was wrong and I withdraw it; the corrected statement is narrower. (i) REAL AND KEPT: packages/jcc_core/server.py:239 (inside `_manual`, minting at :208) is a second call site of the engine actuation port ActuationPort.dispatch, and ADR-0008 D-41's FROZEN falsifier says that port has exactly ONE call site -- so the deviation against frozen text stands. (ii) CONCEDED: ports.py:33-42, citing D-41, declares the port 'PERMANENTLY INERT ... never an attach point, in P3 or later', so server.py:239 is NOT a second attach point and cannot by itself emanate an un-arbitrated side effect; the deviation is contractual/latent, not active, and must not be quoted as a security finding. (iii) RESIDUAL, CARRIED INTO KD-001 AND NOW INTO KD-007: see the eighth condition below. Correct implementation, when funded: delete the mint-and-dispatch at server.py:206-239 and make /api/pause|steer|retry either verifiers of a policy-signed directive or plain operator-intent records written to the audit tape with no Directive constructed at all; or route :239 to the documented attach point Sentinel._dispatch / supervisor.ports.DispatchPort instead of the engine port. Either way KD-001 and KD-002 stay OPEN.; ONE MINT SITE WAS NEVER COUNTED BY THE REGISTER, AND THE LEG SAYS SO IN WRITING. packages/operator_skill/gates.py:173 and packages/supervisor/sentinel.py:414 are Directive mint sites outside the policy kernel and were never registered as deviations before this leg's finding. They are not blockers -- gates.py:173 is kernel-guarded (gate 2 at gates.py:352 refuses unless arbitrate() observed it) and sentinel.py:414 is kernel-backed (arbitration.arbitrate at sentinel.py:375 plus two fail-closed escalations) -- but a register that omits two of four production mint sites is the drift this project fights, and the record now names both by file:line.; THE DEVIATION IS CONTRACTUAL/LATENT, NOT AN ACTIVE HAZARD -- DO NOT INFLATE IT. Measured: server.py:218-219 carry executable=False and requires_human=True; the seam is verify-only; Actuator.execute refuses even when enabled=True and the action is allow-listed; and per aegis-3 (artifacts/security/probe_kd002.py, 7/7 pass, exit 0) the directive is refused at the signing gate before approval. Quote it as a boundary-strength observation, not as a security finding. ... (+4 more)]"
+      "status": "OK"
     },
     {
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence",
       "id": "E-06",
-      "status": "OK",
-      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence"
+      "status": "OK"
     },
     {
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence",
       "id": "E-07",
-      "status": "OK",
-      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence"
+      "status": "OK"
     },
     {
+      "detail": "FINAL_ACCEPTANCE_REPORT.md present",
       "id": "F-01",
-      "status": "OK",
-      "detail": "FINAL_ACCEPTANCE_REPORT.md present"
+      "status": "OK"
     },
     {
+      "detail": "FINAL_ACTIVATION_CHECKLIST.md present",
       "id": "F-02",
-      "status": "OK",
-      "detail": "FINAL_ACTIVATION_CHECKLIST.md present"
+      "status": "OK"
     },
     {
+      "detail": "final-manifest.json present (regeneration check deferred to the release step)",
       "id": "F-03",
-      "status": "OK",
-      "detail": "final-manifest.json present (regeneration check deferred to the release step)"
+      "status": "OK"
     },
     {
+      "detail": "blockers = 0",
       "id": "F-04",
-      "status": "FAILED",
-      "detail": "4 blocking item(s)"
+      "status": "OK"
     },
     {
+      "detail": "unresolved HIGH = 0",
       "id": "F-05",
-      "status": "FAILED",
-      "detail": "4 unresolved HIGH"
+      "status": "OK"
     },
     {
+      "detail": "working tree clean",
       "id": "P-01",
-      "status": "FAILED",
-      "detail": "working tree is dirty (unexplained provenance):\nM artifacts/acceptance/CONTINUATION_INFRA_TEST.json\n M artifacts/acceptance/DETACHED_SURVIVAL_TEST.json\n M artifacts/acceptance/JCC_SOAK_RESULT.json\n M artifacts/acceptance/JCC_SOAK_TRACE.jsonl\n M artifacts/acceptance/REBOOT_RECOVERY.json\n M artifacts/acceptance/SOAK_WATCHDOG_PROOF.json\n M artifacts/acceptance/WATCHDOG_RECOVERY_PROOF.json\n M artifacts/acceptance/final_gate_result.json\n M artifacts"
+      "status": "OK"
     },
     {
+      "detail": "release manifest 12/12 aligned with the A8 gate and with committed blobs",
       "id": "P-02",
-      "status": "OK",
-      "detail": "release manifest 12/12 aligned with the A8 gate and with committed blobs"
+      "status": "OK"
     },
     {
+      "detail": "hash anchors recomputed from committed blobs (ground truth above)",
       "id": "P-03",
-      "status": "OK",
-      "detail": "hash anchors recomputed from committed blobs (ground truth above)"
+      "status": "OK"
     },
     {
+      "detail": "artifact attribution verified by the prefix rule (dir_ / shadow_)",
       "id": "P-04",
-      "status": "OK",
-      "detail": "artifact attribution verified by the prefix rule (dir_ / shadow_)"
+      "status": "OK"
     },
     {
+      "detail": "freeze provenance explainable: the working tree is clean, so no unreviewed edit exists between the signed freeze and the tree this verdict describes",
       "id": "P-05",
-      "status": "FAILED",
-      "detail": "freeze provenance unexplained (dirty tree)"
+      "status": "OK"
     },
     {
+      "detail": "all 32 present gate input(s) are tracked in the repository (the verdict is reproducible from a clone)",
       "id": "P-06",
-      "status": "OK",
-      "detail": "all 32 present gate input(s) are tracked in the repository (the verdict is reproducible from a clone)"
+      "status": "OK"
     }
-  ],
-  "missing": [],
-  "failed": [
-    "T-15",
-    "T-02",
-    "T-03",
-    "T-06",
-    "F-04",
-    "F-05",
-    "P-01",
-    "P-05"
   ],
   "degraded": [
     "A-01",
@@ -315,13 +303,14 @@
     "A-03",
     "A-04"
   ],
+  "failed": [],
+  "high": 0,
+  "missing": [],
   "pending_external_activation": [],
-  "blocker": 8,
-  "high": 8,
+  "project_complete": true,
   "provenance": {
-    "generator_sha256": "1090e7268bf90547621317b078ffb241eeff0afcebc07fd62e113d586e7ef821",
-    "release_freeze": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
-    "product_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+    "clock_free": true,
+    "evidence_pre_gate_sha": "401a3f0b38a728835454293a2a1e915f69b467b2",
     "evidence_prefixes": [
       "artifacts/",
       "docs/",
@@ -331,6 +320,18 @@
       "FINAL_ACTIVATION_CHECKLIST.md",
       "FINAL_ACCEPTANCE_REPORT.md"
     ],
+    "final_evidence_sha": null,
+    "full": true,
+    "generator_sha256": "1090e7268bf90547621317b078ffb241eeff0afcebc07fd62e113d586e7ef821",
+    "note": "final_evidence_sha is null by construction: a file cannot name the commit that contains it. It is recorded by the release manifest once that commit exists.",
+    "product_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+    "provenance_layers": [
+      "product_sha",
+      "evidence_pre_gate_sha",
+      "final_evidence_sha"
+    ],
+    "published_from": "runtime/final-gate/final_gate_result.json",
+    "release_freeze": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
     "scopes": [
       "T-10",
       "T-11",
@@ -338,8 +339,7 @@
       "T-13",
       "T-14",
       "T-15"
-    ],
-    "full": true,
-    "clock_free": true
-  }
+    ]
+  },
+  "schema": "jcc-final-gate/2"
 }

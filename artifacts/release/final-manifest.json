@@ -1,198 +1,399 @@
 {
-  "file_count": 23,
-  "files": [
+  "JEV_PROJECT_RUN": "PASS",
+  "does_not_prove": [
+    "that jcc_core is restarted after a reboot. No component in this repository restarts the service if it dies: scripts/service-watchdog.ps1 monitors the release state and the port, and the operator starts the service. Recorded in artifacts/acceptance/REBOOT_RECOVERY.json and in artifacts/release/PROJECT_RUN_READINESS.md, not papered over here.",
+    "that F-03's regeneration requirement is checked by the gate. The gate accepts this manifest on presence alone and says so in its own detail string; the regeneration check is `--verify` in this script, and its result is recorded under `regeneration_check` below.",
+    "that this tool verified the scheduled task JEV-JCC-Continuation-Watchdog through the scheduler API. The task IS registered on this host and fires every 2 minutes -- its own on-disk definition is Enabled=true with a PT2M repetition under principal S-1-5-18, and the watchdog's tick log gains exactly one line every 120 s -- but the agent sandbox cannot enumerate Task Scheduler through CIM (Get-ScheduledTask fails there), so registration rests on the task's own definition plus its tick interval, not on a live query from here. This entry previously claimed the task was NOT registered, which repeated the sandbox's silence as a fact about the host."
+  ],
+  "evidence": [
     {
-      "bytes": 47747,
-      "hash_convention": "git_blob",
-      "owner": "lead",
+      "bytes": 41070,
+      "owner": "FINAL-01_CONTROLLER",
+      "path": "artifacts/acceptance/CONTINUATION_INFRA_TEST.json",
+      "sha256": "6d76c725000ff6afc9feb3efab5575c1e8d98c354bb282026756bb893d34d675",
+      "tracked": true
+    },
+    {
+      "bytes": 5304,
+      "owner": "FINAL-05_DETACHED",
+      "path": "artifacts/acceptance/DETACHED_SURVIVAL_TEST.json",
+      "sha256": "706228df675fa94662066dfc160535802fe6c27d0e03c53b55a657619083a021",
+      "tracked": true
+    },
+    {
+      "bytes": 2475,
+      "owner": "FINAL-07_SURFACES",
+      "path": "artifacts/acceptance/SURFACE_EVIDENCE.json",
+      "sha256": "a8906794928241ea0f497d96f58e34b074b2fb5c698955991f43fe43a06ab728",
+      "tracked": true
+    },
+    {
+      "bytes": 4455,
+      "owner": "FINAL-07_SURFACES",
+      "path": "artifacts/acceptance/control_ui_smoke.json",
+      "sha256": "61584e0fe9e2dc282936c230098235750cc8638176033f0a78de117ad1f20c2d",
+      "tracked": true
+    },
+    {
+      "bytes": 6066,
+      "owner": "FINAL-07_SURFACES",
+      "path": "artifacts/acceptance/demo_e2e.json",
+      "sha256": "7f9504937e1baf046d2c0eaac1fc5e797d6deb00247daf1f03803db313c61cf9",
+      "tracked": true
+    },
+    {
+      "bytes": 13901,
+      "owner": "FINAL-08_SOAK",
+      "path": "artifacts/acceptance/JCC_SOAK_RESULT.json",
+      "sha256": "b9c7baa37e23d471d5c0089eee8a881b352b51af63f78e85a97a4c9c29df9aa3",
+      "tracked": true
+    },
+    {
+      "bytes": 6168,
+      "owner": "FINAL-08_SOAK",
+      "path": "artifacts/acceptance/SOAK_WATCHDOG_PROOF.json",
+      "sha256": "84b91bbb60689fe202364728183ebdd012009e038da959bc8c7661956df2e1c0",
+      "tracked": true
+    },
+    {
+      "bytes": 6703,
+      "owner": "FINAL-09_RECOVERY",
+      "path": "artifacts/acceptance/WATCHDOG_RECOVERY_PROOF.json",
+      "sha256": "05b44085fb51f93885254b86cf93170b48dd8fdf5b5e1bc5d586e88eeb94ca12",
+      "tracked": true
+    },
+    {
+      "bytes": 4748,
+      "owner": "FINAL-10_REBOOT_SIM",
+      "path": "artifacts/acceptance/REBOOT_RECOVERY.json",
+      "sha256": "3f86c7bc514d3ea0d5e5d1602dc4ec5c994cfd03721836787d312201cd78bffc",
+      "tracked": true
+    },
+    {
+      "bytes": 13223,
+      "owner": "FINAL-11_FINAL_GATE",
+      "path": "artifacts/acceptance/final_gate_result.json",
+      "sha256": "685102f89b0a3f76154d016944219276713862d3db41e317165ba7404407f9fe",
+      "tracked": true
+    },
+    {
+      "bytes": 83613,
+      "owner": "FINAL-11_FINAL_GATE",
       "path": "artifacts/acceptance/final_gate_run.py",
-      "sha256": "e884a77943c06e034af2f6382f4320a44e39c32380430f1e8deb5ba499869ac8"
+      "sha256": "1090e7268bf90547621317b078ffb241eeff0afcebc07fd62e113d586e7ef821",
+      "tracked": true
     },
     {
-      "bytes": 15625,
-      "hash_convention": "git_blob",
-      "owner": "lead",
+      "bytes": 12239,
+      "owner": "FINAL-12_PROJECT_RUN",
+      "path": "artifacts/acceptance/project_run_gate_result.json",
+      "sha256": "012dc03df447a5a63baa72b0bcfcf1bc1825482db2ce319c62d90901c696f183",
+      "tracked": true
+    },
+    {
+      "bytes": 27123,
+      "owner": "E-05",
+      "path": "artifacts/acceptance/final_architecture_go.json",
+      "sha256": "f7ccff7af5d3b00bdaf330f3fb81d06bb4ecfb4d6ca646e5719fcaee590183a2",
+      "tracked": true
+    },
+    {
+      "bytes": 24370,
+      "owner": "E-06",
+      "path": "artifacts/acceptance/final_security_go.json",
+      "sha256": "a3e5d9a0aeb97bae53309c0e710b105ffa463a2a8e3de8b29f5f4fad558c6c73",
+      "tracked": true
+    },
+    {
+      "bytes": 10034,
+      "owner": "E-07",
+      "path": "artifacts/acceptance/final_sre_go.json",
+      "sha256": "61410bd2fb7d17f65cb36f397cc4a334c01aa82ac10b757130c0795b9fd2c9f5",
+      "tracked": true
+    },
+    {
+      "bytes": 17461,
+      "owner": "stop-condition",
       "path": "docs/FINAL_STOP_CONDITIONS.md",
-      "sha256": "7199cb233378ebd957eab1796d29015ccee0445717e3705aa1d6352e88a9427e"
+      "sha256": "efb3d8382fc849018443184988414bba3899edb871d0c82ca69fb34e15137e9c",
+      "tracked": true
     },
     {
-      "bytes": 7811,
-      "hash_convention": "git_blob",
-      "owner": "lead",
-      "path": "docs/p4/P4_FREEZE_RECORD.md",
-      "sha256": "5cd76e64b8c629b785537ce9772c813ef931114d499224188128f8275ed24b89"
+      "bytes": 69537,
+      "owner": "controller",
+      "path": "tools/jcc_continuation.py",
+      "sha256": "8c43f76097bc39ebd74581d50d82bcb100855a24fa38935ecf184e2eabe01763",
+      "tracked": true
     },
     {
-      "bytes": 33456,
-      "hash_convention": "git_blob",
-      "owner": "protocol-architect",
-      "path": "docs/ADR/KNOWN_DEVIATIONS.md",
-      "sha256": "a1fce92b2f9d503b05469aa767654228c70b776d512856e693aa9466e7a0dc41"
+      "bytes": 14289,
+      "owner": "watchdog",
+      "path": "scripts/continuation-watchdog.ps1",
+      "sha256": "8c0beb58f2a772e7c1ad2307d63b73e3abef86ff645080ddad6e5bd4c247dc73",
+      "tracked": true
     },
     {
-      "bytes": 3931,
-      "hash_convention": "git_blob",
-      "owner": "release-evidence",
-      "path": "artifacts/release/manifest.json",
-      "sha256": "55a3147e30c4b19e44b3631771e79ff78a19e6efd61ee86c38929c7d9e9b4beb"
+      "bytes": 27883,
+      "owner": "watchdog",
+      "path": "scripts/lib/JccWatchdogCommon.ps1",
+      "sha256": "b8517da78706bceb16a1d31b250cdc8584183242bf1b677713c3485f88c11acc",
+      "tracked": true
     },
     {
-      "bytes": 99,
-      "hash_convention": "git_blob",
-      "owner": "release-evidence",
-      "path": "artifacts/release/manifest.sha256",
-      "sha256": "d778e2537766ffa33201fa6a19d79ada9a6bd9cffade6eba1f7bad0aff12bcce"
+      "bytes": 10589,
+      "owner": "watchdog",
+      "path": "scripts/service-watchdog.ps1",
+      "sha256": "4be012cb6355d61c10f43a289f6baf4e7099f37301eb522b690832981c752bb1",
+      "tracked": true
     },
     {
-      "bytes": 11569,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/bootstrap.ps1",
-      "sha256": "5b8f3f8cfda2dd485c59733eda0eb12ece3b40a2a21fb93f0a65c3a3a7d84ea1"
+      "bytes": 23193,
+      "owner": "watchdog",
+      "path": "scripts/lib/JccCommon.ps1",
+      "sha256": "bfd4401c840433e67d84fde5809615d1ad050b5dd58efe34861ba5c0e2f471cd",
+      "tracked": true
     },
     {
-      "bytes": 13311,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/start.ps1",
-      "sha256": "f67a0c6e9214294a25fac13a649983970cf402b3f88d99aa502611c6d0db7f50"
+      "bytes": 68689,
+      "note": "records a MOMENT, not identity -- deliberately not in version control; absent from a clone by design",
+      "owner": "run-record",
+      "path": "artifacts/acceptance/JCC_SOAK_TRACE.jsonl",
+      "sha256": "1f934a6a36a3a1d76924fa6cb326e61d5381dfc2f697e3973beea6d4514e67bc",
+      "tracked": false
     },
     {
-      "bytes": 7418,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/stop.ps1",
-      "sha256": "498ff71584dc0fe1eaf3db04b140bf1be1470ed37243f3392da871ecdb432293"
-    },
-    {
-      "bytes": 3167,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/restart.ps1",
-      "sha256": "7cd03caf92e206d1ccf78b10e281907f1c5b459e547980f9eafbc0160b4ef0ef"
-    },
-    {
-      "bytes": 4763,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/status.ps1",
-      "sha256": "600cdd7829e9c96204ac04b76151e7e29f823016fd666e29a074eecdd96b3784"
-    },
-    {
-      "bytes": 10071,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/doctor.ps1",
-      "sha256": "ff6b81481cb6c94fc5c536c1711969db091970672846514fbb6f8b75d7fc059e"
-    },
-    {
-      "bytes": 3762,
-      "hash_convention": "git_blob",
-      "owner": "core-platform",
-      "path": "scripts/acceptance.ps1",
-      "sha256": "2b64e885018c6549f5c04024e545ce56f869829fbac2a2c7bc4e53a5afda1d3c"
-    },
-    {
-      "bytes": 130837,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "packages/operator_skill",
-      "sha256": "62d0fa70851ca628ac9f993390855a607ef812718771823737a7a5e274b45e94"
-    },
-    {
-      "bytes": 53805,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "packages/mcp_facade",
-      "sha256": "0bcd9e22c05d5aa0bc2358ebe6cd101b1be8d6386b9c739b3af768a173338d92"
-    },
-    {
-      "bytes": 86225,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "packages/observability",
-      "sha256": "9d70016c80f5cb96a7052089f0486bb975c5b7df76be80f3ebc4daf5f0610501"
-    },
-    {
-      "bytes": 59185,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "apps/control_ui",
-      "sha256": "2c650e14a58f8b86140a5c4aae48c03d9c2c8f600315efd113166423d6a7f7ca"
-    },
-    {
-      "bytes": 62358,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "facades/session_center",
-      "sha256": "6035715e5ee84f2dbaf5b36ffba5b551e10644c3260170f074b1e8830843c241"
-    },
-    {
-      "bytes": 51561,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "facades/claw3d",
-      "sha256": "506a8138963dd7a4d062cd6afa85d824b1456a63b6a8d383dce115e3ef33d8e7"
-    },
-    {
-      "bytes": 11719,
-      "hash_convention": "dir_fingerprint",
-      "owner": "core-platform",
-      "path": "fixtures",
-      "sha256": "8da739176beb11b4f56ca3597e7ecfd16e1c43b5dfa9f7b13f2d2e98adddb758"
-    },
-    {
-      "bytes": 33301,
-      "hash_convention": "dir_fingerprint",
-      "owner": "qa-sre",
-      "path": "tests/e2e",
-      "sha256": "9e07963aed68629f6e9c76015a1f5b947269f76d1e5a9cd6efcf4f306b166bf1"
-    },
-    {
-      "bytes": 5994,
-      "hash_convention": "raw_file",
-      "owner": "lead",
-      "path": "artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md",
-      "sha256": "99bd30ad3d864294725eb2195ca9dd41468b6cc3921d4752cb757786025eb891"
-    },
-    {
-      "bytes": 7029,
-      "hash_convention": "git_blob",
-      "owner": "lead",
-      "path": "FINAL_ACTIVATION_CHECKLIST.md",
-      "sha256": "bf4446e0d8eaa5dc36132c9d501bca5d4f845983f92d6f72b4d94a960e0b42f3"
+      "bytes": 1876,
+      "note": "records a MOMENT, not identity -- deliberately not in version control; absent from a clone by design",
+      "owner": "run-record",
+      "path": "artifacts/acceptance/gate_runs.jsonl",
+      "sha256": "259be182a3d52861dd2da720dac77117d96c492413871640c3c9ae3ed327e3e4",
+      "tracked": false
     }
   ],
+  "evidence_problems": [],
   "final_gate": {
-    "blocker": 3,
+    "blocker": 0,
+    "check_count": 59,
     "degraded": [
       "A-01",
       "A-02",
       "A-03",
-      "A-04",
-      "S-04",
-      "S-05"
+      "A-04"
     ],
-    "failed": [
-      "E-05"
-    ],
-    "head": "497a95141f99c38fb6b3c4ebfdafa1416beeae2f",
-    "high": 3,
-    "missing": [
-      "E-07",
-      "F-03"
-    ],
-    "pending_external_activation": [],
-    "present": true,
-    "project_complete": false
+    "failed": [],
+    "high": 0,
+    "missing": [],
+    "note": "degraded outside A-01..A-04 would have failed the gate; read the gate's own result file for the per-check detail",
+    "project_complete": true
   },
-  "generated_at": "2026-09-25T12:38:03.864932+00:00",
-  "generated_by": "tools/emit_final_manifest.py",
-  "generated_by_sha256": "8f9e6274bd5d7079178fc493830b6fbaec458581fc2d397c3ddc4501d62d6bac",
-  "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(sorted content fingerprints) for directories",
-  "product_freeze_frozen_at": "e6f5c15",
-  "product_freeze_sha": "e6f5c15899b4bd5128d76366465d16f7b31aaca4",
-  "release_sha": "3cca8ff24e5a0eded2555aa7559d3bfaca8a1c22",
-  "schema": "jcc/final-manifest/1",
-  "test_sha": "3cca8ff24e5a0eded2555aa7559d3bfaca8a1c22"
+  "hash_convention": "sha256(raw bytes) for every file entry",
+  "ok": true,
+  "pipeline": {
+    "note": "the state file is NOT in version control, so this is a record of the run rather than a claim a clone can re-derive. Every leg's own artifact is hashed above, and that is the part a clone re-derives; the controller's completion is recorded here because FINAL-12's gate stops at FINAL-11 by construction",
+    "state_file": ".workbuddy/jcc_execution_state.json",
+    "steps_that_are_not_pass_excluding_this_step": [],
+    "steps_total": 11,
+    "this_step": "FINAL-13_PUBLISH"
+  },
+  "project_run": {
+    "judge": "artifacts/acceptance/project_run_gate.py (imported, not re-implemented)",
+    "legs": [
+      {
+        "artifact": "artifacts/acceptance/CONTINUATION_INFRA_TEST.json",
+        "artifact_bytes": 41070,
+        "artifact_present": true,
+        "id": "FINAL-01_CONTROLLER",
+        "judge_detail": "109/109 infrastructure test(s) passed; 109 check(s); failed=0; selection=full",
+        "judge_ok": true,
+        "recorded_detail": "109/109 infrastructure test(s) passed; 109 check(s); failed=0; selection=full",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "6d76c725000ff6afc9feb3efab5575c1e8d98c354bb282026756bb893d34d675",
+        "sha_recorded": "6d76c725000ff6afc9feb3efab5575c1e8d98c354bb282026756bb893d34d675",
+        "title": "controller + state persistence + spawned-task registrations"
+      },
+      {
+        "artifact": "artifacts/acceptance/DETACHED_SURVIVAL_TEST.json",
+        "artifact_bytes": 5304,
+        "artifact_present": true,
+        "id": "FINAL-05_DETACHED",
+        "judge_detail": "PASS: the shipped launcher produced a process that outlived the command that started it, and the scheduled task that starts the controller did the same in produ",
+        "judge_ok": true,
+        "recorded_detail": "PASS: the shipped launcher produced a process that outlived the command that started it, and the scheduled task that starts the controller did the same in produ",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "706228df675fa94662066dfc160535802fe6c27d0e03c53b55a657619083a021",
+        "sha_recorded": "706228df675fa94662066dfc160535802fe6c27d0e03c53b55a657619083a021",
+        "title": "detached survival (behavioural, not in_job)"
+      },
+      {
+        "artifact": "artifacts/acceptance/SURFACE_EVIDENCE.json",
+        "artifact_bytes": 2475,
+        "artifact_present": true,
+        "id": "FINAL-07_SURFACES",
+        "judge_detail": "PASS: both surfaces were regenerated from source and the gate's own checks judged them OK",
+        "judge_ok": true,
+        "recorded_detail": "PASS: both surfaces were regenerated from source and the gate's own checks judged them OK",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "a8906794928241ea0f497d96f58e34b074b2fb5c698955991f43fe43a06ab728",
+        "sha_recorded": "a8906794928241ea0f497d96f58e34b074b2fb5c698955991f43fe43a06ab728",
+        "title": "S-04 / S-05 evidence regenerated from source"
+      },
+      {
+        "artifact": "artifacts/acceptance/JCC_SOAK_RESULT.json",
+        "artifact_bytes": 13901,
+        "artifact_present": true,
+        "id": "FINAL-08_SOAK",
+        "judge_detail": "verdict=PASS: controlled start ok; 40-min soak with 0 health failure(s) and 0 pid change; polls=1151; health_failures=0; pid_changes=[]",
+        "judge_ok": true,
+        "recorded_detail": "verdict=PASS: controlled start ok; 40-min soak with 0 health failure(s) and 0 pid change; polls=1151; health_failures=0; pid_changes=[]",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "b9c7baa37e23d471d5c0089eee8a881b352b51af63f78e85a97a4c9c29df9aa3",
+        "sha_recorded": "b9c7baa37e23d471d5c0089eee8a881b352b51af63f78e85a97a4c9c29df9aa3",
+        "title": "40-minute soak on the frozen runtime"
+      },
+      {
+        "artifact": "artifacts/acceptance/WATCHDOG_RECOVERY_PROOF.json",
+        "artifact_bytes": 6703,
+        "artifact_present": true,
+        "id": "FINAL-09_RECOVERY",
+        "judge_detail": "PASS: 8/8 decision-rule cases behaved as required",
+        "judge_ok": true,
+        "recorded_detail": "PASS: 8/8 decision-rule cases behaved as required",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "05b44085fb51f93885254b86cf93170b48dd8fdf5b5e1bc5d586e88eeb94ca12",
+        "sha_recorded": "05b44085fb51f93885254b86cf93170b48dd8fdf5b5e1bc5d586e88eeb94ca12",
+        "title": "service watchdog + continuation watchdog recovery"
+      },
+      {
+        "artifact": "artifacts/acceptance/REBOOT_RECOVERY.json",
+        "artifact_bytes": 4748,
+        "artifact_present": true,
+        "id": "FINAL-10_REBOOT_SIM",
+        "judge_detail": "PASS: a simulated reboot (dead pid in a lock that had not expired, RUNNING state, crash debris) was recovered by one unattended tick, and a finished release was",
+        "judge_ok": true,
+        "recorded_detail": "PASS: a simulated reboot (dead pid in a lock that had not expired, RUNNING state, crash debris) was recovered by one unattended tick, and a finished release was",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "3f86c7bc514d3ea0d5e5d1602dc4ec5c994cfd03721836787d312201cd78bffc",
+        "sha_recorded": "3f86c7bc514d3ea0d5e5d1602dc4ec5c994cfd03721836787d312201cd78bffc",
+        "title": "host-restart recovery simulation (stale pid/lock/marker)"
+      },
+      {
+        "artifact": ".workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.result.json",
+        "artifact_bytes": 264,
+        "artifact_present": true,
+        "id": "FINAL-10B_EVIDENCE_COMMIT",
+        "judge_detail": "boundary commit complete; git status is empty, so the gate's P-01 can now be evaluated on a clean tree",
+        "judge_ok": true,
+        "recorded_detail": "boundary commit complete; git status is empty, so the gate's P-01 can now be evaluated on a clean tree",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "a5eb161ee935bd3db9795b1b9251d153ce69a3a233deb87ce382be6c0d009f75",
+        "sha_recorded": "a5eb161ee935bd3db9795b1b9251d153ce69a3a233deb87ce382be6c0d009f75",
+        "title": "commit produced evidence; require a clean tree"
+      },
+      {
+        "artifact": "runtime/final-gate/final_gate_result.json",
+        "artifact_bytes": 13078,
+        "artifact_present": true,
+        "id": "FINAL-11_FINAL_GATE",
+        "judge_detail": "PROJECT_COMPLETE=true; 59 check(s); blocker=0; degraded=['A-01', 'A-02', 'A-03', 'A-04']",
+        "judge_ok": true,
+        "recorded_detail": "PROJECT_COMPLETE=true; 59 check(s); blocker=0; degraded=['A-01', 'A-02', 'A-03', 'A-04']",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "cae623163f1c841bc95a5b6551f9dd5c54bc025037478e4413fe942aa7a03850",
+        "sha_recorded": "cae623163f1c841bc95a5b6551f9dd5c54bc025037478e4413fe942aa7a03850",
+        "title": "final gate on the frozen tree"
+      },
+      {
+        "artifact": "artifacts/acceptance/final_gate_result.json",
+        "artifact_bytes": 13223,
+        "artifact_present": true,
+        "id": "FINAL-11B_CANONICAL_GATE",
+        "judge_detail": "PROJECT_COMPLETE=true; 59 check(s); blocker=0; degraded=['A-01', 'A-02', 'A-03', 'A-04']",
+        "judge_ok": true,
+        "recorded_detail": "PROJECT_COMPLETE=true; 59 check(s); blocker=0; degraded=['A-01', 'A-02', 'A-03', 'A-04']",
+        "recorded_status": "PASS",
+        "sha_matches_record": true,
+        "sha_on_disk": "685102f89b0a3f76154d016944219276713862d3db41e317165ba7404407f9fe",
+        "sha_recorded": "685102f89b0a3f76154d016944219276713862d3db41e317165ba7404407f9fe",
+        "title": "publish the tracked canonical gate summary"
+      }
+    ],
+    "ok": true,
+    "pending_after_this_step": {
+      "id": "FINAL-13_PUBLISH",
+      "why": "it publishes the record this verdict is written into, so its artifact cannot exist yet; the project-run verdict that covers it is the one FINAL-13 writes into artifacts/release/final-manifest.json"
+    },
+    "problems": []
+  },
+  "published_at": "2026-09-26T23:47:25+08:00",
+  "published_by": "tools/continuation/publish_release_evidence.py",
+  "published_by_sha256": "e4c43d98a57177ec30ace6fdbc761e36c8b9dedf8b0e28dca6f032ee70655680",
+  "regeneration_check": {
+    "how": "tools/continuation/publish_release_evidence.py --verify",
+    "independence": "SELF-CHECK. It is the publisher verifying the publisher. FINAL-12 re-derives the legs with the controller's judges independently of this script, and that is the cross-check this one is not.",
+    "result": "PASS on 2026-09-26T23:48:57+08:00: every substantive field matches a fresh derivation and every listed hash recomputes"
+  },
+  "schema": "jcc/final-manifest/2",
+  "scripts_freeze": {
+    "file_count": 19,
+    "hashes": {
+      "scripts/acceptance.ps1": "f3175809d79953c99945041ae2954504fa20cd26dff7352d69a5b24093d225ac",
+      "scripts/bootstrap.ps1": "90d739990609d8bb52b6aa9b11d44c9d449c8be22e20dda328c53532250f4cad",
+      "scripts/continuation-watchdog-install.ps1": "a482a62ac9ed559f516f7a418c190b87b1987ff37e6f0023a359c2d91c9b3d59",
+      "scripts/continuation-watchdog-status.ps1": "8234418dd36f02510cd4219df99202ea2b00fd7ca23620a6209842f997d9dc91",
+      "scripts/continuation-watchdog-uninstall.ps1": "6a7c9073415e2a7c34383afb860362d15e00194178d4cc2b0e3209c89e5ef245",
+      "scripts/continuation-watchdog.ps1": "8c0beb58f2a772e7c1ad2307d63b73e3abef86ff645080ddad6e5bd4c247dc73",
+      "scripts/doctor.ps1": "5fd766d61d6cf408b96c6746174e5b27925eb196669219bb45bcb410a0393fd4",
+      "scripts/emit_release_evidence.py": "d6d6417a0282db0b9395d49d55230e34b8a074a665538bbcd468946e82075c50",
+      "scripts/lib/JccCommon.ps1": "bfd4401c840433e67d84fde5809615d1ad050b5dd58efe34861ba5c0e2f471cd",
+      "scripts/lib/JccRuntimeLease.ps1": "ecd8e48e694444f68be44e6b1842f5afa439e0e367c50af4d3ca4c3510f61527",
+      "scripts/lib/JccWatchdogCommon.ps1": "b8517da78706bceb16a1d31b250cdc8584183242bf1b677713c3485f88c11acc",
+      "scripts/restart.ps1": "a46a0386fb13c55b6e14843896c24ef66963f8389b7e4190763dd7da8d29af3a",
+      "scripts/service-watchdog-install.ps1": "4c4ac7fada64121904872de8e62d0075e4b6c39da0fbf91261b3ceac327c1844",
+      "scripts/service-watchdog-status.ps1": "831841b5c63ad32bc7c8e0780c4e0a07e99e5352837773f16b50d65284a3a0ac",
+      "scripts/service-watchdog-uninstall.ps1": "3634606c0db579cbc509d061d836843b5175ba08bb2f30d28b57f92ce043f5a9",
+      "scripts/service-watchdog.ps1": "4be012cb6355d61c10f43a289f6baf4e7099f37301eb522b690832981c752bb1",
+      "scripts/start.ps1": "f67a0c6e9214294a25fac13a649983970cf402b3f88d99aa502611c6d0db7f50",
+      "scripts/status.ps1": "76ed9bff12f485d3160b8eafe4164ac8d26d181c5d99496500ae6f3a202809e0",
+      "scripts/stop.ps1": "832bbbdfb7d05818a01e2cdd8a84a100dcb87c7c6cae3056d79b00c3ee4dde85"
+    },
+    "previous_freeze_kept_at": "artifacts/release/freeze_manifest.previous.json",
+    "rebaseline": {
+      "added": {
+        "scripts/continuation-watchdog-install.ps1": "a482a62ac9ed559f516f7a418c190b87b1987ff37e6f0023a359c2d91c9b3d59",
+        "scripts/continuation-watchdog-status.ps1": "8234418dd36f02510cd4219df99202ea2b00fd7ca23620a6209842f997d9dc91",
+        "scripts/continuation-watchdog-uninstall.ps1": "6a7c9073415e2a7c34383afb860362d15e00194178d4cc2b0e3209c89e5ef245",
+        "scripts/continuation-watchdog.ps1": "8c0beb58f2a772e7c1ad2307d63b73e3abef86ff645080ddad6e5bd4c247dc73",
+        "scripts/emit_release_evidence.py": "d6d6417a0282db0b9395d49d55230e34b8a074a665538bbcd468946e82075c50",
+        "scripts/lib/JccRuntimeLease.ps1": "ecd8e48e694444f68be44e6b1842f5afa439e0e367c50af4d3ca4c3510f61527",
+        "scripts/lib/JccWatchdogCommon.ps1": "b8517da78706bceb16a1d31b250cdc8584183242bf1b677713c3485f88c11acc",
+        "scripts/service-watchdog-install.ps1": "4c4ac7fada64121904872de8e62d0075e4b6c39da0fbf91261b3ceac327c1844",
+        "scripts/service-watchdog-status.ps1": "831841b5c63ad32bc7c8e0780c4e0a07e99e5352837773f16b50d65284a3a0ac",
+        "scripts/service-watchdog-uninstall.ps1": "3634606c0db579cbc509d061d836843b5175ba08bb2f30d28b57f92ce043f5a9",
+        "scripts/service-watchdog.ps1": "4be012cb6355d61c10f43a289f6baf4e7099f37301eb522b690832981c752bb1"
+      },
+      "changed": {
+        "scripts/lib/JccCommon.ps1": {
+          "new": "bfd4401c840433e67d84fde5809615d1ad050b5dd58efe34861ba5c0e2f471cd",
+          "old": "17016a3d69a1690a60f591978d3b1c0dfb92e7405cbcd2b6f95ae4f419473e1f"
+        }
+      },
+      "is_a_re_baseline": true,
+      "previous_freeze": {
+        "file_count": 8,
+        "head_sha": "cdbb3ca791aa341bc4e6e6c9cbf6064f689155e2",
+        "path": "artifacts/release/freeze_manifest.json",
+        "taken_at": "2026-09-26T06:24:41.972440"
+      },
+      "removed": {}
+    }
+  },
+  "verdict": "PASS: every FINAL-phase leg is present and unchanged since it was judged, the final gate reports PROJECT_COMPLETE with blocker=0, and the scripts freeze was re-taken with every drift named"
 }
