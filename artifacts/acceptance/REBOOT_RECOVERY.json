@@ -1,0 +1,98 @@
+{
+  "cases": [
+    {
+      "id": "self_heal",
+      "observed": {
+        "after": {
+          "controller_alive_after_the_tick_returned": true,
+          "controller_note": {
+            "pid": 23524,
+            "resumed_from_current_step": "FINAL-08_SOAK",
+            "started_at": "2026-09-26T15:04:42.599436+08:00"
+          },
+          "controller_pid": 23524,
+          "lock_expires_at": "2026-09-26T15:14:54.549622+08:00",
+          "lock_pid": 23524
+        },
+        "forged": {
+          "current_step": "FINAL-08_SOAK",
+          "leftover_ownership_marker_pid": 15776,
+          "leftover_service_pid_file": 15776,
+          "lock_expires_at": "2026-09-26T15:15:41.044001+08:00",
+          "lock_expiry_was_in_the_future": true,
+          "lock_pid": 15776,
+          "project_run": "UNKNOWN",
+          "runtime_state": "RUNNING"
+        },
+        "problems": [],
+        "role": "the recovery",
+        "tick": {
+          "actions": [
+            "STALE",
+            "STARTED",
+            "CONFIRMED"
+          ],
+          "details": [
+            "lock pid 15776 alive=False fresh=True; starting a replacement",
+            "controller launched detached (streams to files, no pipe)",
+            "controller pid 23524 holds the lock; Start-Process reported pid 23004 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning"
+          ],
+          "exit_code": 0,
+          "seconds": 2.11,
+          "stderr": "",
+          "stdout": "[2026-09-26T15:04:42.0183157+08:00] STALE: lock pid 15776 alive=False fresh=True; starting a replacement\n[2026-09-26T15:04:42.0793120+08:00] STARTED: controller launched detached (streams to files, no pipe)\n[2026-09-26T15:04:43.1381403+08:00] CONFIRMED: controller pid 23524 holds the lock; Start-Process reported pid 23004 -- the venv python.exe is a redirector, so the pid that runs the controller "
+        }
+      },
+      "ok": true
+    },
+    {
+      "id": "finished_release",
+      "observed": {
+        "after": {
+          "controller_alive_after_the_tick_returned": false,
+          "controller_note": null,
+          "controller_pid": 0,
+          "lock_expires_at": "2026-09-26T15:15:46.216176+08:00",
+          "lock_pid": 13484
+        },
+        "forged": {
+          "current_step": "FINAL-13_PUBLISH",
+          "leftover_ownership_marker_pid": 13484,
+          "leftover_service_pid_file": 13484,
+          "lock_expires_at": "2026-09-26T15:15:46.216176+08:00",
+          "lock_expiry_was_in_the_future": true,
+          "lock_pid": 13484,
+          "project_run": "PASS",
+          "runtime_state": "COMPLETE"
+        },
+        "problems": [],
+        "role": "negative control",
+        "tick": {
+          "actions": [
+            "NOOP"
+          ],
+          "details": [
+            "release is COMPLETE with project_run=PASS; watchdog stays idle"
+          ],
+          "exit_code": 0,
+          "seconds": 0.94,
+          "stderr": "",
+          "stdout": "[2026-09-26T15:04:47.1256390+08:00] NOOP: release is COMPLETE with project_run=PASS; watchdog stays idle"
+        }
+      },
+      "ok": true
+    }
+  ],
+  "checked_at": "2026-09-26T15:04:48+08:00",
+  "does_not_prove": "that the SERVICE is restarted after a reboot. No component in this repository restarts jcc_core if it dies: the service watchdog monitors the release state and the port, and the operator starts the service. This is the documented gap in artifacts/release/PROJECT_RUN_READINESS.md, repeated here rather than papered over.",
+  "how": "the tick is the shipped scripts/continuation-watchdog.ps1, run exactly as the scheduled task runs it except for -Root, which points at a replica root (tools/continuation/replica.py). scripts/ is copied verbatim; the controller is a declared stub implementing only the lock handshake and recording the step it resumed from",
+  "ok": true,
+  "phase": "FINAL-10 -- host-restart recovery simulation",
+  "problems": [],
+  "proves": "the shipped watchdog recognises a dead-pid lock even when its expiry is still in the future, starts a replacement controller, leaves the launching tick free to return, and the replacement resumes at the persisted step; a release that has COMPLETE + project_run=PASS is not resurrected",
+  "question": "the host came back in the middle of the run -- does the platform resume itself from disk with nobody in the loop?",
+  "release_sha": "6dca35f331baadcd65dd13b9b8af97f6361a57b0",
+  "schema": "jcc-reboot-recovery/1",
+  "status": "PASS",
+  "verdict": "PASS: a simulated reboot (dead pid in a lock that had not expired, RUNNING state, crash debris) was recovered by one unattended tick, and a finished release was left finished"
+}

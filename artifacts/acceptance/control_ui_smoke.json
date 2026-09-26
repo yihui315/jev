@@ -1,0 +1,89 @@
+{
+  "passed": true,
+  "provenance": {
+    "command": "python -m control_ui.acceptance",
+    "deterministic": true,
+    "fixtures": "fixtures/demo/manifest.json",
+    "fixtures_sha256": "17f9ad3893e71a2e52c47a667d2ae9d6c05f4c01387ca92bfde97b4757ceca5f",
+    "generator": "apps/control_ui/acceptance.py",
+    "generator_sha256": "9dfd55aa5c52f06c04ede459e39cb3a815af221582a890b36e40f3525146401b",
+    "renderer": "apps/control_ui/render.py",
+    "renderer_sha256": "fcabe1618ef9f125b5c664b133e00ac5278cf721c8c44182b271685765211693"
+  },
+  "schema": "jcc-control-ui-smoke/3",
+  "screens": [
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Dashboard \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bottom:1",
+      "name": "dashboard",
+      "non_trivial": true,
+      "path": "/",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Sessions \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bottom:1p",
+      "name": "sessions",
+      "non_trivial": true,
+      "path": "/sessions",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Decision Center \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bo",
+      "name": "decisions",
+      "non_trivial": true,
+      "path": "/decisions",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Security \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bottom:1p",
+      "name": "security",
+      "non_trivial": true,
+      "path": "/security",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Settings \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bottom:1p",
+      "name": "settings",
+      "non_trivial": true,
+      "path": "/settings",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Audit \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bottom:1px s",
+      "name": "audit",
+      "non_trivial": true,
+      "path": "/audit",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>System Health \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;border-bott",
+      "name": "health",
+      "non_trivial": true,
+      "path": "/health",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "excerpt": "<!doctype html><html><head><meta charset='utf-8'><title>Session demo-hermes-0001 \u2014 JCC Control UI</title><style> :root{color-scheme:dark} body{font:14px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; background:#0e1116;color:#d6dde6;margin:0} header{background:#161b22;",
+      "name": "session_detail",
+      "non_trivial": true,
+      "path": "/sessions/demo-hermes-0001",
+      "status": 200,
+      "unreachable": false
+    }
+  ],
+  "screens_expected": 8,
+  "screens_ok": 8,
+  "seeded_sessions": [
+    "demo-hermes-0001",
+    "demo-codex-0001",
+    "demo-claude-0001",
+    "demo-workbuddy-0001"
+  ],
+  "status": "PASS"
+}

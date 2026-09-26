@@ -1,68 +1,103 @@
 {
-  "at": "2026-09-26T03:27:47.819971+00:00",
+  "check_count": 12,
   "checks": [
     {
       "detail": "passed",
-      "name": "test_loopback_bind_only",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_refuse_without_token[/api/assess]",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_refuse_without_token[/api/pause]",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_refuse_without_token[/api/steer]",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_refuse_without_token[/api/retry]",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_accept_bearer_token",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_mutating_endpoints_refuse_when_token_unset",
-      "ok": true
-    },
-    {
-      "detail": "passed",
-      "name": "test_open_endpoints_match_health_declaration",
+      "name": "test_audit_chain_hash_linked_and_tamper_detected",
+      "node_id": "tests/e2e/test_api_e2e.py::test_audit_chain_hash_linked_and_tamper_detected",
       "ok": true
     },
     {
       "detail": "passed",
       "name": "test_cors_is_allowlist_not_wildcard",
+      "node_id": "tests/e2e/test_api_e2e.py::test_cors_is_allowlist_not_wildcard",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_signed_directive_roundtrip",
+      "name": "test_loopback_bind_only",
+      "node_id": "tests/e2e/test_api_e2e.py::test_loopback_bind_only",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_audit_chain_hash_linked_and_tamper_detected",
+      "name": "test_mutating_endpoints_accept_bearer_token",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_accept_bearer_token",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_when_token_unset",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_when_token_unset",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/assess]",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/assess]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/pause]",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/pause]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/retry]",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/retry]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_mutating_endpoints_refuse_without_token[/api/steer]",
+      "node_id": "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/steer]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_open_endpoints_match_health_declaration",
+      "node_id": "tests/e2e/test_api_e2e.py::test_open_endpoints_match_health_declaration",
       "ok": true
     },
     {
       "detail": "passed",
       "name": "test_session_isolation",
+      "node_id": "tests/e2e/test_api_e2e.py::test_session_isolation",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_signed_directive_roundtrip",
+      "node_id": "tests/e2e/test_api_e2e.py::test_signed_directive_roundtrip",
       "ok": true
     }
   ],
   "failed": 0,
+  "node_ids": [
+    "tests/e2e/test_api_e2e.py::test_audit_chain_hash_linked_and_tamper_detected",
+    "tests/e2e/test_api_e2e.py::test_cors_is_allowlist_not_wildcard",
+    "tests/e2e/test_api_e2e.py::test_loopback_bind_only",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_accept_bearer_token",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_when_token_unset",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/assess]",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/pause]",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/retry]",
+    "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/steer]",
+    "tests/e2e/test_api_e2e.py::test_open_endpoints_match_health_declaration",
+    "tests/e2e/test_api_e2e.py::test_session_isolation",
+    "tests/e2e/test_api_e2e.py::test_signed_directive_roundtrip"
+  ],
   "passed": true,
+  "provenance": {
+    "command": "pytest tests/e2e",
+    "deterministic": true,
+    "generator": "tests/e2e/conftest.py",
+    "generator_sha256": "468a9a5a8fbe4c857f0c88be723d896f079bce7dc490333f47a310900b67658d",
+    "module": "tests/e2e/test_api_e2e.py",
+    "module_sha256": "ed0f7dd8be4bcf0fe4474b43d6a7dafbf57a531a760727de23cfc6e24decd3b5"
+  },
+  "schema": "jcc-e2e-evidence/2",
   "status": "PASS"
 }

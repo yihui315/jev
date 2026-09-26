@@ -1,23 +1,189 @@
 {
-  "at": "2026-09-25T08:52:18.501654+00:00",
-  "checks": [
+  "agents_covered": [
+    "claude",
+    "codex",
+    "hermes",
+    "workbuddy"
+  ],
+  "agents_declared": [
+    "workbuddy",
+    "claude",
+    "codex",
+    "hermes"
+  ],
+  "all_directives_inert": true,
+  "demo_label_pages": [
+    "audit",
+    "dashboard",
+    "decisions",
+    "session_detail",
+    "sessions"
+  ],
+  "deterministic_replay": {
+    "method": "two independent replays into two fresh databases; sha256 of the canonical projection of sessions+audit+directives, split into stable/volatile so the excluded fields are named, sourced and hash-pinned rather than dropped",
+    "ok": true,
+    "run1_digest": "c7c361085e02be6951cb85e4c6e9142895a860002db626fbf585796fea25995d",
+    "run2_digest": "c7c361085e02be6951cb85e4c6e9142895a860002db626fbf585796fea25995d",
+    "scope": "every derived field EXCEPT the declared volatile set",
+    "volatile_fields": {
+      "audit.entry_hash": {
+        "assigned_at_line": 185,
+        "expression": "_hash(_canon(payload)) over payload['timestamp']",
+        "origin": "packages/jcc_core/audit.py",
+        "why": "hash of the row, which contains the wall-clock timestamp above"
+      },
+      "audit.prev_hash": {
+        "assigned_at_line": 172,
+        "expression": "prev_hash = row[0] if row else GENESIS",
+        "origin": "packages/jcc_core/audit.py",
+        "why": "the previous row's entry_hash, so it inherits that field's volatility transitively (row 0, which links to GENESIS, is stable)"
+      },
+      "audit.timestamp": {
+        "assigned_at_line": 340,
+        "expression": "self.store.append_audit(..., timestamp=now, ...)",
+        "origin": "packages/jcc_core/core.py",
+        "why": "ingest process wall clock"
+      },
+      "directive.timestamp": {
+        "assigned_at_line": 297,
+        "expression": "Directive(..., timestamp=now, ...)",
+        "origin": "packages/jcc_core/core.py",
+        "why": "ingest process wall clock"
+      },
+      "session.updated_at": {
+        "assigned_at_line": 327,
+        "expression": "sess.updated_at = now",
+        "origin": "packages/jcc_core/core.py",
+        "why": "ingest process wall clock"
+      },
+      "volatile_clock_source": {
+        "assigned_at_line": 223,
+        "expression": "now = time.time()",
+        "origin": "packages/jcc_core/core.py",
+        "why": "the single wall-clock input all four fields above derive from"
+      }
+    },
+    "volatile_fields_moved": true,
+    "volatile_note": "declared volatile fields differ between the two replays, as the declaration predicts"
+  },
+  "directive_count": 8,
+  "passed": true,
+  "problems": [],
+  "provenance": {
+    "command": "python -m fixtures.demo.acceptance",
+    "deterministic": true,
+    "generator": "fixtures/demo/acceptance.py",
+    "generator_sha256": "5348a93d666e64562d41aab429252b149fd2fc448b101e623a1481921b012d62",
+    "loader": "fixtures/demo/load.py",
+    "loader_sha256": "e06cc2d459137194d5fd1344c41e026dcfcbbd5f6c258ffd188f99c304470a43",
+    "manifest": "fixtures/demo/manifest.json",
+    "manifest_sha256": "17f9ad3893e71a2e52c47a667d2ae9d6c05f4c01387ca92bfde97b4757ceca5f",
+    "volatile_origin_sha256": {
+      "packages/jcc_core/audit.py": "16f44706b31f8f2024dba65c585ba009fc64dec8bee108ade9998d53df1b0ae7",
+      "packages/jcc_core/core.py": "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e"
+    }
+  },
+  "schema": "jcc-demo-mode-evidence/2",
+  "screens": [
     {
-      "detail": "passed",
-      "name": "test_demo_run_is_labelled_demo_everywhere",
-      "ok": true
+      "demo_label_present": true,
+      "name": "dashboard",
+      "non_trivial": true,
+      "path": "/",
+      "status": 200,
+      "unreachable": false
     },
     {
-      "detail": "passed",
-      "name": "test_demo_audit_tape_records_demo_project",
-      "ok": true
+      "demo_label_present": true,
+      "name": "sessions",
+      "non_trivial": true,
+      "path": "/sessions",
+      "status": 200,
+      "unreachable": false
     },
     {
-      "detail": "passed",
-      "name": "test_demo_directives_are_inert",
-      "ok": true
+      "demo_label_present": true,
+      "name": "session_detail",
+      "non_trivial": true,
+      "path": "/sessions/demo-claude-0001",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "demo_label_present": true,
+      "name": "decisions",
+      "non_trivial": true,
+      "path": "/decisions",
+      "status": 200,
+      "unreachable": false
+    },
+    {
+      "demo_label_present": true,
+      "name": "audit",
+      "non_trivial": true,
+      "path": "/audit",
+      "status": 200,
+      "unreachable": false
     }
   ],
-  "failed": 0,
-  "passed": true,
+  "session_count": 4,
+  "sessions": [
+    {
+      "action": "VERIFY",
+      "agent": "claude",
+      "band": "low",
+      "blocker_kind": "NONE",
+      "directive_id": "dir_demo-claude-0001_demo-claude-0001-e02",
+      "event_count": 2,
+      "evidence_count": 1,
+      "evidence_hash": null,
+      "project": "DEMO",
+      "risk_score": 0.239,
+      "session_id": "demo-claude-0001",
+      "status": "await"
+    },
+    {
+      "action": "PAUSE",
+      "agent": "codex",
+      "band": "high",
+      "blocker_kind": "NONE",
+      "directive_id": "dir_demo-codex-0001_demo-codex-0001-e02",
+      "event_count": 2,
+      "evidence_count": 1,
+      "evidence_hash": null,
+      "project": "DEMO",
+      "risk_score": 0.67,
+      "session_id": "demo-codex-0001",
+      "status": "paused"
+    },
+    {
+      "action": "ESCALATE",
+      "agent": "hermes",
+      "band": "critical",
+      "blocker_kind": "NONE",
+      "directive_id": "dir_demo-hermes-0001_demo-hermes-0001-e02",
+      "event_count": 2,
+      "evidence_count": 1,
+      "evidence_hash": null,
+      "project": "DEMO",
+      "risk_score": 0.872,
+      "session_id": "demo-hermes-0001",
+      "status": "escalated"
+    },
+    {
+      "action": "VERIFY",
+      "agent": "workbuddy",
+      "band": "low",
+      "blocker_kind": "NONE",
+      "directive_id": "dir_demo-workbuddy-0001_demo-workbuddy-0001-e02",
+      "event_count": 2,
+      "evidence_count": 1,
+      "evidence_hash": null,
+      "project": "DEMO",
+      "risk_score": 0.041,
+      "session_id": "demo-workbuddy-0001",
+      "status": "await"
+    }
+  ],
   "status": "PASS"
 }

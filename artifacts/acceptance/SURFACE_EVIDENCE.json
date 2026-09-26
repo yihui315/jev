@@ -1,0 +1,52 @@
+{
+  "checked_at": "2026-09-26T15:55:59+08:00",
+  "ok": true,
+  "problems": [],
+  "question": "are the S-04 / S-05 claims true of the tree as it stands NOW, with the evidence regenerated rather than inspected?",
+  "schema": "jcc-surface-evidence/1",
+  "status": "PASS",
+  "surfaces": [
+    {
+      "artifact": "artifacts/acceptance/control_ui_smoke.json",
+      "artifact_bytes": 4455,
+      "artifact_present": true,
+      "artifact_says": {
+        "passed": true,
+        "screens_expected": 8,
+        "screens_ok": 8,
+        "status": "PASS"
+      },
+      "artifact_sha256": "61584e0fe9e2dc282936c230098235750cc8638176033f0a78de117ad1f20c2d",
+      "artifact_sha256_before": "61584e0fe9e2dc282936c230098235750cc8638176033f0a78de117ad1f20c2d",
+      "gate_detail": "Control UI: 8/8 screens fetched over real HTTP (4 seeded demo session(s)); all 200, all non-empty, all API-backed; evidence artifacts\\acceptance\\control_ui_smoke.json recomputable from source",
+      "gate_status": "OK",
+      "log": ".workbuddy/scratch/surfaces/S-04.log",
+      "producer": "python -m control_ui.acceptance",
+      "producer_exit": 0,
+      "producer_seconds": 6.8,
+      "surface": "S-04"
+    },
+    {
+      "artifact": "artifacts/acceptance/demo_e2e.json",
+      "artifact_bytes": 6066,
+      "artifact_present": true,
+      "artifact_says": {
+        "passed": true,
+        "screens_expected": null,
+        "screens_ok": null,
+        "status": "PASS"
+      },
+      "artifact_sha256": "7f9504937e1baf046d2c0eaac1fc5e797d6deb00247daf1f03803db313c61cf9",
+      "artifact_sha256_before": "7f9504937e1baf046d2c0eaac1fc5e797d6deb00247daf1f03803db313c61cf9",
+      "gate_detail": "Demo Mode: 8 deterministic AEP envelopes across the four agents; replay reproduced an identical chain (digest c7c361085e02) with 6 named, sourced volatile field(s); all directives inert; DEMO label on 5 screens; evidence artifacts\\acceptance\\demo_e2e.json recomputable from source",
+      "gate_status": "OK",
+      "log": ".workbuddy/scratch/surfaces/S-05.log",
+      "producer": "python -m fixtures.demo.acceptance",
+      "producer_exit": 0,
+      "producer_seconds": 12.6,
+      "surface": "S-05"
+    }
+  ],
+  "verdict": "PASS: both surfaces were regenerated from source and the gate's own checks judged them OK",
+  "why_the_gate_judges": "check_s04_control_ui / check_s05_demo_mode are imported from artifacts/acceptance/final_gate_run.py, so there is one implementation of the claim, not two"
+}

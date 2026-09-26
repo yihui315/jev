@@ -29,9 +29,51 @@ Statuses
 --------
 OK | MISSING | FAILED | DEGRADED | PENDING_EXTERNAL_ACTIVATION
 
+The result file carries no clock and no HEAD (measured, not stylistic)
+--------------------------------------------------------------------
+This gate writes ``artifacts/acceptance/final_gate_result.json``, and that file
+is TRACKED -- deliberately, per KD-0012, so that re-signing a verdict is a diff
+git can see instead of an invisible overwrite. But P-01 requires the working
+tree to be clean, and P-01 is computed from ``git status`` *inside the very run
+that rewrites the file*. So the two requirements together were unsatisfiable
+whenever the written bytes were not a pure function of the committed tree:
+
+    run gate -> result carries ``generated_at`` and ``head`` -> file differs
+    from the committed blob -> ``git status`` non-empty -> P-01 FAIL, P-05 FAIL
+    -> PROJECT_COMPLETE=false -> the stop condition can never be reached.
+
+Measured on this host: a full run reported ``failed=['P-01','P-05']`` with the
+only dirty paths being the two e2e evidence files the same run had just
+regenerated. It was not a stale checkout; it was the gate failing itself.
+
+Two fields had to go, and the reason is structural, not cosmetic:
+
+* ``generated_at`` -- a wall clock. Two runs over byte-identical inputs would
+  emit different verdicts, so no run can ever be the fixed point the next run
+  compares against.
+* ``head`` -- the commit the run happened at. It CANNOT be correct: the file
+  cannot contain the hash of the commit that contains it. Whatever it says is
+  the parent, so it is stale the instant it is written, and it changes on every
+  commit, so it re-dirties the tree on the next run.
+
+The verdict therefore describes the TREE, identified by content hashes
+(``provenance``), and the OBSERVATION -- "on this machine, at this time, at this
+commit, this gate returned this" -- is appended as one line to a JSONL log that
+is NOT tracked (``--log``, default under ``artifacts/acceptance/`` which
+``.gitignore`` excludes). Evidence of identity stays in the repository; evidence
+of a moment stays out of it. A tracked, regenerated artifact must be a pure
+function of the tracked tree, or the release can never prove itself clean.
+
+The same rule applies to the leg details: a PASS detail may not embed HEAD or a
+count of paths moved since the freeze, because both change when a commit is made
+and the whole point is that committing the verdict must not invalidate it. FAIL
+details keep every diagnostic (they are not part of any fixed point -- a red
+gate is not a release).
+
 Usage
 -----
-    F:/jev/.venv/Scripts/python.exe F:/jev/artifacts/acceptance/final_gate_run.py --full
+    F:/jev/.venv/Scripts/python.exe F:/jev/artifacts/acceptance/final_gate_run.py --full \\
+        --json-out artifacts/acceptance/final_gate_result.json
 
 exit 0 iff PROJECT_COMPLETE=true, else 1.
 """
@@ -115,6 +157,18 @@ EVIDENCE_PREFIXES = (
 # pass ONLY when the leg also names its conditions; the gate enforces that below.
 GO_BEARING_VERDICTS = frozenset({"GO", "GO WITH CONDITIONS"})
 
+#: Schema of the machine verdict. Bumped when its shape changes so a consumer
+#: cannot silently read a new file with old field expectations -- `head` and
+#: `generated_at` were removed at /2 and a reader that still wants them must say
+#: so rather than read `None` and treat it as "no commit".
+GATE_RESULT_SCHEMA = "jcc-final-gate/2"
+
+#: Where a run records WHEN it happened and WHICH commit it saw. Deliberately
+#: under `artifacts/acceptance/`, which `.gitignore` excludes: the moment is not
+#: part of the release, and a tracked file that changes every run cannot also be
+#: the thing a clean-tree check compares against.
+DEFAULT_GATE_LOG = ART / "gate_runs.jsonl"
+
 
 def classify_leg_verdict(rec: Dict[str, Any]) -> Tuple[bool, str]:
     """Pure: does this signature's verdict pass the leg check? Returns
@@ -139,6 +193,95 @@ def classify_leg_verdict(rec: Dict[str, Any]) -> Tuple[bool, str]:
         if not isinstance(conds, list) or not conds:
             return False, f"signed {verdict!r} but names no condition"
     return True, f"verdict={verdict!r}"
+
+
+def classify_leg_position(
+    rsha: str,
+    head: str,
+    freeze: str,
+    changed_since_freeze: List[str],
+    evidence_prefixes: Tuple[str, ...] = EVIDENCE_PREFIXES,
+) -> Tuple[bool, str]:
+    """Pure: is this signature's SHA POSITION acceptable? ``(accepts, detail)``.
+
+    Split out of :func:`check_e2e` for the same reason as
+    :func:`classify_leg_verdict`, and after the same lesson. A rule that can only
+    be exercised by a five-minute ``--full`` gate run is a rule nobody re-checks
+    after it has quietly been weakened -- and this rule decides whether a leg's
+    ``GO`` counts, which is the whole release.
+
+A signature cannot contain itself: demanding ``release_sha == HEAD`` made
+every leg off by one commit the moment its own GO was committed. So two
+positions are accepted:
+
+  * ``rsha == head`` -- signed at the current tip; nothing to reconcile.
+  * ``rsha == freeze`` -- signed at the release freeze, PROVIDED the only
+    paths that moved between the freeze and HEAD are release evidence. If a
+    product path moved, the signature describes a product that is no longer
+    what is being shipped: a stale signature, not a pass.
+
+Everything else is refused, including a blank or absent ``release_sha``.
+
+WHY THE ACCEPTING DETAILS NAME NEITHER ``head`` NOR THE PATH COUNT. Both were
+there, and both broke the fixed point the gate needs: the count of paths moved
+since the freeze changes on every commit (so committing the verdict invalidated
+it) and ``head`` cannot appear in a file that is itself in the commit. The
+verdict is a statement about the tree -- the tree's identity is carried by the
+signed artifact, not by the tip's hash -- so the accepting detail says what the
+rule decided and nothing that moves. The refusing branch keeps every
+diagnostic, because a red gate is not a fixed point of anything.
+"""
+    if rsha == head:
+        return True, "final-leg GO re-signed against the current tip"
+    if freeze and rsha.startswith(freeze[:12]):
+        offenders = [p for p in changed_since_freeze
+                     if not any(p.startswith(pre) for pre in evidence_prefixes)]
+        if offenders:
+            return False, (f"GO was signed at the release freeze {rsha[:12]}, but "
+                           f"{len(offenders)} path(s) outside release evidence changed "
+                           f"since: {', '.join(offenders[:5])}")
+        return True, (f"final-leg GO re-signed against the release freeze {rsha[:12]}; "
+                      f"every path changed since the freeze is release evidence")
+    return False, (f"GO was signed against {rsha or 'nothing'}, neither the current "
+                   f"HEAD {head} nor the release freeze {freeze or '<unset>'}")
+
+
+def judge_leg(
+    rec: Dict[str, Any],
+    head: str,
+    freeze: str = RELEASE_FREEZE,
+    changed_since_freeze: Optional[List[str]] = None,
+    diff_provider: Optional[Any] = None,
+) -> Tuple[str, str]:
+    """``(status, detail)`` for one leg signature -- the WHOLE rule, in one place.
+
+    Verdict family, condition requirement, SHA position and condition rendering,
+    composed so that the composed result is itself testable. The defect this
+    replaces lived exactly in the composition: both halves were individually
+    correct, and it was the joining of them (`g.ok(...) + cond_note`) that raised
+    TypeError and dropped the conditions. A test that exercises only the halves
+    would not have caught it.
+
+    ``diff_provider`` is called only when a freeze-positioned signature actually
+    needs reconciling, so a tip-signed leg never pays for the git diff.
+    """
+    ok_verdict, why = classify_leg_verdict(rec)
+    if not ok_verdict:
+        return STATUS_FAILED, (f"names verdict={str(rec.get('verdict','')).strip().upper() or '<absent>'!r}; "
+                               f"accepted verdicts are {sorted(GO_BEARING_VERDICTS)}")
+    conditions = rec.get("conditions") or []
+    cond_note = ""
+    if conditions:
+        shown = "; ".join(str(c) for c in conditions[:3])
+        if len(conditions) > 3:
+            shown += f" ... (+{len(conditions) - 3} more)"
+        cond_note = f" [{len(conditions)} condition(s): {shown}]"
+    rsha = str(rec.get("release_sha", ""))
+    changed = changed_since_freeze
+    if rsha != head and rsha.startswith(freeze[:12]) and changed is None:
+        changed = (diff_provider or (lambda: []))()
+    accepted, detail = classify_leg_position(rsha, head, freeze, changed or [])
+    return (STATUS_OK if accepted else STATUS_FAILED), detail + (cond_note if accepted else "")
 
 # Components whose completion is owner-declared. The gate verifies the claim
 # against ground truth (module exists, every pinned test id exists in the
@@ -392,6 +535,13 @@ TEST_SCOPES: List[Tuple[str, str, List[str]]] = [
     ("T-14", "end to end", [
         "tests/e2e",
     ]),
+    # T-15 exists because the rules that decide this release used to be
+    # reachable only through a full `--full` run. If the gate's own decision
+    # rules are not falsified by the same run that uses them, the gate is
+    # grading itself with an instrument nobody has ever tested.
+    ("T-15", "gate decision-rule falsifiers", [
+        "tools/tests",
+    ]),
 ]
 
 _SUMMARY_PATS = (
@@ -483,6 +633,97 @@ def _last_junit_path() -> Path:
     return _JUNIT_PATH
 
 
+#: NTSTATUS values a Windows child can exit with when it is killed by the OS
+#: rather than by pytest. Named so the verdict says what happened instead of
+#: printing a 10-digit integer.
+_WINDOWS_EXIT_NAMES = {
+    0xC0000005: "STATUS_ACCESS_VIOLATION",
+    0xC0000006: "STATUS_IN_PAGE_ERROR",
+    0xC0000017: "STATUS_NO_MEMORY",
+    0xC000001D: "STATUS_ILLEGAL_INSTRUCTION",
+    0xC0000094: "STATUS_INTEGER_DIVIDE_BY_ZERO",
+    0xC0000096: "STATUS_PRIVILEGED_INSTRUCTION",
+    0xC00000FD: "STATUS_STACK_OVERFLOW",
+    0xC0000135: "STATUS_DLL_NOT_FOUND",
+    0xC000013A: "STATUS_CONTROL_C_EXIT",
+    0xC0000142: "STATUS_DLL_INIT_FAILED",
+    0xC0000374: "STATUS_HEAP_CORRUPTION",
+    0xC0000409: "STATUS_STACK_BUFFER_OVERRUN",
+}
+
+#: The sandbox's delete guard prints this when a bulk delete crosses its
+#: threshold. It is a refusal by the ENVIRONMENT, never an outcome of a test.
+GUARD_MARKER = "SAFE_DELETE_BULK_CONFIRM_REQUIRED"
+
+#: Facts about how the run itself went -- retries, native faults, guard
+#: refusals. Written to the UNTRACKED observation log and never into the
+#: tracked verdict: whether a retry was needed is a property of the moment, and
+#: a verdict that embeds it would differ between two runs over the same tree,
+#: which is precisely what P-01 compares.
+_SCOPE_OBSERVATIONS: List[Dict[str, Any]] = []
+
+
+def _exit_description(code: Optional[int]) -> str:
+    if code is None:
+        return "no exit code (the invocation did not finish)"
+    if code < 0:
+        return "%d (killed by signal %d)" % (code, -code)
+    low = code & 0xFFFFFFFF
+    if low >= 0xC0000000:
+        return "0x%08X %s" % (low, _WINDOWS_EXIT_NAMES.get(low, "NTSTATUS"))
+    return "exit code %d" % low
+
+
+def _no_measurement(proc: subprocess.CompletedProcess, out: str) -> Optional[str]:
+    """Why this invocation produced NO MEASUREMENT, or ``None`` if it did.
+
+    A child killed by the OS, or refused by the sandbox's delete guard, emits
+    nothing that can be judged: pytest's junit report is written at session end
+    so it never appears, the summary line never prints, and stdout/stderr can be
+    EMPTY because they were block-buffered into a file and died with the
+    process. Observed on this host, twice, in two different scopes:
+    ``returncode=3221225477`` (``0xC0000005``) with ``stdout_bytes=0
+    stderr_bytes=0``, and separately a full green run whose last output line was
+    ``[safe-delete][SAFE_DELETE_BULK_CONFIRM_REQUIRED]`` with no summary.
+
+    Both are reasons to RE-RUN, and neither is a statement about the tests:
+    calling it a test failure attributes to the product something that is not
+    evidence about the product, and calling it a pass would be worse. The
+    decision is not made here -- this function only says whether there is
+    anything to judge.
+    """
+    reason = None
+    low = (proc.returncode or 0) & 0xFFFFFFFF
+    if proc.returncode not in (0, None) and low >= 0xC0000000:
+        reason = "the interpreter died of a native fault (%s)" % _exit_description(proc.returncode)
+    elif GUARD_MARKER in out:
+        reason = ("the sandbox's bulk-delete guard refused pytest's own scratch "
+                  "cleanup (%s)" % GUARD_MARKER)
+    elif not out.strip():
+        reason = ("the process produced no output at all (%s)"
+                  % _exit_description(proc.returncode))
+    return reason
+
+
+def _prune_stale_junit(base: Path) -> None:
+    """Drop junit reports from earlier gate runs.
+
+    The report's path used to be shared between scopes (``base/junit.xml``).
+    That made a scope which crashed before writing its own report read the
+    PREVIOUS scope's numbers -- the gate would then reconcile a scope against a
+    different scope's tests, which is the "instrument reports success while
+    knowing nothing" failure in its purest form. Each invocation now owns a
+    uniquely named report; this keeps the directory from growing forever.
+    """
+    if not base.is_dir():
+        return
+    for stale in base.glob("junit-*.xml"):
+        try:
+            stale.unlink()
+        except OSError:
+            pass
+
+
 def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
     global _JUNIT_PATH
     base = Path(tempfile.gettempdir()) / "jev-final-gate"
@@ -496,7 +737,9 @@ def _run_pytest(args: List[str]) -> subprocess.CompletedProcess:
     # an incident, not a measurement.
     env["PAID_PROVIDER_CALLS"] = "0"
     env["EXTERNAL_PUBLISH"] = "0"
-    junit = base / "junit.xml"
+    # pytest's --basetemp wins over a conftest's, so the scratch root is pinned
+    # here for every scope -- see the note in run_scope about the delete guard.
+    junit = base / f"junit-{stamp}.xml"
     _JUNIT_PATH = junit
     return subprocess.run(
         [str(PY), "-m", "pytest", *args, "-v", "-p", "no:cacheprovider",
@@ -538,6 +781,32 @@ def collect_test_ids() -> set:
     return ids
 
 
+def _run_scope_process(paths: List[str]) -> Tuple[subprocess.CompletedProcess, str, List[str]]:
+    """Run one scope's pytest, retrying ONCE when the attempt produced nothing.
+
+    Both attempts are recorded. The retry is bounded at one, is not a skip (the
+    tests do run), and cannot manufacture a pass: the verdict is read from the
+    LAST attempt's junit + summary and every downstream check still applies, so
+    a scope with a failing test fails on either attempt. What the retry removes
+    is the case where the OS or the sandbox killed the child, where there was
+    never a measurement to fail in the first place.
+    """
+    notes: List[str] = []
+    proc: Optional[subprocess.CompletedProcess] = None
+    out = ""
+    for attempt in (1, 2):
+        proc = _run_pytest(paths)
+        out = (proc.stdout or "") + (proc.stderr or "")
+        reason = _no_measurement(proc, out)
+        if reason is None:
+            break
+        notes.append("attempt %d: %s" % (attempt, reason))
+        if attempt == 2:
+            break
+    assert proc is not None
+    return proc, out, notes
+
+
 def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[str, int]]:
     """Run one scope and judge it. Returns its summary for the grand tally."""
     absent = [p for p in paths if not (REPO / p).is_dir()]
@@ -546,8 +815,10 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
                     "what it cannot find".format(label, ", ".join(absent)))
         return None
 
-    proc = _run_pytest(paths)
-    out = (proc.stdout or "") + (proc.stderr or "")
+    proc, out, notes = _run_scope_process(paths)
+    if notes:
+        _SCOPE_OBSERVATIONS.append({"scope": cid, "label": label, "paths": paths,
+                                    "notes": notes, "recollected": False})
     summary = _parse_summary(out)
     tallies = _parse_tallies(out)
 
@@ -558,8 +829,14 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
     # records the outcome of every testcase. The summary line is only used to
     # cross-check it -- if the two disagree, one of them is lying and both are
     # evidence of a broken instrument.
+    junit_path = _last_junit_path()
+    if not junit_path.is_file():
+        g.fail(cid, "scope '{}': no junit report was written, so this scope was "
+                    "never measured ({})".format(
+                        label, "; ".join(notes) or "report absent after a clean exit"))
+        return None
     try:
-        junit = _parse_junit_tally(_last_junit_path())
+        junit = _parse_junit_tally(junit_path)
     except RuntimeError as exc:
         g.fail(cid, "scope '{}': {}".format(label, exc))
         return None
@@ -583,17 +860,15 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
     }
 
     if not summary:
-        g.fail(cid, "no pytest summary line for scope '{}': the tally came from the junit "
-                    "report only, which is weaker evidence".format(label))
+        g.fail(cid, "scope '{}': no pytest summary line, so the run's own account of "
+                    "itself is missing and only the junit report can be read "
+                    "({})".format(label, "; ".join(notes) or "summary absent"))
         return tally
 
-    details = []
     ok_all = True
     for key in ("failed", "errors", "skipped"):
-        if key in summary:
-            details.append("{}={}".format(key, summary[key]))
-            if summary[key] != 0:
-                ok_all = False
+        if key in summary and summary[key] != 0:
+            ok_all = False
         if "failed" in summary and parsed_failed > summary["failed"]:
             g.fail(cid, "scope '{}': per-line parse found {} FAILED but pytest's own "
                         "summary says {} failed".format(label, parsed_failed, summary["failed"]))
@@ -612,10 +887,22 @@ def run_scope(g: Gate, cid: str, label: str, paths: List[str]) -> Optional[Dict[
         ok_all = False
 
     if proc.returncode != 0:
-        g.fail(cid, "scope '{}': pytest exit code {}".format(label, proc.returncode))
+        g.fail(cid, "scope '{}': pytest {}, and the output ends: {}".format(
+            label,
+            _exit_description(proc.returncode),
+            (out.strip().splitlines() or ["<no output>"])[-1][:300]))
         ok_all = False
     if ok_all:
-        g.ok(cid, "scope '{}': {} -- {}".format(label, ", ".join(details), ", ".join(paths)))
+        # Names the counts from pytest's OWN summary: a fully green run prints
+        # only "N passed" and no "0 failed", so a detail that lists only the
+        # zero-counters reads as an empty string (observed in an earlier
+        # revision: "scope 'unit and contract':  -- packages/..."). Deterministic
+        # by construction -- the counts are a property of the tree.
+        shown = ", ".join(["{} passed".format(tally["passed"]),
+                           "{} failed".format(tally["failed"]),
+                           "{} errors".format(tally["errors"]),
+                           "{} skipped".format(tally["skipped"])])
+        g.ok(cid, "scope '{}': {} -- {}".format(label, shown, ", ".join(paths)))
     return tally
 
 
@@ -776,12 +1063,76 @@ def check_provenance(g: Gate) -> None:
     # P-04 artifact ownership
     g.ok("P-04", "artifact attribution verified by the prefix rule (dir_ / shadow_)")
 
-    # P-05 freeze provenance
+    # P-05 freeze provenance. The detail names no HEAD for the same reason the
+    # whole verdict does not: this string lands in a tracked file, and a HEAD
+    # that appears in it is stale the moment the commit that carries it exists.
     if porcelain == "":
-        head = git("rev-parse", "HEAD")
-        g.ok("P-05", f"freeze provenance explainable at HEAD {head[:12]} (clean tree)")
+        g.ok("P-05", "freeze provenance explainable: the working tree is clean, so "
+                     "no unreviewed edit exists between the signed freeze and the "
+                     "tree this verdict describes")
     else:
         g.fail("P-05", "freeze provenance unexplained (dirty tree)")
+
+    # P-06 every input this gate reads must be IN THE REPOSITORY.
+    check_artifact_tracking(g)
+
+
+def _gate_input_artifacts() -> List[str]:
+    """Repo-relative paths this gate READS in order to reach its verdict.
+
+    Derived from the same constants the checks use, so a new component or
+    surface cannot be added to the checks and forgotten here.
+    """
+    out: List[str] = []
+    for cid in list(COMPONENT_EVIDENCE) + list(SURFACE_EVIDENCE):
+        out.append(f"artifacts/acceptance/component_evidence/{cid}.json")
+    for name in ADAPTERS:
+        out.append(f"artifacts/acceptance/adapter_capability/{name}.json")
+    for stem in ("demo_e2e", "api_e2e", "ui_smoke", "restart_recovery",
+                 "control_ui_smoke"):
+        out.append(f"artifacts/acceptance/{stem}.json")
+    for leg in ("architecture", "security", "sre"):
+        out.append(f"artifacts/acceptance/final_{leg}_go.json")
+    out.append("artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md")
+    out.append("artifacts/release/manifest.json")
+    out.append("artifacts/release/final-manifest.json")
+    out.append("FINAL_ACTIVATION_CHECKLIST.md")
+    out.append("fixtures/demo/manifest.json")
+    return out
+
+
+def check_artifact_tracking(g: Gate) -> None:
+    """P-06: an input that is present but untracked does not exist in a clone.
+
+    KD-0012 registered exactly this gap and could not close it: the four
+    whitelisted decision carriers were made trackable, but *nothing asserted
+    that they were still tracked*, so re-adding `artifacts/*` to `.gitignore`
+    would silently undo the whole fix. This is that assertion, generalised to
+    every artifact the gate reads.
+
+    The failure mode is not hypothetical and it was live an hour before this
+    check existed: ``control_ui_smoke.json`` -- the ONLY evidence S-04 accepts --
+    was untracked. Every check passed on this machine and the verdict was
+    reproducible here, while a clone of the repository would have failed S-04
+    with MISSING and been unable to explain why. "It verifies on my machine" is
+    what an untracked evidence file buys.
+
+    A MISSING input is deliberately NOT this check's business: the C-/S-/E-
+    check that needs it already reports MISSING, which is blocking, and
+    counting it twice would inflate `blocker` without adding information.
+    """
+    declared = _gate_input_artifacts()
+    present = [p for p in declared if (REPO / p).is_file()]
+    untracked = [p for p in present
+                 if not git_ok("ls-files", "--error-unmatch", "--", p)]
+    if untracked:
+        g.fail("P-06", "{} input artifact(s) exist on disk but are NOT tracked, so "
+                       "the verdict cannot be reproduced from a clone and a fresh "
+                       "checkout would fail the checks that read them: {}".format(
+                           len(untracked), ", ".join(untracked[:6])))
+    else:
+        g.ok("P-06", "all {} present gate input(s) are tracked in the repository "
+                     "(the verdict is reproducible from a clone)".format(len(present)))
 
 
 # ---------------------------------------------------------------------------
@@ -809,11 +1160,22 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("--full", action="store_true",
                     help="also execute the full test suite and compute its own tally")
     ap.add_argument("--json-out", help="write the machine-readable verdict here")
+    ap.add_argument("--log", default=str(DEFAULT_GATE_LOG),
+                    help="append the run's OBSERVATION (clock + commit) to this JSONL; "
+                         "untracked by design -- see the module docstring")
+    ap.add_argument("--no-log", action="store_true",
+                    help="do not append an observation line")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
+    if args.no_log:
+        args.log = None
 
     g = Gate()
     collected: set = set()
+
+    base = Path(tempfile.gettempdir()) / "jev-final-gate"
+    base.mkdir(parents=True, exist_ok=True)
+    _prune_stale_junit(base)
 
     if args.full:
         collected = collect_test_ids()
@@ -854,8 +1216,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     external = [c["id"] for c in g.by_status(STATUS_EXTERNAL)]
 
     verdict = {
+        "schema": GATE_RESULT_SCHEMA,
         "project_complete": complete,
-        "head": git("rev-parse", "HEAD"),
         "checks": g.checks,
         "missing": missing,
         "failed": failed,
@@ -863,16 +1225,52 @@ def main(argv: Optional[List[str]] = None) -> int:
         "pending_external_activation": external,
         "blocker": len(blocking),
         "high": len(blocking),
-        "generated_at": datetime.now(timezone.utc).isoformat(),
+        # Identity of the tree, not of the moment. See the module docstring:
+        # `generated_at` and `head` were here and made the stop condition
+        # unreachable, because this file is tracked and P-01 reads `git status`.
+        "provenance": {
+            "generator_sha256": sha256_file(HERE),
+            "release_freeze": RELEASE_FREEZE,
+            "evidence_prefixes": list(EVIDENCE_PREFIXES),
+            "scopes": [cid for cid, _, _ in TEST_SCOPES],
+            "full": bool(args.full),
+            "clock_free": True,
+        },
     }
 
     if args.json_out:
         out = Path(args.json_out)
         out.parent.mkdir(parents=True, exist_ok=True)
-        out.write_text(json.dumps(verdict, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        # newline="" + explicit "\n": the verdict is byte-compared by the next
+        # run's `git status`, so its line endings must not depend on the host.
+        out.write_text(json.dumps(verdict, indent=2, ensure_ascii=False) + "\n",
+                       encoding="utf-8", newline="\n")
+
+    # The OBSERVATION, which is what a clock is for. Untracked by design: it
+    # names the moment and the commit, neither of which belongs in a file that
+    # has to survive being committed.
+    if args.log:
+        logp = Path(args.log)
+        logp.parent.mkdir(parents=True, exist_ok=True)
+        with logp.open("a", encoding="utf-8", newline="\n") as fh:
+            fh.write(json.dumps({
+                "at": datetime.now(timezone.utc).isoformat(),
+                "head": git("rev-parse", "HEAD"),
+                "pid": os.getpid(),
+                "full": bool(args.full),
+                "project_complete": complete,
+                "blocker": len(blocking),
+                "failed": failed,
+                "generator_sha256": verdict["provenance"]["generator_sha256"],
+                # How the sweep itself went. Deliberately here and NOT in the
+                # verdict: a retry that did or did not happen belongs to the
+                # moment, and a tracked verdict that recorded it would differ
+                # between two runs over the same tree.
+                "scope_observations": _SCOPE_OBSERVATIONS,
+            }, ensure_ascii=False) + "\n")
 
     if not args.quiet:
-        print("[final-gate] HEAD={} full={}".format(verdict["head"], args.full))
+        print("[final-gate] HEAD={} full={}".format(git("rev-parse", "HEAD"), args.full))
         for c in g.checks:
             print("  [%-7s] %-5s %s" % (c["status"], c["id"], c["detail"][:150]))
         print("")
@@ -911,35 +1309,293 @@ def _find_test(needle: str) -> Optional[Path]:
     return None
 
 
-def check_surfaces_structural(g: Gate, collected: set) -> None:
-    """S-04 Control UI and S-05 Demo Mode: structural, non-fabricated."""
-    # S-04 Control UI must exist and be wired to the real API, not a mock page.
-    apps = REPO / "apps"
-    smoke = _find_test("smoke")
-    if not apps.is_dir() or not any(apps.rglob("*.py")):
-        g.missing("S-04", "no Control UI application present (apps/ has no modules)")
-    elif smoke is None:
-        g.missing("S-04", "no UI smoke test found; a UI cannot be declared COMPLETE untested")
-    else:
-        text = smoke.read_text(encoding="utf-8", errors="replace").lower()
-        if "mock" in text and "mock" not in text.replace("nomock", ""):
-            g.missing("S-04", "UI smoke appears to be mock-only; must drive the real JCC API")
-        else:
-            g.degraded("S-04", f"UI smoke {smoke.name} present; full 8-screen coverage not evidenced")
+def _find_test_in(dirs: List[Path], needle: str) -> Optional[Path]:
+    """Same idea as :func:`_find_test`, but confined to the directories named.
 
-    # S-05 Demo Mode: fixtures + an E2E that is labelled DEMO.
-    fixtures = REPO / "fixtures"
-    demo_test = _find_test("demo")
-    if not fixtures.is_dir() or not any(fixtures.rglob("*")):
-        g.missing("S-05", "no demo fixtures directory")
-    elif demo_test is None:
-        g.missing("S-05", "no demo E2E test found")
+    ``_find_test`` walks every scope directory in declaration order, which is
+    right when the question is "does a test with this name exist anywhere" and
+    wrong when the question is "how is THIS surface tested". It answered the
+    second question with the first search and produced a false FAIL: S-04 asked
+    for a file named ``*smoke*``, got
+    ``packages/jcc_core/tests/test_p2_integration_smoke.py`` (alphabetically
+    first, because T-10 is the first scope), read ``JCC_PROVIDER="mock"`` out of
+    it, and reported "UI smoke appears to be mock-only" -- about a Control UI
+    test module it had never opened.
+    """
+    for d in dirs:
+        if not d.is_dir():
+            continue
+        hit = [f for f in d.glob("*.py") if needle in f.name.lower()]
+        if hit:
+            return sorted(hit)[0]
+    return None
+
+
+#: The eight screens S-04 claims. Held here so a screen silently disappearing
+#: from the UI is a FAIL against a named list, not a count nobody can check.
+CONTROL_UI_SCREENS = (
+    "dashboard", "sessions", "session_detail", "decisions",
+    "security", "settings", "audit", "health",
+)
+#: The four agents S-05's fixture set must cover.
+DEMO_AGENTS = ("workbuddy", "claude", "codex", "hermes")
+#: Pages that must render the DEMO label. A demo that can pass for a real agent
+#: on the screens where an operator would look is the defect S-05 exists to stop.
+DEMO_LABEL_PAGES = ("dashboard", "sessions", "session_detail", "decisions", "audit")
+
+
+def _read_json(path: Path):
+    """(record, error). Never raises: an unreadable artifact is a verdict."""
+    try:
+        return json.loads(path.read_text(encoding="utf-8")), None
+    except (OSError, ValueError) as exc:
+        return None, str(exc)
+
+
+def judge_control_ui_smoke(rec: Dict[str, Any]) -> List[str]:
+    """Pure: everything wrong with a ``control_ui_smoke.json`` record. [] = OK.
+
+    Separated from the file-reading wrapper so the rule can be falsified with a
+    synthetic record -- 7 screens, a stub serving one body eight times, a page
+    that rendered API UNREACHABLE -- without a browser, a server or a gate run.
+    """
+    problems: List[str] = []
+    screens = rec.get("screens") or []
+    names = [s.get("name") for s in screens]
+    missing = [n for n in CONTROL_UI_SCREENS if n not in names]
+    surplus = [n for n in names if n not in CONTROL_UI_SCREENS]
+    if missing:
+        problems.append(f"screens not fetched: {', '.join(missing)}")
+    if surplus:
+        problems.append(f"unexpected screens: {', '.join(surplus)}")
+    if rec.get("screens_ok") != len(CONTROL_UI_SCREENS):
+        problems.append(f"screens_ok={rec.get('screens_ok')!r} "
+                        f"(expected {len(CONTROL_UI_SCREENS)})")
+    if rec.get("screens_expected") != len(CONTROL_UI_SCREENS):
+        problems.append(f"screens_expected={rec.get('screens_expected')!r}")
+    if rec.get("passed") is not True:
+        problems.append(f"passed={rec.get('passed')!r}")
+    if rec.get("status") != "PASS":
+        problems.append(f"status={rec.get('status')!r}")
+    for s in screens:
+        n = s.get("name")
+        if s.get("status") != 200:
+            problems.append(f"{n}: HTTP {s.get('status')}")
+        if s.get("unreachable"):
+            problems.append(f"{n}: rendered API UNREACHABLE")
+        if not s.get("non_trivial"):
+            problems.append(f"{n}: page is empty or near-empty "
+                            f"(non_trivial={s.get('non_trivial')!r})")
+    uniq = {s.get("excerpt") for s in screens}
+    if len(uniq) < len(CONTROL_UI_SCREENS) - 1:
+        problems.append(f"only {len(uniq)} distinct page heads across "
+                        f"{len(screens)} screens -- this is a stub, not 8 screens")
+    prov = rec.get("provenance") or {}
+    if not prov.get("deterministic") or not prov.get("generator_sha256"):
+        problems.append("evidence carries no deterministic provenance "
+                        "(generator sha256), so it cannot be recomputed from a clone")
+    return problems
+
+
+def judge_demo_mode(manifest: Dict[str, Any], rec: Dict[str, Any],
+                    fixtures: Path) -> List[str]:
+    """Pure-ish: everything wrong with the Demo Mode claim. [] = OK.
+
+    ``fixtures`` is passed in only so the manifest's file references can be
+    resolved; everything else is a rule over the two records, which is what makes
+    it falsifiable with synthetic inputs.
+    """
+    problems: List[str] = []
+    if str(manifest.get("label")) != "DEMO":
+        problems.append(f"manifest label={manifest.get('label')!r}, expected 'DEMO'")
+    agents = list(manifest.get("agents") or [])
+    if sorted(agents) != sorted(DEMO_AGENTS):
+        problems.append(f"agents={agents!r}, expected the four {list(DEMO_AGENTS)}")
+    events = manifest.get("events") or []
+    per_agent: Dict[str, int] = {}
+    for e in events:
+        per_agent[e.get("agent")] = per_agent.get(e.get("agent"), 0) + 1
+        f = fixtures / str(e.get("file") or "")
+        if not f.is_file():
+            problems.append(f"manifest points at a missing fixture: {e.get('file')}")
+    for a in DEMO_AGENTS:
+        if per_agent.get(a, 0) < 2:
+            problems.append(f"agent {a} has {per_agent.get(a, 0)} fixture event(s); "
+                            f"a session-start alone is not a demonstrable run")
+
+    if rec.get("status") != "PASS" or rec.get("passed") is not True:
+        problems.append(f"demo run status={rec.get('status')!r} "
+                        f"passed={rec.get('passed')!r}")
+    replay = rec.get("deterministic_replay") or {}
+    if replay.get("ok") is not True:
+        problems.append("replay is not deterministic outside the declared volatile "
+                        f"fields (run1={str(replay.get('run1_digest'))[:12]} "
+                        f"run2={str(replay.get('run2_digest'))[:12]})")
+    # An exclusion is only respectable if it is NAMED and SOURCED. A bare
+    # "deterministic": true with a volatile set of unknown provenance is the
+    # cover story this check exists to refuse.
+    volatile = replay.get("volatile_fields") or {}
+    if not replay.get("volatile_fields_moved"):
+        problems.append("the declared volatile fields did not move between the two "
+                        "replays, so the declaration is unproven or stale")
+    if not volatile:
+        problems.append("replay declares no volatile fields, yet the audit chain "
+                        "hashes the ingest wall clock; the determinism claim is "
+                        "unqualified")
+    for name, meta in volatile.items():
+        if not (meta.get("origin") and meta.get("expression") and meta.get("why")):
+            problems.append(f"volatile field {name!r} is not justified "
+                            f"(origin/expression/why required)")
+    if sorted(rec.get("agents_covered") or []) != sorted(DEMO_AGENTS):
+        problems.append(f"agents_covered={rec.get('agents_covered')!r}")
+    if rec.get("all_directives_inert") is not True:
+        problems.append("demo produced a directive with acted != false")
+    labelled = set(rec.get("demo_label_pages") or [])
+    missing_lbl = [p for p in DEMO_LABEL_PAGES if p not in labelled]
+    if missing_lbl:
+        problems.append(f"DEMO label missing on: {', '.join(missing_lbl)}")
+    prov = rec.get("provenance") or {}
+    if not prov.get("deterministic") or not prov.get("generator_sha256"):
+        problems.append("evidence carries no deterministic provenance")
+    if not prov.get("volatile_origin_sha256"):
+        problems.append("the volatile-field declaration is not pinned to the source "
+                        "it was made about")
+    return problems
+
+
+def check_s04_control_ui(g: Gate) -> None:
+    """S-04: the Control UI is real, wired to the real API, and proven on 8 screens.
+
+    WHAT THIS REPLACES. The check used to stop at "apps/ has modules and a smoke
+    test exists" and then declare DEGRADED with the note "full 8-screen coverage
+    not evidenced". DEGRADED is not blocking, so the release shipped on a surface
+    whose only evidence was that a file with the word "smoke" in its name existed
+    -- the classic instrument-that-asserts-nothing. The artifact that actually
+    proves the claim (``control_ui_smoke.json``: eight real HTTP fetches of a
+    live UI over a live API) was already being produced and simply never read.
+    This reads it, and reads it in a way that can fail:
+
+      * the eight screens must be exactly the declared set -- no extras, no gaps;
+      * every screen must be HTTP 200, over 300 bytes, and must NOT contain the
+        UI's own "API UNREACHABLE" marker (a page that cannot reach the control
+        plane is a failure, not a projected page);
+      * the pages must not be the same bytes: a stub that serves one document for
+        every route would otherwise satisfy "eight screens, all 200";
+      * the smoke test module must name the API it drives, so "real wiring" is
+        read off the test rather than asserted here -- and the module must be
+        the Control UI's OWN test, resolved inside ``apps/control_ui`` rather
+        than by a repository-wide filename search (see :func:`_find_test_in`).
+
+    THE MOCK CHECK WAS ALSO THE WRONG INSTRUMENT, and the false FAIL above is
+    how that was found. It tested ``"mock" in src.lower()``, which is a
+    substring, not a property: it matches ``JCC_PROVIDER="mock"`` -- the
+    configured PROVIDER NAME this project uses precisely so that no paid
+    provider is called -- and it matches prose. What S-04 has to rule out is the
+    HTTP layer being STUBBED, which is a specific set of imports and helpers,
+    so those are what is matched.
+    """
+    apps = REPO / "apps"
+    ui_app = apps / "control_ui"
+    if not apps.is_dir() or not any(apps.rglob("*.py")):
+        g.fail("S-04", "no Control UI application present (apps/ has no modules)")
+        return
+    smoke_test = _find_test_in([ui_app / "tests", ui_app], "smoke")
+    if smoke_test is None:
+        g.fail("S-04", f"no Control UI smoke test found under {_rel(ui_app)}; a UI "
+                       f"cannot be declared COMPLETE untested, and a smoke test in "
+                       f"another package is not evidence about this one")
+        return
+
+    src = smoke_test.read_text(encoding="utf-8", errors="replace")
+    stubs = [t for t in ("unittest.mock", "from unittest import mock", "import mock",
+                         "mock.patch", "MagicMock", "responses.", "httpretty")
+             if t in src]
+    if stubs:
+        g.fail("S-04", f"{_rel(smoke_test)} stubs the transport ({', '.join(stubs)}); "
+                       f"S-04 requires the UI to be driven over real HTTP")
+        return
+    # Real wiring: the smoke test must reach the control plane's own endpoints.
+    if "/api/health" not in src:
+        g.fail("S-04", f"{smoke_test.name} never calls the real control-plane API "
+                       f"(no /api/health in the test source)")
+        return
+    if "API UNREACHABLE" not in src:
+        g.fail("S-04", f"{smoke_test.name} does not assert that the UI reached the API; "
+                       f"a page that silently renders an error would pass")
+        return
+
+    ev = ART / "control_ui_smoke.json"
+    rec, err = _read_json(ev)
+    if rec is None:
+        g.fail("S-04", f"{_rel(ev)} unreadable or absent ({err}); 8-screen coverage "
+                       f"cannot be claimed without it")
+        return
+
+    problems = judge_control_ui_smoke(rec)
+    if problems:
+        g.fail("S-04", "Control UI 8-screen claim does not verify: "
+                       + "; ".join(problems[:6]))
     else:
-        txt = demo_test.read_text(encoding="utf-8", errors="replace")
-        if "DEMO" not in txt:
-            g.missing("S-05", "demo test does not label the run DEMO; must never impersonate a real agent")
-        else:
-            g.degraded("S-05", f"demo fixture + DEMO-labelled e2e present ({demo_test.name})")
+        g.ok("S-04", f"Control UI: {len(rec.get('screens') or [])}/8 screens fetched "
+                     f"over real HTTP ({len(rec.get('seeded_sessions') or [])} "
+                     f"seeded demo session(s)); all 200, all non-empty, all "
+                     f"API-backed; evidence {_rel(ev)} recomputable from source")
+
+
+def check_s05_demo_mode(g: Gate) -> None:
+    """S-05: Demo Mode has four-agent deterministic fixtures, a real E2E, and a label.
+
+    WHAT THIS REPLACES. The check used to require "a fixtures directory with
+    something in it" and "a test file containing the string DEMO", then declared
+    DEGRADED. Containment of a string is not evidence of anything: a fixture set
+    that is not deterministic, or an E2E that replays into a fresh database and
+    gets different directives, would have passed. This check requires the
+    fixture set to be REPLAYABLE (the generator replays it twice and the two
+    digests must match), to cover all four agents, to produce only inert
+    directives, and the label to be rendered on the screens an operator would
+    look at -- read from the artifact, not from the test's source text.
+    """
+    fixtures = REPO / "fixtures" / "demo"
+    manifest, err = _read_json(fixtures / "manifest.json")
+    if manifest is None:
+        g.fail("S-05", f"demo fixture manifest unreadable or absent ({err})")
+        return
+
+    demo_test = _find_test("demo")
+    if demo_test is None:
+        g.fail("S-05", "no demo E2E test found")
+        return
+    if "DEMO" not in demo_test.read_text(encoding="utf-8", errors="replace"):
+        g.fail("S-05", f"{demo_test.name} does not label the run DEMO; "
+                       f"a demo must never impersonate a real agent")
+        return
+
+    ev = ART / "demo_e2e.json"
+    rec, err = _read_json(ev)
+    if rec is None:
+        g.fail("S-05", f"{_rel(ev)} unreadable or absent ({err}); the demo run is "
+                       f"not evidenced")
+        return
+
+    problems = judge_demo_mode(manifest, rec, fixtures)
+    if problems:
+        g.fail("S-05", "Demo Mode claim does not verify: " + "; ".join(problems[:6]))
+    else:
+        replay = rec.get("deterministic_replay") or {}
+        events = manifest.get("events") or []
+        g.ok("S-05", f"Demo Mode: {len(events)} deterministic AEP envelopes across the "
+                     f"four agents; replay reproduced an identical chain "
+                     f"(digest {str(replay.get('run1_digest'))[:12]}) with "
+                     f"{len(replay.get('volatile_fields') or {})} named, sourced "
+                     f"volatile field(s); all directives inert; DEMO label on "
+                     f"{len(rec.get('demo_label_pages') or [])} screens; "
+                     f"evidence {_rel(ev)} recomputable from source")
+
+
+def check_surfaces_structural(g: Gate, collected: set) -> None:
+    """S-04 / S-05: real evidence, not the presence of a promising filename."""
+    check_s04_control_ui(g)
+    check_s05_demo_mode(g)
 
 
 def _rel(path: Path) -> str:
@@ -1024,53 +1680,24 @@ def check_e2e(g: Gate, collected: set) -> None:
         # an empty worry list" this gate exists to refuse, so `conditions` must
         # be a non-empty list. Everything outside the family (NO-GO, BLOCKED,
         # CONDITIONAL GO, typos) stays a FAIL.
-        ok_verdict, why = classify_leg_verdict(rec)
-        if not ok_verdict:
-            g.fail(cid, f"{leg} GO {why}; accepted verdicts are "
-                        f"{sorted(GO_BEARING_VERDICTS)}")
-            continue
-        verdict = str(rec.get("verdict", "")).strip().upper()
-        conditions = rec.get("conditions") or []
-        ok_verdict, why = classify_leg_verdict(rec)
-        if not ok_verdict:
-            g.fail(cid, f"{leg} GO {why}; accepted verdicts are "
-                        f"{sorted(GO_BEARING_VERDICTS)}")
-            continue
-        # Surfaced, not stored: the gate's verdict is pass/fail only, so a leg's
-        # conditions are carried in the evidence text rather than in a new
-        # category nobody would re-derive.
-        cond_note = ""
-        if conditions:
-            shown = "; ".join(str(c) for c in conditions[:3])
-            if len(conditions) > 3:
-                shown += f" ... (+{len(conditions) - 3} more)"
-            cond_note = f" [{len(conditions)} condition(s): {shown}]"
+        #
+        # Verdict, condition requirement, SHA position and condition rendering
+        # all live in `judge_leg` so the WHOLE rule can be falsified in
+        # milliseconds by tools/tests/test_final_gate_legs.py. Keeping any of it
+        # here would have meant the only way to re-check it was a five-minute
+        # gate run -- and the defect this replaced (see `judge_leg`) was a
+        # composition bug that no half-rule test would have caught.
         head = git("rev-parse", "HEAD")
-        rsha = str(rec.get("release_sha", ""))
-        if rsha == head:
-            g.ok(cid, f"final {leg} GO re-signed against {head[:12]}") + cond_note
-            continue
-        # A signature cannot contain itself and simultaneously claim to have been
-        # signed at the very commit that contains it -- demanding that made every
-        # leg off by one commit. The leg may therefore be signed at the release
-        # freeze, and when it is, the gate proves that is still the product it
-        # describes: nothing outside release evidence may have moved since.
-        if rsha.startswith(RELEASE_FREEZE[:12]):
-            changed = [p for p in git("diff", "--name-only", RELEASE_FREEZE, head).split()
-                       if p]
-            offenders = [p for p in changed
-                         if not any(p.startswith(pre) for pre in EVIDENCE_PREFIXES)]
-            if offenders:
-                g.fail(cid, f"{leg} GO was signed at the release freeze {rsha[:12]}, but "
-                            f"{len(offenders)} path(s) outside release evidence changed "
-                            f"since: {', '.join(offenders[:5])}")
-            else:
-                g.ok(cid, f"final {leg} GO re-signed against the release freeze {rsha[:12]}; "
-                          f"the {len(changed)} path(s) added since are release evidence only"
-                          + cond_note)
-            continue
-        g.fail(cid, f"{leg} GO was signed against {rsha or 'nothing'}, neither the current "
-                    f"HEAD {head} nor the release freeze {RELEASE_FREEZE[:12]}")
+        status, detail = judge_leg(
+            rec, head, RELEASE_FREEZE, None,
+            diff_provider=lambda: [p for p in
+                                   git("diff", "--name-only", RELEASE_FREEZE, head).split()
+                                   if p],
+        )
+        if status == STATUS_OK:
+            g.ok(cid, detail)
+        else:
+            g.fail(cid, f"{leg} {detail}")
 
 
 def check_final_evidence(g: Gate) -> None:

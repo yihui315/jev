@@ -1,0 +1,116 @@
+{
+  "arms": [
+    {
+      "arm_command_exited_at": 1790409310.1517115,
+      "arm_command_output": "ARMED ok=True pid=8948",
+      "arm_rc": 0,
+      "arm_seconds": 0.95,
+      "armed_here_as": "ARMED ok=True pid=8948",
+      "armed_pid": 8948,
+      "armed_pid_alive_now": false,
+      "beat_file": "F:\\jev\\.workbuddy\\scratch\\detached\\20260926_155509_192954\\beat_startprocess.txt",
+      "beats": 24,
+      "canary_lifetime_s": 23.01,
+      "child_stream_file_exists": true,
+      "expected_remaining_s": 24.4,
+      "fraction": 0.96,
+      "how": "Start-Process, both streams redirected to files",
+      "launcher": "Start-JccDetachedPython",
+      "note_on_in_job": "recorded for information only; measured on this host to be False for the WMI wrapper and True for the python it spawns, so it is NOT the criterion",
+      "seconds_alive_after_arm_returned": 23.42,
+      "verdict": "SURVIVED",
+      "where_it_is_used": "scripts/continuation-watchdog.ps1, every tick, as SYSTEM"
+    },
+    {
+      "arm_command_exited_at": 1790409311.1538932,
+      "arm_command_output": "caller_identity=YH\\Administrator\nreturn_value=0\ncreated_pid=14360\nprivilege|SeIncreaseQuotaPrivilege Ϊ���̵����ڴ���� �ѽ���",
+      "arm_rc": 0,
+      "arm_seconds": 0.96,
+      "armed_pid_alive_now": false,
+      "beat_file": "F:\\jev\\.workbuddy\\scratch\\detached\\20260926_155509_192954\\beat_wmi.txt",
+      "beats": 24,
+      "canary_lifetime_s": 23.01,
+      "expected_remaining_s": 24.13,
+      "fraction": 0.959,
+      "how": "cmd.exe wrapper, provider creates the process",
+      "launcher": "Win32_Process.Create (WMI)",
+      "note_on_in_job": "recorded for information only -- see the module docstring on why membership of ANY job is not the criterion",
+      "provider_paths_disagree": null,
+      "provider_report": {
+        "caller_identity": "YH\\Administrator",
+        "created_pid": "14360",
+        "privileges": [
+          "SeIncreaseQuotaPrivilege 为进程调整内存配额 已禁用"
+        ],
+        "return_value": "0"
+      },
+      "return_value": 0,
+      "seconds_alive_after_arm_returned": 23.14,
+      "verdict": "SURVIVED",
+      "where_it_is_used": "tools/continuation/launch_soak.py and the other operator-run acceptance launchers",
+      "wrapper": ".workbuddy/scratch/detached/20260926_155509_192954/canary_wmi.cmd"
+    },
+    {
+      "audit_records_read": 50,
+      "beats": 0,
+      "how": "the watchdog's own audit log, read live",
+      "later_ticks": [
+        {
+          "action": "ERROR",
+          "at": "2026-09-26T14:56:36.5825405+08:00",
+          "detail": "controller pid 2496 died before acquiring the lock; see F:\\jev\\.workbuddy\\scheduled\\logs\\continuation-controller.err.log",
+          "pid": 2496,
+          "tick": "continuation-watchdog"
+        },
+        {
+          "action": "NOOP",
+          "at": "2026-09-26T14:58:35.8605743+08:00",
+          "detail": "operator hold active until 2026-09-26T15:56:39+08:00 (authoring FINAL-07..13 step scripts and making the evidence commit); not starting a controller",
+          "pid": 0,
+          "tick": "continuation-watchdog"
+        },
+        {
+          "action": "NOOP",
+          "at": "2026-09-26T15:00:35.8396157+08:00",
+          "detail": "operator hold active until 2026-09-26T15:56:39+08:00 (authoring FINAL-07..13 step scripts and making the evidence commit); not starting a controller",
+          "pid": 0,
+          "tick": "continuation-watchdog"
+        },
+        {
+          "action": "NOOP",
+          "at": "2026-09-26T15:02:35.8232957+08:00",
+          "detail": "operator hold active until 2026-09-26T15:56:39+08:00 (authoring FINAL-07..13 step scripts and making the evidence commit); not starting a controller",
+          "pid": 0,
+          "tick": "continuation-watchdog"
+        }
+      ],
+      "launcher": "the task scheduler itself",
+      "lock_expires_at": "2026-09-26T16:10:08.777657+08:00",
+      "started": {
+        "action": "STARTED",
+        "at": "2026-09-26T14:56:35.9919392+08:00",
+        "detail": "controller launched detached (streams to files, no pipe)",
+        "pid": 2496,
+        "tick": "continuation-watchdog"
+      },
+      "verdict": "NOT OBSERVED",
+      "where_it_is_used": "production; this is the arm the pipeline depends on",
+      "why": "ticks ran after the STARTED one, but none of them reported a live controller: ERROR, NOOP, NOOP, NOOP"
+    }
+  ],
+  "artifacts_dir": ".workbuddy/scratch/detached/20260926_155509_192954",
+  "checked_at": "2026-09-26T15:55:38+08:00",
+  "claims": {
+    "Start-JccDetachedPython": "SURVIVED",
+    "Win32_Process.Create (WMI)": "SURVIVED",
+    "the scheduler (production)": "NOT OBSERVED"
+  },
+  "life_s": 24,
+  "not_claimed": [],
+  "observe_s": 26,
+  "ok": false,
+  "question": "does a process this platform starts outlive the command that started it? answered by heartbeats and by the production audit log, not by pids and not by in_job",
+  "status": "FAIL",
+  "verdict": "FAIL: the scheduler (production): NOT OBSERVED (ticks ran after the STARTED one, but none of them reported a live controller: ERROR, NOOP, NOOP, NOOP)",
+  "why_this_is_not_in_job": "IsProcessInJob(h, NULL, ...) reports membership of ANY job: the WMI wrapper reads False while the python it spawns reads True, and that python still outlives its arming command. Survival is the property the scheduled task depends on, so survival is what is measured."
+}

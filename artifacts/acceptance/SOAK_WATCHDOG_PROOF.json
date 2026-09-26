@@ -1,0 +1,124 @@
+{
+  "phase": "T -- watchdog recovery",
+  "at": "2026-09-26T15:43:39",
+  "run_stamp": "20260926_154320_282644",
+  "context": {
+    "in_job": true,
+    "note": "in_job is reported as a READING of IsProcessInJob for this process, and it answers 'is this process in ANY job' -- not 'is it outside the agent host's job'. Measured on this very launch chain: the WMI-created cmd.exe reads False while the python it spawns reads True, and that python still outlives its launching command. It is therefore NOT used here as evidence of escaping anything. The load-bearing evidence for the launch path is behavioural survival, measured in artifacts/acceptance/CANARY_SURVIVAL.json."
+  },
+  "raw_captures": [
+    [
+      "A_rule3_20260926_154320_282644.out.txt",
+      "A_rule3_20260926_154320_282644.err.txt"
+    ],
+    [
+      "B_rule2_20260926_154320_282644.out.txt",
+      "B_rule2_20260926_154320_282644.err.txt"
+    ],
+    [
+      "C_rule1_20260926_154320_282644.out.txt",
+      "C_rule1_20260926_154320_282644.err.txt"
+    ],
+    [
+      "D_recovery_20260926_154320_282644.out.txt",
+      "D_recovery_20260926_154320_282644.err.txt"
+    ],
+    [
+      "E_as_is_20260926_154320_282644.out.txt",
+      "E_as_is_20260926_154320_282644.err.txt"
+    ],
+    [
+      "E_proxy_cleared_20260926_154320_282644.out.txt",
+      "E_proxy_cleared_20260926_154320_282644.err.txt"
+    ]
+  ],
+  "proves": "the shipped watchdog's decision procedure replaces a dead controller and never resurrects a finished pipeline",
+  "does_not_prove": "that jcc_core is supervised -- the shipped watchdog watches the continuation controller, and nothing in this repository restarts the service if it dies",
+  "replica_root": "F:\\jev\\.workbuddy\\scratch\\watchdog_proof\\root_20260926_154320_282644",
+  "script_edit": {
+    "file": "scripts/continuation-watchdog.ps1",
+    "lines_changed": 0,
+    "what": "nothing: `scripts/` is copied verbatim by tools/continuation/replica.py and the tick is told its root with -Root, which the product already supports",
+    "controller": "replaced by a stub implementing only the lock handshake"
+  },
+  "cases": [
+    {
+      "case": "A Rule 3 starts a replacement",
+      "expect": "launched detached",
+      "exit_code": 0,
+      "matched": true,
+      "stdout": "[2026-09-26T15:43:21.8718526+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n[2026-09-26T15:43:22.4527756+08:00] CONFIRMED: controller pid 15672 holds the lock; Start-Process reported pid 14428 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+      "stderr": "",
+      "extra": {
+        "lock_pid": 15672,
+        "lock_pid_alive": true
+      }
+    },
+    {
+      "case": "B Rule 2 no-ops on a live controller",
+      "expect": "already live",
+      "exit_code": 0,
+      "matched": true,
+      "stdout": "[2026-09-26T15:43:23.7798659+08:00] NOOP: controller pid 15672 already live (lock fresh)",
+      "stderr": "",
+      "extra": {
+        "lock_pid": 15672,
+        "unchanged": true
+      }
+    },
+    {
+      "case": "D recovery replaces a dead controller",
+      "expect": "starting a replacement",
+      "exit_code": 0,
+      "matched": true,
+      "stdout": "[2026-09-26T15:43:32.5891106+08:00] STALE: lock pid 8016 alive=False fresh=True; starting a replacement\r\n[2026-09-26T15:43:32.6491338+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n[2026-09-26T15:43:33.1757340+08:00] CONFIRMED: controller pid 16252 holds the lock; Start-Process reported pid 5524 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+      "stderr": "",
+      "extra": {
+        "dead_pid": 8016,
+        "new_pid": 16252,
+        "replaced": true,
+        "started_line": []
+      }
+    },
+    {
+      "case": "C Rule 1 never resurrects a finished pipeline",
+      "expect": "watchdog stays idle",
+      "exit_code": 0,
+      "matched": true,
+      "stdout": "[2026-09-26T15:43:35.2323547+08:00] NOOP: release is COMPLETE with project_run=PASS; watchdog stays idle",
+      "stderr": "",
+      "extra": {
+        "lock_absent": true
+      }
+    },
+    {
+      "case": "E host conditioning: proxy env vs Start-Process",
+      "expect": "-",
+      "exit_code": 0,
+      "matched": null,
+      "stdout": "[2026-09-26T15:43:36.0872143+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n[2026-09-26T15:43:36.6312075+08:00] CONFIRMED: controller pid 2840 holds the lock; Start-Process reported pid 4680 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+      "stderr": "",
+      "extra": {
+        "with_env_as_is": {
+          "exit_code": 0,
+          "stdout": "[2026-09-26T15:43:36.0872143+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n[2026-09-26T15:43:36.6312075+08:00] CONFIRMED: controller pid 2840 holds the lock; Start-Process reported pid 4680 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+          "stderr": ""
+        },
+        "with_proxy_cleared": {
+          "exit_code": 0,
+          "stdout": "[2026-09-26T15:43:38.0742757+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n[2026-09-26T15:43:38.6151591+08:00] CONFIRMED: controller pid 16296 holds the lock; Start-Process reported pid 13504 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+          "stderr": ""
+        }
+      }
+    }
+  ],
+  "stub_lifetime_s": 45,
+  "cleanup_of_our_own_stubs": [
+    "成功: 已终止 PID 15672 (属于 PID 14428 子进程)的进程。",
+    "成功: 已终止 PID 16252 (属于 PID 5524 子进程)的进程。",
+    "成功: 已终止 PID 2840 (属于 PID 4680 子进程)的进程。",
+    "成功: 已终止 PID 16296 (属于 PID 13504 子进程)的进程。"
+  ],
+  "ok": true,
+  "verdict": "PASS"
+}

@@ -1,13 +1,26 @@
 {
-  "at": "2026-09-26T03:27:47.822321+00:00",
+  "check_count": 1,
   "checks": [
     {
       "detail": "passed",
       "name": "test_state_survives_restart",
+      "node_id": "tests/e2e/test_restart_recovery.py::test_state_survives_restart",
       "ok": true
     }
   ],
   "failed": 0,
+  "node_ids": [
+    "tests/e2e/test_restart_recovery.py::test_state_survives_restart"
+  ],
   "passed": true,
+  "provenance": {
+    "command": "pytest tests/e2e",
+    "deterministic": true,
+    "generator": "tests/e2e/conftest.py",
+    "generator_sha256": "468a9a5a8fbe4c857f0c88be723d896f079bce7dc490333f47a310900b67658d",
+    "module": "tests/e2e/test_restart_recovery.py",
+    "module_sha256": "f2ad5731b37cd4a5a5b0a7d4290368871af04db5d3c705c328b236a3f52ac0c4"
+  },
+  "schema": "jcc-e2e-evidence/2",
   "status": "PASS"
 }

@@ -1,41 +1,46 @@
 {
-  "project_complete": true,
-  "head": "b0d6d2368c1c8947a5aade35980c3a74abfea622",
+  "schema": "jcc-final-gate/2",
+  "project_complete": false,
   "checks": [
     {
       "id": "T-10",
       "status": "OK",
-      "detail": "scope 'unit and contract':  -- packages/jcc_core/tests, packages/supervisor/tests"
+      "detail": "scope 'unit and contract': 483 passed, 0 failed, 0 errors, 0 skipped -- packages/jcc_core/tests, packages/supervisor/tests"
     },
     {
       "id": "T-11",
       "status": "OK",
-      "detail": "scope 'platform surfaces (skill / mcp / observability)':  -- packages/operator_skill/tests, packages/mcp_facade/tests, packages/observability/tests"
+      "detail": "scope 'platform surfaces (skill / mcp / observability)': 71 passed, 0 failed, 0 errors, 0 skipped -- packages/operator_skill/tests, packages/mcp_facade/tests, packages/observability/tests"
     },
     {
       "id": "T-12",
       "status": "OK",
-      "detail": "scope 'control UI and demo':  -- apps/control_ui/tests"
+      "detail": "scope 'control UI and demo': 11 passed, 0 failed, 0 errors, 0 skipped -- apps/control_ui/tests"
     },
     {
       "id": "T-13",
       "status": "OK",
-      "detail": "scope 'projection facades':  -- facades/session_center/tests, facades/claw3d/tests"
+      "detail": "scope 'projection facades': 49 passed, 0 failed, 0 errors, 0 skipped -- facades/session_center/tests, facades/claw3d/tests"
     },
     {
       "id": "T-14",
       "status": "OK",
-      "detail": "scope 'end to end':  -- tests/e2e"
+      "detail": "scope 'end to end': 13 passed, 0 failed, 0 errors, 0 skipped -- tests/e2e"
+    },
+    {
+      "id": "T-15",
+      "status": "OK",
+      "detail": "scope 'gate decision-rule falsifiers': 82 passed, 0 failed, 0 errors, 0 skipped -- tools/tests"
     },
     {
       "id": "T-01",
       "status": "OK",
-      "detail": "gate collected its own totals across 5 scope(s): {'passed': 627, 'failed': 0, 'errors': 0, 'skipped': 0}"
+      "detail": "gate collected its own totals across 6 scope(s): {'passed': 709, 'failed': 0, 'errors': 0, 'skipped': 0}"
     },
     {
       "id": "T-02",
       "status": "OK",
-      "detail": "aggregate tally reconciles with zero failed/error/skipped: {'passed': 627, 'failed': 0, 'errors': 0, 'skipped': 0}"
+      "detail": "aggregate tally reconciles with zero failed/error/skipped: {'passed': 709, 'failed': 0, 'errors': 0, 'skipped': 0}"
     },
     {
       "id": "T-03",
@@ -60,7 +65,7 @@
     {
       "id": "T-07",
       "status": "OK",
-      "detail": "this gate pinned PAID_PROVIDER_CALLS=0, overriding the runner's None"
+      "detail": "PAID_PROVIDER_CALLS=0 held for the whole run (already 0 in the runner)"
     },
     {
       "id": "C-01",
@@ -159,13 +164,13 @@
     },
     {
       "id": "S-04",
-      "status": "DEGRADED",
-      "detail": "UI smoke test_p2_integration_smoke.py present; full 8-screen coverage not evidenced"
+      "status": "OK",
+      "detail": "Control UI: 8/8 screens fetched over real HTTP (4 seeded demo session(s)); all 200, all non-empty, all API-backed; evidence artifacts\\acceptance\\control_ui_smoke.json recomputable from source"
     },
     {
       "id": "S-05",
-      "status": "DEGRADED",
-      "detail": "demo fixture + DEMO-labelled e2e present (test_demo_e2e.py)"
+      "status": "OK",
+      "detail": "Demo Mode: 8 deterministic AEP envelopes across the four agents; replay reproduced an identical chain (digest c7c361085e02) with 6 named, sourced volatile field(s); all directives inert; DEMO label on 5 screens; evidence artifacts\\acceptance\\demo_e2e.json recomputable from source"
     },
     {
       "id": "W-01",
@@ -205,7 +210,7 @@
     {
       "id": "E-01",
       "status": "OK",
-      "detail": "demo e2e: demo_e2e.json: passed=True failed=0 status=PASS"
+      "detail": "demo e2e: demo_e2e.json: passed=True failed=None status=PASS"
     },
     {
       "id": "E-02",
@@ -224,18 +229,18 @@
     },
     {
       "id": "E-05",
-      "status": "OK",
-      "detail": "final architecture GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only [7 condition(s): BLOCKER -- REWRITTEN 2026-09-25T10:34:00Z, SUPERSEDING THE FIRST VERSION OF THIS CONDITION. I first described this as 'a D-28 policy bypass' that mints a Directive outside the policy kernel. That framing was wrong and I withdraw it; the corrected statement is narrower. (i) REAL AND KEPT: packages/jcc_core/server.py:239 (inside `_manual`, minting at :208) is a second call site of the engine actuation port ActuationPort.dispatch, and ADR-0008 D-41's FROZEN falsifier says that port has exactly ONE call site -- so the deviation against frozen text stands. (ii) CONCEDED: ports.py:33-42, citing D-41, declares the port 'PERMANENTLY INERT ... never an attach point, in P3 or later', so server.py:239 is NOT a second attach point and cannot by itself emanate an un-arbitrated side effect; the deviation is contractual/latent, not active, and must not be quoted as a security finding. (iii) RESIDUAL, CARRIED INTO KD-001 AND NOW INTO KD-007: see the eighth condition below. Correct implementation, when funded: delete the mint-and-dispatch at server.py:206-239 and make /api/pause|steer|retry either verifiers of a policy-signed directive or plain operator-intent records written to the audit tape with no Directive constructed at all; or route :239 to the documented attach point Sentinel._dispatch / supervisor.ports.DispatchPort instead of the engine port. Either way KD-001 and KD-002 stay OPEN.; ONE MINT SITE WAS NEVER COUNTED BY THE REGISTER, AND THE LEG SAYS SO IN WRITING. packages/operator_skill/gates.py:173 and packages/supervisor/sentinel.py:414 are Directive mint sites outside the policy kernel and were never registered as deviations before this leg's finding. They are not blockers -- gates.py:173 is kernel-guarded (gate 2 at gates.py:352 refuses unless arbitrate() observed it) and sentinel.py:414 is kernel-backed (arbitration.arbitrate at sentinel.py:375 plus two fail-closed escalations) -- but a register that omits two of four production mint sites is the drift this project fights, and the record now names both by file:line.; THE DEVIATION IS CONTRACTUAL/LATENT, NOT AN ACTIVE HAZARD -- DO NOT INFLATE IT. Measured: server.py:218-219 carry executable=False and requires_human=True; the seam is verify-only; Actuator.execute refuses even when enabled=True and the action is allow-listed; and per aegis-3 (artifacts/security/probe_kd002.py, 7/7 pass, exit 0) the directive is refused at the signing gate before approval. Quote it as a boundary-strength observation, not as a security finding. ... (+4 more)]"
+      "status": "FAILED",
+      "detail": "architecture GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
     },
     {
       "id": "E-06",
-      "status": "OK",
-      "detail": "final security GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only"
+      "status": "FAILED",
+      "detail": "security GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
     },
     {
       "id": "E-07",
-      "status": "OK",
-      "detail": "final sre GO re-signed against the release freeze df3e7d91ac27; the 32 path(s) added since are release evidence only"
+      "status": "FAILED",
+      "detail": "sre GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
     },
     {
       "id": "F-01",
@@ -254,13 +259,13 @@
     },
     {
       "id": "F-04",
-      "status": "OK",
-      "detail": "blockers = 0"
+      "status": "FAILED",
+      "detail": "3 blocking item(s)"
     },
     {
       "id": "F-05",
-      "status": "OK",
-      "detail": "unresolved HIGH = 0"
+      "status": "FAILED",
+      "detail": "3 unresolved HIGH"
     },
     {
       "id": "P-01",
@@ -285,21 +290,52 @@
     {
       "id": "P-05",
       "status": "OK",
-      "detail": "freeze provenance explainable at HEAD b0d6d2368c1c (clean tree)"
+      "detail": "freeze provenance explainable: the working tree is clean, so no unreviewed edit exists between the signed freeze and the tree this verdict describes"
+    },
+    {
+      "id": "P-06",
+      "status": "OK",
+      "detail": "all 32 present gate input(s) are tracked in the repository (the verdict is reproducible from a clone)"
     }
   ],
   "missing": [],
-  "failed": [],
+  "failed": [
+    "E-05",
+    "E-06",
+    "E-07",
+    "F-04",
+    "F-05"
+  ],
   "degraded": [
     "A-01",
     "A-02",
     "A-03",
-    "A-04",
-    "S-04",
-    "S-05"
+    "A-04"
   ],
   "pending_external_activation": [],
-  "blocker": 0,
-  "high": 0,
-  "generated_at": "2026-09-26T03:27:56.618620+00:00"
+  "blocker": 5,
+  "high": 5,
+  "provenance": {
+    "generator_sha256": "7856c7c9ece887d5326c3dd58b73b7f543000202c7d48f9e920dfa0e94e4aef0",
+    "release_freeze": "df3e7d91ac274d971ef110199d5b65acf131aacd",
+    "evidence_prefixes": [
+      "artifacts/",
+      "docs/",
+      "tools/",
+      "scripts/",
+      ".gitignore",
+      "FINAL_ACTIVATION_CHECKLIST.md",
+      "FINAL_ACCEPTANCE_REPORT.md"
+    ],
+    "scopes": [
+      "T-10",
+      "T-11",
+      "T-12",
+      "T-13",
+      "T-14",
+      "T-15"
+    ],
+    "full": true,
+    "clock_free": true
+  }
 }
