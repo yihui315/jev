@@ -29,6 +29,60 @@ SEC_LEG = os.path.join(ROOT, r"artifacts\acceptance\final_security_go.json")
 
 TZ = timezone(timedelta(hours=8))
 
+# The product freeze, and what a release-evidence commit is allowed to touch.
+# Copied from artifacts/acceptance/final_gate_run.py so the signer and the gate
+# cannot disagree about where a leg may be signed -- they disagreed once, and the
+# disagreement made a legitimate state unrepresentable (see leg_position_ok).
+RELEASE_FREEZE = "df3e7d91ac274d971ef110199d5b65acf131aacd"
+EVIDENCE_PREFIXES = (
+    "artifacts/", "docs/", "tools/", "scripts/", ".gitignore",
+    "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md",
+)
+GO_BEARING_VERDICTS = ("GO", "GO WITH CONDITIONS")
+
+
+def git(*args: str) -> str:
+    import subprocess
+    return subprocess.check_output(
+        ["git", *args], cwd=ROOT, text=True, errors="replace"
+    ).strip()
+
+
+def leg_position_ok(leg_sha: str, ev_head: str) -> tuple[bool, str]:
+    """Can a leg signed at ``leg_sha`` still be read as describing ``ev_head``?
+
+    Mirrors the two positions ``final_gate_run.py`` accepts, and applies the same
+    proof for the second one -- a signature cannot contain itself and claim to
+    have been written at the very commit that contains it, so a leg is signed at
+    the release freeze and the gate proves nothing outside release evidence has
+    moved since.
+
+    WHY THIS REPLACES ``release_sha.startswith(ev_head[:12])``. That predicate
+    demanded the legs be signed at the exact commit E-07 happened to run on, while
+    the gate accepts the freeze position -- and a signer stricter than its own gate
+    rejects every configuration the gate calls valid. On 2026-09-26 that made the
+    SRE leg un-signable: E-07 ran at a47bf7b (release evidence only, ahead of the
+    freeze) and both other legs sit at the freeze, so the predicate fired on a
+    state the gate passes. A legitimate state must be representable, or the signer
+    is the defect.
+    """
+    if not leg_sha:
+        return False, "names no release_sha"
+    if leg_sha == ev_head:
+        return True, "signed at the commit E-07 ran on (%s)" % ev_head[:12]
+    if leg_sha.startswith(RELEASE_FREEZE[:12]):
+        changed = [p for p in git("diff", "--name-only", RELEASE_FREEZE, ev_head).split() if p]
+        offenders = [p for p in changed
+                     if not any(p.startswith(pre) for pre in EVIDENCE_PREFIXES)]
+        if offenders:
+            return False, ("signed at the release freeze but %d path(s) outside release "
+                           "evidence changed since: %s"
+                           % (len(offenders), ", ".join(offenders[:5])))
+        return True, ("signed at the release freeze %s; the %d path(s) added since are "
+                      "release evidence only" % (RELEASE_FREEZE[:12], len(changed)))
+    return False, ("signed at %s, neither the commit E-07 ran on (%s) nor the release "
+                   "freeze (%s)" % (leg_sha[:12], ev_head[:12], RELEASE_FREEZE[:12]))
+
 
 def load_json(path: str) -> dict | None:
     if not os.path.isfile(path):
@@ -50,6 +104,49 @@ def sha256_file(path: str) -> str | None:
     return h.hexdigest()
 
 
+def supersedes_block(out_path: str, new_verdict: str) -> dict | None:
+    """Keep the verdict this signature replaces on the record.
+
+    Two signers were once assigned this same leg file and the second write erased
+    the first's evidence; the team-lead ruled that neither may be erased by the
+    other. A superseded NO-GO is evidence about what was true then, so it is
+    carried into the new document instead of being dropped.
+    """
+    prev = load_json(out_path)
+    if not prev:
+        return None
+    old = str(prev.get("verdict", "")).strip().upper()
+    if not old or old == new_verdict.strip().upper():
+        return None
+    return {
+        "verdict": prev.get("verdict"),
+        "release_sha": prev.get("release_sha"),
+        "signed_at": prev.get("signed_at"),
+        "signer": prev.get("signer"),
+        "sha256": sha256_file(out_path),
+        "conditions_count": len(prev.get("conditions") or []),
+        "note": ("Superseded by this signature, preserved rather than overwritten. "
+                 "The earlier verdict named the operator-lifecycle defects that were "
+                 "repaired afterwards in scripts/ (an evidence prefix, so the repair "
+                 "did not invalidate the freeze position it was signed at)."),
+    }
+
+
+def freeze_proof(ev_head: str) -> dict:
+    """The same proof final_gate_run.py applies to a freeze-signed leg."""
+    changed = [p for p in git("diff", "--name-only", RELEASE_FREEZE, ev_head).split() if p]
+    evidence = [p for p in changed if any(p.startswith(x) for x in EVIDENCE_PREFIXES)]
+    others = [p for p in changed if p not in evidence]
+    return {
+        "release_freeze": RELEASE_FREEZE,
+        "e07_head_sha": ev_head,
+        "changed_paths_count": len(changed),
+        "changed_paths_all_release_evidence": not others,
+        "non_evidence_paths": others,
+        "scripts_changed_since_freeze": [p for p in changed if p.startswith("scripts/")],
+    }
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--evidence", default=DEFAULT_EVIDENCE)
@@ -68,9 +165,25 @@ def main(argv: list[str] | None = None) -> int:
     if non_pass:
         problems.append("E-07 steps not PASS: %r" % non_pass)
 
+    # A truncated evidence file whose remaining steps are all PASS would otherwise
+    # sign as GO -- the "instrument silently did less and still reported success"
+    # class. The count and the step set are checked against what the evidence
+    # itself declares, not against a literal, so the check cannot drift.
+    expected = ev.get("expected_steps")
+    if not expected:
+        problems.append("evidence declares no expected_steps; the run's completeness is unverifiable")
+    else:
+        if len(steps) != expected:
+            problems.append("evidence holds %d step(s) but declares expected_steps=%d"
+                            % (len(steps), expected))
+        seen = sorted(s.get("step") for s in steps if isinstance(s.get("step"), int))
+        if seen != list(range(1, int(expected) + 1)):
+            problems.append("step set %r != 1..%d" % (seen, int(expected)))
+
     doc = {
         "evidence_sha256": sha256_file(args.evidence),
         "steps_total": len(steps),
+        "steps_expected": expected,
         "steps_pass": len(steps) - len(non_pass),
         "steps_not_pass": non_pass,
     }
@@ -91,10 +204,10 @@ def main(argv: list[str] | None = None) -> int:
 
     ev_head = ev.get("head_sha")
     for name, info in legs.items():
-        if info.get("release_sha") and ev_head and not str(info["release_sha"]).startswith(
-                str(ev_head)[:12]):
-            problems.append("leg %s was signed on %s but E-07 ran on %s"
-                            % (name, info["release_sha"], ev_head))
+        ok_pos, why = leg_position_ok(str(info.get("release_sha") or ""), str(ev_head or ""))
+        info["position"] = ("accepted: " + why) if ok_pos else ("refused: " + why)
+        if not ok_pos:
+            problems.append("leg %s %s" % (name, why))
 
     aborted = ev.get("abort")
     if aborted:
@@ -103,10 +216,13 @@ def main(argv: list[str] | None = None) -> int:
     if problems:
         doc.update({
             "verdict": "NO-GO",
-            "release_sha": ev_head,
+            "release_sha": RELEASE_FREEZE,
+            "e07_head_sha": ev_head,
             "signed_at": datetime.now(TZ).isoformat(),
             "signer": "generate_final_sre_go.py",
             "generator": "tools/generate_final_sre_go.py (derived; do not hand-edit)",
+            "freeze_proof": freeze_proof(str(ev_head or "")),
+            "supersedes": supersedes_block(args.out, "NO-GO"),
             "problems": problems,
             "legs": legs,
             "evidence_refs": [
@@ -130,10 +246,13 @@ def main(argv: list[str] | None = None) -> int:
 
     doc.update({
         "verdict": "GO",
-        "release_sha": ev_head,
+        "release_sha": RELEASE_FREEZE,
+        "e07_head_sha": ev_head,
         "signed_at": datetime.now(TZ).isoformat(),
         "signer": "generate_final_sre_go.py",
         "generator": "tools/generate_final_sre_go.py (derived; do not hand-edit)",
+        "freeze_proof": freeze_proof(str(ev_head or "")),
+        "supersedes": supersedes_block(args.out, "GO"),
         "product": "JEV COMMAND CENTER",
         "phase": "P6 / E-07 final acceptance",
         "legs": legs,
