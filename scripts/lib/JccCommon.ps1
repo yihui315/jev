@@ -418,7 +418,17 @@ function Write-JccOwnershipMarker {
     if (-not (Test-Path -LiteralPath $Paths.Runtime)) {
         New-Item -ItemType Directory -Path $Paths.Runtime -Force | Out-Null
     }
-    ($marker | ConvertTo-Json -Depth 6) | Set-Content -LiteralPath $Paths.MarkerFile -Encoding UTF8
+    # UTF-8 without a byte order mark. `Set-Content -Encoding UTF8` on Windows
+    # PowerShell 5.1 writes a BOM, and the ownership marker is read back by
+    # Python (tools/continuation/soak_driver.py) with plain `utf-8`, where a BOM
+    # makes json.load raise. The reader swallows that into `None`, so a marker
+    # that exists and is perfectly correct was reported as "ownership marker
+    # written: False" -- a false negative in the FINAL-08 soak evidence, in the
+    # direction of "the release did not do what it did". Fixed at the writer;
+    # the Python reader also accepts utf-8-sig so an older marker still reads.
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($Paths.MarkerFile,
+        ($marker | ConvertTo-Json -Depth 6), $utf8NoBom)
     return $marker
 }
 

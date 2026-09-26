@@ -19,15 +19,24 @@ artifacts/*
 !artifacts/release/
 !artifacts/release/**
 
-# TEMPORARY stopgap, 2026-09-25 ~21:53, to be deleted before the release is signed.
-# An unattributed in-flight tool (the "continuation watchdog" trio) is being
-# written into tools/ while the release is one step from signing. `git status
-# --porcelain` counts an untracked file as dirty, and the gate reads a dirty
-# worktree as P-01/P-05 FAIL, so the nine runtime items cannot start.
-# These files are NOT part of this release yet. If they turn out to be product
-# code, this rule is wrong: delete it, do not widen it. They must be committed
-# under a name that says whose they are, or removed.
-tools/continuation-watchdog*.ps1
+# RESOLVED 2026-09-26. The stopgap below used to hide the continuation-watchdog
+# trio from `git status`, on the reasoning that the files were "NOT part of this
+# release yet" and that an untracked file would dirty the worktree and fail the
+# gate's provenance checks. The rule said: "If they turn out to be product code,
+# this rule is wrong: delete it, do not widen it."
+#
+# They are product code. Keeping the pipeline alive across a terminated session
+# is the whole point of the deliverable, and a watchdog that is not in version
+# control is a watchdog that exists only on one machine -- so the rule is
+# deleted, not widened. The files were removed from disk and re-authored under
+# `scripts/` with the installed task name (JEV-JCC-Continuation-Watchdog), where
+# the rest of the operator-facing PowerShell already lives, and they are tracked.
+#
+# The stopgap is recorded here rather than silently dropped because the same
+# temptation will come back the next time a file appears mid-freeze: the answer
+# is to decide whose file it is, not to hide it from `git status`.
+# (was: tools/continuation-watchdog*.ps1)
+
 # P4 / E-05..E-07 leg re-signing -- the gate's own decision carriers.
 # The three leg verdicts and the gate result ARE the release decision. Kept out
 # of version control, re-signing them is an in-place overwrite git cannot see:
@@ -56,6 +65,33 @@ artifacts/acceptance/**
 !artifacts/acceptance/final_architecture_go.json
 !artifacts/acceptance/final_security_go.json
 !artifacts/acceptance/final_gate_result.json
+
+# P5 / S-04 evidence: the Control UI's 8-screen proof, and the ONLY artifact the
+# gate's S-04 check accepts. It was untracked while S-04 read it, which means the
+# check passed on this machine and would have failed with MISSING on a clone --
+# the verdict was reproducible here and nowhere else. Found by P-06, which now
+# asserts the property for every gate input instead of relying on this list
+# staying complete. Do not delete this line without reading P-06's docstring:
+# the whole point of tracking it is that an untracked evidence file verifies
+# exactly once, on the machine that produced it.
+!artifacts/acceptance/control_ui_smoke.json
+# FINAL-phase evidence, same rule: each of these is read to decide whether the
+# platform runs, so each has to travel with the repository.
+!artifacts/acceptance/CONTINUATION_INFRA_TEST.json
+!artifacts/acceptance/DETACHED_SURVIVAL_TEST.json
+!artifacts/acceptance/SURFACE_EVIDENCE.json
+!artifacts/acceptance/WATCHDOG_RECOVERY_PROOF.json
+!artifacts/acceptance/REBOOT_RECOVERY.json
+!artifacts/acceptance/project_run_gate_result.json
+# The soak's T1 proof, kept SEPARATE from WATCHDOG_RECOVERY_PROOF.json on purpose.
+# Both producers used to write the same path, which meant FINAL-09 overwrote the
+# exact bytes FINAL-08's record pointed at: the soak claimed a verdict about a file
+# that no longer contained it. Two claims, two files.
+!artifacts/acceptance/SOAK_WATCHDOG_PROOF.json
+# NOT whitelisted, deliberately: artifacts/acceptance/gate_runs.jsonl. It records
+# WHEN a gate ran and WHICH commit it saw -- an observation about a moment, not
+# about the tree. A tracked file that changes on every run is the defect the
+# gate's verdict was just cured of.
 build/
 dist/
 *.log
