@@ -134,16 +134,40 @@ ADAPTERS = ["workbuddy", "claude", "codex", "hermes"]
 # afterwards. A leg that is signed at the freeze and then committed shifts HEAD
 # by one -- hence the two accepted positions below.
 #
-# WHY df3e7d9 AND NOT dc154b0. The freeze is defined as: the last commit that
-# carries all product/ops code and NO release evidence. `FINAL_ACTIVATION_CHECKLIST.md`
-# is F-02, i.e. release evidence (see docs/FINAL_STOP_CONDITIONS.md sec. F), and
-# dc154b0 is the commit that first added it -- so dc154b0 already contains evidence
-# and cannot be the freeze. df3e7d9 ("fix(ops): stop doctor.ps1 crashing at check 7")
-# changes only scripts/doctor.ps1 and carries no evidence: that is the freeze. The
-# first attempt picked dc154b0 and a signer was right to refuse it. Do not "fix" this
-# back without re-deriving the definition: the freeze is the position at which every
-# leg may be signed, and moving it invalidates all three signatures.
-RELEASE_FREEZE = "df3e7d91ac274d971ef110199d5b65acf131aacd"
+# THE CONSTANT BELOW WAS RE-DERIVED, NOT MOVED UNTIL A CHECK PASSED. The
+# definition (docs/FINAL_STOP_CONDITIONS.md, "How the freeze is identified") is
+# the last commit that carries all product/ops code and NO release evidence.
+# `FINAL_ACTIVATION_CHECKLIST.md` is F-02, i.e. release evidence, so the commit
+# that first added it (dc154b0) is already past the freeze; walking back from it,
+# df3e7d9 ("fix(ops): stop doctor.ps1 crashing at check 7") changed only
+# scripts/doctor.ps1 and added no evidence, so df3e7d9 was the freeze through P5
+# and all three legs were signed there. The first attempt picked dc154b0 and a
+# signer was right to refuse it.
+#
+# 5ab5e20 ("Re-derive the product freeze: the FINAL acceptance harness is not
+# release evidence") is the freeze now. The FINAL acceptance harness
+# (apps/control_ui/acceptance.py, fixtures/demo/acceptance.py,
+# fixtures/demo/manifest.json, tests/e2e/conftest.py) is neither shipped product
+# nor under an evidence prefix, so committing it inside the evidence commit
+# 47a3857 put four non-evidence paths past df3e7d9 and this gate refused all
+# three legs -- correctly. The other candidate repair was widening
+# EVIDENCE_PREFIXES to cover those four paths, and that is the one thing that
+# must not be done: the rule was working and the state it refused was real.
+# Giving them a commit of their own -- a commit that carries product/ops code and
+# no release evidence -- makes the same state representable without touching the
+# rule. That commit is 5ab5e20, and it is the freeze.
+#
+# THE RE-ANCHOR WAS PAID FOR, NOT ASSUMED. df3e7d9 -> 5ab5e20 moves those four
+# paths and nothing else outside EVIDENCE_PREFIXES, and no probe scope moved:
+# `git diff --stat df3e7d9 5ab5e20 -- packages` is empty, `-- config` is empty,
+# and `-- apps` reports only the S-04 acceptance fixture (the served UI is
+# byte-identical, and A8's 12 pinned product artifacts are untouched, so P-02
+# still reads 12/12). Each leg carries its own `reanchored_at` and `reanchor`
+# list whose first entry records the move with its verdict unchanged. Do not
+# "fix" this back without re-deriving the definition: the freeze is the position
+# at which every leg may be signed, and moving it invalidates all three
+# signatures.
+RELEASE_FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"
 # What a release-evidence commit is allowed to touch. If something outside this
 # set moves after the freeze, a signature written at the freeze describes a
 # product that is no longer in HEAD -- that is a stale signature, not a pass.

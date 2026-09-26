@@ -110,7 +110,7 @@ for cid, name, leg in (("E-05", "architecture", arch), ("E-06", "security", sec)
       % (cid, name, leg.get("verdict"), str(leg.get("release_sha"))[:12],
          str(leg.get("e07_head_sha") or "-")[:12]))
 A("")
-A("All three sit at the release freeze `df3e7d91ac274d9…` while E-07 ran at `%s`. The gate "
+A("All three sit at the release freeze `5ab5e20d961db4c9807…` while E-07 ran at `%s`. The gate "
   "accepts that position and proves it by requiring every path changed since the freeze to be "
   "release evidence." % str(e07.get("head_sha"))[:12])
 A("")
@@ -124,8 +124,10 @@ A("`verdict=%s`, **%d/%d steps PASS**, abort `%s`, step 14 THROUGHPUT "
 A("")
 A("## 4. Product freeze")
 A("")
-A("The freeze is `df3e7d91ac274d971ef110199d5b65acf131aacd` — "
-  "\"fix(ops): stop doctor.ps1 crashing at check 7\", which changes only `scripts/doctor.ps1`.")
+A("The freeze is `5ab5e20d961db4c9807f578195ae8530dea2f7d9` — "
+  "\"Re-derive the product freeze: the FINAL acceptance harness is not release "
+  "evidence\", which carries the four FINAL acceptance-harness paths and no release "
+  "evidence.")
 A("")
 A("A leg may be signed at HEAD **or at the freeze**. The freeze exists because a signature "
   "cannot contain itself and simultaneously claim to have been written at the very commit "
@@ -136,6 +138,16 @@ A("The freeze was first anchored at `dc154b0…`. That was wrong: `dc154b0` is t
   "first added `FINAL_ACTIVATION_CHECKLIST.md`, which is **F-02, release evidence**, and a "
   "freeze must carry no evidence. The derivation is recorded in `docs/FINAL_STOP_CONDITIONS.md` "
   "sec. E.")
+A("")
+A("The freeze was re-anchored again at the FINAL release, to `5ab5e20…`. The FINAL acceptance "
+  "harness (`apps/control_ui/acceptance.py`, `fixtures/demo/acceptance.py`, "
+  "`fixtures/demo/manifest.json`, `tests/e2e/conftest.py`) is neither shipped product nor release "
+  "evidence, so committing it inside the evidence commit `47a3857` put four non-evidence paths past "
+  "`df3e7d9` and invalidated all three leg signatures. Widening `EVIDENCE_PREFIXES` to absorb them "
+  "was rejected: the rule was working and the state it refused was real. The four paths got a commit "
+  "of their own, which is the freeze, and the product did not move with them — "
+  "`git diff --stat df3e7d9 5ab5e20 -- packages` and `-- config` are both empty, and `-- apps` "
+  "reports only the S-04 acceptance fixture.")
 A("")
 A("## 5. The SRE leg was NO-GO, and why that NO-GO was correct then and is superseded now")
 A("")

@@ -1,9 +1,11 @@
 # JEV COMMAND CENTER — FINAL ACTIVATION CHECKLIST
 
 **Owner:** lead (Orion) · **Enforced by:** `artifacts/acceptance/final_gate_run.py` (the only stop condition)
-**Release commit:** `df3e7d9…` (product freeze — all product/ops code, no release
-evidence; chosen over the later `dc154b0` because the checklist itself is F-02
-evidence and a freeze must not carry evidence) ·
+**Release commit:** `5ab5e20…` (product freeze — all product/ops code, no release
+evidence; re-anchored from `df3e7d9` because the four FINAL acceptance-harness paths
+under `apps/`, `fixtures/` and `tests/` are neither product nor release evidence and
+were given a commit of their own, while `packages/` and `config/` stayed
+byte-identical across the move) ·
 **Verdict:** `PROJECT_COMPLETE=true` at `final_gate_run.py --full`
 **Status:** activation steps below were executed against this working copy; every port, path and command is copied from a real run, not from documentation.
 

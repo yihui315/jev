@@ -331,7 +331,8 @@ Evidence gathered before registering it, all from the repo at HEAD `fd1dbd6` wit
   comparisons are made against `None`.
 - The manifest records `release_sha = b38719f8…` and
   `product_freeze_sha = e6f5c15899b4bd5128d76366465d16f7b31aaca4`, neither of which is the
-  release freeze the gate pins (`df3e7d91ac274d971ef110199d5b65acf131aacd`).
+  release freeze the gate pins (`5ab5e20d961db4c9807f578195ae8530dea2f7d9`, re-anchored there
+  from `df3e7d9…` at the FINAL release — see `docs/FINAL_STOP_CONDITIONS.md` sec. E).
 
 Why it ships as-is: the final gate's F-03 check (`final_gate_run.py:1091-1100`) only asserts that
 `final-manifest.json` exists and parses, and explicitly defers the regeneration check

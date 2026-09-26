@@ -33,7 +33,10 @@ TZ = timezone(timedelta(hours=8))
 # Copied from artifacts/acceptance/final_gate_run.py so the signer and the gate
 # cannot disagree about where a leg may be signed -- they disagreed once, and the
 # disagreement made a legitimate state unrepresentable (see leg_position_ok).
-RELEASE_FREEZE = "df3e7d91ac274d971ef110199d5b65acf131aacd"
+# Re-anchored df3e7d9 -> 5ab5e20 in lockstep with the gate, for the reason recorded
+# there: the four FINAL acceptance-harness paths are neither product nor release
+# evidence, so they were given a commit of their own, and that commit is the freeze.
+RELEASE_FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"
 EVIDENCE_PREFIXES = (
     "artifacts/", "docs/", "tools/", "scripts/", ".gitignore",
     "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md",

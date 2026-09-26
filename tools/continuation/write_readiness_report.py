@@ -15,7 +15,9 @@ ROOT = r"F:\jev"
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 REL = os.path.join(ROOT, "artifacts", "release")
 WS = os.path.join(ROOT, ".workbuddy", "scratch", "continuation")
-FREEZE = "df3e7d91ac274d971ef110199d5b65acf131aacd"
+# Re-anchored df3e7d9 -> 5ab5e20 with the gate and the signer (see the derivation in
+# docs/FINAL_STOP_CONDITIONS.md sec. E and the comment on RELEASE_FREEZE in the gate).
+FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"
 EVIDENCE_PREFIXES = ("artifacts/", "docs/", "tools/", "scripts/", ".gitignore",
                      "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md")
 

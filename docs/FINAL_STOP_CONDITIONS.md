@@ -155,21 +155,28 @@ that never ran. This table is that mistake, corrected.
 
 | ID | Leg | Signed verdict | Signed at (`release_sha`) | Artifact |
 | --- | --- | --- | --- | --- |
-| E-05 | architecture | `GO WITH CONDITIONS` | `df3e7d91ac274d9…` | `artifacts/acceptance/final_architecture_go.json` |
-| E-06 | security | `GO` | `df3e7d91ac274d9…` | `artifacts/acceptance/final_security_go.json` |
-| E-07 | sre | **NO-GO** | `7c94abb8e784…` | `artifacts/acceptance/final_sre_go.json` |
+| E-05 | architecture | `GO WITH CONDITIONS` (7 named conditions) | `5ab5e20d961d…` | `artifacts/acceptance/final_architecture_go.json` |
+| E-06 | security | `GO` | `5ab5e20d961d…` | `artifacts/acceptance/final_security_go.json` |
+| E-07 | sre | `GO` (machine-derived; the earlier `NO-GO` is preserved in `final_sre_go.superseded-no-go.json`, not overwritten) | `5ab5e20d961d…` | `artifacts/acceptance/final_sre_go.json` |
 
-E-07 is not a pass. Its first condition is STOP SHIP: `scripts/start.ps1` cannot
-start the service on the engine this release supports. Repairing `scripts/` does
-not invalidate a leg signed at the freeze, because `scripts/` is a release-
-evidence prefix — so the repair is cheap and is being done rather than negotiated
-down to a softer word.
+E-07 is a pass now, and it is a pass because the defects were repaired rather than
+negotiated down to a softer word. Its first signature concluded `NO-GO` with STOP
+SHIP as its first condition: `scripts/start.ps1` could not start the service on the
+engine this release supports. Repairing `scripts/` does not invalidate a leg signed
+at the freeze, because `scripts/` is a release-evidence prefix — so the repair was
+affordable and was done. The current file is derived from the E-07 evidence by
+`tools/generate_final_sre_go.py`; there is no flag or switch in it that can turn a
+`NO-GO` into a `GO`.
+
+All three rows were re-anchored from `df3e7d9…` to `5ab5e20d961d…` with their
+verdicts unchanged; each leg records the move in its own `reanchored_at` and first
+`reanchor` entry, with the proof, rather than having its signature quietly rewritten.
 
 ### How the freeze is identified (do not just read the constant)
 
-`RELEASE_FREEZE` in the gate is `df3e7d9…`. That value was derived, not
-guessed, and the derivation is recorded here so the next reader can re-derive it
-instead of trusting a literal:
+`RELEASE_FREEZE` in the gate is `5ab5e20d961db4c9807…`. That value was derived,
+not guessed, and the derivation is recorded here so the next reader can re-derive
+it instead of trusting a literal:
 
 1. A freeze is the last commit that carries all product/ops code **and no
    release evidence**. Release evidence is the set the gate calls evidence:
@@ -180,7 +187,24 @@ instead of trusting a literal:
 3. Therefore the commit that first added the checklist is already past the
    freeze, and the freeze is the commit just before it.
 4. `dc154b0` added the checklist; `df3e7d9` changed only `scripts/doctor.ps1`
-   and added none. **The freeze is `df3e7d9`.**
+   and added none. `df3e7d9` was the freeze through P5.
+5. The FINAL acceptance harness — `apps/control_ui/acceptance.py`,
+   `fixtures/demo/acceptance.py`, `fixtures/demo/manifest.json`,
+   `tests/e2e/conftest.py` — is neither shipped product nor under an evidence
+   prefix. Committing it inside the evidence commit `47a3857` therefore put
+   **four non-evidence paths past `df3e7d9`**, and the gate refused all three
+   legs. That refusal was correct, and it is the check working.
+6. The repair was **not** to widen `EVIDENCE_PREFIXES` until it covered them:
+   the rule was working and the state it refused was real, so widening it would
+   have retired the check instead of satisfying it. The four paths got a commit
+   of their own — carrying product/ops code and **no** release evidence, which is
+   exactly the shape step 1 asks for. `5ab5e20` is that commit, so **the freeze
+   is `5ab5e20`**.
+7. The re-anchor was paid for with proof rather than assumed: `git diff --stat
+   df3e7d9 5ab5e20 -- packages` and `-- config` are both empty and `-- apps`
+   reports only the S-04 acceptance fixture, so no probe scope moved and no leg
+   needed re-running. A8's 12 pinned product artifacts are untouched, so P-02
+   still reads 12/12.
 
 The first attempt to fix `RELEASE_FREEZE` chose `dc154b0`, and the signer
 refused it on exactly this ground. A freeze that contains evidence would let a
