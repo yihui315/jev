@@ -249,6 +249,36 @@ def listening_pid(port: int) -> int | None:
     return None
 
 
+_NO_PROXY_OPENER = None
+
+
+def _http_opener():
+    # Built ONCE, not per request. Measured on this host (2026-09-26):
+    #   urllib.request.build_opener()      = 56.4 ms   <-- per call
+    #     because it constructs HTTPSHandler()
+    #       -> ssl.create_default_context() = 56.9 ms
+    #   urllib.request.HTTPHandler()       =  0.0 ms
+    #   urllib.request.OpenerDirector()    =  0.0 ms
+    #   raw TCP connect to 127.0.0.1:4778  =  3.1 ms
+    #   http.client fresh conn + close     =  3.9 ms
+    #   GET /api/health over a reused opener = 5.2 ms
+    #
+    # Rebuilding the opener per request therefore added ~57 ms of *TLS context
+    # construction* to every probe against a PLAIN-HTTP loopback URL -- an unused
+    # SSL context decided the throughput gate. 57 ms + 3 ms of real service time
+    # is ~1000 requests / 60 s, which is exactly the "known-good shape" of 1004,
+    # and the bar of 900 sits inside that constant's noise band, so the gate
+    # flapped between PASS and FAIL for reasons unrelated to the service.
+    #
+    # Reusing the opener does NOT pool connections: urllib sets
+    # `Connection: close`, so every open() still performs a fresh TCP
+    # connect/teardown. The ONLY thing removed is the unused SSL context.
+    global _NO_PROXY_OPENER
+    if _NO_PROXY_OPENER is None:
+        _NO_PROXY_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+    return _NO_PROXY_OPENER
+
+
 def http_json(url: str, timeout_s: float = 5.0):
     # Bypass any loopback proxy: urllib would otherwise route 127.0.0.1 through
     # HTTP_PROXY / the IE/WinINET self-referencing proxy and the probe would fail
@@ -257,8 +287,7 @@ def http_json(url: str, timeout_s: float = 5.0):
     # the environment and the registry fallback), so the in-system probe hits the
     # loopback directly. NOTE: {"http": None} raises TypeError in urllib -- the
     # dict must be empty, not None-valued.
-    no_proxy = urllib.request.ProxyHandler({})
-    opener = urllib.request.build_opener(no_proxy)
+    opener = _http_opener()
     req = urllib.request.Request(url, method="GET")
     try:
         with opener.open(req, timeout=timeout_s) as resp:
