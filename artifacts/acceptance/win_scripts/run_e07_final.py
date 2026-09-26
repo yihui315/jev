@@ -404,8 +404,60 @@ def read_pid_file() -> dict:
 # Steps
 # --------------------------------------------------------------------------- #
 
-MANDATORY_FIELDS = ("timestamp", "command", "exit_code", "stdout_sha256",
-                    "stderr_sha256", "measured_pid", "measured_port", "result")
+# What each step's record must carry.
+#
+# The previous predicate here (``MANDATORY_FIELDS``) demanded
+# command/exit_code/stdout_sha256/stderr_sha256/measured_pid/measured_port of
+# EVERY step. Only the five steps that call run_ps1() can carry the four script
+# fields; ENV / FROZEN_BYTES / MOVING_TARGET / TREE_CLEAN / PORT_PRE_PROBE and the
+# rest are internal checks that invoke no command at all. The predicate was
+# therefore UNSATISFIABLE BY CONSTRUCTION -- no run could ever pass step 22 --
+# which is invisible until a run reaches step 22, and every run before this one
+# aborted earlier. It also read
+# ``s.get(f) in (None, "", "PASS" if f == "result" else None)``, whose third
+# element is dead code because the same expression is guarded by ``f != "result"``.
+#
+# The individual steps still assert their own measurements: each one computes its
+# own ``result`` FROM the value it measured (e.g. step 7 SERVICE_PID is PASS only
+# if measured_pid is alive), so a blanket field-presence sweep adds nothing that
+# those assertions do not already carry.
+ALWAYS_FIELDS = ("timestamp", "result")
+SCRIPT_FIELDS = ("command", "exit_code", "stdout_sha256", "stderr_sha256")
+# step -> the frozen script it must have run. Verified against the run_ps1() call
+# sites in main(); if a script step is ever added, it must be added here too.
+SCRIPT_STEPS = {6: "start.ps1", 11: "restart.ps1", 15: "status.ps1",
+                16: "stop.ps1", 19: "start.ps1"}
+
+
+def self_check_problems(steps: "list[dict]", expected: int = EXPECTED_STEPS) -> list:
+    """Return every way the evidence record set violates its contract.
+
+    Factored out of step 22 so it is directly testable: a gate that cannot be
+    shown to fail is not a gate. Each entry names the step and the missing/
+    offending field.
+    """
+    bad: list = []
+    for s in steps:
+        for f in ALWAYS_FIELDS:
+            if s.get(f) in (None, ""):
+                bad.append("%s:%s missing" % (s.get("name"), f))
+        if s.get("step") in SCRIPT_STEPS:
+            for f in SCRIPT_FIELDS:
+                if s.get(f) in (None, ""):
+                    bad.append("%s:%s missing" % (s.get("name"), f))
+        # step 22's own result is what the caller is computing -- excluding it is
+        # required, otherwise the assertion is circular and can never pass.
+        if s.get("step") != 22 and s.get("result") != "PASS":
+            bad.append("%s:%s" % (s.get("name"), s.get("result")))
+    # "every step carries its instrumentation" must not be vacuous: prove each
+    # script step actually ran, so a harness that silently skipped one cannot pass.
+    seen = {s.get("step") for s in steps}
+    for st, script in SCRIPT_STEPS.items():
+        if st not in seen:
+            bad.append("script step %d (%s) has no record" % (st, script))
+    if len(steps) != expected:
+        bad.append("step_count %d != expected %d" % (len(steps), expected))
+    return bad
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -723,23 +775,25 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 22 self-check the evidence --------------------------------------------------
     begin_step(22, "SELF_CHECK")
-    doc = json.load(io.open(path, encoding="utf-8"))
-    steps = doc.get("steps") or []
-    bad = []
-    for s in steps:
-        for f in MANDATORY_FIELDS:
-            if s.get(f) in (None, "", "PASS" if f == "result" else None) and f != "result":
-                bad.append("%s:%s missing" % (s.get("name"), f))
-        if s.get("result") != "PASS":
-            bad.append("%s:%s" % (s.get("name"), s.get("result")))
+    # Validate the COMPLETE record set, in memory. The previous version re-read the
+    # file on disk, which step 21 had just written and which therefore held at most
+    # 21 records -- `len(steps) == EXPECTED_STEPS` (22) could NEVER be true. That was
+    # the second unsatisfiable condition in this step; the first was the blanket
+    # MANDATORY_FIELDS sweep described next to ALWAYS_FIELDS above.
+    steps = list(EV.steps)
+    bad = self_check_problems(steps)
     count_ok = len(steps) == EXPECTED_STEPS
     EV.record(22, "SELF_CHECK",
               "every step carries its instrumentation and every step is PASS",
               result="PASS" if (not bad and count_ok) else "FAIL",
-              problems=bad, step_count=len(steps))
-    if bad or not count_ok:
-        return write_evidence(head, hashes, "NO-GO")
-    return 0
+              problems=bad, step_count=len(steps), expected_steps=EXPECTED_STEPS)
+    # Authoritative write happens HERE, after step 22 exists, so the document on
+    # disk carries all EXPECTED_STEPS records; step 21's write is the intermediate
+    # snapshot. Without this the file would keep the intermediate and
+    # step_e07_verify would see len(steps) != expected_steps.
+    final = "GO" if (not bad and count_ok) else "NO-GO"
+    write_evidence(head, hashes, final)
+    return 0 if final == "GO" else 1
 
 
 def write_evidence(head: str | None, hashes: dict, verdict: str) -> str:
