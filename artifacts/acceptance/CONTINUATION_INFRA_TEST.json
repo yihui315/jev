@@ -1,5 +1,5 @@
 {
-  "check_count": 95,
+  "check_count": 109,
   "checks": [
     {
       "detail": "passed",
@@ -20,10 +20,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_atomic_write_is_atomic_and_leaves_no_temp_file",
       "node_id": "tools/tests/test_continuation_infra.py::test_atomic_write_is_atomic_and_leaves_no_temp_file",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -32,10 +32,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_continuation_watchdog_is_idle_once_the_release_is_complete",
       "node_id": "tools/tests/test_continuation_infra.py::test_continuation_watchdog_is_idle_once_the_release_is_complete",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -122,10 +122,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_only_one_controller_can_hold_the_lock",
       "node_id": "tools/tests/test_continuation_infra.py::test_only_one_controller_can_hold_the_lock",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -140,10 +140,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_saving_state_keeps_the_previous_generation",
       "node_id": "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -236,10 +236,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -296,10 +296,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_tool_is_in_version_control",
       "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_the_tool_is_in_version_control",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -566,13 +566,97 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_every_input_the_pipeline_needs_is_committed_at_head",
       "node_id": "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
-      "ok": false
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_target_is_on_disk",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+      "ok": true
     }
   ],
-  "failed": 7,
+  "failed": 0,
   "node_ids": [
     "tools/tests/test_continuation_infra.py::test_a_narrowed_run_does_not_rewrite_the_suite_verdict",
     "tools/tests/test_continuation_infra.py::test_a_powershell_crash_is_never_read_as_a_verdict",
@@ -668,11 +752,25 @@
     "tools/tests/test_final_gate_legs.py::test_tip_signed_leg_does_not_pay_for_a_diff",
     "tools/tests/test_final_gate_legs.py::test_two_runs_over_the_same_tree_produce_byte_identical_verdicts",
     "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head",
-    "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head"
+    "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence"
   ],
-  "ok": false,
-  "passed": false,
-  "passed_count": 88,
+  "ok": true,
+  "passed": true,
+  "passed_count": 109,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -682,6 +780,6 @@
     "selection": "full directory (no -k / -m / --deselect; all items ran)"
   },
   "schema": "jcc-continuation-infra/1",
-  "status": "FAIL",
-  "verdict": "88/95 infrastructure test(s) passed"
+  "status": "PASS",
+  "verdict": "109/109 infrastructure test(s) passed"
 }
