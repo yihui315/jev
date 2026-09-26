@@ -1,0 +1,65 @@
+{
+  "cases": [
+    "parse under PowerShell 5.1",
+    "a live owner is refused a second owner",
+    "the lease records pid identity and a heartbeat",
+    "the read-only owner check writes nothing",
+    "a stopped heartbeat is reclaimable",
+    "a dead owner is reclaimable",
+    "concurrent election has exactly one winner",
+    "the lease holds no socket code"
+  ],
+  "cases_passed": 8,
+  "cases_total": 8,
+  "checks": [
+    {
+      "detail": "parse errors=0",
+      "name": "parse under PowerShell 5.1",
+      "ok": true
+    },
+    {
+      "detail": "second owner refused: a live owner holds the runtime lease (pid 17220)",
+      "name": "a live owner is refused a second owner",
+      "ok": true
+    },
+    {
+      "detail": "records acquired_at, expires_at, heartbeat_at, pid, port, process_start_time, schema",
+      "name": "the lease records pid identity and a heartbeat",
+      "ok": true
+    },
+    {
+      "detail": "owner seen and file byte-identical",
+      "name": "the read-only owner check writes nothing",
+      "ok": true
+    },
+    {
+      "detail": "reclaim ok=True reason=acquired",
+      "name": "a stopped heartbeat is reclaimable",
+      "ok": true
+    },
+    {
+      "detail": "reclaim ok=True reason=acquired",
+      "name": "a dead owner is reclaimable",
+      "ok": true
+    },
+    {
+      "detail": "winners=1 of 2 (['another process is creating the runtime lease', 'acquired'])",
+      "name": "concurrent election has exactly one winner",
+      "ok": true
+    },
+    {
+      "detail": "banned constructs=none",
+      "name": "the lease holds no socket code",
+      "ok": true
+    }
+  ],
+  "claim": "the runtime lease admits exactly one owner for port 4778, reclaims an abandoned one, and never opens the port",
+  "name": "RUNTIME_LEASE_PROOF",
+  "ok": true,
+  "port": 4778,
+  "produced_at": "2026-09-26T23:00:44+08:00",
+  "produced_by": "tools/tests/runtime_lease_falsifier.py",
+  "schema": "jcc-control-proof/1",
+  "status": "PASS",
+  "verdict": "PASS: the runtime lease admits exactly one owner for port 4778, reclaims an abandoned one, and never opens the port"
+}

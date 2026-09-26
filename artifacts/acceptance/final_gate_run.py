@@ -1189,6 +1189,17 @@ def main(argv: Optional[List[str]] = None) -> int:
                          "untracked by design -- see the module docstring")
     ap.add_argument("--no-log", action="store_true",
                     help="do not append an observation line")
+    # THREE-LAYER PROVENANCE (PRODUCT SHA / EVIDENCE PRE-GATE SHA / FINAL EVIDENCE SHA).
+    # `--record-moment` adds a `moment` block naming the commit this run saw. It is
+    # OPT-IN because it makes the emitted file impure with respect to the tree, and
+    # the tracked canonical verdict must stay a pure function of the tree. The
+    # controller's FINAL-11 passes it while writing to the IGNORED staging path
+    # (runtime/final-gate/...); the operator's canonical run does not pass it. This
+    # is why a commit is never required to already contain a gate result that does
+    # not exist yet, and why the gate never has to write a tracked file to be read.
+    ap.add_argument("--record-moment", action="store_true",
+                    help="also emit a `moment` block (commit seen); use ONLY when "
+                         "--json-out is an ignored/untracked path")
     ap.add_argument("--quiet", action="store_true")
     args = ap.parse_args(argv)
     if args.no_log:
@@ -1255,12 +1266,28 @@ def main(argv: Optional[List[str]] = None) -> int:
         "provenance": {
             "generator_sha256": sha256_file(HERE),
             "release_freeze": RELEASE_FREEZE,
+            # Three-layer provenance. PRODUCT SHA is the frozen product/ops commit;
+            # EVIDENCE PRE-GATE SHA is the tree this gate was evaluated on (after the
+            # evidence commit, before any gate result); FINAL EVIDENCE SHA is the
+            # commit that will carry the final evidence, named by the publisher AFTER
+            # it exists. Only the product layer is a pure function of the tree, so
+            # only it is safe in a re-committed verdict; the other two live in the
+            # `moment` block, which is emitted only to the ignored staging path.
+            "product_sha": RELEASE_FREEZE,
             "evidence_prefixes": list(EVIDENCE_PREFIXES),
             "scopes": [cid for cid, _, _ in TEST_SCOPES],
             "full": bool(args.full),
             "clock_free": True,
         },
     }
+    if args.record_moment:
+        verdict["moment"] = {
+            "evidence_pre_gate_sha": git("rev-parse", "HEAD"),
+            "final_evidence_sha": None,
+            "at": datetime.now(timezone.utc).isoformat(),
+            "note": ("emitted only to an ignored staging path; the tracked canonical "
+                     "verdict must not carry a moment or it stops being a fixed point"),
+        }
 
     if args.json_out:
         out = Path(args.json_out)

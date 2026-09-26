@@ -1,0 +1,55 @@
+{
+  "cases_passed": 8,
+  "cases_total": 8,
+  "checks": [
+    {
+      "detail": "winners=1 of 4",
+      "name": "the election admits exactly one of four simultaneous callers",
+      "ok": true
+    },
+    {
+      "detail": "launches=1 (['16336 2026-09-26T23:08:06'])",
+      "name": "two concurrent ticks launched exactly one controller",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STALE', 'NOOP', 'STARTED', 'CONFIRMED']",
+      "name": "the shipped watchdog reported exactly one STARTED",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STALE', 'NOOP', 'STARTED', 'CONFIRMED']",
+      "name": "the launcher confirmed the new controller is live",
+      "ok": true
+    },
+    {
+      "detail": "controller pid 16336 holds the lease (heartbeating=True); Start-Process reported pid 2644 -- the venv python.exe is a redirector, so the pid that runs the controller is its child; watchdog returning",
+      "name": "the confirmation records heartbeating=True",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STALE', 'NOOP', 'STARTED', 'CONFIRMED']",
+      "name": "the losing tick was a NOOP (dead-lock or election)",
+      "ok": true
+    },
+    {
+      "detail": "before=1 after=1",
+      "name": "a later tick did NOT duplicate the live controller",
+      "ok": true
+    },
+    {
+      "detail": "last=NOOP",
+      "name": "the later tick NOOPed on the live controller",
+      "ok": true
+    }
+  ],
+  "claim": "simultaneous watchdog ticks elect exactly ONE controller and the losers NOOP",
+  "name": "WATCHDOG_ELECTION_PROOF",
+  "ok": true,
+  "produced_at": "2026-09-26T23:08:11+08:00",
+  "produced_by": "tools/tests/watchdog_election_falsifier.py",
+  "schema": "jcc-control-proof/1",
+  "scratch_root": "F:\\jev\\.workbuddy\\scratch\\election\\20260926_230758",
+  "status": "PASS",
+  "verdict": "PASS: simultaneous watchdog ticks elect exactly ONE controller and the losers NOOP"
+}

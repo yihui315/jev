@@ -1,0 +1,131 @@
+{
+  "cases_passed": 23,
+  "cases_total": 23,
+  "checks": [
+    {
+      "detail": "rc_a=1 rc_b=1",
+      "name": "the gate produced a verdict in both runs",
+      "ok": true
+    },
+    {
+      "detail": "['blocker', 'checks', 'degraded', 'failed', 'high', 'missing', 'pending_external_activation', 'project_complete', 'prove",
+      "name": "the run WITHOUT --record-moment carries no moment block",
+      "ok": true
+    },
+    {
+      "detail": "['blocker', 'checks', 'degraded', 'failed', 'high', 'missing', 'moment', 'pending_external_activation', 'project_complet",
+      "name": "the run WITH --record-moment carries a moment block",
+      "ok": true
+    },
+    {
+      "detail": "differing keys: none",
+      "name": "--record-moment changes NOTHING but the moment block",
+      "ok": true
+    },
+    {
+      "detail": "rc_a=1 rc_b=1",
+      "name": "the two runs exited identically (pure outcome)",
+      "ok": true
+    },
+    {
+      "detail": "moment=cefed66159a50ea8bcba5279d4a95cc5b726036d head=cefed66159a50ea8bcba5279d4a95cc5b726036d",
+      "name": "moment.evidence_pre_gate_sha is the commit the gate saw",
+      "ok": true
+    },
+    {
+      "detail": "None",
+      "name": "moment.final_evidence_sha is null (named later, by the manifest)",
+      "ok": true
+    },
+    {
+      "detail": "product_sha=5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+      "name": "the two runs carry the same non-null product SHA",
+      "ok": true
+    },
+    {
+      "detail": "rc=0 published canonical gate summary -> F:\\jev\\.workbuddy\\scratch\\provenance\\2026092",
+      "name": "the publisher accepted the gate's staging result",
+      "ok": true
+    },
+    {
+      "detail": "['blocker', 'checks', 'degraded', 'failed', 'high', 'missing', 'pending_external_activation', 'project_complete', 'prove",
+      "name": "the canonical summary DROPPED the moment block",
+      "ok": true
+    },
+    {
+      "detail": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+      "name": "layer 1 (product) is surfaced",
+      "ok": true
+    },
+    {
+      "detail": "cefed66159a50ea8bcba5279d4a95cc5b726036d",
+      "name": "layer 2 (evidence pre-gate) is surfaced from the moment",
+      "ok": true
+    },
+    {
+      "detail": "None",
+      "name": "layer 3 (final evidence) is null by construction",
+      "ok": true
+    },
+    {
+      "detail": "complete=False blocker=20",
+      "name": "the verdict fields survive the publish",
+      "ok": true
+    },
+    {
+      "detail": "bytes=17312 rc=0",
+      "name": "the publish is idempotent (pure function of staging)",
+      "ok": true
+    },
+    {
+      "detail": "staging bytes unchanged",
+      "name": "the publisher never mutates its staging input",
+      "ok": true
+    },
+    {
+      "detail": "rc=2 wrote=False",
+      "name": "a missing staging result fails closed (exit 2, nothing written)",
+      "ok": true
+    },
+    {
+      "detail": "rc=2 wrote=False",
+      "name": "a verdict-less staging result fails closed (exit 2, nothing written)",
+      "ok": true
+    },
+    {
+      "detail": "P-01 fail-closed block present",
+      "name": "P-01 still fails on ANY non-empty git status (not weakened)",
+      "ok": true
+    },
+    {
+      "detail": "ok block present",
+      "name": "P-01 still passes ONLY on an empty porcelain",
+      "ok": true
+    },
+    {
+      "detail": "main=52398 e2e=54905 final=54957 prov=55005",
+      "name": "check_provenance (which reads P-01) is the LAST check block in main()",
+      "ok": true
+    },
+    {
+      "detail": "--json-out has no tracked default",
+      "name": "the gate's --json-out is NOT defaulted to the TRACKED canonical path",
+      "ok": true
+    },
+    {
+      "detail": "controller STEPS pass runtime/final-gate (result + json-out)",
+      "name": "the controller routes the gate result to the IGNORED staging path",
+      "ok": true
+    }
+  ],
+  "claim": "the gate's --record-moment is pure, the publisher's canonical summary is a pure function of staging carrying all three provenance layers with final_evidence_sha None by construction, and it fails closed on a missing or verdict-less staging result",
+  "head": "cefed66159a50ea8bcba5279d4a95cc5b726036d",
+  "name": "PROVENANCE_INTEGRATION_PROOF",
+  "ok": true,
+  "produced_at": "2026-09-26T23:08:53+08:00",
+  "produced_by": "tools/tests/provenance_integration.py",
+  "schema": "jcc-control-proof/1",
+  "scratch_root": "F:\\jev\\.workbuddy\\scratch\\provenance\\20260926_230821",
+  "status": "PASS",
+  "verdict": "PASS: the gate's --record-moment is pure, the publisher's canonical summary is a pure function of staging carrying all three provenance layers with final_evidence_sha None by construction, and it fails closed on a missing or verdict-less staging result"
+}

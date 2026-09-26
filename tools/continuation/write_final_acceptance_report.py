@@ -203,8 +203,14 @@ A("1. **`jcc_core` is not supervised by any component in this repository.** The 
   "watches the continuation controller; if the service dies, nothing restarts it automatically. "
   "Recovery is an operator cycle through the product's scripts (proved in "
   "`artifacts/release/WATCHDOG_RECOVERY_REPORT.md`).")
-A("2. The scheduled task `JEV-JCC-Continuation-Watchdog` is not registered on this host; "
-  "registering it needs elevation.")
+A("2. **Scheduled-task registration is not verified through the scheduler API from here.** "
+  "The task `JEV-JCC-Continuation-Watchdog` **is registered** on this host and fires every "
+  "2 minutes -- its own on-disk definition is `Enabled=true` with a `PT2M` repetition under "
+  "principal `S-1-5-18`, and its tick log gains exactly one line every 120 s -- but the agent "
+  "sandbox cannot enumerate Task Scheduler through CIM (`Get-ScheduledTask` fails there with "
+  "ERROR_FILE_NOT_FOUND), so the fact rests on the task's own definition plus its tick "
+  "interval, not on a live query. This line previously stated the reverse (that the task was "
+  "NOT registered), which repeated the sandbox's silence as a fact about the host.")
 A("3. **A discrepancy between the written stop condition and this gate's implementation.** "
   "`docs/FINAL_STOP_CONDITIONS.md` permits `DEGRADED` for section **B** only (and "
   "`PENDING_EXTERNAL_ACTIVATION` for C-05). This gate also emits `g.degraded(...)` for "

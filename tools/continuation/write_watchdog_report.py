@@ -119,9 +119,15 @@ L += ["## Scope limits — stated, not implied", "",
       "* T1 proves the watchdog's decision procedure against a stub controller, so it is "
       "evidence about the recovery *mechanism*, not about the controller's own pipeline. The "
       "pipeline is proved separately by E-07 and the final gate.",
-      "* The scheduled task `JEV-JCC-Continuation-Watchdog` is **not registered** on this host; "
-      "registering it needs elevation, which was not requested. The watchdog script itself was "
-      "invoked directly, which is what the task would do.",
+      "* The scheduled task `JEV-JCC-Continuation-Watchdog` **is registered** on this host and "
+      "fires every 2 minutes: the task's own on-disk definition is `Enabled=true` with a "
+      "`PT2M` repetition under principal `S-1-5-18`, and the watchdog's tick log gains exactly "
+      "one line every 120 s. This report's evidence was produced by invoking the watchdog "
+      "script directly, which is what the task does; the sandbox cannot enumerate Task "
+      "Scheduler through CIM (`Get-ScheduledTask` fails there with ERROR_FILE_NOT_FOUND), so "
+      "that inability to query is recorded as 'cannot verify' and never as 'not registered'. "
+      "This bullet used to assert the opposite -- it repeated the sandbox's silence as a fact "
+      "about the host.",
       "* This proof runs **outside** the agent host's job object: the launcher reports its own "
       "`in_job` reading and the artifact records the context it was produced in. Note that "
       "`IsProcessInJob` answers \"is it in ANY job\", so the load-bearing evidence for the "

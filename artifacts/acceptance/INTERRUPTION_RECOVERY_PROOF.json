@@ -1,0 +1,135 @@
+{
+  "cases_passed": 24,
+  "cases_total": 24,
+  "checks": [
+    {
+      "detail": "run_id=SYNTH-LONG-20260926T230207-14040 pid=10592",
+      "name": "a durable run descriptor appeared",
+      "ok": true
+    },
+    {
+      "detail": "claim=300s expected_finish=2026-09-26T23:07:08.173874+08:00",
+      "name": "the descriptor claims a >= 5-minute expected finish",
+      "ok": true
+    },
+    {
+      "detail": "pid=10592",
+      "name": "the run process is alive",
+      "ok": true
+    },
+    {
+      "detail": "count=2",
+      "name": "at least one run process exists",
+      "ok": true
+    },
+    {
+      "detail": "3 distinct advance(s) over 90s",
+      "name": "the lease heartbeat advanced at least twice while the step was blocked",
+      "ok": true
+    },
+    {
+      "detail": "first=2026-09-26T23:02:08.118004+08:00 last=2026-09-26T23:03:37.886375+08:00",
+      "name": "the heartbeat samples are monotonic",
+      "ok": true
+    },
+    {
+      "detail": "current_step=SYNTH-LONG run_id=SYNTH-LONG-20260926T230207-14040",
+      "name": "the lease declares the current step and run",
+      "ok": true
+    },
+    {
+      "detail": "pid=14040 start=2026-09-26T23:02:06.836201+08:00",
+      "name": "the lease carries pid identity fields",
+      "ok": true
+    },
+    {
+      "detail": "artifact exists=False",
+      "name": "the run had not finished while we sampled",
+      "ok": true
+    },
+    {
+      "detail": "pid=10592",
+      "name": "the run process survived the controller kill",
+      "ok": true
+    },
+    {
+      "detail": "lock pid=14040",
+      "name": "the lock is left behind naming a DEAD controller",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STARTED', 'CONFIRMED']",
+      "name": "the watchdog ticked",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STARTED', 'CONFIRMED']",
+      "name": "the watchdog decided the lock was STALE",
+      "ok": true
+    },
+    {
+      "detail": "actions=['STALE', 'STARTED', 'CONFIRMED']",
+      "name": "the watchdog launched a replacement",
+      "ok": true
+    },
+    {
+      "detail": "see continuation-controller.out.log",
+      "name": "the replacement recorded ATTACH_EXISTING_RUN",
+      "ok": true
+    },
+    {
+      "detail": "before=SYNTH-LONG-20260926T230207-14040 after=SYNTH-LONG-20260926T230207-14040",
+      "name": "the descriptor run_id is UNCHANGED (no second run)",
+      "ok": true
+    },
+    {
+      "detail": "before=10592 after=10592",
+      "name": "the descriptor pid is UNCHANGED (no second run)",
+      "ok": true
+    },
+    {
+      "detail": "before=2 after=2",
+      "name": "the live run process count did NOT grow",
+      "ok": true
+    },
+    {
+      "detail": "F:\\jev\\.workbuddy\\scratch\\interruption\\20260926_230206\\root\\artifacts\\acceptance\\SYNTH_LONG.json",
+      "name": "the run produced its artifact",
+      "ok": true
+    },
+    {
+      "detail": "status=PASS detail=PASS: synthetic long step completed",
+      "name": "the state advanced: SYNTH-LONG is PASS (observed, not re-run)",
+      "ok": true
+    },
+    {
+      "detail": "attached_run={'run_id': 'SYNTH-LONG-20260926T230207-14040', 'pid': 10592, 'observed_only': True, 'note': 'ATTACH_EXISTING_RUN', 'pid_alive_after_observe': False}",
+      "name": "the PASS was reached by ATTACHING, not by a fresh launch",
+      "ok": true
+    },
+    {
+      "detail": "SYNTH-LONG",
+      "name": "last_completed_step is the synthetic step",
+      "ok": true
+    },
+    {
+      "detail": "SYNTH-LONG-20260926T230207-14040",
+      "name": "the descriptor still names the ORIGINAL run",
+      "ok": true
+    },
+    {
+      "detail": "lock exists=False",
+      "name": "no controller lock is left behind",
+      "ok": true
+    }
+  ],
+  "claim": "a controller killed mid-step is replaced, the replacement ATTACHES to the live run, and NO second long run is launched",
+  "name": "INTERRUPTION_RECOVERY_PROOF",
+  "ok": true,
+  "produced_at": "2026-09-26T23:07:14+08:00",
+  "produced_by": "tools/tests/interruption_recovery.py",
+  "schema": "jcc-control-proof/1",
+  "scratch_root": "F:\\jev\\.workbuddy\\scratch\\interruption\\20260926_230206",
+  "status": "PASS",
+  "verdict": "PASS: a controller killed mid-step is replaced, the replacement ATTACHES to the live run, and NO second long run is launched"
+}

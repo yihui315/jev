@@ -26,10 +26,12 @@ import importlib.util
 import io
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
 import time
+import xml.etree.ElementTree as ET
 from pathlib import Path
 
 import pytest
@@ -344,6 +346,34 @@ def test_final01_step_declares_an_artifact_and_a_judge(ctl):
     assert step.judge is not None, "FINAL-01 has no judge: the exit code would be the verdict"
     assert step.script == "tools/continuation/run_infra_suite.py", step.script
     assert (REPO / step.script).is_file(), step.script
+
+
+def test_no_step_declares_its_run_descriptor_as_its_result(ctl):
+    """Regression lock for the FINAL-10B result/descriptor collision.
+
+    FINAL-10B's 1800 s timeout makes it long_running, so its run descriptor lives
+    at ``.workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.json``. Declaring that same path
+    as the step's ``--json-out``/``result`` meant the controller's RUNNING record
+    and the step's result were one file: the child overwrote the descriptor, and a
+    recovering controller saw the descriptor itself as a fresh artifact -- so it
+    could judge the step off its own run record and launch a second commit tool.
+    """
+    conflicts = [ctl.step_result_descriptor_conflict(s) for s in ctl.STEPS]
+    assert not [c for c in conflicts if c], (
+        "a step's result artifact IS its own run descriptor: %s"
+        % [c for c in conflicts if c])
+
+    repaired = ctl.STEP_BY_ID["FINAL-10B_EVIDENCE_COMMIT"]
+    assert ctl.step_result_path(repaired) != ctl.run_descriptor_path(repaired)
+    assert repaired.result.endswith(".result.json"), repaired.result
+
+    old = ctl.Step("FINAL-10B_EVIDENCE_COMMIT", "the repaired step, as it was",
+                   "tools/finalize/commit_evidence.py", (),
+                   ".workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.json", None, 1800)
+    assert ctl.step_result_descriptor_conflict(old), (
+        "the guard did not notice the old FINAL-10B pairing")
+    with pytest.raises(AssertionError):
+        ctl.assert_step_results_are_not_run_descriptors([old])
 
 
 def test_the_infra_judge_refuses_the_ways_this_step_could_fake_a_pass(ctl):
@@ -1099,45 +1129,469 @@ def test_the_installers_never_ask_for_a_dry_run():
         assert "New-JccScheduledTask" in code, name
 
 
+# --------------------------------------------------------------------------- #
+# The scheduled-task probe. THREE states, because "could not query" is a
+# different fact from "not registered", and this project has already shipped a
+# watchdog test that reported the first as the second.
+# --------------------------------------------------------------------------- #
+
+#: The scheduler's own on-disk task store. Reading a task definition from here
+#: needs neither the ScheduledTasks module nor the Task Scheduler CIM provider --
+#: both of which are unavailable inside a sandboxed shell on this host (measured:
+#: ``Get-ScheduledTask -ErrorAction Stop`` throws ``ERROR: 系统找不到指定的文件。``,
+#: ERROR_FILE_NOT_FOUND raised by the Task Scheduler CIM provider). The old test
+#: ran exactly that query with ``-ErrorAction SilentlyContinue`` and wrote the
+#: refusal to answer down as "the task does not exist", which is how a running,
+#: enabled, PT2M watchdog came to be reported as unregistered.
+TASK_STORE = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "Tasks"
+
+#: task name -> the watchdog script its Arguments must run. A task that runs the
+#: OTHER watchdog is not "the right script for that task name".
+_TASK_SCRIPTS = {
+    CONTINUATION_TASK: "continuation-watchdog.ps1",
+    SERVICE_TASK: "service-watchdog.ps1",
+}
+
+#: The installer default, ``[int]$RepetitionMinutes = 2`` in both *-install.ps1.
+_EXPECTED_REPETITION_S = 120
+
+#: SYSTEM. A per-user task does not exist until that user logs on, so AtStartup
+#: recovery silently never happens for one.
+_SYSTEM_SID = "S-1-5-18"
+
+_ISO8601_DURATION = re.compile(
+    r"^P(?:(?P<days>\d+(?:\.\d+)?)D)?"
+    r"(?:T(?:(?P<hours>\d+(?:\.\d+)?)H)?(?:(?P<minutes>\d+(?:\.\d+)?)M)?"
+    r"(?:(?P<seconds>\d+(?:\.\d+)?)S)?)?$")
+
+
+def parse_iso8601_duration(text):
+    """Seconds described by an ISO-8601 duration such as ``PT2M``; None otherwise.
+
+    The repetition interval is only meaningful if it can be read back as a
+    quantity. ``P`` alone or ``PT`` alone describe no duration and return None,
+    so a nonsense interval can never satisfy a "there is an interval" check.
+    """
+    if not isinstance(text, str):
+        return None
+    m = _ISO8601_DURATION.match(text.strip())
+    if not m:
+        return None
+    parts = {k: float(v) for k, v in m.groupdict(default="0").items()}
+    total = parts["days"] * 86400 + parts["hours"] * 3600 + \
+        parts["minutes"] * 60 + parts["seconds"]
+    if not m.group("days") and not m.group("hours") and \
+            not m.group("minutes") and not m.group("seconds"):
+        return None
+    return int(total) if float(total).is_integer() else total
+
+
+def _localname(tag):
+    """``{ns}Settings`` -> ``Settings``; a bare name is returned unchanged."""
+    return tag.rsplit("}", 1)[-1]
+
+
+def _walk(node, trail=()):
+    """Yield ``(path_parts, element)`` for ``node`` and every descendant."""
+    here = trail + (_localname(node.tag),)
+    yield here, node
+    for child in node:
+        yield from _walk(child, here)
+
+
+def parse_task_xml(text):
+    """Normalise a task-store XML document into the probe's fact dict.
+
+    Raises ``ValueError``/``ET.ParseError`` when the document is not a task
+    definition: an unparseable store entry must surface as a broken oracle,
+    never as a task whose every field happens to be empty.
+    """
+    root = ET.fromstring(text)
+    if _localname(root.tag) != "Task":
+        raise ValueError("not a task definition: root <%s>" % _localname(root.tag))
+
+    flat, intervals, trigger_count = {}, [], 0
+    for trail, node in _walk(root):
+        if len(trail) == 3 and trail[0] == "Task" and trail[1] == "Triggers":
+            trigger_count += 1
+        if trail[-2:] == ("Repetition", "Interval") and len(node) == 0:
+            intervals.append((node.text or "").strip())
+        if len(node) == 0:
+            flat["/".join(trail)] = (node.text or "").strip()
+
+    def get(path):
+        return flat.get(path)
+
+    raw_enabled = get("Task/Settings/Enabled")
+    return {
+        "oracle": "task-store-xml",
+        "enabled": (raw_enabled or "").lower() == "true",
+        "raw_enabled": raw_enabled,
+        "repetition": intervals[0] if intervals else None,
+        "intervals": intervals,
+        "trigger_count": trigger_count,
+        "multiple_instances": get("Task/Settings/MultipleInstancesPolicy"),
+        "command": get("Task/Actions/Exec/Command"),
+        "arguments": get("Task/Actions/Exec/Arguments"),
+        "working_directory": get("Task/Actions/Exec/WorkingDirectory"),
+        "user_id": get("Task/Principals/Principal/UserId"),
+        "run_level": get("Task/Principals/Principal/RunLevel"),
+    }
+
+
+def _probe_task_store(task_name):
+    """Primary oracle: the scheduler's own store. Returns ``(state, detail)``.
+
+    * ``present`` -- the store returned a task definition for this name;
+    * ``absent``  -- the store was LISTED and the name was not in it;
+    * ``unknown`` -- the store could not answer.
+
+    A bare FileNotFoundError is deliberately NOT absence: inside a sandbox a
+    genuinely missing task and a refused read look identical, and only a
+    successful directory listing separates them.
+    """
+    path = TASK_STORE / task_name
+    try:
+        raw = path.read_bytes()
+    except FileNotFoundError as exc:
+        try:
+            listed = sorted(p.name for p in TASK_STORE.iterdir())
+        except OSError as exc2:
+            return "unknown", (
+                "task definition %s is missing (%s) and the task store could not "
+                "be listed either (%s)" % (path, exc, exc2))
+        if task_name in listed:
+            return "unknown", (
+                "task store lists %r but its definition %s could not be read (%s)"
+                % (task_name, path, exc))
+        return "absent", (
+            "the task store was listed (%d entries) and %r is not among them"
+            % (len(listed), task_name))
+    except OSError as exc:
+        return "unknown", "cannot read %s: %s: %s" % (path, type(exc).__name__, exc)
+
+    for encoding in ("utf-16", "utf-8-sig", "cp936"):
+        try:
+            text = raw.decode(encoding)
+        except UnicodeError:
+            continue
+        try:
+            return "present", parse_task_xml(text)
+        except (ValueError, ET.ParseError) as exc:
+            return "unknown", (
+                "%s decoded as %s but is not a task definition (%s: %s)"
+                % (path, encoding, type(exc).__name__, exc))
+    return "unknown", "%s decodes as none of utf-16/utf-8/cp936" % path
+
+
+def _probe_scheduledtasks_module(task_name):
+    """Secondary oracle: the ScheduledTasks module. Returns ``(state, detail)``.
+
+    Used only to try to ESTABLISH existence when the store is unreadable. When it
+    raises -- as it does in this sandbox -- that is ``unknown`` and must never be
+    reported as ``absent``.
+    """
+    command = (
+        "try { "
+        "$t = Get-ScheduledTask -TaskName '%s' -ErrorAction Stop; "
+        "if ($null -eq $t) { "
+        "Write-Output (@{ state='absent'; detail='the module returned no record' } | "
+        "ConvertTo-Json -Compress) } else { "
+        "$rep = @($t.Triggers | Where-Object { $_.Repetition.Interval } | "
+        "ForEach-Object { $_.Repetition.Interval }); "
+        "$facts = @{ oracle='scheduledtasks-module'; "
+        "enabled=($t.Settings.Enabled -eq $true); "
+        "raw_enabled=[string]$t.Settings.Enabled; "
+        "repetition=$(if ($rep.Count) { [string]$rep[0] } else { $null }); "
+        "intervals=@($rep | ForEach-Object { [string]$_ }); "
+        "trigger_count=@($t.Triggers).Count; "
+        "multiple_instances=[string]$t.Settings.MultipleInstances; "
+        "command=[string]$t.Actions[0].Execute; "
+        "arguments=[string]$t.Actions[0].Arguments; "
+        "working_directory=[string]$t.Actions[0].WorkingDirectory; "
+        "user_id=[string]$t.Principal.UserId; "
+        "run_level=[string]$t.Principal.RunLevel }; "
+        "Write-Output (@{ state='present'; facts=$facts } | ConvertTo-Json -Depth 6 -Compress) "
+        "} } catch { "
+        "Write-Output (@{ state='unknown'; error=$_.Exception.Message } | "
+        "ConvertTo-Json -Compress) }" % task_name
+    )
+    payload, _ = _ps_json(command)
+    state = payload.get("state")
+    if state == "present":
+        return "present", payload["facts"]
+    if state == "absent":
+        return "absent", payload.get("detail")
+    return "unknown", payload.get("error") or json.dumps(payload)
+
+
+def classify_task_probe(xml_probe, module_probe):
+    """Combine two independent oracle readings into a three-state verdict.
+
+    Each probe is ``None`` (not consulted) or ``(state, detail)`` with ``state``
+    in ``{"present", "absent", "unknown"}``. This is a pure function so the three
+    outcomes -- and the rule that UNKNOWN is never ABSENT -- can be falsified
+    without a scheduler: the module path cannot be forced to fail from a unit
+    test, but this can be called directly.
+
+    Returns ``(state, detail)`` with ``state`` in ``{"exists", "absent", "unknown"}``.
+    """
+    def _norm(probe, label):
+        if probe is None:
+            return "unknown", {"oracle": label, "note": "not consulted"}
+        if not (isinstance(probe, tuple) and len(probe) == 2):
+            raise ValueError("malformed probe for %s: %r" % (label, probe))
+        state, detail = probe
+        if state not in ("present", "absent", "unknown"):
+            raise ValueError("bad probe state for %s: %r" % (label, state))
+        return state, {"oracle": label, "detail": detail}
+
+    x_state, x = _norm(xml_probe, "task-store-xml")
+    m_state, m = _norm(module_probe, "scheduledtasks-module")
+    both = {"xml": x, "module": m}
+
+    if x_state == "present" or m_state == "present":
+        return "exists", dict(both, via="task-store-xml" if x_state == "present"
+                              else "scheduledtasks-module")
+    if x_state == "absent":
+        return "absent", dict(both, via="task-store-xml")
+    if m_state == "absent":
+        return "absent", dict(both, via="scheduledtasks-module")
+    return "unknown", dict(both, via=None)
+
+
+def task_registration_verdict(task_name, facts):
+    """Return every reason ``facts`` does not describe the required task.
+
+    An empty list means the registration is acceptable. Pure, so a present but
+    Disabled (or mis-aimed) task can be shown to be REFUSED without touching the
+    scheduler.
+    """
+    problems = []
+    expected_script = _TASK_SCRIPTS.get(task_name)
+    if expected_script is None:
+        raise ValueError("no expected watchdog script for %r" % task_name)
+
+    if not facts.get("enabled"):
+        problems.append("%s is present but NOT ENABLED (Enabled=%r)"
+                        % (task_name, facts.get("raw_enabled")))
+    if facts.get("multiple_instances") != "IgnoreNew":
+        problems.append(
+            "%s MultipleInstancesPolicy is %r, not 'IgnoreNew': concurrent ticks "
+            "must be ignored, not queued"
+            % (task_name, facts.get("multiple_instances")))
+
+    interval = facts.get("repetition")
+    seconds = parse_iso8601_duration(interval) if isinstance(interval, str) else None
+    if interval is None:
+        problems.append(
+            "%s has no repetition interval, so it only runs at logon/startup and "
+            "cannot revive a controller that died mid-session" % task_name)
+    elif seconds is None:
+        problems.append("%s repetition interval %r is not a parseable ISO-8601 "
+                        "duration" % (task_name, interval))
+    elif seconds != _EXPECTED_REPETITION_S:
+        problems.append(
+            "%s repeats every %s s, not the configured %s s (the installers' "
+            "[int]$RepetitionMinutes = 2)"
+            % (task_name, seconds, _EXPECTED_REPETITION_S))
+
+    arguments = facts.get("arguments") or ""
+    if expected_script not in arguments:
+        problems.append(
+            "%s Arguments do not run %s: %r" % (task_name, expected_script, arguments))
+    if "-NonInteractive" not in arguments:
+        problems.append("%s Arguments lack -NonInteractive: %r" % (task_name, arguments))
+
+    if facts.get("user_id") != _SYSTEM_SID:
+        problems.append(
+            "%s principal is %r, not SYSTEM (%s): a per-user task does not exist "
+            "until that user logs on, so AtStartup recovery never happens"
+            % (task_name, facts.get("user_id"), _SYSTEM_SID))
+    if facts.get("run_level") != "HighestAvailable":
+        problems.append("%s RunLevel is %r, not 'HighestAvailable'"
+                        % (task_name, facts.get("run_level")))
+    return problems
+
+
 def test_both_watchdogs_are_registered_as_scheduled_tasks():
-    """FINAL-2 / FINAL-4: registered, enabled, and pointed at the right script.
+    """FINAL-2 / FINAL-4: registered, enabled, aimed at the right script, repeating.
 
     Not "the install script exists". The deliverable is a platform that keeps
     running after this conversation ends, and that depends on a task existing in
     the scheduler with a repetition interval -- AtLogOn alone leaves a dead
     controller dead for the rest of the session.
-    """
-    command = (
-        "$out = @(); foreach ($n in @('%s','%s')) { "
-        "$t = Get-ScheduledTask -TaskName $n -ErrorAction SilentlyContinue; "
-        "if (-not $t) { $out += [pscustomobject]@{ name=$n; exists=$false } } else { "
-        "$i = Get-ScheduledTaskInfo -TaskName $n -ErrorAction SilentlyContinue; "
-        "$rep = @($t.Triggers | Where-Object { $_.Repetition.Interval } | "
-        "ForEach-Object { $_.Repetition.Interval }); "
-        "$out += [pscustomobject]@{ name=$n; exists=$true; state=[string]$t.State; "
-        "enabled=($t.State -ne 'Disabled'); principal=[string]$t.Principal.UserId; "
-        "run_level=[string]$t.Principal.RunLevel; "
-        "exec=([string]$t.Actions[0].Execute); args=([string]$t.Actions[0].Arguments); "
-        "repetition=$rep; last_result=$(if ($i) { $i.LastTaskResult } else { $null }); "
-        "next_run=$(if ($i) { [string]$i.NextRunTime } else { $null }) } } }; "
-        "($out | ConvertTo-Json -Depth 6 -Compress)" % (CONTINUATION_TASK, SERVICE_TASK)
-    )
-    report, _ = _ps_json(command)
-    rows = report if isinstance(report, list) else [report]
-    by_name = {r["name"]: r for r in rows}
 
+    The existence question is answered by the scheduler's own task store (its XML
+    definitions, which need no module and work under the sandbox), with the
+    ScheduledTasks module as a secondary oracle used only to establish existence.
+    "Neither oracle could answer" is a FAILURE whose message says it could not
+    verify -- it is NEVER reported as "not registered", which is a different and
+    far more alarming claim.
+    """
+    problems = []
     for name in (CONTINUATION_TASK, SERVICE_TASK):
-        row = by_name.get(name, {})
-        assert row.get("exists") is True, (
-            "scheduled task %s is not registered -- the pipeline stops for good "
-            "the first time this session ends: %s" % (name, rows))
-        assert row.get("enabled") is True, row
-        assert row.get("repetition"), (
-            "%s has no repetition interval, so it only runs at logon/startup and "
-            "cannot revive a controller that died mid-session: %s" % (name, row))
-        assert "continuation-watchdog.ps1" in row["args"] or \
-            "service-watchdog.ps1" in row["args"], row
-        assert "-NonInteractive" in row["args"], row
+        xml_probe = _probe_task_store(name)
+        module_probe = _probe_scheduledtasks_module(name)
+        state, detail = classify_task_probe(xml_probe, module_probe)
+
+        if state == "unknown":
+            problems.append(
+                "CANNOT VERIFY scheduled task %s: neither oracle could answer, so "
+                "this test has produced NO measurement and must not be read as "
+                "'not registered'. task store error: %s | module error: %s"
+                % (name, detail["xml"]["detail"], detail["module"]["detail"]))
+            continue
+        if state == "absent":
+            problems.append(
+                "scheduled task %s is not registered (via %s) -- the pipeline stops "
+                "for good the first time this session ends: %s"
+                % (name, detail["via"], json.dumps(detail, default=str)))
+            continue
+
+        facts = xml_probe[1] if xml_probe and xml_probe[0] == "present" \
+            else module_probe[1]
+        judged = task_registration_verdict(name, facts)
+        problems.extend("%s (facts via %s)" % (p, facts.get("oracle")) for p in judged)
+
+    assert not problems, "\n".join(problems)
+
+
+def test_the_task_probe_never_reads_unverifiable_as_absent():
+    """The three states, and the rule that UNKNOWN is not ABSENT.
+
+    The production defect was a probe that ran ``Get-ScheduledTask`` with
+    ``-ErrorAction SilentlyContinue`` and mapped "the query failed" onto
+    "exists=false". The module path cannot be forced to fail from a unit test, so
+    the classification is factored into ``classify_task_probe`` and driven here
+    directly with the readings a real call would produce.
+    """
+    good_xml = ("present", {"oracle": "task-store-xml", "enabled": True})
+    module_refused = ("unknown", "Get-ScheduledTask: 系统找不到指定的文件。")
+    store_absent = ("absent", "the task store was listed (51 entries) and 'X' is not among them")
+    module_present = ("present", {"oracle": "scheduledtasks-module", "enabled": True})
+
+    # (a) the store returned a definition -> exists
+    state, detail = classify_task_probe(good_xml, module_refused)
+    assert state == "exists", (state, detail)
+    assert detail["via"] == "task-store-xml", detail
+
+    # (b) the store could not answer AND the module refused -> UNKNOWN, not ABSENT
+    xml_unreadable = ("unknown", "FileNotFoundError: [WinError 2] task definition missing")
+    state, detail = classify_task_probe(xml_unreadable, module_refused)
+    assert state == "unknown", (
+        "a bare FileNotFoundError plus a module error was classified %r; neither "
+        "oracle ANSWERED, so this must be 'unknown' and the caller must fail with "
+        "a 'cannot verify' message -- reporting it as 'absent' is the exact defect "
+        "this guards: %s" % (state, detail))
+
+    # (b') not consulted at all is also unknown, never absent
+    assert classify_task_probe(None, None)[0] == "unknown"
+    assert classify_task_probe(xml_unreadable, None)[0] == "unknown"
+
+    # (c) the store is unreadable but the module DID return a record -> exists
+    state, detail = classify_task_probe(xml_unreadable, module_present)
+    assert state == "exists", (state, detail)
+    assert detail["via"] == "scheduledtasks-module", detail
+
+    # and absence IS reachable: a listed store that lacks the name is real absence,
+    # so the classifier is not simply answering "unknown" to everything.
+    state, detail = classify_task_probe(store_absent, module_refused)
+    assert state == "absent", (state, detail)
+    assert detail["via"] == "task-store-xml", detail
+
+    # a malformed probe is a programming error, not a silent state
+    with pytest.raises(ValueError):
+        classify_task_probe(("absent",), module_refused)
+    with pytest.raises(ValueError):
+        classify_task_probe(("maybe", "x"), module_refused)
+
+
+def test_the_registration_verdict_refuses_a_disabled_or_misaimed_task():
+    """A task that EXISTS is still refused when it cannot do its job.
+
+    "Registered" is not the deliverable: a present-but-Disabled task, one aimed at
+    the other watchdog, one that never repeats, and one that runs as a user who
+    has not logged on are all silently useless.
+    """
+    def facts(**over):
+        base = {
+            "oracle": "task-store-xml",
+            "enabled": True, "raw_enabled": "true",
+            "repetition": "PT2M", "intervals": ["PT2M"],
+            "multiple_instances": "IgnoreNew",
+            "arguments": '-NoProfile -NonInteractive -ExecutionPolicy Bypass '
+                         '-File "F:\\jev\\scripts\\continuation-watchdog.ps1"',
+            "user_id": "S-1-5-18", "run_level": "HighestAvailable",
+        }
+        base.update(over)
+        return base
+
+    assert task_registration_verdict(CONTINUATION_TASK, facts()) == []
+
+    # a PRESENT task that is Disabled is refused
+    refused = task_registration_verdict(CONTINUATION_TASK, facts(enabled=False, raw_enabled="false"))
+    assert refused and "NOT ENABLED" in refused[0], refused
+
+    # aimed at the wrong watchdog
+    refused = task_registration_verdict(
+        SERVICE_TASK, facts(arguments=facts()["arguments"]))
+    assert refused and any("service-watchdog.ps1" in r for r in refused), refused
+
+    # no repetition / unparseable repetition / the wrong period
+    for bad in (None, "PT", "banana", "PT5M"):
+        refused = task_registration_verdict(CONTINUATION_TASK, facts(repetition=bad))
+        assert refused, bad
+
+    # args that lose -NonInteractive, and a non-SYSTEM principal
+    refused = task_registration_verdict(
+        CONTINUATION_TASK, facts(arguments=facts()["arguments"].replace(" -NonInteractive", "")))
+    assert refused and any("-NonInteractive" in r for r in refused), refused
+    refused = task_registration_verdict(CONTINUATION_TASK, facts(user_id="S-1-5-21-42"))
+    assert refused and any("SYSTEM" in r for r in refused), refused
+
+    # the duration parser itself: PT2M is 120 s, and nonsense is None
+    assert parse_iso8601_duration("PT2M") == 120
+    assert parse_iso8601_duration("PT1H") == 3600
+    assert parse_iso8601_duration("PT12H") == 43200
+    assert parse_iso8601_duration("PT") is None
+    assert parse_iso8601_duration("banana") is None
+    assert parse_iso8601_duration(None) is None
+
+    # and the real store facts parse into a fact dict the verdict accepts, so the
+    # facts shape the test relies on is the shape the parser actually produces.
+    xml = (TASK_STORE / CONTINUATION_TASK).read_bytes().decode("utf-16")
+    assert task_registration_verdict(CONTINUATION_TASK, parse_task_xml(xml)) == []
+
+
+def test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer(monkeypatch):
+    """End-to-end: no oracle answering must produce a "cannot verify" failure.
+
+    The pure classifier is falsified above; this drives the actual test body with
+    both oracles stubbed out, so the sentence a human would read is checked too.
+    It must not say "not registered".
+    """
+    module = sys.modules[__name__]
+    monkeypatch.setattr(module, "_probe_task_store",
+                        lambda name: ("unknown", "task store refused: %s" % name))
+    monkeypatch.setattr(
+        module, "_probe_scheduledtasks_module",
+        lambda name: ("unknown", "scheduledtasks module refused: %s" % name))
+
+    with pytest.raises(AssertionError) as info:
+        test_both_watchdogs_are_registered_as_scheduled_tasks()
+    message = str(info.value)
+    assert "CANNOT VERIFY" in message, message
+    assert "is not registered" not in message, (
+        "an unanswerable probe was reported as an absence claim:\n%s" % message)
+    assert "task store refused" in message and "scheduledtasks module refused" in message, message
+
+    # a positive absence is a different sentence, and it IS a failure
+    monkeypatch.setattr(module, "_probe_task_store",
+                        lambda name: ("absent", "the task store was listed and %r is not in it" % name))
+    with pytest.raises(AssertionError) as info:
+        test_both_watchdogs_are_registered_as_scheduled_tasks()
+    assert "is not registered" in str(info.value), str(info.value)
 
 
 # --------------------------------------------------------------------------- #
@@ -1175,6 +1629,137 @@ def test_the_project_run_gate_selftest_is_green():
     assert int(total) >= 6, (
         "a verdict rule with fewer than six falsifiers has not been shown to be "
         "refusable in both directions: %s" % total)
+
+
+def test_final12_refuses_a_missing_or_red_control_plane_proof():
+    """FINAL-12 must JUDGE the section-L proofs, not merely mention them.
+
+    Four falsifiers measure the controller-lease heartbeat, interruption recovery,
+    single-controller election and runtime exclusivity. They are not pytest tests
+    and not controller steps, so before the proof contract existed NOTHING IN THE
+    PIPELINE RAN THEM -- the claims were asserted. This falsifies the rule that
+    makes them load-bearing, and the static wiring that feeds it.
+    """
+    gate = _load(PROJECT_RUN_GATE, "_jcc_project_run_gate")
+
+    def reading(**kw):
+        base = {
+            "name": "RUNTIME_LEASE_PROOF",
+            "artifact": "artifacts/acceptance/RUNTIME_LEASE_PROOF.json",
+            "produced_by": "tools/tests/runtime_lease_falsifier.py",
+            "present": True, "sha256": "c" * 64,
+            "payload": {"schema": "jcc-control-proof/1", "name": "RUNTIME_LEASE_PROOF",
+                        "ok": True, "status": "PASS", "verdict": "PASS: proved",
+                        "cases_total": 8, "cases_passed": 8,
+                        "checks": [{"name": "c%d" % i, "ok": True, "detail": ""}
+                                   for i in range(8)]},
+        }
+        base.update(kw)
+        return base
+
+    ok, problems = gate.judge_control_proofs([reading()])
+    assert ok and not problems, problems
+
+    ok, problems = gate.judge_control_proofs([reading(present=False, payload=None)])
+    assert not ok and any("MISSING" in p for p in problems), problems
+
+    ok, problems = gate.judge_control_proofs(
+        [reading(payload=dict(reading()["payload"], ok=False, status="FAIL"))])
+    assert not ok, problems
+
+    ok, problems = gate.judge_control_proofs([])
+    assert not ok, problems
+
+    # The four §L claims are named in the contract, so the rule covers the whole
+    # section rather than whichever subset happened to be known.
+    names = set(gate.PROOF_CONTRACT.PROOFS)
+    assert {"CONTROL_HEARTBEAT_PROOF", "INTERRUPTION_RECOVERY_PROOF",
+            "WATCHDOG_ELECTION_PROOF", "RUNTIME_LEASE_PROOF"} <= names, sorted(names)
+
+    # Every proof has a producer, and that producer actually WRITES it -- a
+    # declared claim with no writer is the assertion this item exists to remove.
+    for name, (claim, producer) in gate.PROOF_CONTRACT.PROOFS.items():
+        assert claim.strip(), name
+        src = (REPO / producer).read_text(encoding="utf-8")
+        assert "build_proof(" in src and name in src, (
+            "%s is declared in the proof contract but %s never writes it" % (name, producer))
+
+
+def test_publish_then_verify_is_a_fixed_point_and_still_refusable(tmp_path, monkeypatch):
+    """FINAL-13's ``--verify`` must be satisfiable after a publish, and still able to fail.
+
+    MEASURED DEFECT. ``publish()`` calls ``derive()``, whose ``freeze_rebaseline()``
+    compares the CURRENT ``scripts/`` tree against the ALREADY-COMMITTED freeze and
+    records ``is_a_re_baseline=True``; only AFTER that does it write the new freeze.
+    ``verify()`` re-runs the same ``derive()``, by which time the committed freeze
+    IS the new one, so the same question answers ``False``. ``_verify_rules``
+    compared field by field and exempted only ``published_at``, so True vs False was
+    judged "substantive field 'scripts_freeze' differs" and ``--verify`` could never
+    exit 0 after a publish -- a check that can never pass is not a check.
+
+    The sequence is driven here with the REAL ``freeze_rebaseline`` against a
+    scratch freeze file (nothing tracked is touched), and then the SUBSTANCE of the
+    freeze is mutated to show the rule is still refusable.
+    """
+    pub = _load(PUBLISHER, "_jcc_publisher_verify")
+    scratch = tmp_path / "release"
+    scratch.mkdir()
+    committed = scratch / "freeze_manifest.json"
+    committed.write_text(json.dumps({
+        "schema": "jcc/scripts-freeze/2", "taken_at": "2026-09-26T06:24:41+08:00",
+        "head_sha": "cdbb3ca791aa341bc4e6e6c9cbf6064f689155e2", "file_count": 1,
+        "hashes": {"scripts/one.ps1": "0" * 64},
+    }), encoding="utf-8")
+    monkeypatch.setattr(pub, "FREEZE", str(committed))
+
+    new_hashes = {"scripts/one.ps1": "1" * 64, "scripts/two.ps1": "2" * 64}
+
+    # ---- publish(): derive() sees drift against the committed freeze ----------
+    rebase_at_publish = pub.freeze_rebaseline(new_hashes)
+    assert rebase_at_publish["is_a_re_baseline"] is True, rebase_at_publish
+    on_disk = {
+        "schema": pub.SCHEMA, "ok": True, "evidence": [], "evidence_problems": [],
+        "scripts_freeze": {
+            "hashes": new_hashes, "file_count": len(new_hashes),
+            "rebaseline": rebase_at_publish,
+            # derive() sets this from is_a_re_baseline, so it differs too.
+            "previous_freeze_kept_at": "artifacts/release/freeze_manifest.previous.json",
+        },
+    }
+
+    # ---- publish() then writes the NEW freeze over the committed one ----------
+    committed.write_text(json.dumps({
+        "schema": "jcc/scripts-freeze/2", "taken_at": "2026-09-26T22:00:00+08:00",
+        "head_sha": "cefed66159a50ea8bcba5279d4a95cc5b726036d", "file_count": 2,
+        "hashes": new_hashes,
+    }), encoding="utf-8")
+
+    # ---- verify(): the same question, asked again, now answers False ----------
+    rebase_at_verify = pub.freeze_rebaseline(new_hashes)
+    assert rebase_at_verify["is_a_re_baseline"] is False, rebase_at_verify
+    fresh = {
+        "schema": pub.SCHEMA, "ok": True, "evidence": [], "evidence_problems": [],
+        "scripts_freeze": {
+            "hashes": new_hashes, "file_count": len(new_hashes),
+            "rebaseline": rebase_at_verify, "previous_freeze_kept_at": None,
+        },
+    }
+
+    problems, hash_problems = pub._verify_rules(
+        on_disk, fresh, dict(new_hashes), "f" * 64, "f" * 64)
+    assert not problems and not hash_problems, (
+        "--verify cannot succeed after a publish: problems=%r hash_problems=%r"
+        % (problems, hash_problems))
+
+    # ---- and the SUBSTANCE of the freeze is still compared field by field -----
+    for mutated, why in (
+        ({"hashes": {"scripts/one.ps1": "9" * 64, "scripts/two.ps1": "2" * 64},
+          "file_count": 2}, "a changed freeze hash"),
+        ({"hashes": new_hashes, "file_count": 1}, "a changed file_count"),
+    ):
+        broken = dict(fresh, scripts_freeze=dict(fresh["scripts_freeze"], **mutated))
+        problems, _ = pub._verify_rules(on_disk, broken, dict(new_hashes), "f" * 64, "f" * 64)
+        assert any("scripts_freeze" in p for p in problems), (why, problems)
 
 
 def test_the_release_publisher_selftest_is_green():

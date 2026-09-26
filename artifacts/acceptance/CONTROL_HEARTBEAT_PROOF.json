@@ -1,0 +1,35 @@
+{
+  "cases_passed": 4,
+  "cases_total": 4,
+  "checks": [
+    {
+      "detail": "3 distinct advance(s) over 90s",
+      "name": "the lease heartbeat advanced at least twice while the step was blocked",
+      "ok": true
+    },
+    {
+      "detail": "first=2026-09-26T23:02:08.118004+08:00 last=2026-09-26T23:03:37.886375+08:00",
+      "name": "the heartbeat samples are monotonic",
+      "ok": true
+    },
+    {
+      "detail": "current_step=SYNTH-LONG run_id=SYNTH-LONG-20260926T230207-14040",
+      "name": "the lease declares the current step and run",
+      "ok": true
+    },
+    {
+      "detail": "pid=14040 start=2026-09-26T23:02:06.836201+08:00",
+      "name": "the lease carries pid identity fields",
+      "ok": true
+    }
+  ],
+  "claim": "the controller's lease heartbeat advances for the whole of a long step, so a replacement controller never reads a live controller as stale",
+  "name": "CONTROL_HEARTBEAT_PROOF",
+  "ok": true,
+  "produced_at": "2026-09-26T23:07:14+08:00",
+  "produced_by": "tools/tests/interruption_recovery.py",
+  "schema": "jcc-control-proof/1",
+  "scratch_root": "F:\\jev\\.workbuddy\\scratch\\interruption\\20260926_230206",
+  "status": "PASS",
+  "verdict": "PASS: the controller's lease heartbeat advances for the whole of a long step, so a replacement controller never reads a live controller as stale"
+}

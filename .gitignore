@@ -88,6 +88,25 @@ artifacts/acceptance/**
 # exact bytes FINAL-08's record pointed at: the soak claimed a verdict about a file
 # that no longer contained it. Two claims, two files.
 !artifacts/acceptance/SOAK_WATCHDOG_PROOF.json
+# FINAL-12 / stop-condition section L: the control-plane proofs. Each is written
+# by the falsifier that measures the claim (tools/tests/interruption_recovery.py,
+# watchdog_election_falsifier.py, runtime_lease_falsifier.py,
+# provenance_integration.py) and READ by artifacts/acceptance/project_run_gate.py
+# to decide the release. Same rule as the FINAL-phase evidence above: a proof read
+# to decide whether the platform runs has to travel with the repository, or it
+# verifies exactly once, on the machine that produced it.
+!artifacts/acceptance/CONTROL_HEARTBEAT_PROOF.json
+!artifacts/acceptance/INTERRUPTION_RECOVERY_PROOF.json
+!artifacts/acceptance/WATCHDOG_ELECTION_PROOF.json
+!artifacts/acceptance/RUNTIME_LEASE_PROOF.json
+!artifacts/acceptance/PROVENANCE_INTEGRATION_PROOF.json
+# The FINAL-12 (project-run) gate SCRIPT. It sat untracked while
+# tools/jcc_continuation.py named it as a step's script and CONTROLLER_INFRA's
+# suite ran its --selftest, which means a clone would have had a pipeline step
+# pointing at a file that does not exist -- the same "verifies once, on the
+# machine that produced it" defect the FINAL-phase evidence lines fix. Named
+# individually, like its sibling final_gate_run.py; the ignore rule is not widened.
+!artifacts/acceptance/project_run_gate.py
 # NOT whitelisted, deliberately: artifacts/acceptance/gate_runs.jsonl. It records
 # WHEN a gate ran and WHICH commit it saw -- an observation about a moment, not
 # about the tree. A tracked file that changes on every run is the defect the

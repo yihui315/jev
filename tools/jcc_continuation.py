@@ -51,6 +51,7 @@ import json
 import os
 import subprocess
 import sys
+import threading
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable, Dict, List, Optional, Tuple
@@ -58,8 +59,15 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 # --------------------------------------------------------------------------- #
 # Paths
 # --------------------------------------------------------------------------- #
+#
+# ROOT is overridable so the interruption-recovery falsifier can drive the REAL
+# controller against a scratch root (a copy of this file whose lock/state/runs
+# all resolve under the scratch tree) without ever touching F:\jev. The watchdog
+# exports the same JCC_ROOT to the controller it launches, so the two always
+# agree on which tree they are talking about -- a watchdog rooted at A that
+# starts a controller rooted at B is two systems, not one.
 
-ROOT = r"F:\jev"
+ROOT = os.environ.get("JCC_ROOT") or r"F:\jev"
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 
 #: The state file is overridable so the selftest can exercise the state machine
@@ -70,6 +78,13 @@ STATE_PATH = os.environ.get(
 STATE_PREV = STATE_PATH + ".previous.json"
 LOCK_DIR = os.path.join(ROOT, ".workbuddy", "locks")
 CONTROLLER_LOCK = os.path.join(LOCK_DIR, "jcc-continuation.lock.json")
+#: One durable run descriptor per long-running step (see `run_step`). Ignored by
+#: git (`/.workbuddy/` is in .gitignore), like the rest of the controller state.
+RUNS_DIR = os.path.join(ROOT, ".workbuddy", "runs")
+#: The watchdog's exclusive-controller ELECTION lock. Created with an atomic
+#: CreateNew so exactly one tick can be the replacement launcher; see
+#: scripts/continuation-watchdog.ps1 rule 3.
+ELECTION_LOCK = os.path.join(LOCK_DIR, "controller-election.lock.json")
 SCHED_LOG_DIR = os.path.join(ROOT, ".workbuddy", "scheduled", "logs")
 STEP_LOG_DIR = os.path.join(ROOT, ".workbuddy", "scheduled", "steps")
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
@@ -77,9 +92,35 @@ REL = os.path.join(ROOT, "artifacts", "release")
 
 SCHEMA_VERSION = 2
 TZ = timezone(timedelta(hours=8))
-LOCK_TTL_S = 900
+
+#: The controller heartbeat lease. WHY THESE TWO NUMBERS AND NOT THE OLD 900 s.
+#:
+#: MEASURED DEFECT (live-lock, 2026-09-26): the old lock was refreshed only at the
+#: TOP of each loop iteration -- once per step -- while `LOCK_TTL_S = 900` (15 min).
+#: FINAL-08_SOAK runs ~41 minutes, so for the whole soak the lock was EXPIRED even
+#: though the controller was alive and healthy. The watchdog requires
+#: `$alive -and $fresh`; an expired lock fell through to "start a replacement",
+#: and the replacement -- seeing "pid alive AND lock expired" -- overwrote the lock
+#: and ran a SECOND controller next to the first. Two soak_drivers then raced
+#: stop.ps1/start.ps1 through each other's PHASE R window. It can never converge.
+#:
+#: The fix is a heartbeat that is INDEPENDENT of the step: its own thread beats
+#: every HEARTBEAT_INTERVAL seconds, so it keeps beating through a 41-minute soak,
+#: a 10-minute pytest run, or a 2-hour external run. LOCK_TTL is 6x the interval,
+#: so a lease survives five missed beats before it is called stale -- deliberately
+#: generous, because the cost of a false "stale" is a duplicate controller.
+HEARTBEAT_INTERVAL = 30
+LOCK_TTL = 180
+#: Legacy name. Kept so any caller that still reads LOCK_TTL_S keeps working; it
+#: is the same value and the same meaning.
+LOCK_TTL_S = LOCK_TTL
 MAX_TOTAL_S = 8 * 3600          # a controller run gives up after 8 h, not never
 BACKOFF_LADDER = (10, 30, 60, 120, 300)
+#: A step whose declared timeout is at least this is a "long-running run": it gets
+#: a durable descriptor under .workbuddy/runs/ and recovery ATTACHES to it rather
+#: than re-launching it. 1800 s keeps FINAL-09/10/11/12 and FINAL-08 in and leaves
+#: the four 900 s steps out.
+LONG_RUNNING_MIN_S = 1800
 
 #: The only DEGRADED statuses the final gate's stop condition permits: the four
 #: adapter capability probes, which report "this environment cannot exercise the
@@ -150,6 +191,13 @@ def default_state() -> Dict[str, Any]:
         "updated_at": None,
         "attempt": 0,
         "attempts": {},
+        #: The backoff input. It means CONSECUTIVE REAL FAILURES of this step, not
+        #: "controller generations that ever touched it". `attempts` above is kept
+        #: as a truthful generation record but is DELIBERATELY not the backoff
+        #: input: a replacement controller that attaches to a still-running long
+        #: step must not count as a failure, and a pipeline that advances past a
+        #: step must not carry its history into the next one. See run_pipeline.
+        "consecutive_failures": {},
         "last_error": None,
         "release_sha": None,
         "runtime_state": "IDLE",
@@ -270,6 +318,17 @@ def derive(state: Dict[str, Any]) -> None:
 # --------------------------------------------------------------------------- #
 
 def pid_alive(pid: Any) -> bool:
+    """Is `pid` a LIVE process?
+
+    STILL_ACTIVE, NOT "OpenProcess succeeded".
+    MEASURED DEFECT, found by tools/tests/interruption_recovery.py. A process that
+    has been TerminateProcess'd but whose object is still REFERENCED (e.g. the
+    launcher still holds a handle) keeps answering `OpenProcess` -- so the old
+    implementation returned True for a DEAD controller. A replacement controller
+    then read the dead controller's still-fresh lease as live and refused to
+    reclaim it, and the pipeline never recovered. `GetExitCodeProcess` is the
+    authoritative answer and it reports STILL_ACTIVE (259) only for a live process.
+    """
     try:
         pid = int(pid)
     except (TypeError, ValueError):
@@ -280,40 +339,254 @@ def pid_alive(pid: Any) -> bool:
     handle = kernel32.OpenProcess(0x1000, False, pid)   # QUERY_LIMITED_INFORMATION
     if not handle:
         return False
-    kernel32.CloseHandle(handle)
-    return True
+    try:
+        code = ctypes.c_ulong(0)
+        if not kernel32.GetExitCodeProcess(handle, ctypes.byref(code)):
+            return False
+        return code.value == 259                        # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def process_start_time_iso(pid: Any = None) -> Optional[str]:
+    """The REAL start time of `pid`, as an ISO-8601 string, or None.
+
+    WHY THIS IS NOT `datetime.now()`. The lease records the start time of the
+    process that owns it, so a watchdog can tell "the live controller" apart from
+    "an unrelated process that happens to have been given the same pid after a
+    reuse". A pid is only unique while it is alive; Windows recycles them, and a
+    recycled pid is exactly how a stale lock can look fresh to a liveness-only
+    check. Recording the start time of OUR OWN process (os.getpid()) and comparing
+    it later is the cheap, reliable discriminator.
+
+    It is deliberately NOT a wall clock read at the moment the lease is written:
+    that value would be true of the writer and meaningless about the process.
+    """
+    try:
+        pid = int(pid if pid is not None else os.getpid())
+    except (TypeError, ValueError):
+        return None
+    if pid <= 0:
+        return None
+    kernel32 = ctypes.windll.kernel32
+    handle = kernel32.OpenProcess(0x1000, False, pid)   # QUERY_LIMITED_INFORMATION
+    if not handle:
+        # The pid exists but this caller may not query it, or it does not exist.
+        # Indeterminate -- the caller decides; never fabricate a start time.
+        return None
+    try:
+        creation = ctypes.c_ulonglong(0)
+        exit_t = ctypes.c_ulonglong(0)
+        kernel_t = ctypes.c_ulonglong(0)
+        user_t = ctypes.c_ulonglong(0)
+        ok = kernel32.GetProcessTimes(handle, ctypes.byref(creation),
+                                      ctypes.byref(exit_t), ctypes.byref(kernel_t),
+                                      ctypes.byref(user_t))
+        if not ok or creation.value == 0:
+            return None
+        # FILETIME is 100-ns intervals since 1601-01-01 UTC.
+        epoch_s = creation.value / 1e7 - 11644473600.0
+        return datetime.fromtimestamp(epoch_s, TZ).isoformat()
+    except OSError:
+        return None
+    finally:
+        kernel32.CloseHandle(handle)
+
+
+def pid_identity_matches(pid: Any, expected_start_iso: Optional[str]) -> Optional[bool]:
+    """True if `pid` is the process the lease meant; None if we cannot tell.
+
+    The three-valued result matters: `False` (a DIFFERENT process holds the pid
+    now) is a definite reason to treat a lock as stale; `None` (we cannot query
+    the process) must NOT be read as "stale", because the cost of being wrong is
+    starting a second controller over one we merely cannot see. Callers combine
+    this with pid_alive(), which already keeps that asymmetry.
+    """
+    if not expected_start_iso:
+        return None
+    actual = process_start_time_iso(pid)
+    if not actual:
+        return None
+    try:
+        a = datetime.fromisoformat(str(actual))
+        b = datetime.fromisoformat(str(expected_start_iso))
+    except ValueError:
+        return None
+    # Windows FILETIME has ~10 ms resolution on this host; 2 s is generous and
+    # still far below any plausible pid-reuse interval.
+    return abs((a - b).total_seconds()) < 2.0
+
+
+# --------------------------------------------------------------------------- #
+# The controller heartbeat lease
+# --------------------------------------------------------------------------- #
+#
+# The lease file is the single thing every other component agrees on: the
+# watchdog decides "is a controller live?" from it, and a second controller
+# refuses to race the first from it. It used to be written twice per run (acquire
+# + one refresh per step) and to carry only {pid, expires_at}. It now carries the
+# identity of the run, and a background thread beats it independently of the step.
+
+#: Mutable fields the main thread publishes into the lease; the heartbeat thread
+#: merges them in on every beat. Guarded by _LEASE_LOCK so a beat never races a
+#: step transition.
+_LEASE: Dict[str, Any] = {
+    "generation": 1,
+    "current_step": None,
+    "run_id": None,
+    "head_sha": None,
+    "acquired_at": None,
+}
+_LEASE_LOCK = threading.Lock()
+_HEARTBEAT: Dict[str, Any] = {"thread": None, "stop": None}
+
+
+def _iso_is_fresh(ts: Optional[str], ttl_s: int) -> bool:
+    """True if an ISO timestamp is within `ttl_s` of now. Unparsable -> stale."""
+    if not ts:
+        return False
+    try:
+        then = datetime.fromisoformat(str(ts))
+    except ValueError:
+        return False
+    if then.tzinfo is None:
+        then = then.replace(tzinfo=TZ)
+    return (now() - then) < timedelta(seconds=ttl_s)
+
+
+def _legacy_expires_fresh(lock: Dict[str, Any]) -> bool:
+    """The pre-heartbeat freshness rule, kept verbatim for backward compatibility.
+
+    A lock written by an older controller generation carries `expires_at` and no
+    `heartbeat_at`. The generation running the moment this code is installed is
+    exactly that, so this fallback is what makes installing the new watchdog safe
+    MID-FLIGHT: for such a lock the watchdog behaves byte-for-byte as it always
+    has. See scripts/continuation-watchdog.ps1 rule 2.
+    """
+    return str(lock.get("expires_at", "")) > iso()
+
+
+def lock_is_live(lock: Optional[Dict[str, Any]]) -> bool:
+    """Is this lease held by a LIVE controller? The single definition of live.
+
+    New generation (has `heartbeat_at`): live iff the pid is alive AND (we can
+    prove, or cannot disprove, that it is the same process) AND the heartbeat is
+    fresh. A recycled pid therefore cannot be mistaken for the controller.
+    Old generation (no `heartbeat_at`): fall back to `expires_at`, unchanged.
+    """
+    if not isinstance(lock, dict):
+        return False
+    pid = lock.get("pid")
+    if not pid_alive(pid):
+        return False
+    heartbeat = lock.get("heartbeat_at")
+    if heartbeat:
+        identity = pid_identity_matches(pid, lock.get("process_start_time"))
+        if identity is False:
+            return False            # the pid now names a different process
+        return _iso_is_fresh(heartbeat, LOCK_TTL)
+    return _legacy_expires_fresh(lock)
+
+
+def new_lease_record() -> Dict[str, Any]:
+    """A fully-populated lease record for THIS process, written from inside it.
+
+    WRITTEN FROM INSIDE THE CONTROLLER ON PURPOSE. `.venv\\Scripts\\python.exe`
+    is a REDIRECTOR STUB on this host: the process that actually runs the
+    controller is a CHILD of the pid Start-Process reports. So a lease written by
+    the launcher would name the wrong pid. `os.getpid()` here is the real one.
+    """
+    return {
+        "owner": "tools/jcc_continuation.py",
+        "pid": os.getpid(),
+        "process_start_time": process_start_time_iso(os.getpid()),
+        "generation": _LEASE.get("generation", 1),
+        "heartbeat_at": iso(),
+        "current_step": _LEASE.get("current_step"),
+        "run_id": _LEASE.get("run_id"),
+        "head_sha": _LEASE.get("head_sha"),
+        "acquired_at": _LEASE.get("acquired_at") or iso(),
+        "expires_at": iso(now() + timedelta(seconds=LOCK_TTL)),
+        "controller_sha256": sha256_file(os.path.abspath(__file__)),
+    }
 
 
 def acquire_controller_lock() -> Optional[Dict[str, Any]]:
     existing = load_json(CONTROLLER_LOCK)
-    if isinstance(existing, dict):
-        if pid_alive(existing.get("pid")) and str(existing.get("expires_at", "")) > iso():
-            return None
-    record = {
-        "owner": "tools/jcc_continuation.py",
-        "pid": os.getpid(),
-        "acquired_at": iso(),
-        "expires_at": iso(now() + timedelta(seconds=LOCK_TTL_S)),
-        "controller_sha256": sha256_file(os.path.abspath(__file__)),
-    }
-    fsync_atomic_write(CONTROLLER_LOCK, json.dumps(record, indent=2))
+    if lock_is_live(existing):
+        return None
+    record = new_lease_record()
+    _LEASE["acquired_at"] = record["acquired_at"]
+    with _LEASE_LOCK:
+        fsync_atomic_write(CONTROLLER_LOCK, json.dumps(record, indent=2))
     return record
 
 
 def refresh_controller_lock() -> None:
-    existing = load_json(CONTROLLER_LOCK)
-    if isinstance(existing, dict) and existing.get("pid") == os.getpid():
-        existing["expires_at"] = iso(now() + timedelta(seconds=LOCK_TTL_S))
+    """One heartbeat beat. Re-read, update only the lease fields, write atomically.
+
+    Re-reading (rather than rewriting a cached record) means a beat can never
+    revert a field another writer -- the main thread publishing `run_id`, or an
+    operator editing the lease -- has just set.
+    """
+    with _LEASE_LOCK:
+        existing = load_json(CONTROLLER_LOCK)
+        if not (isinstance(existing, dict) and existing.get("pid") == os.getpid()):
+            return
+        existing["heartbeat_at"] = iso()
+        existing["expires_at"] = iso(now() + timedelta(seconds=LOCK_TTL))
+        if _LEASE.get("current_step") is not None:
+            existing["current_step"] = _LEASE["current_step"]
+        if _LEASE.get("run_id") is not None:
+            existing["run_id"] = _LEASE["run_id"]
         fsync_atomic_write(CONTROLLER_LOCK, json.dumps(existing, indent=2))
 
 
+def start_heartbeat() -> None:
+    """Beat the lease from a thread the step cannot block.
+
+    `run_step` executes the child with a BLOCKING subprocess call, so a heartbeat
+    that only ran between steps would be exactly the defect being fixed. A thread
+    keeps ticking while the main thread waits in `Popen.wait`, because CPython's
+    Windows wait releases the GIL. That claim is MEASURED, not asserted: see
+    tools/tests/test_interruption_recovery.py, which samples the lease for the
+    whole of a synthetic long step and requires monotonic advances.
+    """
+    if _HEARTBEAT.get("thread") is not None:
+        return
+    stop = threading.Event()
+
+    def _beat() -> None:
+        while not stop.wait(HEARTBEAT_INTERVAL):
+            try:
+                refresh_controller_lock()
+            except Exception:                               # noqa: BLE001
+                # A beat that fails must never kill the pipeline; the next beat
+                # (or the main thread's own refresh) tries again.
+                pass
+
+    t = threading.Thread(target=_beat, name="jcc-heartbeat", daemon=True)
+    _HEARTBEAT["stop"] = stop
+    _HEARTBEAT["thread"] = t
+    t.start()
+
+
+def stop_heartbeat() -> None:
+    stop = _HEARTBEAT.get("stop")
+    if stop is not None:
+        stop.set()
+    _HEARTBEAT["thread"] = None
+    _HEARTBEAT["stop"] = None
+
+
 def release_controller_lock() -> None:
-    existing = load_json(CONTROLLER_LOCK)
-    if isinstance(existing, dict) and existing.get("pid") == os.getpid():
-        try:
-            os.remove(CONTROLLER_LOCK)
-        except OSError:
-            pass
+    with _LEASE_LOCK:
+        existing = load_json(CONTROLLER_LOCK)
+        if isinstance(existing, dict) and existing.get("pid") == os.getpid():
+            try:
+                os.remove(CONTROLLER_LOCK)
+            except OSError:
+                pass
 
 
 def sha256_file(path: str) -> Optional[str]:
@@ -344,7 +617,8 @@ class Step:
     def __init__(self, sid: str, title: str, script: Optional[str],
                  args: Tuple[str, ...], result: Optional[str],
                  judge: Optional[Callable[[Any], Tuple[bool, str]]],
-                 timeout_s: int, needs_service: bool = False):
+                 timeout_s: int, needs_service: bool = False,
+                 long_running: bool = False):
         self.id = sid
         self.title = title
         self.script = script
@@ -353,6 +627,11 @@ class Step:
         self.judge = judge
         self.timeout_s = timeout_s
         self.needs_service = needs_service
+        #: A long-running step gets a durable run descriptor under
+        #: .workbuddy/runs/ and, on recovery, is ATTACHED to rather than
+        #: re-launched. The declared timeout is the honest signal; a step can also
+        #: force it (see FINAL-08).
+        self.long_running = bool(long_running) or int(timeout_s) >= LONG_RUNNING_MIN_S
 
 
 def _gate_judge(rec: Any) -> Tuple[bool, str]:
@@ -472,10 +751,46 @@ STEPS: List[Step] = [
     Step("FINAL-10_REBOOT_SIM", "host-restart recovery simulation (stale pid/lock/marker)",
          "tools/continuation/reboot_recovery_sim.py", (),
          "artifacts/acceptance/REBOOT_RECOVERY.json", _ok_judge, 1800),
+    # FINAL-10B closes the make-or-break gap between "the pipeline produced
+    # evidence" and "the final gate can be evaluated". The gate's P-01 reads
+    # `git status` and FAILS on a dirty tree, and the steps above write TRACKED
+    # evidence -- so without a boundary commit here, P-01 could never see a clean
+    # tree and FINAL-11 was structurally unreachable. This step commits EXACTLY
+    # the evidence the run just produced, fails closed if it cannot reach a clean
+    # tree, and it does NOT touch P-01: the gate's cleanliness rule is unchanged
+    # and no "evidence is tolerated" branch is added anywhere.
+    #
+    # THE RESULT PATH MUST NOT BE THE RUN DESCRIPTOR PATH. This step's 1800 s
+    # timeout makes it long_running, so `run_descriptor_path` is
+    # `.workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.json`. It used to pass that SAME
+    # path as `--json-out` while also declaring it as `result`: the controller
+    # wrote its RUNNING descriptor there, the child then overwrote it with its own
+    # result (losing pid/run_id), and on recovery `_artifact_fresh(result_path=the
+    # descriptor itself)` was trivially true -- so an `attach_to_run` could read a
+    # RUNNING record as this step's result, mark the step BLOCKED, and launch a
+    # SECOND commit tool. The result therefore goes to a `.result.json` sibling,
+    # and `assert_step_results_are_not_run_descriptors(STEPS)` below refuses the
+    # old pairing if it is ever reintroduced.
+    Step("FINAL-10B_EVIDENCE_COMMIT", "commit produced evidence; require a clean tree",
+         "tools/finalize/commit_evidence.py",
+         ("--message", "chore(final): commit release evidence produced by the "
+                       "FINAL pipeline run",
+          "--json-out", ".workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.result.json"),
+         ".workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.result.json", _ok_judge, 1800),
+    # FINAL-11's AUTHORITATIVE result goes to an IGNORED staging path, not to the
+    # tracked canonical file. Rationale (defect 3, self-reference): a commit must
+    # never be required to already contain a gate result that does not exist yet,
+    # and a gate that writes a tracked file re-dirties the very tree its own P-01
+    # just certified. The tracked canonical summary is produced by FINAL-11B
+    # (and consumed by the publisher) AFTER the gate has run. P-01 is NOT touched.
     Step("FINAL-11_FINAL_GATE", "final gate on the frozen tree",
          "artifacts/acceptance/final_gate_run.py",
-         ("--full", "--json-out", "artifacts/acceptance/final_gate_result.json"),
-         "artifacts/acceptance/final_gate_result.json", _gate_judge, 3600),
+         ("--full", "--record-moment",
+          "--json-out", "runtime/final-gate/final_gate_result.json"),
+         "runtime/final-gate/final_gate_result.json", _gate_judge, 3600),
+    Step("FINAL-11B_CANONICAL_GATE", "publish the tracked canonical gate summary",
+         "tools/finalize/publish_gate_result.py", (),
+         "artifacts/acceptance/final_gate_result.json", _gate_judge, 900),
     Step("FINAL-12_PROJECT_RUN", "project-run gate: every acceptance leg together",
          "artifacts/acceptance/project_run_gate.py", (),
          "artifacts/acceptance/project_run_gate_result.json", _ok_judge, 3600),
@@ -491,6 +806,134 @@ STEP_BY_ID: Dict[str, Step] = {s.id: s for s in STEPS}
 # --------------------------------------------------------------------------- #
 # Running a step
 # --------------------------------------------------------------------------- #
+#
+# A long-running step is a RUN, not merely a step. The difference matters the
+# moment a controller dies mid-step: re-running a 41-minute soak from zero is
+# both wasteful and destructive (soak PHASE Q stops and starts the service), and
+# a second soak_driver running next to the first is exactly the live-lock this
+# project hit. So each long-running step gets ONE durable descriptor under
+# .workbuddy/runs/, written atomically (temp -> fsync -> os.replace), and
+# recovery ATTACHES to it instead of launching a second one:
+#
+#   descriptor exists AND its pid is live  -> ATTACH_EXISTING_RUN (observe only)
+#   descriptor exists AND its pid is dead  -> RUN_LOST            (then relaunch)
+#   no descriptor                          -> normal launch
+#
+# "Observe" means: wait for the run's declared artifact to appear, judge it with
+# the step's own judge, and never launch a second one. The consecutive-failure
+# counter is NOT incremented for an attach -- a replacement controller that found
+# the run alive has not failed at anything.
+
+RUN_DESCRIPTOR_SCHEMA = "jcc-controller-run/1"
+
+
+def run_descriptor_path(step: "Step") -> str:
+    return os.path.join(RUNS_DIR, "%s.json" % step.id)
+
+
+def _norm_path(path: str) -> str:
+    return os.path.normcase(os.path.abspath(path))
+
+
+def step_result_path(step: "Step") -> Optional[str]:
+    """The absolute path of the step's declared result artifact, if any."""
+    return rel(*step.result.split("/")) if step.result else None
+
+
+def step_result_descriptor_conflict(step: "Step") -> Optional[str]:
+    """Description of a result/descriptor path collision, else None. Pure.
+
+    A step's RESULT (what it produced) and its RUN DESCRIPTOR (the bookkeeping
+    record of the process producing it) must be different files. When they are the
+    same file, two things break at once: the child overwrites the descriptor, so
+    the pid/run_id a replacement controller needs are gone; and `_artifact_fresh`
+    is asked about the descriptor itself, so a RUNNING record reads as a finished
+    artifact and the step can be judged -- and relaunched -- off its own run
+    record. Measured on FINAL-10B before this guard existed.
+    """
+    result = step_result_path(step)
+    if not result:
+        return None
+    descriptor = run_descriptor_path(step)
+    if _norm_path(result) == _norm_path(descriptor):
+        return ("%s declares result %r, which IS its run descriptor %r"
+                % (step.id, step.result,
+                   os.path.relpath(descriptor, ROOT).replace(os.sep, "/")))
+    return None
+
+
+def assert_step_results_are_not_run_descriptors(steps: List["Step"]) -> None:
+    """Fail closed if ANY step's result artifact is its own run descriptor.
+
+    A guard over the whole table rather than a fixed constant: it fires for any
+    step that reintroduces the pairing, not just for the one that was repaired.
+    """
+    conflicts = [c for c in (step_result_descriptor_conflict(s) for s in steps) if c]
+    if conflicts:
+        raise AssertionError(
+            "step/descriptor path collision -- a step's result would be overwritten "
+            "by, or mistaken for, its own run record. Give the result a distinct "
+            "path: " + "; ".join(conflicts))
+
+
+#: Structural invariant, checked at import: the pipeline cannot even be loaded
+#: with a step whose result artifact is its own run descriptor.
+assert_step_results_are_not_run_descriptors(STEPS)
+
+
+def load_run_descriptor(step: "Step") -> Optional[Dict[str, Any]]:
+    d = load_json(run_descriptor_path(step))
+    return d if isinstance(d, dict) else None
+
+
+def _write_run_descriptor(step: "Step", payload: Dict[str, Any]) -> None:
+    payload["schema"] = RUN_DESCRIPTOR_SCHEMA
+    fsync_atomic_write(run_descriptor_path(step),
+                       json.dumps(payload, indent=2, ensure_ascii=False))
+
+
+def _new_run_id(step: "Step") -> str:
+    return "%s-%s-%d" % (step.id, datetime.now(TZ).strftime("%Y%m%dT%H%M%S"), os.getpid())
+
+
+def _artifact_fresh(path: str, since_iso: Optional[str]) -> bool:
+    """Was the artifact written at or after `since_iso`? A stale artifact left by
+    an earlier attempt must never be read as this run's result."""
+    if not os.path.isfile(path):
+        return False
+    if not since_iso:
+        return True
+    try:
+        since = datetime.fromisoformat(str(since_iso)).timestamp()
+    except ValueError:
+        return True
+    return os.path.getmtime(path) >= since - 1.0
+
+
+def _judge_artifact(step: "Step", record: Dict[str, Any]) -> Dict[str, Any]:
+    """Fill in status/detail/evidence from the step's declared artifact."""
+    if not step.result:
+        # No artifact: the exit code is all there is, and it is explicitly a
+        # weaker basis. Recorded as such rather than dressed up as evidence.
+        record["status"] = "PASS" if record.get("exit_code") == 0 else "BLOCKED"
+        record["detail"] = "exit code %r (no result artifact declared)" % record.get("exit_code")
+        return record
+    path = rel(*step.result.split("/"))
+    rec = load_json(path)
+    if rec is None:
+        record["status"] = "BLOCKED"
+        record.setdefault("detail", "result artifact missing or unparsable: %s" % step.result)
+        return record
+    ok, detail = step.judge(rec) if step.judge else (True, "present")
+    record["status"] = "PASS" if ok else "BLOCKED"
+    record["detail"] = detail
+    record["evidence"] = {
+        "path": step.result,
+        "sha256": sha256_file(path),
+        "bytes": os.path.getsize(path),
+    }
+    return record
+
 
 def run_step(step: Step) -> Dict[str, Any]:
     """Execute one step and judge it from its artifact. Returns the step record."""
@@ -510,6 +953,7 @@ def run_step(step: Step) -> Dict[str, Any]:
                           duration_s=0.0)
             return record
         os.makedirs(STEP_LOG_DIR, exist_ok=True)
+        os.makedirs(RUNS_DIR, exist_ok=True)
         log_path = os.path.join(STEP_LOG_DIR, "%s.log" % step.id)
         cmd = [PY, script] + list(step.args)
         env = dict(os.environ)
@@ -518,45 +962,106 @@ def run_step(step: Step) -> Dict[str, Any]:
         env["EXTERNAL_PUBLISH"] = "0"
         env["JCC_CONTINUATION_CHILD"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
+        run_id = _new_run_id(step) if step.long_running else None
         # The child's output goes to a FILE, never to a pipe this process holds:
         # the controller is long-lived and must not be coupled to a reader's
         # lifetime (the same trap the scheduled-task path had).
         with io.open(log_path, "ab") as logf:
             logf.write(("\n===== %s %s =====\n" % (step.id, iso())).encode("utf-8"))
             logf.flush()
+            rc: Optional[int] = None
             try:
-                proc = subprocess.run(cmd, cwd=ROOT, stdout=logf, stderr=subprocess.STDOUT,
-                                      env=env, timeout=step.timeout_s)
-                rc: Optional[int] = proc.returncode
-            except subprocess.TimeoutExpired:
+                # Popen (not subprocess.run) because a long-running step must
+                # record the pid of the process it actually launched: that pid is
+                # what a replacement controller checks to decide "attach" vs
+                # "relaunch".
+                proc = subprocess.Popen(cmd, cwd=ROOT, stdout=logf,
+                                        stderr=subprocess.STDOUT, env=env)
+                if run_id is not None:
+                    record["run_id"] = run_id
+                    _LEASE["run_id"] = run_id
+                    _LEASE["current_step"] = step.id
+                    refresh_controller_lock()
+                    _write_run_descriptor(step, {
+                        "run_id": run_id,
+                        "step": step.id,
+                        "pid": proc.pid,
+                        "started_at": iso(),
+                        "expected_finish_at": iso(now() + timedelta(seconds=step.timeout_s)),
+                        "output": os.path.relpath(log_path, ROOT).replace(os.sep, "/"),
+                        "evidence": step.result,
+                        "status": "RUNNING",
+                    })
+                try:
+                    rc = proc.wait(timeout=step.timeout_s)
+                except subprocess.TimeoutExpired:
+                    proc.kill()
+                    rc = None
+                    record["detail"] = "timeout after %d s" % step.timeout_s
+            except OSError as exc:
                 rc = None
-                record["detail"] = "timeout after %d s" % step.timeout_s
+                record["detail"] = "launch failed: %s" % exc
+        if run_id is not None:
+            status = "PASS" if rc == 0 else "FINISHED"
+            d = load_run_descriptor(step) or {}
+            d.update({"status": status, "exit_code": rc,
+                      "finished_at": iso(), "pid_dead": not pid_alive(d.get("pid"))})
+            _write_run_descriptor(step, d)
+            _LEASE["run_id"] = None
+            refresh_controller_lock()
         record["exit_code"] = rc
         record["log"] = os.path.relpath(log_path, ROOT).replace(os.sep, "/")
     else:
         record["exit_code"] = None
 
     record["duration_s"] = round(time.time() - started, 3)
+    return _judge_artifact(step, record)
 
-    if step.result:
-        rec = load_json(rel(*step.result.split("/")))
-        if rec is None:
-            record["status"] = "BLOCKED"
-            record.setdefault("detail", "result artifact missing or unparsable: %s" % step.result)
-            return record
-        ok, detail = step.judge(rec) if step.judge else (True, "present")
-        record["status"] = "PASS" if ok else "BLOCKED"
-        record["detail"] = detail
-        record["evidence"] = {
-            "path": step.result,
-            "sha256": sha256_file(rel(*step.result.split("/"))),
-            "bytes": os.path.getsize(rel(*step.result.split("/"))),
-        }
-    else:
-        # No artifact: the exit code is all there is, and it is explicitly a
-        # weaker basis. Recorded as such rather than dressed up as evidence.
-        record["status"] = "PASS" if record.get("exit_code") == 0 else "BLOCKED"
-        record["detail"] = "exit code %r (no result artifact declared)" % record.get("exit_code")
+
+def attach_to_run(step: Step) -> Dict[str, Any]:
+    """Observe a long-running step that is ALREADY running. Never launches one.
+
+    Called by `run_pipeline` when the persisted `current_step` is a long-running
+    step and a durable descriptor exists for it with a LIVE pid. Waiting for the
+    existing run's artifact to appear is the whole point: the alternative -- a
+    fresh launch -- is the duplicate-run live-lock.
+    """
+    started = time.time()
+    desc = load_run_descriptor(step) or {}
+    record: Dict[str, Any] = {
+        "id": step.id,
+        "title": step.title,
+        "started_at": iso(),
+        "script": step.script,
+        "result_path": step.result,
+        "status": "ATTACHED",
+        "attached_run": {"run_id": desc.get("run_id"), "pid": desc.get("pid"),
+                         "observed_only": True, "note": "ATTACH_EXISTING_RUN"},
+    }
+    result_path = rel(*step.result.split("/")) if step.result else None
+    deadline = time.time() + int(step.timeout_s)
+    while time.time() < deadline:
+        if result_path and _artifact_fresh(result_path, desc.get("started_at")):
+            break
+        if not pid_alive(desc.get("pid")):
+            break
+        time.sleep(2)
+    record["duration_s"] = round(time.time() - started, 3)
+    record["attached_run"]["pid_alive_after_observe"] = pid_alive(desc.get("pid"))
+    if result_path and _artifact_fresh(result_path, desc.get("started_at")):
+        return _judge_artifact(step, record)
+    if pid_alive(desc.get("pid")):
+        # The run is STILL GOING. That is not a failure and must not be counted as
+        # one: WAITING tells run_pipeline to leave the run alone and stop, so the
+        # next generation attaches again. Relaunching here would be the duplicate
+        # run this whole mechanism exists to prevent.
+        record["status"] = "WAITING"
+        record["detail"] = ("attached run %s (pid %s) is still running; not relaunching"
+                           % (desc.get("run_id"), desc.get("pid")))
+        return record
+    record["status"] = "BLOCKED"
+    record["detail"] = ("the attached run pid %s ended without producing a fresh %s "
+                        "(RUN_LOST)" % (desc.get("pid"), step.result))
     return record
 
 
@@ -578,6 +1083,21 @@ def run_pipeline(state: Dict[str, Any], only: Optional[str] = None,
     state["release_sha"] = state.get("release_sha") or git("rev-parse", "HEAD")
     save_state(state)
     log("controller pid=%d started; current_step=%s" % (os.getpid(), state["current_step"]))
+
+    # PUBLISH THE RUN'S IDENTITY, THEN START THE INDEPENDENT HEARTBEAT.
+    #
+    # The heartbeat is started BEFORE the first step and beats on its own thread,
+    # so the lease stays fresh for the WHOLE of a 41-minute soak -- not only at the
+    # top of each loop iteration, which is the defect that let the lock expire
+    # while the controller was alive and healthy. The generation counter is a
+    # truthful record of how many controller generations have run this pipeline;
+    # it is deliberately NOT the backoff input (see `consecutive_failures`).
+    _LEASE["generation"] = int(state.get("controller_generation") or 0) + 1
+    _LEASE["current_step"] = state["current_step"]
+    _LEASE["head_sha"] = state["release_sha"]
+    state["controller_generation"] = _LEASE["generation"]
+    refresh_controller_lock()
+    start_heartbeat()
 
     # RECONCILE BEFORE CHOOSING WORK. `verify_recorded_evidence` -- reached through
     # `derive` -- is what refuses a PASS whose artifact has gone or changed, and it
@@ -616,14 +1136,58 @@ def run_pipeline(state: Dict[str, Any], only: Optional[str] = None,
             step = pending[0]
             state["current_step"] = step.id
             state["attempt"] += 1
-            state["attempts"][step.id] = state["attempts"].get(step.id, 0) + 1
+            _LEASE["current_step"] = step.id
             state["runtime_state"] = "RUNNING"
             state["last_error"] = None
             save_state(state)
             refresh_controller_lock()
-            log("STEP START %s -- %s" % (step.id, step.title))
 
-            record = run_step(step)
+            # RECOVERY: if the persisted long-running step already has a run on
+            # disk, ATTACH to it instead of launching a second one. This is the
+            # fix for "a replacement re-runs the long step instead of attaching to
+            # it". A replacement that finds the run alive is proving the run is
+            # making progress, so it neither increments the failure counter nor
+            # starts a new process.
+            attached: Optional[Dict[str, Any]] = None
+            if step.long_running:
+                desc = load_run_descriptor(step)
+                artifact_fresh = bool(
+                    step.result and _artifact_fresh(rel(*step.result.split("/")),
+                                                    desc.get("started_at"))) if desc else False
+                if desc and (pid_alive(desc.get("pid")) or artifact_fresh):
+                    attached = desc
+                    log("ATTACH_EXISTING_RUN %s -- run_id=%s pid=%s alive=%s; observing, "
+                        "never launching a second one"
+                        % (step.id, desc.get("run_id"), desc.get("pid"),
+                           pid_alive(desc.get("pid"))))
+                elif desc:
+                    log("RUN_LOST %s -- descriptor pid %s is not alive and no fresh "
+                        "artifact exists; launching a replacement"
+                        % (step.id, desc.get("pid")))
+                    _write_run_descriptor(step, dict(desc, status="RUN_LOST",
+                                                     lost_at=iso()))
+
+            if attached is not None:
+                record = attach_to_run(step)
+            else:
+                # A real (re)launch. Only THIS path counts toward the backoff
+                # ladder; an attach must never move it.
+                state["attempts"][step.id] = state["attempts"].get(step.id, 0) + 1
+                save_state(state)
+                log("STEP START %s -- %s" % (step.id, step.title))
+                record = run_step(step)
+
+            # An attach that is still observing is neither a pass nor a failure:
+            # leave the run alone and let the next generation attach again. NOT
+            # incrementing here is what stops the "replacement re-runs / gives up"
+            # oscillation.
+            if record["status"] == "WAITING":
+                state["steps"][step.id] = record
+                save_state(state)
+                log("ATTACH still running %s -- leaving the run to complete; not relaunching"
+                    % step.id)
+                break
+
             state["steps"][step.id] = record
             derive(state)
             if record["status"] == "PASS":
@@ -631,6 +1195,12 @@ def run_pipeline(state: Dict[str, Any], only: Optional[str] = None,
                     state["steps_completed"] = state["steps_completed"] + [step.id]
                 state["last_completed_step"] = step.id
                 state["last_error"] = None
+                # The pipeline advanced past this step: its consecutive real
+                # failures are history and must not gate anything later.
+                state["consecutive_failures"][step.id] = 0
+                if step.long_running:
+                    _write_run_descriptor(step, dict(load_run_descriptor(step) or {},
+                                                     status="PASS", finished_at=iso()))
                 log("STEP PASS %s -- %s" % (step.id, record.get("detail")))
                 save_state(state)
                 backoff_idx = 0
@@ -638,35 +1208,41 @@ def run_pipeline(state: Dict[str, Any], only: Optional[str] = None,
                     break
                 continue
 
+            # A BLOCKED record. `consecutive_failures` is the backoff input; the
+            # generation counter `attempts` is kept only as a truthful record.
+            state["consecutive_failures"][step.id] = \
+                state["consecutive_failures"].get(step.id, 0) + 1
             state["last_error"] = {
                 "step": step.id,
                 "at": iso(),
                 "kind": "BLOCKED",
                 "detail": record.get("detail"),
                 "log": record.get("log"),
-                "attempt": state["attempts"][step.id],
+                "consecutive_failures": state["consecutive_failures"][step.id],
+                "generation_attempts": state["attempts"].get(step.id, 0),
             }
             state["next_action"] = "investigate %s and re-run `--resume`" % step.id
             save_state(state)
             log("STEP BLOCKED %s -- %s" % (step.id, record.get("detail")))
             if once:
                 break
-            if state["attempts"][step.id] >= len(BACKOFF_LADDER):
-                log("giving up on %s after %d attempt(s); leaving state for a human"
-                    % (step.id, state["attempts"][step.id]))
+            if state["consecutive_failures"][step.id] >= len(BACKOFF_LADDER):
+                log("giving up on %s after %d consecutive failure(s); leaving state for a human"
+                    % (step.id, state["consecutive_failures"][step.id]))
                 break
             if time.time() > deadline:
                 log("total budget exhausted with %s blocked" % step.id)
                 break
             delay = BACKOFF_LADDER[min(backoff_idx, len(BACKOFF_LADDER) - 1)]
             backoff_idx += 1
-            log("retrying %s in %d s (attempt %d)"
-                % (step.id, delay, state["attempts"][step.id] + 1))
+            log("retrying %s in %d s (consecutive failure %d)"
+                % (step.id, delay, state["consecutive_failures"][step.id]))
             save_state(state)
             time.sleep(delay)
         derive(state)
         save_state(state)
     finally:
+        stop_heartbeat()
         state["pid"] = None
         save_state(state)
         release_controller_lock()
@@ -773,6 +1349,63 @@ def selftest() -> int:
                                                             "pid_changes": 0, "polls": 1151}})
     case("soak_judge_accepts_clean", ok5)
 
+    # 6b. the lease rule. BACKWARD COMPATIBILITY IS THE POINT of the first two:
+    #     a lock written by the running (old) generation has no heartbeat, and the
+    #     new rule must answer about it EXACTLY as the old rule did -- that is what
+    #     makes installing the new watchdog safe mid-flight.
+    me = os.getpid()
+    legacy_fresh = {"pid": me, "expires_at": iso(now() + timedelta(seconds=600))}
+    case("legacy_lock_without_heartbeat_is_live_like_before", lock_is_live(legacy_fresh))
+    legacy_stale = {"pid": me, "expires_at": iso(now() - timedelta(seconds=600))}
+    case("legacy_expired_lock_is_not_live", not lock_is_live(legacy_stale))
+    my_start = process_start_time_iso(me)
+    case("the_process_can_report_its_own_start_time", bool(my_start), str(my_start))
+    hb_fresh = {"pid": me, "heartbeat_at": iso(now()), "process_start_time": my_start}
+    case("heartbeat_lease_is_live", lock_is_live(hb_fresh))
+    hb_stale = {"pid": me, "process_start_time": my_start,
+                "heartbeat_at": iso(now() - timedelta(seconds=LOCK_TTL + 60))}
+    case("stale_heartbeat_is_not_live", not lock_is_live(hb_stale))
+    hb_reused = {"pid": me, "heartbeat_at": iso(now()),
+                 "process_start_time": iso(now() - timedelta(days=400))}
+    case("a_reused_pid_is_not_mistaken_for_the_controller", not lock_is_live(hb_reused))
+    case("a_dead_pid_is_not_live_even_with_a_heartbeat_field",
+         not lock_is_live({"pid": 0, "heartbeat_at": iso(now())}))
+    case("an_absent_lock_is_not_live", not lock_is_live(None))
+
+    # 6c. run descriptors: the attach/relaunch decision, without launching anything
+    #     or touching a REAL step's descriptor.
+    tmp_step = Step("X-LONG", "synthetic long step", None, (), None, None, 5400)
+    _write_run_descriptor(tmp_step, {"pid": me, "status": "RUNNING", "run_id": "r1"})
+    back = load_run_descriptor(tmp_step) or {}
+    case("a_run_descriptor_round_trips", back.get("run_id") == "r1", str(back.get("run_id")))
+    case("a_large_timeout_is_long_running", tmp_step.long_running, str(tmp_step.long_running))
+    case("a_short_timeout_is_not_long_running",
+         not Step("X-SHORT", "s", None, (), None, None, 900).long_running)
+    case("final08_is_declared_long_running", STEP_BY_ID["FINAL-08_SOAK"].long_running)
+
+    # 6d. the result/descriptor path-collision guard, over the WHOLE table plus the
+    #     exact pairing that was measured on FINAL-10B before it was repaired.
+    case("no_step_result_is_its_own_run_descriptor",
+         all(step_result_descriptor_conflict(s) is None for s in STEPS),
+         "checked %d step(s), including %s" % (len(STEPS), STEP_BY_ID[
+             "FINAL-10B_EVIDENCE_COMMIT"].result))
+    old_final10b = Step("FINAL-10B_EVIDENCE_COMMIT", "the repaired step, as it was",
+                        "tools/finalize/commit_evidence.py", (),
+                        ".workbuddy/runs/FINAL-10B_EVIDENCE_COMMIT.json", _ok_judge, 1800)
+    case("the_old_final10b_pairing_is_refused",
+         bool(step_result_descriptor_conflict(old_final10b)),
+         str(step_result_descriptor_conflict(old_final10b)))
+    refused_table = False
+    try:
+        assert_step_results_are_not_run_descriptors([STEPS[0], old_final10b])
+    except AssertionError:
+        refused_table = True
+    case("the_guard_refuses_a_table_with_the_old_pairing", refused_table)
+    try:
+        os.remove(run_descriptor_path(tmp_step))
+    except OSError:
+        pass
+
     # 7. state round-trips through an atomic write and keeps the previous generation.
     #    Written to a scratch path: the selftest must not rewrite the pipeline's
     #    real progress (JCC_STATE_PATH is honoured by save_state/load_state).
@@ -818,6 +1451,7 @@ def cmd_status() -> int:
     derive(st)
     view = {k: st.get(k) for k in (
         "current_step", "last_completed_step", "pid", "started_at", "attempt",
+        "attempts", "consecutive_failures", "controller_generation",
         "last_error", "release_sha", "runtime_state", "project_run", "blockers")}
     view["steps"] = {sid: (st["steps"].get(sid) or {}).get("status", "PENDING")
                      for sid in STEP_IDS}

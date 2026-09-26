@@ -48,6 +48,7 @@ if ($Root) { $script:JccRoot = $Root }
 $Root        = Get-JccRoot
 $StatePath   = Join-Path $Root '.workbuddy\jcc_execution_state.json'
 $LockPath    = Join-Path $Root '.workbuddy\locks\jcc-continuation.lock.json'
+$ElectionPath = Join-Path $Root '.workbuddy\locks\controller-election.lock.json'
 $LogDir      = Join-Path $Root '.workbuddy\scheduled\logs'
 $CtrlLog     = Join-Path $LogDir 'continuation-controller.out.log'
 $CtrlErr     = Join-Path $LogDir 'continuation-controller.err.log'
@@ -126,27 +127,39 @@ if (($stateRuntime -eq 'COMPLETE') -and ($stateRun -eq 'PASS')) {
 }
 
 # --- Rule 2: a live controller means there is nothing to do -------------------
+#
+# LIVENESS IS NOW PID IDENTITY + HEARTBEAT FRESHNESS, NOT `expires_at` ALONE.
+# The old rule (`$alive -and $fresh` on `expires_at`) let a controller that was
+# alive and healthy during a 41-minute soak read as stale -- because it refreshed
+# the lock only once per step -- and the watchdog started a SECOND controller.
+# Two controllers, then two soak_drivers, then PHASE Q's stop.ps1 firing inside
+# the other generation's PHASE R window. It can never converge.
+#
+# BACKWARD COMPATIBILITY, and this is what makes installing this file MID-FLIGHT
+# safe: a lock written by the controller generation running right now carries no
+# `heartbeat_at`. For such a lock Test-JccLeaseLive falls back to the exact old
+# `$alive -and expires_at-in-the-future` rule, so this watchdog behaves for the
+# old generation byte-for-byte as the previous one did. The heartbeat only ever
+# ADDS a freshness signal for locks that have one; it never removes the fallback.
 if ($lock) {
     $lockPid = Get-JccPropInt -Object $lock -Name 'pid'
     $alive = Test-JccPidAlive -ProcessId $lockPid
-    $fresh = $false
-    $expires = Get-JccProp -Object $lock -Name 'expires_at'
-    if ($expires) {
-        try { $fresh = ([datetime]::Parse([string]$expires) -gt (Get-Date)) }
-        catch { $fresh = $true }
-    }
-    if ($alive -and $fresh) {
+    $fresh = Test-JccLeaseFresh -Lease $lock
+    $identity = Test-JccLeaseIdentity -ProcessId $lockPid `
+        -ExpectedStartTime (Get-JccProp -Object $lock -Name 'process_start_time')
+    $heartbeat = Get-JccProp -Object $lock -Name 'heartbeat_at'
+    if (Test-JccLeaseLive -Lease $lock) {
         if ($Force) {
             Write-Tick -Action 'NOOP' -Detail ("controller pid {0} already live; -Force ignored for a live controller" -f $lockPid) -ProcessId $lockPid
         } else {
-            Write-Tick -Action 'NOOP' -Detail ("controller pid {0} already live (lock fresh)" -f $lockPid) -ProcessId $lockPid
+            Write-Tick -Action 'NOOP' -Detail ("controller pid {0} already live (identity={1} fresh={2} heartbeat={3})" -f $lockPid, $identity, $fresh, $heartbeat) -ProcessId $lockPid
         }
         exit 0
     }
-    Write-Tick -Action 'STALE' -Detail ("lock pid {0} alive={1} fresh={2}; starting a replacement" -f $lockPid, $alive, $fresh) -ProcessId $lockPid
+    Write-Tick -Action 'STALE' -Detail ("lock pid {0} alive={1} identity={2} fresh={3} heartbeat={4}; starting a replacement" -f $lockPid, $alive, $identity, $fresh, $heartbeat) -ProcessId $lockPid
 }
 
-# --- Rule 3: start a replacement ---------------------------------------------
+# --- Rule 3: start a replacement, but only if THIS tick is elected ------------
 if (-not (Test-Path -LiteralPath $CtrlScript -PathType Leaf)) {
     Write-Tick -Action 'ERROR' -Detail "controller script missing at $CtrlScript"
     exit 1
@@ -157,74 +170,101 @@ if (-not $python) {
     exit 1
 }
 
+# CONTROLLER ELECTION. An atomic create means exactly one tick in the race becomes
+# the replacement launcher; a plain "decide, then write" would let two ticks that
+# both read a stale lock both launch a controller. The election is held across the
+# launch AND the confirmation below, then released.
+$election = Enter-JccElectionLock -Path $ElectionPath
+if ($null -eq $election) {
+    Write-Tick -Action 'NOOP' -Detail 'another tick holds the controller-election lock; not launching a second replacement'
+    exit 0
+}
+
 try {
-    $started = Start-JccDetachedPython -PythonExe $python `
-        -Arguments @($CtrlScript, 'run', '--resume') `
-        -OutLog $CtrlLog -ErrLog $CtrlErr -WorkingDirectory $Root
-} catch {
-    Write-Tick -Action 'ERROR' -Detail ("Start-Process failed: {0}" -f $_.Exception.Message)
-    exit 1
-}
-if (-not $started.ok) {
-    Write-Tick -Action 'ERROR' -Detail ("controller did not start: {0}" -f $started.error)
-    exit 1
-}
-Write-Tick -Action 'STARTED' -Detail 'controller launched detached (streams to files, no pipe)' -ProcessId $started.pid
+    # RE-CHECK THE LOCK UNDER THE ELECTION. This closes the SEQUENTIAL race that
+    # the election alone does not: between rule 2's read and this line, another
+    # tick may have launched a controller and released the election, so this
+    # tick's "the lock is stale" verdict is now stale. Without this re-read the
+    # tick would launch a SECOND controller on top of the one that just acquired
+    # the lock. The election covers the same-instant race; this covers the
+    # merely-close one. Both are needed for "exactly one replacement".
+    $recheck = Read-JccJson -Path $LockPath
+    if (Test-JccLeaseLive -Lease $recheck) {
+        $recheckPid = Get-JccPropInt -Object $recheck -Name 'pid'
+        Write-Tick -Action 'NOOP' -Detail ("a live controller (pid {0}) acquired the lock while this tick awaited the election; not launching a second" -f $recheckPid) -ProcessId $recheckPid
+        exit 0
+    }
 
-# --- Rule 4: confirm a LIVE controller holds the lock, then get out of the way --
-# The confirmation is "a live controller holds a fresh lock" -- NOT
-# "Start-Process returned", because a python that dies on an import error also
-# returns a pid.
-#
-# AND NOT "the lock names the pid Start-Process returned", which is what this rule
-# originally required and which is UNREACHABLE ON THIS HOST. Measured: the project
-# venv's python.exe is a redirector stub, so Start-Process reports the stub's pid
-# while the process that actually runs jcc_contination gets a DIFFERENT pid of
-# which the stub is the parent:
-#
-#     Start-JccDetachedPython pid = 1316   (the stub)
-#     the script's own os.getpid()   = 24220, ppid = 1316   (the controller)
-#
-# The tick log shows the same thing live: "controller launched (pid 20924)" while
-# the lock was taken by pid 11344. Requiring pid equality meant a controller could
-# be started and never confirmed, and the tick still reported success -- the shape
-# of a check that cannot fail. The lock is the thing the rest of the system agrees
-# on, so the lock is what is confirmed, and a pid mismatch is recorded rather than
-# hidden: it is a fact about this venv that any later liveness check must know.
-$deadline = (Get-Date).AddSeconds($WaitSeconds)
-$confirmed = $false
-$holderPid = 0
-$lockObserved = $false
-while ((Get-Date) -lt $deadline) {
-    Start-Sleep -Milliseconds 500
-    $l = Read-JccJson -Path $LockPath
-    $lPid = Get-JccPropInt -Object $l -Name 'pid'
-    $lExpires = Get-JccProp -Object $l -Name 'expires_at'
-    $lFresh = $false
-    if ($lExpires) {
-        try { $lFresh = ([datetime]::Parse([string]$lExpires) -gt (Get-Date)) }
-        catch { $lFresh = $true }
+    # The controller resolves its own ROOT from JCC_ROOT, so the tree it operates
+    # on is the same tree this tick decided about -- a watchdog rooted at A that
+    # starts a controller rooted at B is two systems, not one.
+    $env:JCC_ROOT = $Root
+    try {
+        $started = Start-JccDetachedPython -PythonExe $python `
+            -Arguments @($CtrlScript, 'run', '--resume') `
+            -OutLog $CtrlLog -ErrLog $CtrlErr -WorkingDirectory $Root
+    } catch {
+        Write-Tick -Action 'ERROR' -Detail ("Start-Process failed: {0}" -f $_.Exception.Message)
+        exit 1
     }
-    if (($lPid -gt 0) -and $lFresh -and (Test-JccPidAlive -ProcessId $lPid)) {
-        $confirmed = $true
-        $holderPid = $lPid
-        if ($lPid -ne [int]$started.pid) { $lockObserved = $true }
-        break
+    if (-not $started.ok) {
+        Write-Tick -Action 'ERROR' -Detail ("controller did not start: {0}" -f $started.error)
+        exit 1
     }
-    if (-not (Test-JccPidAlive -ProcessId $started.pid)) { break }
-}
+    Write-Tick -Action 'STARTED' -Detail 'controller launched detached (streams to files, no pipe)' -ProcessId $started.pid
 
-if ($confirmed) {
-    $note = ("controller pid {0} holds the lock" -f $holderPid)
-    if ($lockObserved) {
-        $note += ("; Start-Process reported pid {0} -- the venv python.exe is a redirector, so the pid that runs the controller is its child" -f $started.pid)
+    # --- Rule 4: confirm a LIVE controller holds the lease, then get out of the way --
+    # The confirmation is "a live controller holds a fresh lease" -- NOT
+    # "Start-Process returned", because a python that dies on an import error also
+    # returns a pid. Test-JccLeaseLive is the same rule rule 2 uses, so the tick
+    # cannot start something it would immediately consider dead.
+    #
+    # AND NOT "the lock names the pid Start-Process returned", which is what this
+    # rule originally required and which is UNREACHABLE ON THIS HOST. Measured: the
+    # project venv's python.exe is a redirector stub, so Start-Process reports the
+    # stub's pid while the process that actually runs the controller gets a
+    # DIFFERENT pid of which the stub is the parent:
+    #
+    #     Start-JccDetachedPython pid = 1316   (the stub)
+    #     the script's own os.getpid()   = 24220, ppid = 1316   (the controller)
+    #
+    # Requiring pid equality meant a controller could be started and never
+    # confirmed, and the tick still reported success. The lease is the thing the
+    # rest of the system agrees on, so the lease is what is confirmed, and a pid
+    # mismatch is recorded rather than hidden: it is a fact about this venv that
+    # any later liveness check must know.
+    $deadline = (Get-Date).AddSeconds($WaitSeconds)
+    $confirmed = $false
+    $holderPid = 0
+    $lockObserved = $false
+    $heartbeating = $false
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+        $l = Read-JccJson -Path $LockPath
+        if (Test-JccLeaseLive -Lease $l) {
+            $confirmed = $true
+            $holderPid = Get-JccPropInt -Object $l -Name 'pid'
+            if ($l.PSObject.Properties['heartbeat_at']) { $heartbeating = $true }
+            if ($holderPid -ne [int]$started.pid) { $lockObserved = $true }
+            break
+        }
+        if (-not (Test-JccPidAlive -ProcessId $started.pid)) { break }
     }
-    Write-Tick -Action 'CONFIRMED' -Detail ("{0}; watchdog returning" -f $note) -ProcessId $holderPid
-    exit 0
+
+    if ($confirmed) {
+        $note = ("controller pid {0} holds the lease (heartbeating={1})" -f $holderPid, $heartbeating)
+        if ($lockObserved) {
+            $note += ("; Start-Process reported pid {0} -- the venv python.exe is a redirector, so the pid that runs the controller is its child" -f $started.pid)
+        }
+        Write-Tick -Action 'CONFIRMED' -Detail ("{0}; watchdog returning" -f $note) -ProcessId $holderPid
+        exit 0
+    }
+    if (Test-JccPidAlive -ProcessId $started.pid) {
+        Write-Tick -Action 'STARTED' -Detail ("the process Start-Process reported (pid {0}) is alive but no live controller holds the lease yet; the next tick will check again" -f $started.pid) -ProcessId $started.pid
+        exit 0
+    }
+    Write-Tick -Action 'ERROR' -Detail ("controller pid {0} died before acquiring the lock; see {1}" -f $started.pid, $CtrlErr) -ProcessId $started.pid
+    exit 1
+} finally {
+    Exit-JccElectionLock -Path $ElectionPath -Stream $election
 }
-if (Test-JccPidAlive -ProcessId $started.pid) {
-    Write-Tick -Action 'STARTED' -Detail ("the process Start-Process reported (pid {0}) is alive but no live controller holds the lock yet; the next tick will check again" -f $started.pid) -ProcessId $started.pid
-    exit 0
-}
-Write-Tick -Action 'ERROR' -Detail ("controller pid {0} died before acquiring the lock; see {1}" -f $started.pid, $CtrlErr) -ProcessId $started.pid
-exit 1

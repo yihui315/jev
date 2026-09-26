@@ -345,8 +345,15 @@ def derive() -> Dict[str, Any]:
             "this manifest on presence alone and says so in its own detail string; the "
             "regeneration check is `--verify` in this script, and its result is recorded "
             "under `regeneration_check` below.",
-            "that the scheduled task JEV-JCC-Continuation-Watchdog is registered on this "
-            "host. Registering it needs elevation, which was not requested.",
+            "that this tool verified the scheduled task JEV-JCC-Continuation-Watchdog through "
+            "the scheduler API. The task IS registered on this host and fires every 2 minutes "
+            "-- its own on-disk definition is Enabled=true with a PT2M repetition under "
+            "principal S-1-5-18, and the watchdog's tick log gains exactly one line every "
+            "120 s -- but the agent sandbox cannot enumerate Task Scheduler through CIM "
+            "(Get-ScheduledTask fails there), so registration rests on the task's own "
+            "definition plus its tick interval, not on a live query from here. This entry "
+            "previously claimed the task was NOT registered, which repeated the sandbox's "
+            "silence as a fact about the host.",
         ],
     }
 
@@ -413,6 +420,54 @@ def _now() -> str:
     return datetime.datetime.now().astimezone().isoformat(timespec="seconds")
 
 
+#: Fields that describe the MOMENT of publication rather than the tree, and are
+#: therefore not substantive. Everything else is compared field by field.
+#:
+#:   * ``published_at`` -- the wall clock.
+#:   * ``scripts_freeze.rebaseline`` / ``previous_freeze_kept_at`` -- they answer
+#:     "did ``scripts/`` differ from the freeze that was committed WHEN THIS RAN?",
+#:     which is a statement about the transition, not about the tree. Measured:
+#:     ``publish()`` calls ``derive()``, whose ``freeze_rebaseline()`` compares the
+#:     current tree against the ALREADY-COMMITTED freeze and records ``True``; only
+#:     then does ``publish()`` write the new freeze. ``verify()`` re-runs the same
+#:     ``derive()``, by which time the committed freeze IS the new one, so the same
+#:     question now answers ``False``. Comparing it made ``--verify`` unable to
+#:     exit 0 after a publish -- and a check that can never pass is not a check.
+#:
+#: The SUBSTANCE of the freeze -- ``scripts_freeze.hashes`` and
+#: ``scripts_freeze.file_count`` -- is still compared field by field, and every
+#: listed hash is still recomputed from disk.
+_MOMENT_TOP_LEVEL = frozenset({"published_at"})
+_MOMENT_SUBFIELDS = {"scripts_freeze": frozenset({"rebaseline", "previous_freeze_kept_at"})}
+
+
+def _substantive_field_diffs(on_disk: Dict[str, Any], fresh: Dict[str, Any]) -> List[str]:
+    """Names of substantive fields that differ between the two derivations.
+
+    Extracted from ``_verify_rules`` so ``--selftest`` and ``--verify`` run the
+    SAME rule, and so the moment-only exemption is one named set rather than a
+    special case buried in a loop.
+    """
+    problems: List[str] = []
+    for k in sorted(fresh):
+        if k in _MOMENT_TOP_LEVEL:
+            continue
+        skip = _MOMENT_SUBFIELDS.get(k)
+        if skip and isinstance(fresh[k], dict):
+            a = {kk: vv for kk, vv in fresh[k].items() if kk not in skip}
+            b = {kk: vv for kk, vv in (on_disk.get(k) or {}).items() if kk not in skip}
+            if a != b:
+                problems.append(
+                    "substantive field %r differs between the published manifest and "
+                    "today's derivation (moment-only subfield(s) %s excluded)"
+                    % (k, sorted(skip)))
+            continue
+        if fresh[k] != on_disk.get(k):
+            problems.append("substantive field %r differs between the published manifest "
+                            "and today's derivation" % k)
+    return problems
+
+
 def _verify_rules(on_disk: Dict[str, Any], fresh: Dict[str, Any],
                   disk_hashes: Dict[str, str], manifest_sha_file: str | None,
                   manifest_sha_actual: str | None) -> Tuple[List[str], List[str]]:
@@ -423,16 +478,8 @@ def _verify_rules(on_disk: Dict[str, Any], fresh: Dict[str, Any],
     ``disk_hashes`` maps a manifest path to the sha256 computed from disk now, or
     to None when the file is absent.
     """
-    problems: List[str] = []
+    problems: List[str] = _substantive_field_diffs(on_disk, fresh)
     hash_problems: List[str] = []
-
-    # A wall clock is not a substantive field; nothing else may be skipped.
-    for k in sorted(fresh):
-        if k == "published_at":
-            continue
-        if fresh[k] != on_disk.get(k):
-            problems.append("substantive field %r differs between the published manifest "
-                            "and today's derivation" % k)
 
     for row in on_disk.get("evidence") or []:
         rel = row.get("path")
@@ -574,6 +621,35 @@ def selftest() -> int:
          any("frozen script" in x and "gone" in x for x in check({"s.ps1": None})), "")
 
     case("a_clean_manifest_is_not_reported_dirty", check({}) == [], "")
+
+    # The moment-only exemption, i.e. the measured FINAL-13 defect: publish() calls
+    # derive() -> freeze_rebaseline() against the ALREADY-COMMITTED freeze and gets
+    # True, then overwrites the freeze; verify() re-derives and gets False. That
+    # transition is provenance about the moment, not about the tree -- but the
+    # SUBSTANCE of the freeze must still be compared field by field.
+    publish_freeze = {
+        "hashes": {"s.ps1": "aa"}, "file_count": 1,
+        "rebaseline": {"is_a_re_baseline": True, "changed": {"s.ps1": {"old": "00", "new": "aa"}}},
+        "previous_freeze_kept_at": "artifacts/release/freeze_manifest.previous.json",
+    }
+    verify_freeze = {
+        "hashes": {"s.ps1": "aa"}, "file_count": 1,
+        "rebaseline": {"is_a_re_baseline": False, "changed": {}},
+        "previous_freeze_kept_at": None,
+    }
+    case("publish_then_verify_is_not_a_substantive_diff",
+         check({}, manifest_map={"scripts_freeze": publish_freeze},
+               fresh_map={"scripts_freeze": verify_freeze}) == [],
+         "the re-baseline record is provenance about the moment, like published_at")
+    case("a_changed_freeze_hash_is_still_a_substantive_diff",
+         any("scripts_freeze" in x for x in
+             check({}, manifest_map={"scripts_freeze": publish_freeze},
+                   fresh_map={"scripts_freeze": dict(verify_freeze,
+                                                     hashes={"s.ps1": "cc"})})), "")
+    case("a_changed_freeze_file_count_is_still_a_substantive_diff",
+         any("scripts_freeze" in x for x in
+             check({}, manifest_map={"scripts_freeze": publish_freeze},
+                   fresh_map={"scripts_freeze": dict(verify_freeze, file_count=2)})), "")
 
     for name, passed, detail in cases:
         log("  [%s] %-46s %s" % ("PASS" if passed else "FAIL", name, detail[:100]))

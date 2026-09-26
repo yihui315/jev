@@ -201,6 +201,169 @@ function Get-JccPython {
     return $null
 }
 
+# --------------------------------------------------------------------------- #
+# The controller heartbeat lease
+# --------------------------------------------------------------------------- #
+#
+# WHY THESE EXIST. The old rule was `$alive -and $fresh` where `$fresh` meant
+# "expires_at is in the future". The controller only refreshed `expires_at` once
+# per step, so during a 41-minute soak the lease was expired while the process was
+# alive and healthy -- and the watchdog started a SECOND controller next to it.
+# The lease is now beaten by an independent thread, and these helpers decide
+# liveness from PID IDENTITY plus HEARTBEAT FRESHNESS, so a recycled pid cannot
+# be mistaken for the live controller.
+#
+# BACKWARD COMPATIBILITY IS MANDATORY. A lease written by a controller generation
+# that predates the heartbeat carries no `heartbeat_at`; for such a lease
+# Test-JccLeaseFresh falls back to the EXACT old `expires_at` rule. That is what
+# makes installing this library safe while an old controller is still running.
+
+function Get-JccProcessStartTime {
+    <#
+      The real start time of a process as an ISO-8601 string, or $null when it
+      cannot be determined. Never throws: a watchdog must still be standing when
+      a process query fails.
+    #>
+    param([Parameter(Mandatory=$true)][AllowNull()]$ProcessId)
+    $pidValue = 0
+    if (-not [int]::TryParse([string]$ProcessId, [ref]$pidValue)) { return $null }
+    if ($pidValue -le 0) { return $null }
+    try {
+        return ([System.Diagnostics.Process]::GetProcessById($pidValue)).StartTime.ToString('o')
+    } catch [System.ArgumentException] {
+        return $null                       # no such pid
+    } catch [System.ComponentModel.Win32Exception] {
+        return $null                       # exists but not queryable
+    } catch {
+        return $null                       # e.g. the process just exited
+    }
+}
+
+function Test-JccLeaseIdentity {
+    <#
+      Three-valued: does the pid named by a lease still name the process the lease
+      recorded? 'match' | 'mismatch' | 'unknown'.
+
+      'mismatch' (a DIFFERENT process holds the pid now) is a definite reason to
+      treat the lock as stale. 'unknown' must NEVER be read as stale: starting a
+      second controller over a process we merely cannot see is the harm
+      Test-JccPidAlive documents. Callers combine this with that function.
+    #>
+    param(
+        [Parameter(Mandatory=$true)][AllowNull()]$ProcessId,
+        [AllowNull()]$ExpectedStartTime
+    )
+    if ([string]::IsNullOrWhiteSpace([string]$ExpectedStartTime)) { return 'unknown' }
+    $actual = Get-JccProcessStartTime -ProcessId $ProcessId
+    if (-not $actual) { return 'unknown' }
+    $a = [datetime]::MinValue
+    $b = [datetime]::MinValue
+    if (-not [datetime]::TryParse([string]$actual, [ref]$a)) { return 'unknown' }
+    if (-not [datetime]::TryParse([string]$ExpectedStartTime, [ref]$b)) { return 'unknown' }
+    # Windows FILETIME resolution is ~10 ms here; 2 s is generous and still far
+    # below any plausible pid-reuse interval.
+    if ([math]::Abs(($a - $b).TotalSeconds) -lt 2.0) { return 'match' }
+    return 'mismatch'
+}
+
+function Test-JccLeaseFresh {
+    <#
+      Is the lease fresh? New lease (has `heartbeat_at`): the heartbeat must be
+      within HeartbeatTtlSeconds. Legacy lease (no `heartbeat_at`): the OLD rule,
+      verbatim -- `expires_at` in the future -- so an old-generation controller is
+      judged exactly as it always was.
+    #>
+    param(
+        [Parameter(Mandatory=$true)][AllowNull()]$Lease,
+        [int]$HeartbeatTtlSeconds = 180
+    )
+    if ($null -eq $Lease) { return $false }
+    $hb = Get-JccProp -Object $Lease -Name 'heartbeat_at'
+    if ($hb) {
+        $t = [datetime]::MinValue
+        if (-not [datetime]::TryParse([string]$hb, [ref]$t)) { return $false }
+        return (((Get-Date) - $t).TotalSeconds -lt $HeartbeatTtlSeconds)
+    }
+    $expires = Get-JccProp -Object $Lease -Name 'expires_at'
+    if (-not $expires) { return $false }
+    try { return ([datetime]::Parse([string]$expires) -gt (Get-Date)) } catch { return $true }
+}
+
+function Test-JccLeaseLive {
+    <#
+      THE single definition of "a live controller holds this lease".
+        * pid alive (per Test-JccPidAlive's documented asymmetry), AND
+        * identity is not a definite mismatch, AND
+        * the lease is fresh (heartbeat, or the legacy expiry fallback).
+    #>
+    param(
+        [Parameter(Mandatory=$true)][AllowNull()]$Lease,
+        [int]$HeartbeatTtlSeconds = 180
+    )
+    if ($null -eq $Lease) { return $false }
+    $p = Get-JccPropInt -Object $Lease -Name 'pid'
+    if (-not (Test-JccPidAlive -ProcessId $p)) { return $false }
+    $identity = Test-JccLeaseIdentity -ProcessId $p `
+        -ExpectedStartTime (Get-JccProp -Object $Lease -Name 'process_start_time')
+    if ($identity -eq 'mismatch') { return $false }
+    return (Test-JccLeaseFresh -Lease $Lease -HeartbeatTtlSeconds $HeartbeatTtlSeconds)
+}
+
+function Enter-JccElectionLock {
+    <#
+      Become the ONE tick allowed to launch a replacement controller, using an
+      ATOMIC create ([System.IO.File]::Open with FileMode::CreateNew) so two ticks
+      racing in the same instant cannot both win.
+
+      Returns the open FileStream on success, or $null when another tick holds it.
+      A lock whose record is older than StaleAfterSeconds is treated as abandoned
+      (its holder crashed mid-launch) and reclaimed once -- never in a tight loop.
+    #>
+    param(
+        [Parameter(Mandatory=$true)][string]$Path,
+        [int]$StaleAfterSeconds = 120
+    )
+    $dir = Split-Path -Parent $Path
+    if ($dir -and -not (Test-Path -LiteralPath $dir)) {
+        New-Item -ItemType Directory -Path $dir -Force | Out-Null
+    }
+    for ($attempt = 0; $attempt -lt 2; $attempt++) {
+        try {
+            $fs = [System.IO.File]::Open($Path, [System.IO.FileMode]::CreateNew,
+                                         [System.IO.FileAccess]::Write,
+                                         [System.IO.FileShare]::None)
+            $rec = [pscustomobject]@{
+                owner = 'continuation-watchdog'
+                pid   = $PID
+                at    = (Get-Date).ToString('o')
+            }
+            $bytes = $script:JccUtf8.GetBytes(($rec | ConvertTo-Json -Compress))
+            $fs.Write($bytes, 0, $bytes.Length)
+            $fs.Flush()
+            return $fs
+        } catch [System.IO.IOException] {
+            $stale = $true
+            try {
+                $info = Get-Item -LiteralPath $Path -ErrorAction Stop
+                if (((Get-Date) - $info.LastWriteTime).TotalSeconds -lt $StaleAfterSeconds) {
+                    $stale = $false
+                }
+            } catch {
+                $stale = $false
+            }
+            if (-not $stale) { return $null }
+            try { Remove-Item -LiteralPath $Path -Force -ErrorAction Stop } catch { return $null }
+        }
+    }
+    return $null
+}
+
+function Exit-JccElectionLock {
+    param([Parameter(Mandatory=$true)][string]$Path, $Stream)
+    if ($Stream) { try { $Stream.Dispose() } catch { } }
+    try { Remove-Item -LiteralPath $Path -Force -ErrorAction SilentlyContinue } catch { }
+}
+
 function Remove-JccDuplicateCaseProxyEnv {
     <#
       Remove the lower-case twin of any proxy variable that also exists in

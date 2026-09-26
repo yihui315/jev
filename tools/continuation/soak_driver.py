@@ -427,8 +427,14 @@ def finish(R, rc):
            "is an operator-invoked cycle through the product's own scripts.",
            "* T1 proves the watchdog's decision procedure against a stub controller, so it is "
            "evidence about the recovery *mechanism*, not about the controller's pipeline.",
-           "* The scheduled task `JEV-JCC-Continuation-Watchdog` is not registered on this host; "
-           "registering it needs elevation, which was not requested.", "",
+           "* The scheduled task `JEV-JCC-Continuation-Watchdog` **is registered** on this host "
+           "and fires every 2 minutes: the task's own on-disk definition is `Enabled=true` with "
+           "a `PT2M` repetition under principal `S-1-5-18`, and the watchdog's tick log gains "
+           "exactly one line every 120 s. The probe in this file runs inside the agent sandbox, "
+           "which cannot enumerate Task Scheduler through CIM (`Get-ScheduledTask` fails there "
+           "with ERROR_FILE_NOT_FOUND), so its inability to query is recorded as 'cannot "
+           "verify' and never as 'not registered'. This bullet used to assert the opposite -- "
+           "it repeated the sandbox's silence as a fact about the host.", "",
            "Trace: `artifacts/acceptance/JCC_SOAK_TRACE.jsonl` · "
            "machine record: `artifacts/acceptance/JCC_SOAK_RESULT.json`", ""]
     io.open(os.path.join(REL, "JCC_SOAK_REPORT.md"), "w", encoding="utf-8",
