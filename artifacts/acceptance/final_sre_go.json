@@ -1,54 +1,40 @@
 {
-  "evidence_sha256": "74fc13abb20673f4c7adaa403021b61de6dd09c333642ae32ac5675eea960581",
+  "evidence_sha256": "6faec6c7faecacdc76a2dea4adf71d4b38d98d609edcb018ad246ca21502eccd",
   "steps_total": 22,
   "steps_expected": 22,
   "steps_pass": 22,
   "steps_not_pass": [],
   "verdict": "GO",
-  "release_sha": "df3e7d91ac274d971ef110199d5b65acf131aacd",
-  "e07_head_sha": "a47bf7b9561de1dbea0a25cb5b1b78007a397c30",
-  "signed_at": "2026-09-26T11:22:08.062361+08:00",
+  "release_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+  "e07_head_sha": "b11d77426ed35a086526791c70d1986adeeedfde",
+  "signed_at": "2026-09-26T16:27:43.133437+08:00",
   "signer": "generate_final_sre_go.py",
   "generator": "tools/generate_final_sre_go.py (derived; do not hand-edit)",
   "freeze_proof": {
-    "release_freeze": "df3e7d91ac274d971ef110199d5b65acf131aacd",
-    "e07_head_sha": "a47bf7b9561de1dbea0a25cb5b1b78007a397c30",
-    "changed_paths_count": 31,
+    "release_freeze": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+    "e07_head_sha": "b11d77426ed35a086526791c70d1986adeeedfde",
+    "changed_paths_count": 21,
     "changed_paths_all_release_evidence": true,
     "non_evidence_paths": [],
-    "scripts_changed_since_freeze": [
-      "scripts/lib/JccCommon.ps1",
-      "scripts/restart.ps1",
-      "scripts/start.ps1",
-      "scripts/status.ps1",
-      "scripts/stop.ps1"
-    ]
+    "scripts_changed_since_freeze": []
   },
-  "supersedes": {
-    "verdict": "NO-GO",
-    "release_sha": "df3e7d91ac274d971ef110199d5b65acf131aacd",
-    "signed_at": "2026-09-25T18:54:03+08:00",
-    "signer": "srefinal-1",
-    "sha256": "8c2379f869f994eae7b6522803a0be2454853da722f962a95b65c5d6d7a6b7d0",
-    "conditions_count": 9,
-    "note": "Superseded by this signature, preserved rather than overwritten. The earlier verdict named the operator-lifecycle defects that were repaired afterwards in scripts/ (an evidence prefix, so the repair did not invalidate the freeze position it was signed at)."
-  },
+  "supersedes": null,
   "product": "JEV COMMAND CENTER",
   "phase": "P6 / E-07 final acceptance",
   "legs": {
     "architecture": {
       "verdict": "GO WITH CONDITIONS",
-      "release_sha": "df3e7d91ac274d971ef110199d5b65acf131aacd",
+      "release_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
       "signed_at": "2026-09-25T10:34:00+00:00",
-      "sha256": "6f9dbced35678aa66fbc73b05eb8789eec13e824c31867753cefab65dc91b31a",
-      "position": "accepted: signed at the release freeze df3e7d91ac27; the 31 path(s) added since are release evidence only"
+      "sha256": "f7ccff7af5d3b00bdaf330f3fb81d06bb4ecfb4d6ca646e5719fcaee590183a2",
+      "position": "accepted: signed at the release freeze 5ab5e20d961d; the 21 path(s) added since are release evidence only"
     },
     "security": {
       "verdict": "GO",
-      "release_sha": "df3e7d91ac274d971ef110199d5b65acf131aacd",
+      "release_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
       "signed_at": "2026-09-25T10:00:49+00:00",
-      "sha256": "81bab9da4b8ccd861fffd708541b60c8afd6c7e9582f3fdf1967778bfb0aee00",
-      "position": "accepted: signed at the release freeze df3e7d91ac27; the 31 path(s) added since are release evidence only"
+      "sha256": "a3e5d9a0aeb97bae53309c0e710b105ffa463a2a8e3de8b29f5f4fad558c6c73",
+      "position": "accepted: signed at the release freeze 5ab5e20d961d; the 21 path(s) added since are release evidence only"
     }
   },
   "conditions": [],
@@ -56,7 +42,7 @@
     {
       "name": "ENV",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:36.652905+08:00",
+      "timestamp": "2026-09-26T16:25:16.985228+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -68,7 +54,7 @@
     {
       "name": "FROZEN_BYTES",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:36.658618+08:00",
+      "timestamp": "2026-09-26T16:25:17.052863+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -80,7 +66,7 @@
     {
       "name": "MOVING_TARGET",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:36.659500+08:00",
+      "timestamp": "2026-09-26T16:25:17.110794+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -92,7 +78,7 @@
     {
       "name": "TREE_CLEAN",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:36.740461+08:00",
+      "timestamp": "2026-09-26T16:25:17.369540+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -104,7 +90,7 @@
     {
       "name": "PORT_PRE_PROBE",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:38.146396+08:00",
+      "timestamp": "2026-09-26T16:25:19.071329+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": 4778,
@@ -116,21 +102,21 @@
     {
       "name": "START",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:44.763052+08:00",
-      "duration_s": 6.615,
+      "timestamp": "2026-09-26T16:25:26.508877+08:00",
+      "duration_s": 7.376,
       "measured_pid": null,
       "measured_port": 4778,
       "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command & 'F:\\jev\\scripts\\start.ps1' -Port 4778",
       "exit_code": 0,
-      "stdout_sha256": "3906c29e3f7812ef6ee412cf457c8ff4b693d888170fa54e06b9fe2fc52db74c",
+      "stdout_sha256": "c72021bcd6723fda5133525b9b7c46bea3c7fb3f6a6486f3f40ae1f8beea7efd",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "name": "SERVICE_PID",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:46.143639+08:00",
+      "timestamp": "2026-09-26T16:25:28.320653+08:00",
       "duration_s": null,
-      "measured_pid": 24776,
+      "measured_pid": 14548,
       "measured_port": 4778,
       "command": null,
       "exit_code": null,
@@ -140,9 +126,9 @@
     {
       "name": "PID_FILE",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:46.145103+08:00",
+      "timestamp": "2026-09-26T16:25:28.377542+08:00",
       "duration_s": null,
-      "measured_pid": 24776,
+      "measured_pid": 14548,
       "measured_port": 4778,
       "command": null,
       "exit_code": null,
@@ -152,9 +138,9 @@
     {
       "name": "HEALTH",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:46.236789+08:00",
+      "timestamp": "2026-09-26T16:25:28.556672+08:00",
       "duration_s": null,
-      "measured_pid": 24776,
+      "measured_pid": 14548,
       "measured_port": 4778,
       "command": null,
       "exit_code": null,
@@ -164,9 +150,9 @@
     {
       "name": "PID_OWNERSHIP",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:46.237573+08:00",
+      "timestamp": "2026-09-26T16:25:28.610166+08:00",
       "duration_s": null,
-      "measured_pid": 24776,
+      "measured_pid": 14548,
       "measured_port": null,
       "command": null,
       "exit_code": null,
@@ -176,21 +162,21 @@
     {
       "name": "RESTART",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:57.975006+08:00",
-      "duration_s": 11.736,
-      "measured_pid": 24776,
+      "timestamp": "2026-09-26T16:25:40.649311+08:00",
+      "duration_s": 11.94,
+      "measured_pid": 14548,
       "measured_port": 4778,
       "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command & 'F:\\jev\\scripts\\restart.ps1' -Port 4778",
       "exit_code": 0,
-      "stdout_sha256": "c59722565ae7bcb6726bbf5a0e2721032c148d36866d2fb6793b29cb76d4746f",
+      "stdout_sha256": "9392192171829dcf3176532849c8a77faa506207f88b9a5bf51fc3d5a1422741",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "name": "HEALTH_AFTER_RESTART",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:16:59.368772+08:00",
+      "timestamp": "2026-09-26T16:25:42.398724+08:00",
       "duration_s": null,
-      "measured_pid": 20928,
+      "measured_pid": 3688,
       "measured_port": 4778,
       "command": null,
       "exit_code": null,
@@ -200,9 +186,9 @@
     {
       "name": "PID_AFTER_RESTART",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:17:00.709952+08:00",
+      "timestamp": "2026-09-26T16:25:43.993144+08:00",
       "duration_s": null,
-      "measured_pid": 20928,
+      "measured_pid": 3688,
       "measured_port": null,
       "command": null,
       "exit_code": null,
@@ -212,7 +198,7 @@
     {
       "name": "THROUGHPUT",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:00.736220+08:00",
+      "timestamp": "2026-09-26T16:26:44.087860+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": 4778,
@@ -224,31 +210,31 @@
     {
       "name": "STATUS",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:15.513293+08:00",
-      "duration_s": 14.775,
+      "timestamp": "2026-09-26T16:26:49.815631+08:00",
+      "duration_s": 5.629,
       "measured_pid": null,
       "measured_port": 4778,
       "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command & 'F:\\jev\\scripts\\status.ps1' -Port 4778",
       "exit_code": 0,
-      "stdout_sha256": "5f5277536a27410d25e3ef53fb092793df221ee7d7e78ba1a183153256687e14",
+      "stdout_sha256": "a70d6ed3244370f7768280c5d1798e862044bd83843596c22fd72bf22d493ae7",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "name": "STOP",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:30.553511+08:00",
-      "duration_s": 15.038,
+      "timestamp": "2026-09-26T16:26:55.720705+08:00",
+      "duration_s": 5.814,
       "measured_pid": null,
       "measured_port": 4778,
       "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command & 'F:\\jev\\scripts\\stop.ps1' -Port 4778",
       "exit_code": 0,
-      "stdout_sha256": "9647def1d947d69ef0e8929301cdab831a96ba73ba58aa4138a01e9b13348885",
+      "stdout_sha256": "be51556e6a2e09c4a8d90a002454e7f7d04dcebabd08cb258a73244294e8fe4b",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "name": "PORT_FREED",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:38.865800+08:00",
+      "timestamp": "2026-09-26T16:26:59.763079+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": 4778,
@@ -260,7 +246,7 @@
     {
       "name": "PID_FILE_CLEANED",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:38.866825+08:00",
+      "timestamp": "2026-09-26T16:26:59.796707+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -272,21 +258,21 @@
     {
       "name": "START_AGAIN",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:18:57.497137+08:00",
-      "duration_s": 18.629,
+      "timestamp": "2026-09-26T16:27:09.859831+08:00",
+      "duration_s": 10.021,
       "measured_pid": null,
       "measured_port": 4778,
       "command": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command & 'F:\\jev\\scripts\\start.ps1' -Port 4778",
       "exit_code": 0,
-      "stdout_sha256": "b982987b8e20e92594a392d3289cb6c044ba857c92c436ffff69f5d8562a8215",
+      "stdout_sha256": "72924eacb2792074a77ee6475e8e8a72f63af0b28efff8c30e785367a00d3330",
       "stderr_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
       "name": "HEALTH_FINAL",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:19:04.831975+08:00",
+      "timestamp": "2026-09-26T16:27:12.930114+08:00",
       "duration_s": null,
-      "measured_pid": 23292,
+      "measured_pid": 7592,
       "measured_port": 4778,
       "command": null,
       "exit_code": null,
@@ -296,7 +282,7 @@
     {
       "name": "EVIDENCE_WRITE",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:19:04.860154+08:00",
+      "timestamp": "2026-09-26T16:27:13.019418+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -308,7 +294,7 @@
     {
       "name": "SELF_CHECK",
       "result": "PASS",
-      "timestamp": "2026-09-26T11:19:04.860867+08:00",
+      "timestamp": "2026-09-26T16:27:13.021845+08:00",
       "duration_s": null,
       "measured_pid": null,
       "measured_port": null,
@@ -319,8 +305,8 @@
     }
   ],
   "throughput": {
-    "rate_per_s": 86.33,
-    "ok": 5182,
+    "rate_per_s": 15.67,
+    "ok": 941,
     "failed": 0,
     "window_s": 60
   }
