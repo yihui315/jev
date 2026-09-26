@@ -10,10 +10,42 @@ the REAL run, never from hope.
 
 Windows-safe: no global process kills; the subprocess is killed only by its own
 PID (simulating the Windows TerminateProcess abrupt-kill path ADR-0006 covers).
+
+Two defects this file used to carry, both found by measurement on 2026-09-26
+--------------------------------------------------------------------------------
+1. IT CLOBBERED ITS OWN EVIDENCE ON A COLLECT-ONLY PASS. ``pytest_sessionfinish``
+   fires for ``--collect-only`` too, where no test ever reports; the old code
+   then wrote every check as ``FAILED`` and overwrote the real PASS artifact.
+   ``artifacts/acceptance/final_gate_run.py::collect_test_ids()`` collects over
+   every declared scope path, ``tests/e2e`` included, so merely asking the gate
+   "which tests exist?" destroyed the evidence the gate was about to read.
+   Measured: one ``pytest --collect-only -q tests/e2e`` turned both artifacts
+   from ``passed=True`` into ``passed=False, failed=12/1``.
+   Fix: refuse to write when the session did not run tests, and refuse to write
+   a file with no recorded report at all.
+
+2. THE EVIDENCE WAS NOT A FUNCTION OF THE SOURCE. It embedded a wall-clock
+   ``at`` timestamp, so the gate's own ``--full`` run (which re-runs the T-14
+   scope and therefore rewrites these files) always left the tree dirty -- and
+   the gate's P-01/P-05 read a dirty tree as an unexplained provenance failure.
+   That made the stop condition *unsatisfiable* the moment the evidence was put
+   under version control: committing the artifact guaranteed the next gate run
+   would fail. Measured: the 2026-09-26T05:10 gate run reported
+   ``PROJECT_COMPLETE=false`` with ``failed=['P-01','P-05']`` whose only cause
+   was these two regenerated files.
+   Fix: the payload is now derived from the SOURCE -- the sha256 of this
+   generator and of the test module, the sorted node ids, and the per-test
+   outcome -- with no clock and no commit id in it. Re-running the same scope on
+   the same bytes now produces byte-identical evidence, so "the tree is clean
+   after a gate run" is a property that can be tested rather than hoped for.
+   WHAT IS DELIBERATELY NOT RECORDED: the HEAD commit. An artifact that names
+   the commit that carries it can never be byte-stable -- committing it moves
+   HEAD and invalidates its own content. Provenance is carried by the source
+   hashes instead, which any reader can recompute from a clone.
 """
 from __future__ import annotations
 
-import datetime
+import hashlib
 import json
 import os
 import socket
@@ -52,11 +84,25 @@ DEFAULT_CORS = [
     "http://127.0.0.1:3000",
 ]
 
-#: module-file stem -> evidence JSON the gate reads.
+#: module-file stem -> (test module that owns it, evidence JSON the gate reads).
+#: The module path is carried explicitly so the evidence can name the exact
+#: source it was produced from; a stem-to-path guess would silently record the
+#: wrong file the day a module is renamed.
 EVIDENCE_FILES = {
-    "test_api_e2e": str(REPO / "artifacts" / "acceptance" / "api_e2e.json"),
-    "test_restart_recovery": str(REPO / "artifacts" / "acceptance" / "restart_recovery.json"),
+    "test_api_e2e": (
+        "tests/e2e/test_api_e2e.py",
+        str(REPO / "artifacts" / "acceptance" / "api_e2e.json"),
+    ),
+    "test_restart_recovery": (
+        "tests/e2e/test_restart_recovery.py",
+        str(REPO / "artifacts" / "acceptance" / "restart_recovery.json"),
+    ),
 }
+
+#: Frozen schema id for this evidence format. Bumped when the payload changes
+#: shape, so a reader can tell an old artifact from a new one instead of
+#: guessing from the presence of a key.
+EVIDENCE_SCHEMA = "jcc-e2e-evidence/2"
 
 _LOOPBACK_HOSTS = ("127.0.0.1", "::1", "127.0.0.2")
 
@@ -371,7 +417,7 @@ def api_server(tmp_path):
 
 
 # --------------------------------------------------------------------------- #
-# Evidence JSON emission -- written from the REAL run.
+# Evidence JSON emission -- written from the REAL run, and ONLY from a real run.
 # --------------------------------------------------------------------------- #
 _RESULTS = {}
 
@@ -381,29 +427,89 @@ def pytest_runtest_makereport(item, call):
     d[call.when] = "passed" if call.excinfo is None else "failed"
 
 
+def _sha256_file(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def _collect_only(session) -> bool:
+    """True when this session was asked to collect and not to run.
+
+    Read from the config rather than from ``len(_RESULTS)`` alone: both signals
+    are used (see ``pytest_sessionfinish``), because a run that dies before the
+    first report is indistinguishable from a collect-only pass by ``_RESULTS``
+    and must not be allowed to overwrite a good artifact either.
+    """
+    try:
+        return bool(session.config.option.collectonly)
+    except AttributeError:
+        return False
+
+
+def _evidence_payload(module_rel: str, checks: list) -> dict:
+    """Build the evidence body as a PURE FUNCTION of the product source.
+
+    No clock, no commit id, no pid, no temp path: two runs over the same source
+    produce the same bytes. ``checks`` is sorted by node id for the same reason
+    -- pytest's item order is an implementation detail of path argument order,
+    and evidence that reorders itself between runs is evidence nobody can diff.
+    """
+    ordered = sorted(checks, key=lambda c: c["node_id"])
+    failed = [c for c in ordered if not c["ok"]]
+    generator = Path(__file__).resolve()
+    module = (REPO / module_rel).resolve()
+    return {
+        "schema": EVIDENCE_SCHEMA,
+        "provenance": {
+            "generator": "tests/e2e/conftest.py",
+            "generator_sha256": _sha256_file(generator),
+            "module": module_rel,
+            "module_sha256": _sha256_file(module),
+            "command": "pytest tests/e2e",
+            "deterministic": True,
+        },
+        "node_ids": [c["node_id"] for c in ordered],
+        "checks": [
+            {"name": c["node_id"].split("::")[-1], "node_id": c["node_id"],
+             "ok": c["ok"], "detail": c["detail"]}
+            for c in ordered
+        ],
+        "check_count": len(ordered),
+        "passed": not failed and len(ordered) > 0,
+        "failed": len(failed),
+        "status": "PASS" if (not failed and ordered) else "FAIL",
+    }
+
+
 def pytest_sessionfinish(session, exitstatus):
-    for mod, path in EVIDENCE_FILES.items():
+    if _collect_only(session):
+        # A collect-only pass runs no test. Writing here would overwrite real
+        # evidence with a fabricated all-FAIL verdict -- which is what used to
+        # happen, and what made the gate's own collect step destroy the
+        # artifacts the gate then judged.
+        return
+    for mod, (module_rel, path) in EVIDENCE_FILES.items():
         collected = [it for it in session.items if mod in it.nodeid]
         if not collected:
             continue
         checks = []
-        failed = 0
         for it in collected:
             whens = _RESULTS.get(it.nodeid, {})
-            ok = bool(whens) and all(v == "passed" for v in whens.values())
-            if not ok:
-                failed += 1
+            if not whens:
+                # No report for this item: the session did not get to it. That
+                # is not a FAIL, it is an ABSENCE, and an absence must never be
+                # laundered into a verdict. Refuse the whole file.
+                print("[jcc-evidence] refusing to write %s: no report recorded for %s"
+                      % (os.path.basename(path), it.nodeid))
+                checks = []
+                break
+            ok = all(v == "passed" for v in whens.values())
             bad = [w for w, v in whens.items() if v != "passed"]
-            detail = "passed" if ok else "FAILED during: " + ",".join(bad)
-            checks.append({"name": it.nodeid.split("::")[-1], "ok": ok, "detail": detail})
-        passed_all = failed == 0 and len(checks) > 0
-        payload = {
-            "passed": passed_all,
-            "failed": failed,
-            "status": "PASS" if passed_all else "FAIL",
-            "at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "checks": checks,
-        }
+            detail = "passed" if ok else "FAILED during: " + ",".join(sorted(bad))
+            checks.append({"node_id": it.nodeid, "ok": ok, "detail": detail})
+        if not checks:
+            continue
+        payload = _evidence_payload(module_rel, checks)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        with open(path, "w", encoding="utf-8") as fh:
+        with open(path, "w", encoding="utf-8", newline="\n") as fh:
             json.dump(payload, fh, indent=2, sort_keys=True)
+            fh.write("\n")
