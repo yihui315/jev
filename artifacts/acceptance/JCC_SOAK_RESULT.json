@@ -1,89 +1,128 @@
 {
   "phase": "Q+R+S+T",
-  "started_at": "2026-09-26T12:22:14",
+  "started_at": "2026-09-26T21:37:19",
   "soak_minutes": 40,
   "port": 4778,
   "stop": {
     "script": "stop.ps1",
-    "exit_code": 0,
-    "stdout_tail": "JCC stop (W-03)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T12:22:15.2181323+08:00\r\nport      : 4778\r\n\r\nverified target (all checks passed):\r\n  pid             : 24156\r\n  command line    : F:\\jev\\.venv\\Scripts\\python.exe  -m jcc_core.run \r\n  process created : 09/26/2026 12:09:35\r\n  started (marker): 2026-09-26T04:09:37Z\r\n  port owner pid  : 24156 (Get-NetTCPConnection)\r\n  uptime          : 00h13m39s\r\n\r\nstopping service pid 24156 ...\r\nservice pid 24156 exited.\r\ncleaned up F:\\jev\\runtime\\jcc\\jcc.pid and F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\n\r\nSTOPPED\r\nnext      : .\\scripts\\status.ps1\r\n",
+    "exit_code": 1,
+    "stdout_tail": "JCC stop (W-03)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T21:37:19.9408238+08:00\r\nport      : 4778\r\n\r\nREFUSED: not signalled. Verification failed for pid 7812.\r\n         reason: recorded pid 7812 is not running\r\n         process state  : not running\r\n         Fix the cause (or clear runtime\\jcc\\jcc.pid and jcc.ownership.json\r\n         yourself after confirming the pid) and re-run.\r\n",
     "stderr_tail": "",
-    "stdout": "JCC stop (W-03)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T12:22:15.2181323+08:00\r\nport      : 4778\r\n\r\nverified target (all checks passed):\r\n  pid             : 24156\r\n  command line    : F:\\jev\\.venv\\Scripts\\python.exe  -m jcc_core.run \r\n  process created : 09/26/2026 12:09:35\r\n  started (marker): 2026-09-26T04:09:37Z\r\n  port owner pid  : 24156 (Get-NetTCPConnection)\r\n  uptime          : 00h13m39s\r\n\r\nstopping service pid 24156 ...\r\nservice pid 24156 exited.\r\ncleaned up F:\\jev\\runtime\\jcc\\jcc.pid and F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\n\r\nSTOPPED\r\nnext      : .\\scripts\\status.ps1\r\n",
+    "stdout": "JCC stop (W-03)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T21:37:19.9408238+08:00\r\nport      : 4778\r\n\r\nREFUSED: not signalled. Verification failed for pid 7812.\r\n         reason: recorded pid 7812 is not running\r\n         process state  : not running\r\n         Fix the cause (or clear runtime\\jcc\\jcc.pid and jcc.ownership.json\r\n         yourself after confirming the pid) and re-run.\r\n",
     "stderr": ""
   },
   "start": {
     "script": "start.ps1",
     "exit_code": 0,
-    "stdout_tail": "JCC start (W-02)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T12:22:21.1420986+08:00\r\nconfig    : F:\\jev\\config\\jcc.yaml\r\nport      : 4778  (url http://127.0.0.1:4778/api/health)\r\nPYTHONPATH: F:\\jev\\packages\r\nJCC_CONFIG: F:\\jev\\config\\jcc.yaml\r\n\r\nstarting: \"F:\\jev\\.venv\\Scripts\\python.exe\" -m jcc_core.run   (cwd F:\\jev)\r\nlauncher pid: 22632\r\nlogs      : F:\\jev\\runtime\\jcc\\server.log, F:\\jev\\runtime\\jcc\\server.err.log\r\n\r\nwaiting for http://127.0.0.1:4778/api/health (timeout 90s) ...\r\n\r\nUP\r\nservice pid : 19692   (holds 127.0.0.1:4778)\r\nlauncher pid: 22632\r\nownership   : pid 19692 descends from the JCC service start line\r\nport      : 4778 (127.0.0.1 only)\r\nhealth    : status=ok provider=mock actuation=False policy=p3.0.0 wal=True\r\nhealth url: http://127.0.0.1:4778/api/health\r\npid file  : F:\\jev\\runtime\\jcc\\jcc.pid\r\nmarker    : F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\nnext      : .\\scripts\\status.ps1   |   .\\scripts\\stop.ps1\r\n",
+    "stdout_tail": "JCC start (W-02)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T21:37:24.3005462+08:00\r\nconfig    : F:\\jev\\config\\jcc.yaml\r\nport      : 4778  (url http://127.0.0.1:4778/api/health)\r\nstale pid file found for pid 7812 (dead) -- overwriting\r\nPYTHONPATH: F:\\jev\\packages\r\nJCC_CONFIG: F:\\jev\\config\\jcc.yaml\r\n\r\nstarting: \"F:\\jev\\.venv\\Scripts\\python.exe\" -m jcc_core.run   (cwd F:\\jev)\r\nlauncher pid: 3552\r\nlogs      : F:\\jev\\runtime\\jcc\\server.log, F:\\jev\\runtime\\jcc\\server.err.log\r\n\r\nwaiting for http://127.0.0.1:4778/api/health (timeout 90s) ...\r\n\r\nUP\r\nservice pid : 4624   (holds 127.0.0.1:4778)\r\nlauncher pid: 3552\r\nownership   : pid 4624 descends from the JCC service start line\r\nport      : 4778 (127.0.0.1 only)\r\nhealth    : status=ok provider=mock actuation=False policy=p3.0.0 wal=True\r\nhealth url: http://127.0.0.1:4778/api/health\r\npid file  : F:\\jev\\runtime\\jcc\\jcc.pid\r\nmarker    : F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\nnext      : .\\scripts\\status.ps1   |   .\\scripts\\stop.ps1\r\n",
     "stderr_tail": "",
-    "stdout": "JCC start (W-02)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T12:22:21.1420986+08:00\r\nconfig    : F:\\jev\\config\\jcc.yaml\r\nport      : 4778  (url http://127.0.0.1:4778/api/health)\r\nPYTHONPATH: F:\\jev\\packages\r\nJCC_CONFIG: F:\\jev\\config\\jcc.yaml\r\n\r\nstarting: \"F:\\jev\\.venv\\Scripts\\python.exe\" -m jcc_core.run   (cwd F:\\jev)\r\nlauncher pid: 22632\r\nlogs      : F:\\jev\\runtime\\jcc\\server.log, F:\\jev\\runtime\\jcc\\server.err.log\r\n\r\nwaiting for http://127.0.0.1:4778/api/health (timeout 90s) ...\r\n\r\nUP\r\nservice pid : 19692   (holds 127.0.0.1:4778)\r\nlauncher pid: 22632\r\nownership   : pid 19692 descends from the JCC service start line\r\nport      : 4778 (127.0.0.1 only)\r\nhealth    : status=ok provider=mock actuation=False policy=p3.0.0 wal=True\r\nhealth url: http://127.0.0.1:4778/api/health\r\npid file  : F:\\jev\\runtime\\jcc\\jcc.pid\r\nmarker    : F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\nnext      : .\\scripts\\status.ps1   |   .\\scripts\\stop.ps1\r\n",
+    "stdout": "JCC start (W-02)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T21:37:24.3005462+08:00\r\nconfig    : F:\\jev\\config\\jcc.yaml\r\nport      : 4778  (url http://127.0.0.1:4778/api/health)\r\nstale pid file found for pid 7812 (dead) -- overwriting\r\nPYTHONPATH: F:\\jev\\packages\r\nJCC_CONFIG: F:\\jev\\config\\jcc.yaml\r\n\r\nstarting: \"F:\\jev\\.venv\\Scripts\\python.exe\" -m jcc_core.run   (cwd F:\\jev)\r\nlauncher pid: 3552\r\nlogs      : F:\\jev\\runtime\\jcc\\server.log, F:\\jev\\runtime\\jcc\\server.err.log\r\n\r\nwaiting for http://127.0.0.1:4778/api/health (timeout 90s) ...\r\n\r\nUP\r\nservice pid : 4624   (holds 127.0.0.1:4778)\r\nlauncher pid: 3552\r\nownership   : pid 4624 descends from the JCC service start line\r\nport      : 4778 (127.0.0.1 only)\r\nhealth    : status=ok provider=mock actuation=False policy=p3.0.0 wal=True\r\nhealth url: http://127.0.0.1:4778/api/health\r\npid file  : F:\\jev\\runtime\\jcc\\jcc.pid\r\nmarker    : F:\\jev\\runtime\\jcc\\jcc.ownership.json\r\nnext      : .\\scripts\\status.ps1   |   .\\scripts\\stop.ps1\r\n",
     "stderr": ""
   },
   "controlled_start": {
     "health_status": 200,
-    "health_ms": 12.36,
+    "health_ms": 31.38,
     "health_error": null,
     "health_body": "{\"status\":\"ok\",\"jev_provider\":\"mock\",\"actuation_enabled\":false,\"policy_version\":\"p3.0.0\",\"localhost_only\":true,\"wal\":true,\"open_get_endpoints\":[\"/api/health\",\"/api/sessions\",\"/api/sessions/{sid}\",\"/api/audit\",\"/api/decisions\",\"/api/audit/verify\"]}",
-    "listener_pid": 19692,
-    "ownership": null,
+    "listener_pid": 4624,
+    "ownership": {
+      "service": "jcc-core",
+      "pid": 4624,
+      "service_pid": 4624,
+      "launcher_pid": 3552,
+      "start_time": "2026-09-26T13:37:29Z",
+      "start_time_local": "2026-09-26T21:37:29.5028701+08:00",
+      "script_version": "1.0.0",
+      "repo_path": "F:\\jev",
+      "cwd": "F:\\jev",
+      "venv_python": "F:\\jev\\.venv\\Scripts\\python.exe",
+      "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+      "module": "jcc_core.run",
+      "port": 4778,
+      "host": "127.0.0.1",
+      "config": "F:\\jev\\config\\jcc.yaml",
+      "platform": "windows",
+      "created_by": "scripts/start.ps1"
+    },
     "start_ok": true
   },
-  "base_pid": 19692,
+  "base_pid": 4624,
   "proc_stats_at_start": {
-    "rss_mb": 50,
+    "rss_mb": 49,
     "threads": 6,
-    "handles": 159
+    "handles": 162
   },
   "soak": {
     "polls": 1151,
     "health_failures": 0,
     "longest_consecutive_failures": 0,
-    "latency_ms_mean": 15.102,
-    "latency_ms_max": 30.19,
+    "latency_ms_mean": 18.007,
+    "latency_ms_max": 49.9,
     "bursts": 39,
     "burst_failures": 0,
     "pid_changes": [],
     "pid_stable": true,
     "final_health_status": 200,
-    "final_listener_pid": 19692,
+    "final_listener_pid": 4624,
     "rss_first": {
-      "at": "2026-09-26T12:23:31.139",
-      "listener_pid": 19692,
+      "at": "2026-09-26T21:38:32.344",
+      "listener_pid": 4624,
       "rss_mb": 52,
       "threads": 3,
-      "handles": 159
+      "handles": 162
     },
     "rss_last": {
-      "at": "2026-09-26T13:01:50.592",
-      "listener_pid": 19692,
-      "rss_mb": 52,
+      "at": "2026-09-26T22:17:00.744",
+      "listener_pid": 4624,
+      "rss_mb": 29,
       "threads": 2,
-      "handles": 158
+      "handles": 161
     }
   },
   "soak_ok": true,
   "restart_acceptance": {
     "restart_exit_code": 0,
-    "restart_stdout_tail": "JCC restart (W-04)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T13:02:32.7872084+08:00\r\nport      : 4778\r\n\r\n=== stop.ps1 ===\r\nstop.ps1 exit code: 0\r\n\r\n=== start.ps1 ===\r\n\r\npost-condition: pid file 3384 == port owner 3384 (Get-NetTCPConnection), HTTP 200 from http://127.0.0.1:4778/api/health\r\nRESTART OK\r\nnext      : .\\scripts\\status.ps1\r\n",
-    "pid_before": 19692,
-    "pid_after": 3384,
+    "restart_stdout_tail": "JCC restart (W-04)\r\nrepo root : F:\\jev\r\ntimestamp : 2026-09-26T22:17:34.1107725+08:00\r\nport      : 4778\r\n\r\n=== stop.ps1 ===\r\nstop.ps1 exit code: 0\r\n\r\n=== start.ps1 ===\r\n\r\npost-condition: pid file 1840 == port owner 1840 (Get-NetTCPConnection), HTTP 200 from http://127.0.0.1:4778/api/health\r\nRESTART OK\r\nnext      : .\\scripts\\status.ps1\r\n",
+    "pid_before": 4624,
+    "pid_after": 1840,
     "new_pid": true,
     "health_after": 200,
-    "health_after_ms": 4.42,
+    "health_after_ms": 24.69,
     "health_after_error": null,
     "status_exit_code": 0,
-    "status_stdout_tail": "   : UP\r\n  pid          : 3384   (service pid: holds the socket)\r\n  launcher pid : 13028   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : pid 3384 (owner of port 4778 via Get-NetTCPConnection)\r\n  uptime       : 00h00m09s\r\n  health       : status=ok provider=mock actuation=False policy=p3.0.0 wal=True open_get_endpoints=6\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> present\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> present\r\n  detail       : HTTP 200 from http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: UP (verified: pid, ownership marker, command line and port owner agree)\r\n",
-    "ownership_after": null,
+    "status_stdout_tail": "    : UP\r\n  pid          : 1840   (service pid: holds the socket)\r\n  launcher pid : 3624   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : pid 1840 (owner of port 4778 via Get-NetTCPConnection)\r\n  uptime       : 00h00m06s\r\n  health       : status=ok provider=mock actuation=False policy=p3.0.0 wal=True open_get_endpoints=6\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> present\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> present\r\n  detail       : HTTP 200 from http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: UP (verified: pid, ownership marker, command line and port owner agree)\r\n",
+    "ownership_after": {
+      "service": "jcc-core",
+      "pid": 1840,
+      "service_pid": 1840,
+      "launcher_pid": 3624,
+      "start_time": "2026-09-26T14:17:42Z",
+      "start_time_local": "2026-09-26T22:17:42.1253573+08:00",
+      "script_version": "1.0.0",
+      "repo_path": "F:\\jev",
+      "cwd": "F:\\jev",
+      "venv_python": "F:\\jev\\.venv\\Scripts\\python.exe",
+      "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+      "module": "jcc_core.run",
+      "port": 4778,
+      "host": "127.0.0.1",
+      "config": "F:\\jev\\config\\jcc.yaml",
+      "platform": "windows",
+      "created_by": "scripts/start.ps1"
+    },
     "ok": true
   },
   "watchdog_proof": {
     "exit_code": 0,
-    "stdout_tail": "replica interpreter: F:\\jev\\.workbuddy\\scratch\\watchdog_proof\\root_20260926_130250_392545\\.venv\\Scripts\\python.exe\r\nreplica root : F:\\jev\\.workbuddy\\scratch\\watchdog_proof\\root_20260926_130250_392545\r\nscript edit  : 1 line ($ProjectRoot)  [verified: 1]\r\n\r\nA. no controller, no state -> must start one (Rule 3)\r\n  A Rule 3 starts a replacement                  OK  rc=0\r\n      started controller pid 21376 (lock not yet observed)\r\n      lock now names pid=24392 alive=True\r\n\r\nB. live controller -> must do NOTHING (Rule 2, idempotent tick)\r\n  B Rule 2 no-ops on a live controller           OK  rc=0\r\n      watchdog: controller already running (pid 24392); nothing to do.\r\n      lock pid unchanged=True (24392)\r\n\r\nD. stale lock for a DEAD pid -> must start a replacement (recovery)\r\n      planted stale lock naming dead pid 23584 (alive=False)\r\n  D recovery replaces a dead controller          OK  rc=0\r\n      watchdog: found stale lock for pid 23584 (alive=False); will start a replacement.\r\n      lock now names pid=23672 (was 23584) alive=True replaced=True\r\n\r\nC. project_complete=true -> must be a PERMANENT no-op (Rule 1)\r\n  C Rule 1 never resurrects a finished pipeline  OK  rc=0\r\n      watchdog: project already complete; nothing to start.\r\n      no new controller started (lock absent)=True\r\n\r\nE. host conditioning: Start-Process + proxy env (measured, not assumed)\r\n      proxy vars present: []\r\n      with env as-is          : rc=0  started controller pid 20840 (lock not yet observed)\r\n      with proxy vars cleared : rc=0  started controller pid 17132 (lock not yet observed)\r\n\r\ncleanup: 成功: 已终止 PID 24392 (属于 PID 21376 子进程)的进程。; 成功: 已终止 PID 23672 (属于 PID 9752 子进程)的进程。; 成功: 已终止 PID 18448 (属于 PID 20840 子进程)的进程。; 成功: 已终止 PID 24780 (属于 PID 17132 子进程)的进程。\r\n\r\nWATCHDOG RECOVERY PROOF: 4/4 decision-rule cases as expected\r\nWATCHDOG_RECOVERY = PASS\r\nevidence -> F:\\jev\\artifacts\\acceptance\\WATCHDOG_RECOVERY_PROOF.json\r\n",
+    "stdout_tail": "replica interpreter: 3 13 (works=True)\r\nreplica root : F:\\jev\\.workbuddy\\scratch\\watchdog_proof\\root_20260926_221747_267962\r\nscript edit  : none -- scripts/ is copied verbatim and the tick is told its root with -Root  [the shipped bytes are unmodified]\r\n\r\nA. no controller, no state -> must start one (Rule 3)\r\n  A Rule 3 starts a replacement                  OK  rc=0\r\n      [2026-09-26T22:17:48.1421081+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n      lock now names pid=8556 alive=True\r\n\r\nB. live controller -> must do NOTHING (Rule 2, idempotent tick)\r\n  B Rule 2 no-ops on a live controller           OK  rc=0\r\n      [2026-09-26T22:17:49.8632012+08:00] NOOP: controller pid 8556 already live (identity=unknown fresh=True heartbeat=)\r\n      lock pid unchanged=True (8556)\r\n\r\nD. stale lock for a DEAD pid -> must start a replacement (recovery)\r\n      planted stale lock naming dead pid 17152 (alive=False)\r\n  D recovery replaces a dead controller          OK  rc=0\r\n      [2026-09-26T22:17:58.0118132+08:00] STALE: lock pid 17152 alive=False identity=unknown fresh=True heartbeat=; starting a replacement\r\n      lock now names pid=17652 (was 17152) alive=True replaced=True\r\n\r\nC. project_complete=true -> must be a PERMANENT no-op (Rule 1)\r\n  C Rule 1 never resurrects a finished pipeline  OK  rc=0\r\n      [2026-09-26T22:17:59.5952024+08:00] NOOP: release is COMPLETE with project_run=PASS; watchdog stays idle\r\n      no new controller started (lock absent)=True\r\n\r\nE. host conditioning: Start-Process + proxy env (measured, not assumed)\r\n      proxy vars present: []\r\n      with env as-is          : rc=0  [2026-09-26T22:18:00.1682308+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n      with proxy vars cleared : rc=0  [2026-09-26T22:18:01.2643101+08:00] STARTED: controller launched detached (streams to files, no pipe)\r\n\r\ncleanup: 成功: 已终止 PID 8556 (属于 PID 19132 子进程)的进程。; 成功: 已终止 PID 17652 (属于 PID 14916 子进程)的进程。; 成功: 已终止 PID 18012 (属于 PID 6948 子进程)的进程。; 成功: 已终止 PID 9388 (属于 PID 14712 子进程)的进程。\r\n\r\nWATCHDOG RECOVERY PROOF: 4/4 decision-rule cases as expected\r\nWATCHDOG_RECOVERY = PASS\r\nevidence -> F:\\jev\\artifacts\\acceptance\\SOAK_WATCHDOG_PROOF.json\r\n",
     "stderr_tail": "",
-    "artifact": "F:\\jev\\artifacts\\acceptance\\WATCHDOG_RECOVERY_PROOF.json",
+    "instrument": "tools/continuation/watchdog_proof.py",
+    "instrument_sha256": "5937a9928ddf7d09b609ad0ff92ced9ee6ae1bd159b3a0228600c872922f441d",
+    "artifact": "F:\\jev\\artifacts\\acceptance\\SOAK_WATCHDOG_PROOF.json",
+    "artifact_sha256": "84b91bbb60689fe202364728183ebdd012009e038da959bc8c7661956df2e1c0",
     "artifact_fresh_for_this_step": true,
     "artifact_verdict": "PASS",
-    "artifact_run_stamp": "20260926_130250_392545",
+    "artifact_run_stamp": "20260926_221747_267962",
     "artifact_context": {
       "in_job": true,
       "note": "in_job is reported as a READING of IsProcessInJob for this process, and it answers 'is this process in ANY job' -- not 'is it outside the agent host's job'. Measured on this very launch chain: the WMI-created cmd.exe reads False while the python it spawns reads True, and that python still outlives its launching command. It is therefore NOT used here as evidence of escaping anything. The load-bearing evidence for the launch path is behavioural survival, measured in artifacts/acceptance/CANARY_SURVIVAL.json."
@@ -91,11 +130,11 @@
     "ok": true
   },
   "watchdog_service_recovery": {
-    "pid_before": 3384,
+    "pid_before": 1840,
     "stop_exit_code": 0,
     "detection": {
       "status_exit_code": 1,
-      "status_stdout_tail": "JCC status (W-05)\r\nrepo root   : F:\\jev\r\ntimestamp   : 2026-09-26T13:03:19.1731912+08:00\r\n\r\n  service      : DOWN\r\n  pid          : -   (service pid: holds the socket)\r\n  launcher pid : -   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : nobody (port 4778 free)\r\n  uptime       : -\r\n  health       : no response: 无法连接到远程服务器\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> absent\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> absent\r\n  detail       : no HTTP response on http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: DOWN\r\n         start it with: .\\scripts\\start.ps1\r\n",
+      "status_stdout_tail": "JCC status (W-05)\r\nrepo root   : F:\\jev\r\ntimestamp   : 2026-09-26T22:18:08.3310273+08:00\r\n\r\n  service      : DOWN\r\n  pid          : -   (service pid: holds the socket)\r\n  launcher pid : -   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : nobody (port 4778 free)\r\n  uptime       : -\r\n  health       : no response: 无法连接到远程服务器\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> absent\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> absent\r\n  detail       : no HTTP response on http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: DOWN\r\n         start it with: .\\scripts\\start.ps1\r\n",
       "port_free": false,
       "health_error_while_down": "URLError: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>",
       "outage_detected": true
@@ -103,16 +142,34 @@
     "recovery": {
       "start_exit_code": 0,
       "health_after": 200,
-      "pid_after": 15576,
+      "pid_after": 9952,
       "new_pid": true,
-      "health_after_ms": 29.03,
+      "health_after_ms": 3.76,
       "health_after_error": null,
       "status_exit_code": 0,
-      "status_stdout_tail": "  : UP\r\n  pid          : 15576   (service pid: holds the socket)\r\n  launcher pid : 8008   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : pid 15576 (owner of port 4778 via Get-NetTCPConnection)\r\n  uptime       : 00h00m08s\r\n  health       : status=ok provider=mock actuation=False policy=p3.0.0 wal=True open_get_endpoints=6\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> present\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> present\r\n  detail       : HTTP 200 from http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: UP (verified: pid, ownership marker, command line and port owner agree)\r\n",
-      "ownership_after": null
+      "status_stdout_tail": "   : UP\r\n  pid          : 9952   (service pid: holds the socket)\r\n  launcher pid : 18348   (the process start.ps1 spawned)\r\n  port         : 4778 (bound to 127.0.0.1 only)\r\n  port owner   : pid 9952 (owner of port 4778 via Get-NetTCPConnection)\r\n  uptime       : 00h00m06s\r\n  health       : status=ok provider=mock actuation=False policy=p3.0.0 wal=True open_get_endpoints=6\r\n  pid file     : F:\\jev\\runtime\\jcc\\jcc.pid -> present\r\n  marker       : F:\\jev\\runtime\\jcc\\jcc.ownership.json -> present\r\n  detail       : HTTP 200 from http://127.0.0.1:4778/api/health\r\n\r\n  health url   : http://127.0.0.1:4778/api/health\r\n\r\nRESULT: UP (verified: pid, ownership marker, command line and port owner agree)\r\n",
+      "ownership_after": {
+        "service": "jcc-core",
+        "pid": 9952,
+        "service_pid": 9952,
+        "launcher_pid": 18348,
+        "start_time": "2026-09-26T14:18:20Z",
+        "start_time_local": "2026-09-26T22:18:20.0050160+08:00",
+        "script_version": "1.0.0",
+        "repo_path": "F:\\jev",
+        "cwd": "F:\\jev",
+        "venv_python": "F:\\jev\\.venv\\Scripts\\python.exe",
+        "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+        "module": "jcc_core.run",
+        "port": 4778,
+        "host": "127.0.0.1",
+        "config": "F:\\jev\\config\\jcc.yaml",
+        "platform": "windows",
+        "created_by": "scripts/start.ps1"
+      }
     },
     "ok": true
   },
   "verdict": "PASS: controlled start ok; 40-min soak with 0 health failure(s) and 0 pid change(s); restart acceptance ok=True; watchdog decision procedure ok=True (exit 0, artifact PASS); detect-and-recover ok=True",
-  "finished_at": "2026-09-26T13:03:40"
+  "finished_at": "2026-09-26T22:18:24"
 }

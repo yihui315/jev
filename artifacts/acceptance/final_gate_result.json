@@ -29,23 +29,23 @@
     },
     {
       "id": "T-15",
-      "status": "OK",
-      "detail": "scope 'gate decision-rule falsifiers': 82 passed, 0 failed, 0 errors, 0 skipped -- tools/tests"
+      "status": "FAILED",
+      "detail": "scope 'gate decision-rule falsifiers': pytest exit code 1, and the output ends: =================== 1 failed, 87 passed in 61.45s (0:01:01) ==================="
     },
     {
       "id": "T-01",
       "status": "OK",
-      "detail": "gate collected its own totals across 6 scope(s): {'passed': 709, 'failed': 0, 'errors': 0, 'skipped': 0}"
+      "detail": "gate collected its own totals across 6 scope(s): {'passed': 714, 'failed': 1, 'errors': 0, 'skipped': 0}"
     },
     {
       "id": "T-02",
-      "status": "OK",
-      "detail": "aggregate tally reconciles with zero failed/error/skipped: {'passed': 709, 'failed': 0, 'errors': 0, 'skipped': 0}"
+      "status": "FAILED",
+      "detail": "aggregate tally not clean: {'passed': 714, 'failed': 1, 'errors': 0, 'skipped': 0}"
     },
     {
       "id": "T-03",
-      "status": "OK",
-      "detail": "0 failed"
+      "status": "FAILED",
+      "detail": "1 failed across all scopes"
     },
     {
       "id": "T-04",
@@ -59,8 +59,8 @@
     },
     {
       "id": "T-06",
-      "status": "OK",
-      "detail": "every declared scope ran and exited clean"
+      "status": "FAILED",
+      "detail": "scope exit codes not all clean: T-15"
     },
     {
       "id": "T-07",
@@ -229,18 +229,18 @@
     },
     {
       "id": "E-05",
-      "status": "FAILED",
-      "detail": "architecture GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
+      "status": "OK",
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence [7 condition(s): BLOCKER -- REWRITTEN 2026-09-25T10:34:00Z, SUPERSEDING THE FIRST VERSION OF THIS CONDITION. I first described this as 'a D-28 policy bypass' that mints a Directive outside the policy kernel. That framing was wrong and I withdraw it; the corrected statement is narrower. (i) REAL AND KEPT: packages/jcc_core/server.py:239 (inside `_manual`, minting at :208) is a second call site of the engine actuation port ActuationPort.dispatch, and ADR-0008 D-41's FROZEN falsifier says that port has exactly ONE call site -- so the deviation against frozen text stands. (ii) CONCEDED: ports.py:33-42, citing D-41, declares the port 'PERMANENTLY INERT ... never an attach point, in P3 or later', so server.py:239 is NOT a second attach point and cannot by itself emanate an un-arbitrated side effect; the deviation is contractual/latent, not active, and must not be quoted as a security finding. (iii) RESIDUAL, CARRIED INTO KD-001 AND NOW INTO KD-007: see the eighth condition below. Correct implementation, when funded: delete the mint-and-dispatch at server.py:206-239 and make /api/pause|steer|retry either verifiers of a policy-signed directive or plain operator-intent records written to the audit tape with no Directive constructed at all; or route :239 to the documented attach point Sentinel._dispatch / supervisor.ports.DispatchPort instead of the engine port. Either way KD-001 and KD-002 stay OPEN.; ONE MINT SITE WAS NEVER COUNTED BY THE REGISTER, AND THE LEG SAYS SO IN WRITING. packages/operator_skill/gates.py:173 and packages/supervisor/sentinel.py:414 are Directive mint sites outside the policy kernel and were never registered as deviations before this leg's finding. They are not blockers -- gates.py:173 is kernel-guarded (gate 2 at gates.py:352 refuses unless arbitrate() observed it) and sentinel.py:414 is kernel-backed (arbitration.arbitrate at sentinel.py:375 plus two fail-closed escalations) -- but a register that omits two of four production mint sites is the drift this project fights, and the record now names both by file:line.; THE DEVIATION IS CONTRACTUAL/LATENT, NOT AN ACTIVE HAZARD -- DO NOT INFLATE IT. Measured: server.py:218-219 carry executable=False and requires_human=True; the seam is verify-only; Actuator.execute refuses even when enabled=True and the action is allow-listed; and per aegis-3 (artifacts/security/probe_kd002.py, 7/7 pass, exit 0) the directive is refused at the signing gate before approval. Quote it as a boundary-strength observation, not as a security finding. ... (+4 more)]"
     },
     {
       "id": "E-06",
-      "status": "FAILED",
-      "detail": "security GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
+      "status": "OK",
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence"
     },
     {
       "id": "E-07",
-      "status": "FAILED",
-      "detail": "sre GO was signed at the release freeze df3e7d91ac27, but 4 path(s) outside release evidence changed since: apps/control_ui/acceptance.py, fixtures/demo/acceptance.py, fixtures/demo/manifest.json, tests/e2e/conftest.py"
+      "status": "OK",
+      "detail": "final-leg GO re-signed against the release freeze 5ab5e20d961d; every path changed since the freeze is release evidence"
     },
     {
       "id": "F-01",
@@ -260,17 +260,17 @@
     {
       "id": "F-04",
       "status": "FAILED",
-      "detail": "3 blocking item(s)"
+      "detail": "4 blocking item(s)"
     },
     {
       "id": "F-05",
       "status": "FAILED",
-      "detail": "3 unresolved HIGH"
+      "detail": "4 unresolved HIGH"
     },
     {
       "id": "P-01",
-      "status": "OK",
-      "detail": "working tree clean"
+      "status": "FAILED",
+      "detail": "working tree is dirty (unexplained provenance):\nM artifacts/acceptance/CONTINUATION_INFRA_TEST.json\n M artifacts/acceptance/DETACHED_SURVIVAL_TEST.json\n M artifacts/acceptance/JCC_SOAK_RESULT.json\n M artifacts/acceptance/JCC_SOAK_TRACE.jsonl\n M artifacts/acceptance/REBOOT_RECOVERY.json\n M artifacts/acceptance/SOAK_WATCHDOG_PROOF.json\n M artifacts/acceptance/WATCHDOG_RECOVERY_PROOF.json\n M artifacts/acceptance/final_gate_result.json\n M artifacts"
     },
     {
       "id": "P-02",
@@ -289,8 +289,8 @@
     },
     {
       "id": "P-05",
-      "status": "OK",
-      "detail": "freeze provenance explainable: the working tree is clean, so no unreviewed edit exists between the signed freeze and the tree this verdict describes"
+      "status": "FAILED",
+      "detail": "freeze provenance unexplained (dirty tree)"
     },
     {
       "id": "P-06",
@@ -300,11 +300,14 @@
   ],
   "missing": [],
   "failed": [
-    "E-05",
-    "E-06",
-    "E-07",
+    "T-15",
+    "T-02",
+    "T-03",
+    "T-06",
     "F-04",
-    "F-05"
+    "F-05",
+    "P-01",
+    "P-05"
   ],
   "degraded": [
     "A-01",
@@ -313,11 +316,12 @@
     "A-04"
   ],
   "pending_external_activation": [],
-  "blocker": 5,
-  "high": 5,
+  "blocker": 8,
+  "high": 8,
   "provenance": {
-    "generator_sha256": "7856c7c9ece887d5326c3dd58b73b7f543000202c7d48f9e920dfa0e94e4aef0",
-    "release_freeze": "df3e7d91ac274d971ef110199d5b65acf131aacd",
+    "generator_sha256": "1090e7268bf90547621317b078ffb241eeff0afcebc07fd62e113d586e7ef821",
+    "release_freeze": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+    "product_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
     "evidence_prefixes": [
       "artifacts/",
       "docs/",

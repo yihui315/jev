@@ -1,5 +1,5 @@
 {
-  "check_count": 82,
+  "check_count": 95,
   "checks": [
     {
       "detail": "passed",
@@ -20,10 +20,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: setup",
       "name": "test_atomic_write_is_atomic_and_leaves_no_temp_file",
       "node_id": "tools/tests/test_continuation_infra.py::test_atomic_write_is_atomic_and_leaves_no_temp_file",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -32,10 +32,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: setup",
       "name": "test_continuation_watchdog_is_idle_once_the_release_is_complete",
       "node_id": "tools/tests/test_continuation_infra.py::test_continuation_watchdog_is_idle_once_the_release_is_complete",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -87,6 +87,12 @@
     },
     {
       "detail": "passed",
+      "name": "test_final12_refuses_a_missing_or_red_control_plane_proof",
+      "node_id": "tools/tests/test_continuation_infra.py::test_final12_refuses_a_missing_or_red_control_plane_proof",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_gate_judge_refuses_a_verdict_it_should_not_accept",
       "node_id": "tools/tests/test_continuation_infra.py::test_gate_judge_refuses_a_verdict_it_should_not_accept",
       "ok": true
@@ -105,15 +111,21 @@
     },
     {
       "detail": "passed",
+      "name": "test_no_step_declares_its_run_descriptor_as_its_result",
+      "node_id": "tools/tests/test_continuation_infra.py::test_no_step_declares_its_run_descriptor_as_its_result",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_no_watchdog_kills_python_by_image_name",
       "node_id": "tools/tests/test_continuation_infra.py::test_no_watchdog_kills_python_by_image_name",
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: setup",
       "name": "test_only_one_controller_can_hold_the_lock",
       "node_id": "tools/tests/test_continuation_infra.py::test_only_one_controller_can_hold_the_lock",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -123,9 +135,15 @@
     },
     {
       "detail": "passed",
+      "name": "test_publish_then_verify_is_a_fixed_point_and_still_refusable",
+      "node_id": "tools/tests/test_continuation_infra.py::test_publish_then_verify_is_a_fixed_point_and_still_refusable",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: setup",
       "name": "test_saving_state_keeps_the_previous_generation",
       "node_id": "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -207,15 +225,21 @@
     },
     {
       "detail": "passed",
+      "name": "test_the_registration_verdict_refuses_a_disabled_or_misaimed_task",
+      "node_id": "tools/tests/test_continuation_infra.py::test_the_registration_verdict_refuses_a_disabled_or_misaimed_task",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_the_release_publisher_selftest_is_green",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_release_publisher_selftest_is_green",
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: setup",
       "name": "test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -225,9 +249,57 @@
     },
     {
       "detail": "passed",
+      "name": "test_the_task_probe_never_reads_unverifiable_as_absent",
+      "node_id": "tools/tests/test_continuation_infra.py::test_the_task_probe_never_reads_unverifiable_as_absent",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_the_watchdog_proof_drives_the_shipped_script_in_place",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_watchdog_proof_drives_the_shipped_script_in_place",
       "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+      "node_id": "tools/tests/test_continuation_infra.py::test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_case_1_only_allowed_evidence",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_1_only_allowed_evidence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_case_2_product_path_refused",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_2_product_path_refused",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_case_3_untracked_refused",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_3_untracked_refused",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_case_4_staged_ne_inspected",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_4_staged_ne_inspected",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_case_5_not_a_fixed_point",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_5_not_a_fixed_point",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_the_tool_is_in_version_control",
+      "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_the_tool_is_in_version_control",
+      "ok": false
     },
     {
       "detail": "passed",
@@ -492,9 +564,15 @@
       "name": "test_written_verdict_carries_no_clock_and_no_head",
       "node_id": "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head",
       "ok": true
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_every_input_the_pipeline_needs_is_committed_at_head",
+      "node_id": "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
+      "ok": false
     }
   ],
-  "failed": 0,
+  "failed": 7,
   "node_ids": [
     "tools/tests/test_continuation_infra.py::test_a_narrowed_run_does_not_rewrite_the_suite_verdict",
     "tools/tests/test_continuation_infra.py::test_a_powershell_crash_is_never_read_as_a_verdict",
@@ -510,12 +588,15 @@
     "tools/tests/test_continuation_infra.py::test_every_watchdog_script_parses_under_windows_powershell_51",
     "tools/tests/test_continuation_infra.py::test_exit_zero_without_evidence_is_not_progress",
     "tools/tests/test_continuation_infra.py::test_final01_step_declares_an_artifact_and_a_judge",
+    "tools/tests/test_continuation_infra.py::test_final12_refuses_a_missing_or_red_control_plane_proof",
     "tools/tests/test_continuation_infra.py::test_gate_judge_refuses_a_verdict_it_should_not_accept",
     "tools/tests/test_continuation_infra.py::test_new_jcc_scheduled_task_accepts_an_empty_argument_list",
     "tools/tests/test_continuation_infra.py::test_no_script_shells_out_to_schtasks",
+    "tools/tests/test_continuation_infra.py::test_no_step_declares_its_run_descriptor_as_its_result",
     "tools/tests/test_continuation_infra.py::test_no_watchdog_kills_python_by_image_name",
     "tools/tests/test_continuation_infra.py::test_only_one_controller_can_hold_the_lock",
     "tools/tests/test_continuation_infra.py::test_pid_liveness_is_by_handle_not_by_name",
+    "tools/tests/test_continuation_infra.py::test_publish_then_verify_is_a_fixed_point_and_still_refusable",
     "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_budget_is_bounded",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_monitors_nothing_until_the_release_is_ready",
@@ -530,10 +611,19 @@
     "tools/tests/test_continuation_infra.py::test_the_operator_hold_stops_the_watchdog_starting_a_controller",
     "tools/tests/test_continuation_infra.py::test_the_operator_hold_tool_refuses_a_hold_that_cannot_expire",
     "tools/tests/test_continuation_infra.py::test_the_project_run_gate_selftest_is_green",
+    "tools/tests/test_continuation_infra.py::test_the_registration_verdict_refuses_a_disabled_or_misaimed_task",
     "tools/tests/test_continuation_infra.py::test_the_release_publisher_selftest_is_green",
     "tools/tests/test_continuation_infra.py::test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
     "tools/tests/test_continuation_infra.py::test_the_soak_runs_the_tracked_instrument_and_keeps_its_own_artifact",
+    "tools/tests/test_continuation_infra.py::test_the_task_probe_never_reads_unverifiable_as_absent",
     "tools/tests/test_continuation_infra.py::test_the_watchdog_proof_drives_the_shipped_script_in_place",
+    "tools/tests/test_continuation_infra.py::test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_case_1_only_allowed_evidence",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_case_2_product_path_refused",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_case_3_untracked_refused",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_case_4_staged_ne_inspected",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_case_5_not_a_fixed_point",
+    "tools/tests/test_evidence_commit_falsifiers.py::test_the_tool_is_in_version_control",
     "tools/tests/test_final_gate_legs.py::test_accepted_leg_details_do_not_move_with_the_tip",
     "tools/tests/test_final_gate_legs.py::test_freeze_go_is_accepted_when_only_evidence_moved",
     "tools/tests/test_final_gate_legs.py::test_freeze_go_with_conditions_is_accepted_and_rendered",
@@ -577,11 +667,12 @@
     "tools/tests/test_final_gate_legs.py::test_s05_refuses_a_record_that_does_not_prove_the_claim[<lambda>-status]",
     "tools/tests/test_final_gate_legs.py::test_tip_signed_leg_does_not_pay_for_a_diff",
     "tools/tests/test_final_gate_legs.py::test_two_runs_over_the_same_tree_produce_byte_identical_verdicts",
-    "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head"
+    "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head",
+    "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head"
   ],
-  "ok": true,
-  "passed": true,
-  "passed_count": 82,
+  "ok": false,
+  "passed": false,
+  "passed_count": 88,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -591,6 +682,6 @@
     "selection": "full directory (no -k / -m / --deselect; all items ran)"
   },
   "schema": "jcc-continuation-infra/1",
-  "status": "PASS",
-  "verdict": "82/82 infrastructure test(s) passed"
+  "status": "FAIL",
+  "verdict": "88/95 infrastructure test(s) passed"
 }
