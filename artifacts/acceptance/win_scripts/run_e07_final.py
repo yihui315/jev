@@ -429,12 +429,23 @@ SCRIPT_STEPS = {6: "start.ps1", 11: "restart.ps1", 15: "status.ps1",
                 16: "stop.ps1", 19: "start.ps1"}
 
 
-def self_check_problems(steps: "list[dict]", expected: int = EXPECTED_STEPS) -> list:
+def self_check_problems(steps: "list[dict]", expected: int = EXPECTED_STEPS,
+                        in_flight: int = 1) -> list:
     """Return every way the evidence record set violates its contract.
 
     Factored out of step 22 so it is directly testable: a gate that cannot be
-    shown to fail is not a gate. Each entry names the step and the missing/
-    offending field.
+    shown to fail is not a gate.
+
+    ARITY CONTRACT -- read this before calling it. ``steps`` is the COMPLETED
+    prefix, i.e. the records step 22 can already see. SELF_CHECK is itself the
+    ``expected``-th record and is NOT in that list while it is being computed, so
+    the total the run will produce is ``len(steps) + in_flight`` (normally 21+1).
+    The previous version asserted ``len(steps) == 22`` against a 21-element list
+    and could never be true -- the third unsatisfiable condition in this step, and
+    the one that survived two rounds of repair because the falsification test fed
+    the predicate a 22-element list that the runner never produces.
+
+    Each entry names the step and the missing/offending field.
     """
     bad: list = []
     for s in steps:
@@ -446,17 +457,26 @@ def self_check_problems(steps: "list[dict]", expected: int = EXPECTED_STEPS) -> 
                 if s.get(f) in (None, ""):
                     bad.append("%s:%s missing" % (s.get("name"), f))
         # step 22's own result is what the caller is computing -- excluding it is
-        # required, otherwise the assertion is circular and can never pass.
-        if s.get("step") != 22 and s.get("result") != "PASS":
+        # required, otherwise the assertion is circular and can never pass. A
+        # duplicate of it that leaked into the prefix is caught by the step-set
+        # check below, so this exclusion cannot hide anything.
+        if s.get("step") != expected and s.get("result") != "PASS":
             bad.append("%s:%s" % (s.get("name"), s.get("result")))
     # "every step carries its instrumentation" must not be vacuous: prove each
     # script step actually ran, so a harness that silently skipped one cannot pass.
-    seen = {s.get("step") for s in steps}
+    seen = [s.get("step") for s in steps]
     for st, script in SCRIPT_STEPS.items():
         if st not in seen:
             bad.append("script step %d (%s) has no record" % (st, script))
-    if len(steps) != expected:
-        bad.append("step_count %d != expected %d" % (len(steps), expected))
+    # The prefix must be exactly 1..expected-in_flight: no gap, no duplicate, no
+    # renumbering. A bare count comparison cannot see a gap+duplicate of equal
+    # length, which is precisely how a silently dropped step would hide.
+    want = list(range(1, expected - in_flight + 1))
+    if sorted(x for x in seen if isinstance(x, int)) != want:
+        bad.append("step set %s != expected %s" % (sorted(seen), want))
+    if len(steps) + in_flight != expected:
+        bad.append("step_count %d (+%d in flight) != expected %d"
+                   % (len(steps), in_flight, expected))
     return bad
 
 
@@ -775,18 +795,21 @@ def main(argv: list[str] | None = None) -> int:
 
     # --- 22 self-check the evidence --------------------------------------------------
     begin_step(22, "SELF_CHECK")
-    # Validate the COMPLETE record set, in memory. The previous version re-read the
-    # file on disk, which step 21 had just written and which therefore held at most
-    # 21 records -- `len(steps) == EXPECTED_STEPS` (22) could NEVER be true. That was
-    # the second unsatisfiable condition in this step; the first was the blanket
-    # MANDATORY_FIELDS sweep described next to ALWAYS_FIELDS above.
-    steps = list(EV.steps)
-    bad = self_check_problems(steps)
-    count_ok = len(steps) == EXPECTED_STEPS
+    # Validate the COMPLETE record set, in memory. Two previous versions of this
+    # step were UNSATISFIABLE: the first swept a blanket MANDATORY_FIELDS list that
+    # only 5 of 22 steps can carry, the second read a file that step 21 had just
+    # written and that therefore held at most 21 of the 22 records. This one is
+    # handed the completed prefix explicitly and is told that it is itself the
+    # record still in flight; see self_check_problems() for the arity contract.
+    prefix = list(EV.steps)
+    bad = self_check_problems(prefix, in_flight=1)
+    total = len(prefix) + 1
+    count_ok = total == EXPECTED_STEPS
     EV.record(22, "SELF_CHECK",
               "every step carries its instrumentation and every step is PASS",
               result="PASS" if (not bad and count_ok) else "FAIL",
-              problems=bad, step_count=len(steps), expected_steps=EXPECTED_STEPS)
+              problems=bad, step_count=total, expected_steps=EXPECTED_STEPS,
+              completed_before_self_check=len(prefix))
     # Authoritative write happens HERE, after step 22 exists, so the document on
     # disk carries all EXPECTED_STEPS records; step 21's write is the intermediate
     # snapshot. Without this the file would keep the intermediate and
