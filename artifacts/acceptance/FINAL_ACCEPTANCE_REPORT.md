@@ -112,10 +112,8 @@ The verdict is only worth anything if a clone can re-derive it, so that is audit
 | | |
 | --- | --- |
 | gate-consumed paths checked | 38 |
-| present but **not** in version control | `artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md`, `artifacts/acceptance/api_e2e.json`, `artifacts/acceptance/component_evidence/C-01.json`, `artifacts/acceptance/component_evidence/C-02.json`, `artifacts/acceptance/component_evidence/C-03.json`, `artifacts/acceptance/component_evidence/C-04.json`, `artifacts/acceptance/component_evidence/C-06.json`, `artifacts/acceptance/component_evidence/C-07.json`, `artifacts/acceptance/component_evidence/C-08.json`, `artifacts/acceptance/component_evidence/C-09.json`, `artifacts/acceptance/component_evidence/C-10.json`, `artifacts/acceptance/component_evidence/S-01.json`, `artifacts/acceptance/component_evidence/S-02.json`, `artifacts/acceptance/component_evidence/S-03.json`, `artifacts/acceptance/component_evidence/S-06.json`, `artifacts/acceptance/component_evidence/S-07.json`, `artifacts/acceptance/demo_e2e.json`, `artifacts/acceptance/restart_recovery.json`, `artifacts/acceptance/ui_smoke.json`, `artifacts/acceptance/win_scripts/E07_FINAL_EVIDENCE.json`, `artifacts/release/JCC_SOAK_REPORT.md`, `artifacts/release/WATCHDOG_RECOVERY_REPORT.md` |
-
-> WARNING: the paths above are read by the gate but are not committed. A clone would either fail those checks or, worse, be missing evidence silently. Commit them with `git add -f` (they are ignored by `.gitignore`).
+| present but **not** in version control | **none — the verdict survives a clone** |
 
 Residual limit: the `T-*` checks run `pytest` against the scopes under `packages/`, `apps/` and `facades/`. Those tests are in version control, but the `.venv` they run under is not, so re-deriving the *code* verdict needs a rebuilt environment; the *evidence* verdict needs nothing but the clone.
 
-Regenerated from `artifacts/acceptance/final_gate_result.json` at 2026-09-26T13:03:59.
+Regenerated from `artifacts/acceptance/final_gate_result.json` at 2026-09-26T13:04:24.

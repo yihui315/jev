@@ -2,9 +2,9 @@
 
 **JEV_PROJECT_RUN=PASS**
 
-**写入时间:** 2026-09-26T13:03:59 · **HEAD:** `b0d6d2368c1c` · **工作树（判定时刻，门禁 P-01/P-05 为准）:** clean（P-01=OK, P-05=OK）
+**写入时间:** 2026-09-26T13:04:41 · **HEAD:** `8ca68b89c70b` · **工作树（判定时刻，门禁 P-01/P-05 为准）:** clean（P-01=OK, P-05=OK）
 
-> 关于工作树的自指说明：本报告本身位于 `artifacts/release/`（**不被 gitignore**），门禁的 `final_gate_result.json` 也会在它运行时被自己重写 —— 因此「现在是否有未提交改动」在报告内部**无法**自证：一写盘就为真。这里引用的是**门禁在真正干净的工作树上**给出的 P-01/P-05 判定，另附排除本批报告后的实测计数：**20** 条未提交改动。
+> 关于工作树的自指说明：本报告本身位于 `artifacts/release/`（**不被 gitignore**），门禁的 `final_gate_result.json` 也会在它运行时被自己重写 —— 因此「现在是否有未提交改动」在报告内部**无法**自证：一写盘就为真。这里引用的是**门禁在真正干净的工作树上**给出的 P-01/P-05 判定，另附排除本批报告后的实测计数：**0** 条未提交改动。
 
 ## 一句话结论
 
@@ -67,7 +67,7 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 | E-06 | `GO` | 签于 `df3e7d91ac27` | `-` |
 | E-07 | `GO` | 签于 `df3e7d91ac27` | `a47bf7b9561de1dbea0a25cb5b1b78007a397c30` |
 
-三条腿都签在**发布冻结** `df3e7d91ac27`，而 E-07 跑在 `a47bf7b9561d`：`git diff --name-only` 的 **32** 个变更路径**全部**落在 `EVIDENCE_PREFIXES` 内（越界项：无）⇒ 冻签仍描述 HEAD 的产品。
+三条腿都签在**发布冻结** `df3e7d91ac27`，而 E-07 跑在 `a47bf7b9561d`：`git diff --name-only` 的 **81** 个变更路径**全部**落在 `EVIDENCE_PREFIXES` 内（越界项：无）⇒ 冻签仍描述 HEAD 的产品。
 
 `script/` 下 5 个文件（`start.ps1`/`restart.ps1`/`stop.ps1`/`status.ps1`/`JccCommon.ps1`）在冻结后**被修好**，这正是旧 SRE NO-GO 的 STOP SHIP 条件被清除的原因；因 `scripts/` 是证据前缀，修复**不**使冻签失效。
 
@@ -96,10 +96,10 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 | 项 | 值 |
 | --- | --- |
 | 发布冻结 | `df3e7d91ac274d971ef110199d5b65acf131aacd` |
-| 当前 HEAD | `b0d6d2368c1c8947a5aade35980c3a74abfea622` |
-| 冻结→HEAD 变更路径 | 32（全部为发布证据） |
+| 当前 HEAD | `8ca68b89c70b2d35b2724ec2d118101ff3a92053` |
+| 冻结→HEAD 变更路径 | 81（全部为发布证据） |
 | frozen scripts 哈希源 | `artifacts/release/freeze_manifest.json`（taken_at 2026-09-26T06:24:41.972440） |
-| 工作树（判定时刻） | 门禁 P-01=OK / P-05=OK（另：排除本批报告后 20 条未提交改动） |
+| 工作树（判定时刻） | 门禁 P-01=OK / P-05=OK（另：排除本批报告后 0 条未提交改动） |
 
 | frozen script | sha256 |
 | --- | --- |
