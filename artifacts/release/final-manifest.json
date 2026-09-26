@@ -338,7 +338,7 @@
   "regeneration_check": {
     "how": "tools/continuation/publish_release_evidence.py --verify",
     "independence": "SELF-CHECK. It is the publisher verifying the publisher. FINAL-12 re-derives the legs with the controller's judges independently of this script, and that is the cross-check this one is not.",
-    "result": "PASS on 2026-09-26T23:48:57+08:00: every substantive field matches a fresh derivation and every listed hash recomputes"
+    "result": "PASS on 2026-09-26T23:54:36+08:00: every substantive field matches a fresh derivation and every listed hash recomputes"
   },
   "schema": "jcc/final-manifest/2",
   "scripts_freeze": {

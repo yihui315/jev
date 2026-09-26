@@ -2,9 +2,9 @@
 
 **JEV_PROJECT_RUN=PASS**
 
-**写入时间:** 2026-09-26T13:04:41 · **HEAD:** `8ca68b89c70b` · **工作树（判定时刻，门禁 P-01/P-05 为准）:** clean（P-01=OK, P-05=OK）
+**写入时间:** 2026-09-26T23:50:57 · **HEAD:** `d9f865388994` · **工作树（判定时刻，门禁 P-01/P-05 为准）:** clean（P-01=OK, P-05=OK）
 
-> 关于工作树的自指说明：本报告本身位于 `artifacts/release/`（**不被 gitignore**），门禁的 `final_gate_result.json` 也会在它运行时被自己重写 —— 因此「现在是否有未提交改动」在报告内部**无法**自证：一写盘就为真。这里引用的是**门禁在真正干净的工作树上**给出的 P-01/P-05 判定，另附排除本批报告后的实测计数：**0** 条未提交改动。
+> 关于工作树的自指说明：本报告本身位于 `artifacts/release/`（**不被 gitignore**），门禁的 `final_gate_result.json` 也会在它运行时被自己重写 —— 因此「现在是否有未提交改动」在报告内部**无法**自证：一写盘就为真。这里引用的是**门禁在真正干净的工作树上**给出的 P-01/P-05 判定，另附排除本批报告后的实测计数：**1** 条未提交改动。
 
 ## 一句话结论
 
@@ -56,18 +56,18 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 | --- | --- |
 | verdict | **GO** |
 | steps | 22 / 22，PASS 22 |
-| head_sha | `a47bf7b9561d` |
+| head_sha | `b11d77426ed3` |
 | abort | null |
-| step 14 THROUGHPUT | ok=5182 failed=0 rate=86.33/s（窗口 60s，门槛 900） |
+| step 14 THROUGHPUT | ok=941 failed=0 rate=15.67/s（窗口 60s，门槛 900） |
 | 运行方式 | 单实例、无 auto-retry、经 WMI 脱离 job |
 
 ## 3. 三条 GO 腿与最终门禁
 
-| E-05 | `GO WITH CONDITIONS` | 签于 `df3e7d91ac27` | `-` |
-| E-06 | `GO` | 签于 `df3e7d91ac27` | `-` |
-| E-07 | `GO` | 签于 `df3e7d91ac27` | `a47bf7b9561de1dbea0a25cb5b1b78007a397c30` |
+| E-05 | `GO WITH CONDITIONS` | 签于 `5ab5e20d961d` | `-` |
+| E-06 | `GO` | 签于 `5ab5e20d961d` | `-` |
+| E-07 | `GO` | 签于 `5ab5e20d961d` | `b11d77426ed35a086526791c70d1986adeeedfde` |
 
-三条腿都签在**发布冻结** `df3e7d91ac27`，而 E-07 跑在 `a47bf7b9561d`：`git diff --name-only` 的 **81** 个变更路径**全部**落在 `EVIDENCE_PREFIXES` 内（越界项：无）⇒ 冻签仍描述 HEAD 的产品。
+三条腿都签在**发布冻结** `5ab5e20d961d`，而 E-07 跑在 `b11d77426ed3`：`git diff --name-only` 的 **56** 个变更路径**全部**落在 `EVIDENCE_PREFIXES` 内（越界项：无）⇒ 冻签仍描述 HEAD 的产品。
 
 `script/` 下 5 个文件（`start.ps1`/`restart.ps1`/`stop.ps1`/`status.ps1`/`JccCommon.ps1`）在冻结后**被修好**，这正是旧 SRE NO-GO 的 STOP SHIP 条件被清除的原因；因 `scripts/` 是证据前缀，修复**不**使冻签失效。
 
@@ -77,17 +77,17 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 | blocker / high | 0 / 0 |
 | failed | none |
 | missing | none |
-| degraded（停表条件允许） | A-01, A-02, A-03, A-04, S-04, S-05 |
+| degraded（停表条件允许） | A-01, A-02, A-03, A-04 |
 | 测试总量（门禁自算） | 627 passed / 0 failed / 0 errors / 0 skipped |
 
 ## 4. 运行时验收（PHASE Q/R/S/T）
 
 | 阶段 | 结果 |
 | --- | --- |
-| Q 受控启动（仅产品脚本） | stop.ps1 exit `0`，start.ps1 exit `0`，health `200`，pid `19692` |
-| R 浸泡 | 1151 次轮询（每 2 s），健康失败 **0**，最长连续失败 **0**，延迟均值 **15.10 ms** / 峰值 30.2 ms，20 连发 39 轮共失败 0，listener pid 变更 **0** |
-| S 重启验收 | restart.ps1 exit `0`，pid `19692` → `3384`（新 pid=True），health `200`，status.ps1 exit `0` |
-| T 看门狗恢复 | 决策过程 **PASS**（4/4 用例，exit `0`，artifact `PASS`）；服务级探测-恢复 **True** |
+| Q 受控启动（仅产品脚本） | stop.ps1 exit `1`，start.ps1 exit `0`，health `200`，pid `4624` |
+| R 浸泡 | 1151 次轮询（每 2 s），健康失败 **0**，最长连续失败 **0**，延迟均值 **18.01 ms** / 峰值 49.9 ms，20 连发 39 轮共失败 0，listener pid 变更 **0** |
+| S 重启验收 | restart.ps1 exit `0`，pid `4624` → `1840`（新 pid=True），health `200`，status.ps1 exit `0` |
+| T 看门狗恢复 | 决策过程 **PASS: 8/8 decision-rule cases behaved as required**（4/4 用例，exit `0`，artifact `PASS`）；服务级探测-恢复 **True** |
 
 另有一次 job 外 **1200 s** 寿命追踪作为独立佐证：健康失败 **0 次（整段无失败）**，listener pid 变更 1。
 
@@ -95,19 +95,30 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 
 | 项 | 值 |
 | --- | --- |
-| 发布冻结 | `df3e7d91ac274d971ef110199d5b65acf131aacd` |
-| 当前 HEAD | `8ca68b89c70b2d35b2724ec2d118101ff3a92053` |
-| 冻结→HEAD 变更路径 | 81（全部为发布证据） |
-| frozen scripts 哈希源 | `artifacts/release/freeze_manifest.json`（taken_at 2026-09-26T06:24:41.972440） |
-| 工作树（判定时刻） | 门禁 P-01=OK / P-05=OK（另：排除本批报告后 0 条未提交改动） |
+| 发布冻结 | `5ab5e20d961db4c9807f578195ae8530dea2f7d9` |
+| 当前 HEAD | `d9f865388994827fcd9554e163f97d855324d4df` |
+| 冻结→HEAD 变更路径 | 56（全部为发布证据） |
+| frozen scripts 哈希源 | `artifacts/release/freeze_manifest.json`（taken_at 2026-09-26T23:47:26+08:00） |
+| 工作树（判定时刻） | 门禁 P-01=OK / P-05=OK（另：排除本批报告后 1 条未提交改动） |
 
 | frozen script | sha256 |
 | --- | --- |
 | `scripts/acceptance.ps1` | `f3175809d79953c9…` |
 | `scripts/bootstrap.ps1` | `90d739990609d8bb…` |
+| `scripts/continuation-watchdog-install.ps1` | `a482a62ac9ed559f…` |
+| `scripts/continuation-watchdog-status.ps1` | `8234418dd36f0251…` |
+| `scripts/continuation-watchdog-uninstall.ps1` | `6a7c9073415e2a7c…` |
+| `scripts/continuation-watchdog.ps1` | `8c0beb58f2a772e7…` |
 | `scripts/doctor.ps1` | `5fd766d61d6cf408…` |
-| `scripts/lib/JccCommon.ps1` | `17016a3d69a1690a…` |
+| `scripts/emit_release_evidence.py` | `d6d6417a0282db0b…` |
+| `scripts/lib/JccCommon.ps1` | `bfd4401c840433e6…` |
+| `scripts/lib/JccRuntimeLease.ps1` | `ecd8e48e694444f6…` |
+| `scripts/lib/JccWatchdogCommon.ps1` | `b8517da78706bceb…` |
 | `scripts/restart.ps1` | `a46a0386fb13c55b…` |
+| `scripts/service-watchdog-install.ps1` | `4c4ac7fada641219…` |
+| `scripts/service-watchdog-status.ps1` | `831841b5c63ad32b…` |
+| `scripts/service-watchdog-uninstall.ps1` | `3634606c0db579cb…` |
+| `scripts/service-watchdog.ps1` | `4be012cb6355d61c…` |
 | `scripts/start.ps1` | `f67a0c6e9214294a…` |
 | `scripts/status.ps1` | `76ed9bff12f485d3…` |
 | `scripts/stop.ps1` | `832bbbdfb7d05818…` |
@@ -116,7 +127,7 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 
 1. **E-07 step 22 第三处不可满足条件（arity off-by-one）**：SELF_CHECK 自己就是第 22 条记录，却在只有 21 条（1..21）时断言 `len(steps)==22`。修法：签名写明 arity 契约（`steps` = 已完成前缀，`in_flight` = 自己），并新增 **step-set 检查**（前缀必须恰为 `1..expected-in_flight`，无 gap / 无重复 / 不改号）——裸计数看不见「删一条 + 复制一条」的等长缺口。
 2. **反证脚本与生产调用点 arity 不一致**：旧反证喂给断言的是整个证据文件（22 条），而 runner 喂 21 条 ⇒ **测试为一个永不可满足的门禁颁发了合格证**。新反证 10/10 类全抓，含「旧测试那种 22 条形态必须被拒」的回归锁。
-3. **SRE 签署器比它自己的门禁更严**：旧检查要求腿签在 E-07 跑的那个提交上，而权威门禁明确接受「该提交 **或** 发布冻结（附证据-only diff 证明）」。E-07 在 `a47bf7b9561d`、另两腿在冻结 ⇒ **SRE 腿在门禁认可的形态下根本签不出来**。改为 `leg_position_ok()` 照搬权威规则。反证 15/15。**没有任何 flag 能把它变绿。**
+3. **SRE 签署器比它自己的门禁更严**：旧检查要求腿签在 E-07 跑的那个提交上，而权威门禁明确接受「该提交 **或** 发布冻结（附证据-only diff 证明）」。E-07 在 `b11d77426ed3`、另两腿在冻结 ⇒ **SRE 腿在门禁认可的形态下根本签不出来**。改为 `leg_position_ok()` 照搬权威规则。反证 15/15。**没有任何 flag 能把它变绿。**
 4. **截断证据可以签成 GO**：签署器原先只要求「看得见的每一步都 PASS」，删掉几步的 evidence 照样 GO。现按 evidence 自己声明的 `expected_steps` 校验条数与 step 集。
 5. **看门狗自身 stdout 为管道时阻塞到控制器退出**（A/B 实测：管道 21.3 s vs 文件 3.1 s，控制器寿命 20 s）。这正是看门狗头注释里记载的陷阱在**上一层**复现：注释防的是**子进程**的 stdout，而没有防它**自己**的 stdout。后果：任何捕获其输出的调用方（计划任务/CI/朴素 subprocess）会一直阻塞到控制器死亡，从而永远看不到它。**机制路径未定论，只主张实测行为。**
 6. **T1 的 4/4 PASS 曾被一行 cleanup print 杀掉，且证据文件根本没写出来**：`print("cleanup: …")` 抛 `UnicodeEncodeError`（`taskkill` 的 GBK 输出被 utf-8 解码成 `\ufffd`，本机 stdout 又是 GBK）。崩溃在第 330 行、证据写在 359 行 ⇒ **那一次运行没有产出任何证据文件**，即一次全过的运行被一个清理语句销毁。修法（治类）：编码感知的 `decode_out()`、非 tty 时 stdout 固定 UTF-8 + `backslashreplace`、cleanup 段整体 `try/except`。
@@ -129,7 +140,7 @@ ROOT_CAUSE_2 = HARNESS_DEFECT / PER_REQUEST_SSL_CONTEXT_CHURN
 1. `final_gate_run.py` 约 1051 行 `g.ok(...) + cond_note`：`Gate.ok` 返回 `None`，故「签在 HEAD 且带 conditions 的腿」会 `TypeError`。**这个表达式还有第二重错误**：即使不崩，它也会把 `cond_note`（该腿的生效条件）**丢掉不显示**，而同一函数在冻结位分支里是正常拼接的（1068-1070 行）——即同一个语义在两个分支上不一致。当前三腿全签在冻结位，**该分支不可达**；且异常是 **fail-closed**（traceback + exit 1，不会假 PASS）。**未修改**：在最终判决前动唯一的停表条件，收益不抵风险；改它还会让「验证者」在腿已签署之后被改动。这是**已知潜在缺陷，不是已豁免项**——它需要单独的一次授权与一次完整重跑来修。
 2. **看门狗监督的是 continuation controller，不是服务本身。** 仓库里**没有任何组件会在 `jcc_core` 死亡后自动重启它**；T2 是操作员经产品脚本执行的探测-恢复循环，不是自动看门狗。
 3. 计划任务 `JEV-JCC-Continuation-Watchdog` 在本机**未注册**（注册需提权，未请求）。
-4. 修复后 step 14 的门槛（900/60 s）比实测能力低约 5.8×，该门禁**已不具区分力**。提高门槛属策略决定，不在本次授权内。
+4. 修复后 step 14 的门槛（900/60 s）比实测能力低约 1.0×，该门禁**已不具区分力**。提高门槛属策略决定，不在本次授权内。
 5. 1200 s 寿命追踪的轮询节奏实测 ~4.9 s（非 2 s 规格），因为每轮需起 PowerShell 进程；本报告 §4 的浸泡轮询为 2 s，未受此限。
 6. **书面停表条件与门禁实现之间存在一处实质性不一致（本报告第 6 节外的新发现）**：`docs/FINAL_STOP_CONDITIONS.md` 的 Verdict 段只授权 **B 段（适配器）** 可以是 `DEGRADED`（并允许 C-05 为 `PENDING_EXTERNAL_ACTIVATION`），而实现的 `check_surfaces_structural()` 会对 **C 段的 S-04 / S-05** 发出 `g.degraded(...)`，且 `complete = not blocking` 中 `blocking` 只含 `MISSING`/`FAILED` ⇒ **`DEGRADED` 永不阻断**。也就是说：门禁在「S-04 未取证全部 8 屏、S-05 仅取证夹具+DEMO 标签」的情况下仍给出 `PROJECT_COMPLETE=true`，而按书面文字这两项属 C 段、须 `OK`。**未修改**——把它改成与文字一致会让 `PROJECT_COMPLETE` 翻成 `false`，即直接改变停表结果，这属于业主的策略决定，不是本轮授权范围内的改动。⇒ **读法**：`PROJECT_COMPLETE=true` 是**门禁实现的判定**（而按文档 `final_gate_run.py --full` 的 PASS 本就是唯一停表条件），两项 C 段残差以 `DEGRADED` 计并已具名列出，**未**被静默吸收。
 
