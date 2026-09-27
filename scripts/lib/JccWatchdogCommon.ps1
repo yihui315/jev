@@ -571,21 +571,140 @@ function New-JccScheduledTask {
 }
 
 function Get-JccTaskReport {
+    <#
+      WHAT A TASK IS, REPORTED IN THREE STATES RATHER THAN TWO.
+
+      The old body was:
+
+          $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+          if ($null -eq $task) { exists = $false }
+
+      On this host `Get-ScheduledTask` cannot answer at all -- it throws
+      ``ERROR: 系统找不到指定的文件。`` (ERROR_FILE_NOT_FOUND, raised by the Task
+      Scheduler CIM provider) inside a sandboxed shell -- so `$task` was ALWAYS
+      `$null` and every task was reported as NOT REGISTERED. Measured against the
+      truth: two tasks (JEV-JCC-Service-Watchdog, JEV-JCC-Continuation-Watchdog)
+      were present, Enabled, and firing every two minutes at the very moment the
+      old code said they did not exist. A monitor that reports a running watchdog
+      as missing is worse than no monitor: it sends an operator to "install" a
+      task that already exists, and it hides a genuinely deleted one.
+
+      So: "could not query" is never folded into "not there".
+
+        * PRIMARY ORACLE -- the scheduler's own on-disk store,
+          C:\\Windows\\System32\\Tasks\\<name>. Reading it needs neither the
+          ScheduledTasks module nor the CIM provider. A missing file is still not
+          absence on its own: the store is LISTED first, and only a successful
+          listing that does not contain the name establishes ABSENT.
+        * SECONDARY ORACLE -- Get-ScheduledTaskInfo, which DOES work here and
+          supplies last_run / last_result / next_run.
+
+      `certain` says whether a state was actually established. Callers that print
+      or act on `exists` must respect it.
+    #>
     param([Parameter(Mandatory=$true)][string]$TaskName)
-    Import-Module ScheduledTasks -ErrorAction Stop
-    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if ($null -eq $task) {
-        return [pscustomobject]@{ exists = $false; enabled = $false; state = $null;
-                                  last_result = $null; last_run = $null; next_run = $null;
-                                  identity = $null }
+
+    function New-Blank {
+        param([string]$State, [bool]$Certain, [string]$Oracle, [string]$Detail)
+        return [pscustomobject]@{
+            exists = $false; enabled = $false; state = $State; certain = $Certain
+            oracle = $Oracle; detail = $Detail; identity = $null
+            last_result = $null; last_run = $null; next_run = $null
+            repetition = $null; command = $null; arguments = $null
+            user_id = $null; run_level = $null
+        }
     }
+
+    $taskStore = Join-Path $env:SystemRoot 'System32\Tasks'
+    $storeFile = Join-Path $taskStore $TaskName
+
+    $storeState = 'unknown'
+    $storeDetail = ''
+    $xml = $null
+    if (Test-Path -LiteralPath $storeFile -PathType Leaf) {
+        try {
+            $xml = [xml](Get-Content -LiteralPath $storeFile -Raw -ErrorAction Stop)
+            $storeState = 'present'
+        } catch {
+            $storeState = 'unknown'
+            $storeDetail = "task definition $storeFile exists but could not be read: $($_.Exception.Message)"
+        }
+    } else {
+        try {
+            $listed = @(Get-ChildItem -LiteralPath $taskStore -ErrorAction Stop | ForEach-Object { $_.Name })
+            if ($listed -contains $TaskName) {
+                $storeState = 'unknown'
+                $storeDetail = "the task store lists '$TaskName' but its definition $storeFile could not be read"
+            } else {
+                $storeState = 'absent'
+                $storeDetail = "the task store was listed ($($listed.Count) entries) and '$TaskName' is not among them"
+            }
+        } catch {
+            $storeState = 'unknown'
+            $storeDetail = "task definition $storeFile is missing and the task store could not be listed either: $($_.Exception.Message)"
+        }
+    }
+
+    if ($storeState -eq 'unknown') {
+        # Try to ESTABLISH existence through the module; a refusal here is still
+        # 'unknown', never 'absent'.
+        try {
+            Import-Module ScheduledTasks -ErrorAction Stop
+            $t = Get-ScheduledTask -TaskName $TaskName -ErrorAction Stop
+            if ($null -eq $t) {
+                return New-Blank -State 'ABSENT' -Certain $true -Oracle 'scheduledtasks-module' -Detail 'the module returned no record'
+            }
+            $rep = @($t.Triggers | Where-Object { $_.Repetition.Interval } | ForEach-Object { [string]$_.Repetition.Interval })
+            return [pscustomobject]@{
+                exists = $true; enabled = ($t.Settings.Enabled -eq $true); state = [string]$t.State
+                certain = $true; oracle = 'scheduledtasks-module'; detail = ''
+                identity = [string]$t.Principal.UserId
+                last_result = $null; last_run = $null; next_run = $null
+                repetition = $(if ($rep.Count) { $rep[0] } else { $null })
+                command = [string]$t.Actions[0].Execute
+                arguments = [string]$t.Actions[0].Arguments
+                user_id = [string]$t.Principal.UserId
+                run_level = [string]$t.Principal.RunLevel
+            }
+        } catch {
+            return New-Blank -State 'UNKNOWN' -Certain $false -Oracle 'none' `
+                -Detail ("$storeDetail; and the ScheduledTasks module could not answer either: $($_.Exception.Message)")
+        }
+    }
+
+    if ($storeState -eq 'absent') {
+        return New-Blank -State 'ABSENT' -Certain $true -Oracle 'task-store-listing' -Detail $storeDetail
+    }
+
+    # ---- primary oracle answered: parse the stored definition -------------- #
+    $ns = New-Object System.Xml.XmlNamespaceManager($xml.NameTable)
+    $ns.AddNamespace('t', 'http://schemas.microsoft.com/windows/2004/02/mit/task')
+    function Select-Text($xpath) {
+        $n = $xml.SelectSingleNode($xpath, $ns)
+        if ($null -eq $n) { return $null }
+        return [string]$n.InnerText
+    }
+
+    $enabledRaw = Select-Text '//t:Settings/t:Enabled'
+    $enabled = ($enabledRaw -and ($enabledRaw.Trim().ToLower() -eq 'true'))
+    $intervals = @($xml.SelectNodes('//t:Triggers//t:Repetition/t:Interval', $ns) | ForEach-Object { $_.InnerText.Trim() })
+
     $info = $null
     try { $info = Get-ScheduledTaskInfo -TaskName $TaskName -ErrorAction Stop } catch { $info = $null }
+
     return [pscustomobject]@{
         exists      = $true
-        enabled     = ($task.State -ne 'Disabled')
-        state       = [string]$task.State
-        identity    = [string]$task.Principal.UserId
+        enabled     = $enabled
+        state       = $(if ($enabled) { 'Ready' } else { 'Disabled' })
+        certain     = $true
+        oracle      = 'task-store-xml'
+        detail      = $storeDetail
+        identity    = Select-Text '//t:Principals/t:Principal/t:UserId'
+        user_id     = Select-Text '//t:Principals/t:Principal/t:UserId'
+        run_level   = Select-Text '//t:Principals/t:Principal/t:RunLevel'
+        command     = Select-Text '//t:Actions/t:Exec/t:Command'
+        arguments   = Select-Text '//t:Actions/t:Exec/t:Arguments'
+        repetition  = $(if ($intervals.Count) { $intervals[0] } else { $null })
         last_result = $(if ($info) { $info.LastTaskResult } else { $null })
         last_run    = $(if ($info) { [string]$info.LastRunTime } else { $null })
         next_run    = $(if ($info) { [string]$info.NextRunTime } else { $null })

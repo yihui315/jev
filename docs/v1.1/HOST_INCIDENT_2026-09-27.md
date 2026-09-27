@@ -127,3 +127,99 @@ Control-UI smoke, §25 security re-run, §26 final gates' non-live legs.
 3. pause this verification effort and address host stability first (the documented
    pending remediation: BIOS `DRAM Frequency → DDR4-2133`, RAM A/B in safe mode,
    reduce to two DIMMs, BIOS update, MemTest86 per-DIMM).
+
+---
+
+## Resolution (2026-09-27 22:29–22:37) — option 1 was chosen and executed
+
+**GREEN 4778 is back, serving the frozen v1.0.1 code, and is now self-healing.**
+The measured record is `artifacts/release/V1_1_GREEN_RUNTIME_RESTORE.json`
+(emitted by `tools/v1_1_emit_green_runtime_restore.py`, which re-checks itself
+against live state with `--check`).
+
+### How the code is served
+
+`packages/` from `f8ac95d30f67f892e28fba03e3d99f900a65a61d` — the baseline's own
+`rollback_sha` — is extracted into an immutable snapshot at
+`runtime/stable_v101/` (gitignored, so the worktree stays clean), and
+`PYTHONPATH` puts that snapshot FIRST. The v1.1 worktree is never checked out,
+reset, or modified. Provenance was settled by measurement, not assumption: the
+`packages/` tree is **byte-identical** between `f8ac95d` and
+`cefed66159a5` (the commit on disk when pid 9952 actually started), and only
+`scripts/` moved between them — and scripts are re-read on each invocation, never
+loaded into the running process. So the snapshot reproduces exactly what the dead
+service had loaded.
+
+### The proof that 4778 is the frozen code
+
+Two independent routes prove the on-disk tree (`verify`: manifest **and**
+`git cat-file --batch` against the commit — 126/126 files, digest
+`3f630125322d…`), and a third proves the LIVE payload: the frozen `server.py`
+returns **7** health keys and the v1.1 one returns **12**. The live service
+returns exactly those 7, and `provider_mode` — which only the v1.1 file adds — is
+absent. That is a non-vacuous discriminator, asserted from both revisions so a
+broken parse cannot silently certify anything.
+
+`runtime/jcc/jcc.db` sha256 is `0a644062b4b5032d…`, unchanged: the existing data
+was preserved, not recreated. `config/jcc.yaml` is unchanged (and is in any case
+identical between the two commits).
+
+### Four real defects found and fixed on the way
+
+1. **The service watchdog had never once recovered anything.** `.workbuddy/release_state.json`
+   does not exist and `service-watchdog.ps1` required it to read `READY` before
+   acting, so every tick since installation logged
+   `NOOP -- release state is <unset>; monitoring is reserved for READY`
+   — 951 consecutive lines, still ticking every 120 s while 4778 was dead.
+   `scripts/ensure-stable-runtime.ps1` has no such gate.
+2. **`Get-JccTaskReport` reported a running, enabled task as non-existent**,
+   because it read `Get-ScheduledTask`'s CIM refusal (that cmdlet throws
+   `ERROR_FILE_NOT_FOUND` here) as "no such task". Fixed to a three-state probe
+   — PRESENT / ABSENT / UNKNOWN — reading the scheduler's own XML store, since
+   folding "I could not query" into "it is not there" is the same defect class
+   this project has now hit six times.
+3. **The scheduled-task action silently did nothing.** `cmd.exe /c "<prog>" args >> "log"`
+   contains four quotes, which triggers cmd's legacy rule: strip the leading
+   quote and remove the LAST quote on the line. The log path's closing quote was
+   eaten, the program path was left unterminated, and the task reported
+   `LastTaskResult=1` while creating no log and no audit line. Fixed by wrapping
+   the whole command in one more quote pair.
+4. **The "immutable" snapshot was writable.** The first restore let CPython write
+   `__pycache__/*.pyc` into it — 35 extra files, tree digest changed — and the
+   restore's own proof then correctly refused with `FROZEN_PROOF_FAILED`. A tree
+   the runtime can mutate is not immutable, so the served process now runs with
+   `PYTHONDONTWRITEBYTECODE=1`, and `verify` stays strict instead of being taught
+   to ignore the very thing it exists to catch.
+
+Defect 4 is worth keeping: the failure was **loud and self-inflicted by design**.
+The restore refused to certify its own result rather than reporting success on a
+tree that had changed underneath it.
+
+### What protects it from here
+
+| Task | Trigger | Principal | Action |
+|---|---|---|---|
+| `JEV-JCC-Stable-Runtime` | AtStartup + AtLogOn | SYSTEM, Highest | `ensure-stable-runtime.ps1` |
+| `JEV-JCC-Stable-Health` | every 2 minutes | SYSTEM, Highest | `ensure-stable-runtime.ps1 -Watchdog` |
+
+Both were verified through the task store's XML (`state=Ready`, `enabled=true`,
+`repetition=PT2M`, correct script and arguments). The restore action is
+fail-closed in every branch that it does not own: a listener it cannot prove is
+ours is never signalled, and a runtime marker naming a still-live process is
+never cleaned. A recorded pid that is alive but whose start time differs from the
+marker is treated as **recycled** — which is exactly what happened during this
+restore, and the log records it in those words.
+
+### Honest deviations from the baseline
+
+- The recorded `pid`/`launcher_pid` necessarily differ (9952/18348 → new pids):
+  the host rebooted, so new pids are the correct outcome, not a defect.
+- The baseline's note reserves switching the production port for "final
+  maintenance acceptance". That authorisation was given for this restore, and it
+  was used in the most conservative possible way: **the port was switched TO the
+  rollback SHA itself**, so a rollback is now a no-op.
+- `scripts/service-watchdog.ps1` / `JEV-JCC-Service-Watchdog` were **left
+  installed and untouched**. They remain inert (defect 1), and the new tasks do
+  not depend on them. Retiring or retargeting that task is a follow-up decision,
+  not something to do silently during an outage.
+
