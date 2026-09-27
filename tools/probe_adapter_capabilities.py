@@ -582,7 +582,17 @@ def main(argv: Optional[List[str]] = None) -> int:
         # a tracked evidence file -- churn that hides a real change in noise.
         target.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
                           encoding="utf-8", newline="\n")
-        written.append(str(target.relative_to(REPO)))
+        # ``--out-dir`` may legitimately point OUTSIDE the repository: the test
+        # suite redirects the probe into scratch so the tracked evidence is left
+        # alone. Reporting a repo-relative path must not be the thing that breaks
+        # that -- before this guard, a scratch ``--out-dir`` wrote the first file
+        # and then died on ``relative_to`` for every agent, so the probe exited 1
+        # with only one of four files written and no "wrote N files" line.
+        try:
+            reported = str(target.relative_to(REPO))
+        except ValueError:
+            reported = str(target)
+        written.append(reported)
         caps_short = {k: v["status"] for k, v in doc["capabilities"].items()}
         print(f"[probe] {doc['adapter']:<9} status={doc['status']:<12} "
               f"mode={doc['probing_mode']:<16} caps={caps_short}")

@@ -167,6 +167,17 @@ class Directive(BaseModel):
     verify_reason: Optional[str] = None                   # D-33
     shadow: bool = True                                   # D-33
     human_approval: Optional[str] = None                  # D-33
+    # -- v1.1 §17 additive ------------------------------------------------
+    # ``scope`` is the named authority of the directive: what it is allowed to
+    # affect. It is DELIBERATELY separate from ``target_actuator`` — the actuator
+    # says where the effect would land, the scope says what was authorised — and
+    # the signing form ``v2`` covers it explicitly (``v1`` covered only the
+    # actuator, so an explicit scope could be rewritten under a valid v1
+    # signature). Defaulted and unpersisted, so it is additive in every sense:
+    # no column, no migration, and the twelve A8-pinned production artifacts are
+    # untouched. When unset, ``scope`` falls back to ``target_actuator`` — see
+    # ``signing.scope_token``, the one place that fallback is defined.
+    scope: Optional[str] = None
 
 
 class AuditEntry(BaseModel):
