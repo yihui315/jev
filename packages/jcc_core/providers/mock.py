@@ -65,6 +65,7 @@ def _band_for(score: float, thresholds: Thresholds) -> str:
 
 class DeterministicMockProvider(JevProvider):
     name = "mock"
+    mode = "MOCK"    # §7D — declared, never inferred
     verified = True  # deterministic, fully specified — safe to use in demo mode
 
     def __init__(self, model: str = "jev-1.13.0"):

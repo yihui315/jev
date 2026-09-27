@@ -200,7 +200,14 @@ A8_FROZEN_AT = (
     "    the fail-closed cost table plus the ``origin=SUPERVISOR_ORIGIN`` write\n"
     "    (632f0dd, owner: sentinel).\n"
     "  Nothing above is a silent edit: each value is the blob at the freeze commit, "
-    "taken with ``git rev-parse <freeze>:<path>``, never from a worktree."
+    "taken with ``git rev-parse <freeze>:<path>``, never from a worktree.\n"
+    "RE-BASELINED in the v1.1 ACTIVATION window (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 9bca4bd4a499… -> new 392059e69861…\n"
+    "    v1.1 §7D: /api/health gained the provider-mode contract\n"
+    "    (provider_mode / provider_verified / provider_activation_state, plus\n"
+    "    provider_requested_mode and provider_is_real). Deliberate and recorded --\n"
+    "    see docs/p3/A8_REBASELINE.json window V1.1-FREEZE-W-0.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -219,8 +226,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":
-        "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract.
+        "392059e698615ca92fe73b5b7228c0e30470ba2aeec43394b5c2b911efd4b90b",  # old: 9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce (frozen_at P4 freeze)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":

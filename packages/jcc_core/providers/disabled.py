@@ -25,6 +25,7 @@ from .base import JevProvider
 
 class DisabledProvider(JevProvider):
     name = "disabled"
+    mode = "DISABLED"   # §7D — declared, never inferred
     verified = True
 
     def assess(self, event: AEPEnvelope, session: SessionState) -> Assessment:

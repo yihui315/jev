@@ -25,6 +25,13 @@
       "start": "280bfa8",
       "end": "3936c96",
       "compliance_note": "Contains BOTH the budget.py byte change (280bfa8) and the pin update (3936c96). Under the relaxed wording this re-baseline is compliant; under the old 'same commit' wording it would have been a violation. This is the case that motivated the relaxation."
+    },
+    {
+      "id": "V1.1-FREEZE-W-0",
+      "authorized_batch": "v1.1 §7B/§7C/§7D real-Jev interface verification + provider-mode contract",
+      "start": "<the v1.1 §7 commit>",
+      "end": "<the same commit>",
+      "compliance_note": "Only packages/jcc_core/server.py moved. The byte change (server.py /api/health) and the pin update (test_p3_acceptance_gate.py _BASELINE_HASHES + A8_FROZEN_AT) are in ONE commit, so BOTH wordings of the rule are satisfied. The v1.1 branch is a NEW development line; the P3 verdict of 355/0/0/0 remains valid for ITS tree (认证 SHA 3936c96) and is NOT carried over -- v1.1 verdicts are produced fresh by the v1.1 gate runs."
     }
   ],
 
@@ -86,6 +93,16 @@
       "changed_in_commit": "280bfa8",
       "pin_updated_in_commit": "3936c96",
       "reason": "#70 / D-34 fail-closed: an uncostable directive action no longer charges 0.0 (arch-gate C1)",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/jcc_core/server.py",
+      "old": "9bca4bd4",
+      "new": "392059e6",
+      "window": "V1.1-FREEZE-W-0",
+      "changed_in_commit": "<same commit as pin_updated_in_commit>",
+      "pin_updated_in_commit": "<same commit as changed_in_commit>",
+      "reason": "v1.1 §7D provider-mode contract: /api/health now exposes provider_mode / provider_verified / provider_activation_state (+ provider_requested_mode and provider_is_real) so a stand-in provider can never render as REAL. Byte change and pin update are in the SAME commit, so the strict pre-relaxation wording is satisfied.",
       "authorized_by": "lead"
     }
   ],

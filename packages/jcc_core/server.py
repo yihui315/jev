@@ -37,6 +37,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import ValidationError
 
 from .core import CoreEngine
+from .providers.base import activation_state_for_requested
 from .schemas import AEPEnvelope, Directive, DirectiveAction
 
 logger = logging.getLogger("jcc.server")
@@ -133,9 +134,31 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     # ------------------------------------------------------------------ #
     @app.get("/api/health")
     def health():
+        provider = engine.provider
+        requested_mode = (config.jev.provider or "mock").upper()
         return {
             "status": "ok",
-            "jev_provider": engine.provider.name,
+            "jev_provider": provider.name,
+            # ---- §7D provider-mode contract -------------------------------- #
+            # The four fields below are the machine-readable answer to "which
+            # scorer produced the numbers I am looking at, and is it the real
+            # one?". They describe the LIVE provider object, so they cannot be
+            # faked by editing a document -- and `provider_is_real` is the
+            # single bit a UI badge may key off, which is what makes
+            # "mock dressed up as real" impossible to render.
+            "provider_mode": getattr(provider, "mode", "UNKNOWN"),
+            "provider_verified": bool(getattr(provider, "verified", False)),
+            "provider_activation_state": activation_state_for_requested(
+                requested_mode, provider
+            ),
+            # The CONFIGURED mode, kept separate on purpose: when `real` is
+            # requested but the key/flag is missing, the effective provider is
+            # DISABLED. Reporting only the effective value would make an
+            # operator's deliberate choice and a fail-closed fallback look
+            # identical, and those need opposite responses.
+            "provider_requested_mode": requested_mode,
+            "provider_is_real": bool(getattr(provider, "is_real", False)),
+            # ----------------------------------------------------------------- #
             "actuation_enabled": engine.actuator.enabled,
             "policy_version": config.policy.version,
             "localhost_only": True,

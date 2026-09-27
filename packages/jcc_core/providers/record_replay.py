@@ -105,6 +105,7 @@ class RecordReplayProvider(JevProvider):
     """
 
     name = "replay"
+    mode = "REPLAY"   # §7D — declared, never inferred
     # ``verified`` is True ONLY when the recording's source is a verified
     # run (we have no such source today). Until then it is False so the
     # kernel still routes a ``provider_unverified`` -> ESCALATE blocker.
