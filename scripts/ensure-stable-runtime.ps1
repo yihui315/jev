@@ -61,6 +61,116 @@ param(
     [int]$PidIdentitySkewSec = 2
 )
 
+# --------------------------------------------------------------------------- #
+# EVIDENCE BEFORE ANYTHING THAT CAN THROW.
+#
+# Two measured facts about this host decide the shape of everything below.
+#
+# (1) A watchdog that fails silently is indistinguishable from a healthy one.
+#     scripts\service-watchdog.ps1 was installed, enabled and ticking every two
+#     minutes for 951 consecutive ticks, and every one logged
+#     "NOOP -- release state is <unset>" because of a gate nobody knew about.
+#     The log said NOOP, so the watchdog looked fine, so nobody looked.
+#
+# (2) THE EVIDENCE CHANNEL MUST NOT BE HANDED TO THE PROCESS BEING WATCHED.
+#     This script LAUNCHES a detached service that outlives it, and Windows
+#     handle inheritance gives that service a copy of every inheritable handle
+#     the tick is holding. A previous revision let cmd.exe redirect the tick's
+#     stdout into runtime\logs\stable-runtime-watchdog.log with `>>`. cmd opens
+#     a redirect target with FILE_SHARE_READ, so the tick that launched a
+#     service LOCKED ITS OWN LOG AGAINST EVERY LATER TICK:
+#
+#         tick 22:36:41  launched the service; handle inherited; exit 2
+#         tick 22:37:41  `>>` open failed -> cmd never started PowerShell at all
+#         tick 22:39:39  exit 1, no output, log byte-identical, and the log's
+#         tick 22:41:41  silence read as health
+#
+#     Measured 2026-09-27 with the service up: opening that file for append
+#     failed under FileShare None AND Read AND ReadWrite ("being used by another
+#     process") while pid 14680, the service launcher, was alive.
+#
+#     The mirror image is equally bad: redirect a task into a PIPE and the
+#     inherited write end keeps the reader waiting forever, the task never
+#     leaves "Running", and MultipleInstances=IgnoreNew then suppresses every
+#     later tick. Both traps are one defect -- the watchdog's evidence channel
+#     gets captured by the thing it is watching.
+#
+#     So there is NO task-level redirection here, to a file or to a pipe. This
+#     script writes its own durable log, and every write is an explicit
+#     open/write/flush/close so no handle outlives the call and gets inherited.
+#     scripts\ensure-stable-runtime-install.ps1 registers the action with no
+#     `>>` and no `2>&1` for exactly this reason.
+# --------------------------------------------------------------------------- #
+function Write-JccRawLog {
+    <#  Append one line with an explicit open/write/flush/close.
+
+        Deliberately NOT Add-Content: the whole point is that no handle survives
+        the call. Never throws -- every caller sits on a path that logging must
+        not be able to break -- and reports success instead. #>
+    param([string]$Path, [string]$Text)
+    if (-not $Path) { return $false }
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes([string]$Text + "`r`n")
+        $fs = [System.IO.File]::Open($Path, [System.IO.FileMode]::Append,
+                                     [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+        try { $fs.Write($bytes, 0, $bytes.Length); $fs.Flush() } finally { $fs.Dispose() }
+        return $true
+    } catch { return $false }
+}
+
+$script:JccBootLog    = $null
+$script:JccDurableLog = $null
+$script:JccDurableOk  = $true
+$resolvedPort         = 0
+
+function Write-JccBoot {
+    <#  One line per milestone, so a tick that dies cannot do it invisibly.
+        `stage` alone is enough for a reader: enter / preflight-ok / caught.
+
+        THE LINE IS BUILT BY CONCATENATION, NOT WITH -f, ON PURPOSE. The first
+        draft used '{"at":"{0}",...}' -f ..., and PowerShell's format operator
+        read the literal braces of the JSON as format items, threw
+        FormatException, and the catch swallowed it -- so the beacon that exists
+        to make failure visible was itself invisible. Measured 2026-09-27: the
+        script ran, printed NOOP, and stable-runtime-boot.jsonl was never
+        created. An instrument that reports nothing must not be built out of
+        anything that can fail quietly. #>
+    param([string]$Stage, [string]$Detail = '')
+    try {
+        $who = 'unknown'
+        try { $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { }
+        $safe = ''
+        # A Windows path in JSON must not carry a raw backslash; fold it to a
+        # forward slash so the line stays readable AND valid, and strip only what
+        # would actually break the JSON.
+        if ($Detail) { $safe = (($Detail -replace '["\r\n]', ' ') -replace '\\', '/') -replace '\s+', ' ' }
+        $rec = '{"at":"' + (Get-Date).ToString('o') + '","pid":' + $PID +
+               ',"user":"' + $who + '","watchdog":' + ([bool]$Watchdog).ToString().ToLower() +
+               ',"stage":"' + $Stage + '","detail":"' + $safe + '"}'
+        if (Write-JccRawLog -Path $script:JccBootLog -Text $rec) { return $true }
+        # The beacon file itself did not accept the line. Fall back to a sibling
+        # before giving up: losing the beacon means losing the only evidence that
+        # this tick ever started, which is the exact failure the beacon exists to
+        # prevent. A sibling name is free by construction, so this cannot fail
+        # for the same reason.
+        if ($script:JccBootLog) { return (Write-JccRawLog -Path ($script:JccBootLog + '.unwritable') -Text $rec) }
+        return $false
+    } catch { return $false }
+}
+
+# The log directory is created here, before any dependency, because the beacon
+# cannot be written into a directory that does not exist yet.
+try {
+    $logsDir = Join-Path (Split-Path -Parent (Split-Path -Parent $PSCommandPath)) 'runtime\logs'
+    if (-not [System.IO.Directory]::Exists($logsDir)) {
+        [System.IO.Directory]::CreateDirectory($logsDir) | Out-Null
+    }
+    $script:JccBootLog    = Join-Path $logsDir 'stable-runtime-boot.jsonl'
+    $script:JccDurableLog = Join-Path $logsDir 'stable-runtime-watchdog.log'
+} catch { }
+
+Write-JccBoot -Stage 'enter' -Detail ('watchdog=' + [bool]$Watchdog + ';root=[' + [string]$Root + '];port=' + [string]$Port) | Out-Null
+
 $ErrorActionPreference = 'Stop'
 
 $ScriptDir = Split-Path -Parent $PSCommandPath
@@ -90,6 +200,14 @@ $RecoveryDir = Join-Path $Root 'runtime\recovery'
 # how many attempts in a row have failed.
 $BackoffLadder = @(10, 30, 60, 120, 300)
 
+# Everything above this line runs OUTSIDE the try/catch below -- parameter
+# binding, dot-sourcing the libraries, resolving the root, finding the
+# interpreter, reading the port out of the config. A failure in any of it kills
+# the tick before the first Write-Tick, which is precisely how the silence this
+# file now guards against was produced. The beacon turns that into evidence.
+Write-JccBoot -Stage 'preflight-ok' -Detail (
+    'port=' + [string]$resolvedPort + ';python=[' + [string]$PythonExe + '];snapshot=[' + [string]$SnapshotDir + '];audit=[' + [string]$AuditLog + ']') | Out-Null
+
 function Get-LastExitCode {
     <#  `$LASTEXITCODE` only exists once a native command (or a script that ran
         `exit N`) has executed, and under `Set-StrictMode -Version 2.0` -- which
@@ -117,10 +235,22 @@ function Write-Tick {
         watchdog = [bool]$Watchdog
     }
     try { Add-JccJsonLine -Path $AuditLog -Object $rec } catch { }
-    # Also on stdout, which the scheduled task redirects into
-    # runtime\logs\stable-runtime-watchdog.log -- so a parse error that happens
-    # before this function exists still lands in a durable file.
-    Write-Output ('[{0}] {1} {2}: {3}' -f $rec.at, $Level, $Action, $Detail)
+    $line = '[{0}] {1} {2}: {3}' -f $rec.at, $Level, $Action, $Detail
+    # The durable human-readable log is written HERE, by this script, one
+    # open/write/close per line -- never by a task-level redirect. A redirect
+    # handle is inherited by the detached service and locks the file against
+    # every later tick; see the header block for the measurement.
+    if ($script:JccDurableLog) {
+        if (-not (Write-JccRawLog -Path $script:JccDurableLog -Text $line)) {
+            # The canonical log is unopenable. Never drop the line on the floor:
+            # write it beside the log and say so. (Only reached if some other
+            # process still holds a legacy lock -- the point of this design is
+            # that nothing we launch ever can.)
+            $script:JccDurableOk = $false
+            Write-JccRawLog -Path ($script:JccDurableLog + '.unwritable') -Text ('CANONICAL-LOG-UNWRITABLE ' + $line) | Out-Null
+        }
+    }
+    Write-Output $line
 }
 
 function Write-RecoveryBackup {
@@ -511,6 +641,11 @@ try {
     exit 2
 }
 catch {
-    try { Write-Tick -Action 'TICK_FAILED' -Level 'ERROR' -Detail ($_.Exception.GetType().Name + ': ' + $_.Exception.Message) } catch { }
+    $failure = $_.Exception.GetType().Name + ': ' + $_.Exception.Message
+    # Write-Tick itself can throw here -- it reads $resolvedPort and friends, and
+    # the whole reason we are in this block may be that one of them was never
+    # set. So the beacon (which depends on nothing) is written unconditionally.
+    try { Write-Tick -Action 'TICK_FAILED' -Level 'ERROR' -Detail $failure } catch { }
+    Write-JccBoot -Stage 'caught' -Detail $failure | Out-Null
     exit 1
 }

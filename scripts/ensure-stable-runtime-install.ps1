@@ -13,12 +13,31 @@
     BOTH run scripts\ensure-stable-runtime.ps1 -- the same audited action, so
     there is exactly one definition of "make GREEN correct".
 
-    WHY THE ACTION IS WRAPPED IN cmd.exe. `powershell.exe -File x.ps1` gives the
-    script no durable output: if it fails to PARSE, nothing it wrote ever runs and
-    the failure is invisible except as a LastTaskResult nobody reads. Wrapping in
-    cmd.exe with `>> log 2>&1` means even a parse error lands in
-    runtime\logs\stable-runtime-watchdog.log. Note this is a file redirect, never
-    a pipe: an inherited pipe is what keeps a scheduled task "Running" forever.
+    THERE IS NO REDIRECTION IN THE ACTION, ON PURPOSE -- NEITHER A FILE NOR A
+    PIPE. Both are the same defect wearing different clothes, and both were
+    measured on this host.
+
+    A FILE redirect (`>> log 2>&1`) leaks: cmd.exe opens the target with
+    FILE_SHARE_READ, the action LAUNCHES a detached service that outlives the
+    tick, Windows handle inheritance hands the service a copy of that writable
+    handle, and from that moment the file is locked against every later tick.
+    cmd then cannot open its own redirect, never starts PowerShell at all, and
+    the tick ends with LastTaskResult=1 having written NOTHING -- so the log's
+    silence looks like health. Measured 2026-09-27: ticks at 22:37:41/22:39:39/
+    22:41:41 produced no log growth (6211 -> 6211 bytes) and no audit line,
+    while an append-open of that file failed under FileShare None, Read AND
+    ReadWrite.
+
+    A PIPE redirect is the mirror image: the inherited write end keeps the
+    reader waiting forever, the task never leaves "Running", and
+    MultipleInstances=IgnoreNew then suppresses every subsequent tick.
+
+    So the action is a bare powershell.exe -File with no redirection. Durable
+    output is the script's own job: ensure-stable-runtime.ps1 writes
+    runtime\logs\stable-runtime-watchdog.log and runtime\logs\stable-runtime-
+    boot.jsonl itself, with an explicit open/write/close per line, so that no
+    handle can outlive a call and be inherited by anything. Removing cmd.exe
+    also removes the legacy-quote hazard below.
 
     PRINCIPAL: SYSTEM when the host allows it, otherwise the current user at
     Highest. A per-user task does not exist until that user logs on, so AtStartup
@@ -50,8 +69,23 @@ if (-not (Test-Path -LiteralPath $scriptPath -PathType Leaf)) {
 
 $ps51 = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 if (-not (Test-Path -LiteralPath $ps51)) { $ps51 = 'powershell.exe' }
-$cmdExe = Join-Path $env:SystemRoot 'System32\cmd.exe'
-if (-not (Test-Path -LiteralPath $cmdExe)) { $cmdExe = 'cmd.exe' }
+
+# Parse the action before registering it. Without a cmd.exe redirect there is no
+# longer anything downstream that records a syntax error, so a script that cannot
+# even be parsed must be refused HERE, at install time, where a human is looking.
+# This closes the one hole that removing the redirect opens.
+try {
+    $tokens = $null; $errors = $null
+    [void][System.Management.Automation.Language.Parser]::ParseFile($scriptPath, [ref]$tokens, [ref]$errors)
+    if ($errors -and $errors.Count -gt 0) {
+        Write-Output ("install: ERROR {0} does not parse ({1} error(s)); refusing to register a tick nobody could debug" -f $scriptPath, $errors.Count)
+        foreach ($e in $errors) { Write-Output ('  ' + $e.Message + ' @ line ' + $e.Extent.StartLineNumber) }
+        exit 1
+    }
+} catch {
+    Write-Output ("install: ERROR could not parse-check {0}: {1}" -f $scriptPath, $_.Exception.Message)
+    exit 1
+}
 
 $logDir = Join-Path $Root 'runtime\logs'
 if (-not (Test-Path -LiteralPath $logDir)) { New-Item -ItemType Directory -Path $logDir -Force | Out-Null }
@@ -67,25 +101,10 @@ function Register-StableTask {
         [switch]$Every
     )
 
-    # cmd.exe /c "<ps51> <ActionArgs> >> "<log>" 2>&1"
-    #
-    # THE EXTRA OUTER QUOTE PAIR IS REQUIRED, NOT COSMETIC. cmd.exe's /c parsing
-    # only PRESERVES quote characters when the command line holds EXACTLY two of
-    # them; otherwise it falls back to the legacy rule "if the first character is
-    # a quote, strip the leading quote and remove the LAST quote character on the
-    # line". Written as '/c "<ps51>" args >> "<log>"' the line has four quotes, so
-    # the legacy rule fired, the LAST quote (closing the log path) was removed,
-    # the program path was left unterminated, and cmd failed with
-    #
-    #     LastTaskResult = 1
-    #
-    # while writing NOTHING: no log file, no audit line. Measured on this host
-    # 2026-09-27 -- the task looked like it had run, and the only trace was a
-    # number in the scheduler. Wrapping the whole command in one more pair makes
-    # the first character a quote and the last character a quote, so the legacy
-    # rule strips exactly those two and the inner quotes survive intact.
-    $inner = '"{0}" {1} >> "{2}" 2>&1' -f $ps51, $ActionArgs, $durableLog
-    $action = New-ScheduledTaskAction -Execute $cmdExe -Argument ('/c "' + $inner + '"') -WorkingDirectory $Root
+    # NO cmd.exe, NO `>>`, NO `2>&1` -- see the header for the two measurements
+    # (locked log / never-ending pipe) that make any redirection here a bug.
+    # The script owns its durable output; the task just runs it.
+    $action = New-ScheduledTaskAction -Execute $ps51 -Argument $ActionArgs -WorkingDirectory $Root
 
     $triggers = @()
     if ($TriggerKinds -contains 'AtLogOn')   { $triggers += New-ScheduledTaskTrigger -AtLogOn }
@@ -153,6 +172,18 @@ foreach ($d in $definitions) {
     # UNKNOWN rather than as a success.
     $report = Get-JccTaskReport -TaskName $d.name
 
+    # Fail-closed: the registered action must contain NO redirection. If a future
+    # edit reintroduces `>`/`|` here the task silently self-locks again, and the
+    # symptom is not a crash -- it is a log that stops growing. Assert it while a
+    # human is watching instead of discovering it from a silent port 4778.
+    $registeredAction = ([string]$report.command + ' ' + [string]$report.arguments)
+    if ($registeredAction -match '>>|2>&1|^\s*\|' -or $registeredAction -match '\|\s*$') {
+        Write-Output ("install: ERROR {0} was registered WITH a redirection; that is the self-locking defect" -f $d.name)
+        Write-Output ('  action: ' + $registeredAction)
+        $exit = 1
+        continue
+    }
+
     $triggerText = @($d.triggers)
     if ($d.every) { $triggerText += ('Every {0} min' -f $RepetitionMinutes) }
 
@@ -167,6 +198,8 @@ foreach ($d in $definitions) {
         requested_system = $true
         principal_refusals = @($res.refusals)
         durable_log      = $durableLog
+        durable_log_writer = 'scripts/ensure-stable-runtime.ps1 (open/write/close per line)'
+        task_redirection = 'none -- a redirect handle is inherited by the detached service and locks the log against later ticks'
         state            = $report.state
         enabled          = $report.enabled
         verified         = $report.certain
