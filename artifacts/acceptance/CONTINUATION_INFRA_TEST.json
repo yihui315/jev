@@ -1,5 +1,5 @@
 {
-  "check_count": 159,
+  "check_count": 177,
   "checks": [
     {
       "detail": "passed",
@@ -954,6 +954,114 @@
       "name": "test_the_unverified_critical_fields_are_named_individually",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually",
       "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_non_satisfied_verdict_names_its_defects",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_a_non_satisfied_verdict_names_its_defects",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_actuation_is_off_and_the_effective_level_is_l0",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_actuation_is_off_and_the_effective_level_is_l0",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_can_actually_fail",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_can_actually_fail",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_artifact_is_current",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_states_the_safe_completion_is_lawful",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_states_the_safe_completion_is_lawful",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_defect_codes_are_from_the_pinned_vocabulary",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_defect_codes_are_from_the_pinned_vocabulary",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_digest_changes_when_a_real_verdict_field_changes",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_embedded_ladder_equals_the_enforcement_table",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_ladder_equals_the_enforcement_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_emitter_has_no_write_mode_escape_hatch",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_has_no_write_mode_escape_hatch",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_emitter_opens_the_database_read_only_and_immutable",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_opens_the_database_read_only_and_immutable",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_normalised_digest_ignores_the_clock_and_the_path",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_normalised_digest_ignores_the_clock_and_the_path",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_verdict_agrees_with_the_headline",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_verdict_agrees_with_the_headline",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_two_consecutive_derivations_are_identical",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_two_consecutive_derivations_are_identical",
+      "ok": true
     }
   ],
   "failed": 0,
@@ -1116,11 +1224,29 @@
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_reason_does_not_contradict_the_gates",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_section_is_consistent_with_the_credential_state",
-    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually"
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_a_non_satisfied_verdict_names_its_defects",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_actuation_is_off_and_the_effective_level_is_l0",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_can_actually_fail",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_states_the_safe_completion_is_lawful",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_defect_codes_are_from_the_pinned_vocabulary",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_ladder_equals_the_enforcement_table",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_has_no_write_mode_escape_hatch",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_opens_the_database_read_only_and_immutable",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_normalised_digest_ignores_the_clock_and_the_path",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_verdict_agrees_with_the_headline",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_two_consecutive_derivations_are_identical"
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 159,
+  "passed_count": 177,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -1131,5 +1257,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "159/159 infrastructure test(s) passed"
+  "verdict": "177/177 infrastructure test(s) passed"
 }
