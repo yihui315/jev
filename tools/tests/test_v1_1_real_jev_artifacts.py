@@ -38,6 +38,12 @@ MD_REL = "docs/V1_1_REAL_JEV_INTERFACE.md"
 GEN_REL = "tools/v1_1_emit_real_jev_verification.py"
 PROBE_REL = "tools/v1_1_local_credential_discovery.py"
 
+#: The shipped replay recording is a §9A artifact in the same sense: it carries
+#: digests the provider RECOMPUTES and COMPARES, so a hand-edited fixture is
+#: refused at load. Its bytes must therefore come from its generator.
+REPLAY_FIXTURE_REL = "fixtures/v1.1/replay_default.jsonl"
+REPLAY_GEN_REL = "tools/v1_1_make_replay_fixture.py"
+
 JSON_PATH = REPO / JSON_REL
 MD_PATH = REPO / MD_REL
 
@@ -55,7 +61,8 @@ def report() -> dict:
 # --------------------------------------------------------------------------- #
 # Reproducibility
 # --------------------------------------------------------------------------- #
-@pytest.mark.parametrize("rel", [JSON_REL, MD_REL, GEN_REL, PROBE_REL])
+@pytest.mark.parametrize("rel", [JSON_REL, MD_REL, GEN_REL, PROBE_REL,
+                                 REPLAY_FIXTURE_REL, REPLAY_GEN_REL])
 def test_the_artifact_and_its_generator_are_in_head(rel):
     """HEAD, not the index -- an index-only file is absent from a fresh clone.
 
@@ -78,6 +85,35 @@ def test_check_mode_reports_the_artifacts_are_current():
     assert proc.returncode == 0, (
         "the committed verification record is stale relative to the interface "
         f"card.\nstdout: {proc.stdout}\nstderr: {proc.stderr}"
+    )
+
+
+def test_the_replay_fixture_is_current_and_loadable():
+    """Both halves, because either alone can pass on a broken fixture.
+
+    Byte-currency proves nobody hand-edited it. LOADABILITY proves the bytes are
+    acceptable to the verifier that will actually read them -- a fixture could be
+    perfectly reproducible and still be rejected (a wrong digest rule, an edited
+    assessment), and only the loader notices.
+    """
+    proc = subprocess.run(
+        [sys.executable, str(REPO / REPLAY_GEN_REL), "--check"],
+        capture_output=True, text=True, cwd=str(REPO),
+    )
+    assert proc.returncode == 0, (
+        f"the shipped replay fixture is stale.\nstdout: {proc.stdout}"
+        f"\nstderr: {proc.stderr}"
+    )
+
+    from jcc_core.providers.record_replay import REPLAY_SCHEMA, RecordReplayProvider
+
+    prov = RecordReplayProvider(recording_path=REPO / REPLAY_FIXTURE_REL)
+    assert prov.is_available() is True, "the shipped fixture did not load"
+    assert prov.entry_count >= 1
+    assert prov.recording_id, "the shipped fixture must declare a recording_id"
+    assert REPLAY_SCHEMA.endswith("/2"), (
+        "§9A requires the digest-bearing recording schema; a version regression "
+        "would silently drop the integrity checks"
     )
 
 

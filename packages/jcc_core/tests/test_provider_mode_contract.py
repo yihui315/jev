@@ -216,33 +216,31 @@ def test_disabled_requested_reads_as_disabled(tmp_path, monkeypatch):
 def test_replay_never_claims_to_be_real(tmp_path, monkeypatch):
     """A recording that NAMES ``real`` must still surface as REPLAY.
 
-    The fixture deliberately stores ``provider: "real"`` inside the assessment,
+    The recording deliberately stores ``provider: "real"`` inside the assessment,
     because that is the impersonation this test exists to catch: the recorded
     bytes say real, and the live surface must not agree.
     """
+    from jcc_core.providers.record_replay import build_entry, write_recording
+
+    recorded = _env(evidence={"ok": True})
     recording = tmp_path / "rec.jsonl"
-    recording.write_text(
-        json.dumps({
-            "schema": "jcc-replay/1",
-            "envelope": {"version": "aep/v0.1", "event_id": "e1", "delivery_id": "d1",
-                         "session_id": "s1", "agent": "workbuddy",
-                         "evidence": {"ok": True}, "schema_ok": True,
-                         "timestamp": 1700000000.0},
-            "session": None,
-            "assessment": {
-                "agent": "workbuddy", "session_id": "s1", "timestamp": 1700000000.0,
-                "model": "jev-1.13.0", "provider": "real",   # <-- the lie
-                "probabilities": {"risk": 0.1}, "risk_score": 0.1, "band": "low",
-                "needs_verify": False, "raw": {"source": "test"},
-                "confidence": None, "confidence_kind": "none",
-                "provider_verified": True, "blocker_kind": "NONE",
-                "blocker_reasons": [],
-            },
-            "captured_by": "test", "captured_at": "2026-09-27T00:00:00Z",
-            "source": "test",
-        }) + "\n",
-        encoding="utf-8",
-    )
+    write_recording(recording, [build_entry(
+        envelope=recorded,
+        assessment={
+            "agent": "workbuddy", "session_id": "s1", "timestamp": 1700000000.0,
+            "model": "jev-1.13.0", "provider": "real",   # <-- the lie
+            "probabilities": {"risk": 0.1}, "risk_score": 0.1, "band": "low",
+            "needs_verify": False, "raw": {"source": "test"},
+            "confidence": None, "confidence_kind": "none",
+            "provider_verified": True, "blocker_kind": "NONE",
+            "blocker_reasons": [],
+        },
+        session=None,
+        recording_id="rec-impostor",
+        created_at="2026-09-27T00:00:00Z",
+        provider_source="fixture",
+        captured_by="test",
+    )])
     monkeypatch.setenv("JCC_REPLAY_RECORDING", str(recording))
     client, engine = _client(tmp_path, monkeypatch, JevConfig(provider="replay"))
     assert isinstance(engine.provider, RecordReplayProvider)
@@ -252,9 +250,9 @@ def test_replay_never_claims_to_be_real(tmp_path, monkeypatch):
     assert b["jev_provider"] == "replay"
 
     # and the scored record itself is rewritten to "replay", not left as "real"
-    replayed = engine.provider.assess(_env(), None)
+    replayed = engine.provider.assess(recorded, None)
     assert replayed.provider == "replay"
-    assert replayed.raw["replay_provenance"]["schema"] == "jcc-replay/1"
+    assert replayed.raw["replay_provenance"]["schema_version"] == "jcc-replay/2"
 
 
 def test_no_non_real_provider_can_set_is_real():
