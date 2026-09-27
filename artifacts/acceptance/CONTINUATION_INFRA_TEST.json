@@ -1,5 +1,5 @@
 {
-  "check_count": 109,
+  "check_count": 122,
   "checks": [
     {
       "detail": "passed",
@@ -263,6 +263,36 @@
       "detail": "passed",
       "name": "test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_doctor_does_not_change_pass_fail_semantics",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_doctor_does_not_change_pass_fail_semantics",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_foreign_must_not_suggest_starting_over_it",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_foreign_must_not_suggest_starting_over_it",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_free_proposes_start",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_free_proposes_start",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_ours_says_do_not_start",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_ours_says_do_not_start",
       "ok": true
     },
     {
@@ -573,86 +603,134 @@
     },
     {
       "detail": "passed",
-      "name": "test_every_target_is_on_disk",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
+      "name": "test_every_core_site_is_on_disk",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_core_site_is_on_disk",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_document_under_artifacts_denies_the_registration",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_document_under_artifacts_denies_the_registration",
       "ok": true
     },
     {
       "detail": "passed",
       "name": "test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
       "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_deltas_track_wall_clock",
+      "node_id": "tools/tests/test_status_uptime.py::test_deltas_track_wall_clock",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_get_jcc_elapsed_truncates_not_rounds",
+      "node_id": "tools/tests/test_status_uptime.py::test_get_jcc_elapsed_truncates_not_rounds",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_pid_is_stable_across_samples",
+      "node_id": "tools/tests/test_status_uptime.py::test_pid_is_stable_across_samples",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_printed_uptime_matches_live_process_at_the_same_instant",
+      "node_id": "tools/tests/test_status_uptime.py::test_printed_uptime_matches_live_process_at_the_same_instant",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_uptime_is_monotonic",
+      "node_id": "tools/tests/test_status_uptime.py::test_uptime_is_monotonic",
       "ok": true
     }
   ],
@@ -702,6 +780,11 @@
     "tools/tests/test_continuation_infra.py::test_the_task_probe_never_reads_unverifiable_as_absent",
     "tools/tests/test_continuation_infra.py::test_the_watchdog_proof_drives_the_shipped_script_in_place",
     "tools/tests/test_continuation_infra.py::test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+    "tools/tests/test_doctor_next_hint.py::test_doctor_does_not_change_pass_fail_semantics",
+    "tools/tests/test_doctor_next_hint.py::test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+    "tools/tests/test_doctor_next_hint.py::test_foreign_must_not_suggest_starting_over_it",
+    "tools/tests/test_doctor_next_hint.py::test_free_proposes_start",
+    "tools/tests/test_doctor_next_hint.py::test_ours_says_do_not_start",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_1_only_allowed_evidence",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_2_product_path_refused",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_3_untracked_refused",
@@ -753,24 +836,32 @@
     "tools/tests/test_final_gate_legs.py::test_two_runs_over_the_same_tree_produce_byte_identical_verdicts",
     "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head",
     "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence"
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_core_site_is_on_disk",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_document_under_artifacts_denies_the_registration",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+    "tools/tests/test_status_uptime.py::test_deltas_track_wall_clock",
+    "tools/tests/test_status_uptime.py::test_get_jcc_elapsed_truncates_not_rounds",
+    "tools/tests/test_status_uptime.py::test_pid_is_stable_across_samples",
+    "tools/tests/test_status_uptime.py::test_printed_uptime_matches_live_process_at_the_same_instant",
+    "tools/tests/test_status_uptime.py::test_uptime_is_monotonic"
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 109,
+  "passed_count": 122,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -781,5 +872,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "109/109 infrastructure test(s) passed"
+  "verdict": "122/122 infrastructure test(s) passed"
 }
