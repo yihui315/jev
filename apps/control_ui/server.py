@@ -1,9 +1,11 @@
 """Stdlib ``http.server`` for the 2D Control UI (loopback only).
 
 A :class:`http.server.ThreadingHTTPServer` bound to 127.0.0.1 that renders the
-eight screens from LIVE control-plane data via :mod:`control_ui.api_client`. It
-holds no control token and never calls a mutating endpoint except the anonymous
-Security probe (which deliberately omits the token to prove the gate).
+nine routes from LIVE control-plane data via :mod:`control_ui.api_client` (the
+ninth is ``/v1.1``, whose panels come from release artifacts as well as from the
+API -- see :mod:`control_ui.v1_1`). It holds no control token and never calls a
+mutating endpoint except the anonymous Security probe (which deliberately omits
+the token to prove the gate).
 
 Launch (from ``F:/jev/apps`` so ``control_ui`` resolves):
 
@@ -17,7 +19,7 @@ import logging
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import parse_qs, unquote, urlparse
 
-from control_ui import model
+from control_ui import model, v1_1
 from control_ui.api_client import ApiClient
 from control_ui.bootstrap import load_config
 from control_ui.render import (
@@ -30,6 +32,7 @@ from control_ui.render import (
     render_session_detail,
     render_sessions,
     render_settings,
+    render_v1_1,
 )
 
 log = logging.getLogger("control_ui.server")
@@ -84,6 +87,10 @@ def make_handler(api_base: str, config):
                     self._send(render_audit(model.audit_model(api)))
                 elif path == "/health":
                     self._send(render_health(model.health_model(api)))
+                elif path == "/v1.1":
+                    q = parse_qs(parsed.query)
+                    sid = q.get("sid", [None])[0]
+                    self._send(render_v1_1(v1_1.v1_1_model(api, sid)))
                 else:
                     self._send(render_notfound(path), status=404)
             except Exception as exc:  # noqa: BLE001 -- render an error page, never crash the server
