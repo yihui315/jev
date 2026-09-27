@@ -1,5 +1,5 @@
 {
-  "check_count": 138,
+  "check_count": 159,
   "checks": [
     {
       "detail": "passed",
@@ -735,6 +735,132 @@
     },
     {
       "detail": "passed",
+      "name": "test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_missing_record_becomes_degraded_not_verified",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_a_missing_record_becomes_degraded_not_verified",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_all_four_agents_are_present_in_the_declared_order",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_all_four_agents_are_present_in_the_declared_order",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_an_unmappable_reported_status_does_not_become_verified",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_an_unmappable_reported_status_does_not_become_verified",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_is_not_vacuous",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_is_not_vacuous",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_matrix_is_current",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_reports_the_matrix_is_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_agent_covers_every_capability",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_every_agent_covers_every_capability",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_verified_capability_carries_live_evidence",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_every_verified_capability_carries_live_evidence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_actuation_capability_is_verified_on_this_host",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_no_actuation_capability_is_verified_on_this_host",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_telemetry_verification_includes_resolved_identity",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_telemetry_verification_includes_resolved_identity",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_actuation_summary_counts_match_the_per_agent_table",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_actuation_summary_counts_match_the_per_agent_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_adapter_probe_runs_green_on_this_host",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_adapter_probe_runs_green_on_this_host",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_evidence_digest_is_stable_across_derivations",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_evidence_digest_is_stable_across_derivations",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_does_not_hash_a_live_record_file",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_does_not_hash_a_live_record_file",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_uses_only_the_four_permitted_states",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_uses_only_the_four_permitted_states",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_probe_writes_lf_into_tracked_evidence",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_probe_writes_lf_into_tracked_evidence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_volatile_keys_are_stripped_at_any_depth",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_volatile_keys_are_stripped_at_any_depth",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_check_mode_reports_the_artifacts_are_current",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_check_mode_reports_the_artifacts_are_current",
       "ok": true
@@ -954,6 +1080,27 @@
     "tools/tests/test_status_uptime.py::test_pid_is_stable_across_samples",
     "tools/tests/test_status_uptime.py::test_printed_uptime_matches_live_process_at_the_same_instant",
     "tools/tests/test_status_uptime.py::test_uptime_is_monotonic",
+    "tools/tests/test_v1_1_capability_matrix.py::test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+    "tools/tests/test_v1_1_capability_matrix.py::test_a_missing_record_becomes_degraded_not_verified",
+    "tools/tests/test_v1_1_capability_matrix.py::test_all_four_agents_are_present_in_the_declared_order",
+    "tools/tests/test_v1_1_capability_matrix.py::test_an_unmappable_reported_status_does_not_become_verified",
+    "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_is_not_vacuous",
+    "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_reports_the_matrix_is_current",
+    "tools/tests/test_v1_1_capability_matrix.py::test_every_agent_covers_every_capability",
+    "tools/tests/test_v1_1_capability_matrix.py::test_every_verified_capability_carries_live_evidence",
+    "tools/tests/test_v1_1_capability_matrix.py::test_no_actuation_capability_is_verified_on_this_host",
+    "tools/tests/test_v1_1_capability_matrix.py::test_telemetry_verification_includes_resolved_identity",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_actuation_summary_counts_match_the_per_agent_table",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_adapter_probe_runs_green_on_this_host",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_evidence_digest_is_stable_across_derivations",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_does_not_hash_a_live_record_file",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_uses_only_the_four_permitted_states",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_probe_writes_lf_into_tracked_evidence",
+    "tools/tests/test_v1_1_capability_matrix.py::test_volatile_keys_are_stripped_at_any_depth",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_check_mode_reports_the_artifacts_are_current",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_every_verified_field_carries_evidence_and_a_date",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_no_credential_value_appears_in_either_artifact",
@@ -973,7 +1120,7 @@
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 138,
+  "passed_count": 159,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -984,5 +1131,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "138/138 infrastructure test(s) passed"
+  "verdict": "159/159 infrastructure test(s) passed"
 }
