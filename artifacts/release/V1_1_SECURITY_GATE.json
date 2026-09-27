@@ -1,0 +1,435 @@
+{
+  "check_count": 9,
+  "checks": [
+    {
+      "check": "S-01",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "mutating_routes": [
+          "/api/assess",
+          "/api/pause",
+          "/api/steer",
+          "/api/retry"
+        ],
+        "probes": [
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/assess",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/pause",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/steer",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/retry",
+            "wrong_token": 403
+          }
+        ]
+      },
+      "findings": [],
+      "non_vacuity_note": "the correct token must open the gate, otherwise 'refused without a token' proves nothing",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 2.314,
+      "title": "auth fail-closed on every mutating route"
+    },
+    {
+      "check": "S-02",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "benign_survived": true,
+        "directive_signature_present": true,
+        "env_secret_hits": {
+          "control token": [],
+          "signing key": []
+        },
+        "key_named_secret_hits": [],
+        "labelled_credential_hits": [],
+        "signature_self_verified": true,
+        "signed_rows": 1,
+        "sinks_scanned": [
+          "file:s02.db",
+          "table:assessments",
+          "table:audit_tape",
+          "table:audit_writer",
+          "table:directives",
+          "table:events",
+          "table:evidence",
+          "table:sessions",
+          "table:shadow_decisions",
+          "table:shadow_labels",
+          "table:sqlite_sequence"
+        ]
+      },
+      "findings": [],
+      "non_vacuity_note": "requires signed_rows >= 1 (signing was live during the scan) AND the benign string in the same payload to survive",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.796,
+      "title": "planted secrets absent from every persisted sink"
+    },
+    {
+      "check": "S-03",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "actual_get_routes": [
+          "/api/audit",
+          "/api/audit/verify",
+          "/api/decisions",
+          "/api/health",
+          "/api/sessions",
+          "/api/sessions/{sid}"
+        ],
+        "bound_address_observed": "127.0.0.1",
+        "declared_but_not_a_get_route": [],
+        "declared_open_get": [
+          "/api/audit",
+          "/api/audit/verify",
+          "/api/decisions",
+          "/api/health",
+          "/api/sessions",
+          "/api/sessions/{sid}"
+        ],
+        "get_route_but_not_declared": [],
+        "loopback_reachable": true,
+        "neither_get_nor_mutating": [
+          "/ws"
+        ],
+        "protected_port_open_during_run": true
+      },
+      "findings": [],
+      "non_vacuity_note": "requires at least one real GET route and a reachable loopback endpoint; two empty sets would compare equal",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.985,
+      "title": "loopback-only bind and no undeclared open route"
+    },
+    {
+      "check": "S-04",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "actuator_execute": [
+          {
+            "acted": false,
+            "dispatch_acted": false,
+            "enabled": false,
+            "reason": "actuation_disabled"
+          },
+          {
+            "acted": false,
+            "dispatch_acted": false,
+            "enabled": true,
+            "reason": "real_actuation_not_implemented"
+          }
+        ],
+        "l0_permits": [],
+        "modules_scanned": [
+          "packages/supervisor/actuation_levels.py",
+          "packages/supervisor/directive_gate.py",
+          "packages/supervisor/budget_report.py",
+          "packages/supervisor/live_shadow_gate.py",
+          "apps/control_ui/v1_1.py"
+        ]
+      },
+      "findings": [],
+      "non_vacuity_note": "requires modules scanned and at least one actuator execute() observed with acted=false",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.018,
+      "title": "v1.1 modules add no write and no egress"
+    },
+    {
+      "check": "S-05",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "environ_calls": [
+          "apps/control_ui/api_client.py:31:os.environ.get",
+          "apps/control_ui/bootstrap.py:24:os.environ.get"
+        ],
+        "modules_scanned": [
+          "apps/control_ui/__init__.py",
+          "apps/control_ui/__main__.py",
+          "apps/control_ui/api_client.py",
+          "apps/control_ui/bootstrap.py",
+          "apps/control_ui/conftest.py",
+          "apps/control_ui/model.py",
+          "apps/control_ui/paths.py",
+          "apps/control_ui/render.py",
+          "apps/control_ui/server.py",
+          "apps/control_ui/v1_1.py"
+        ],
+        "post_json_sites": [
+          "apps/control_ui/model.py:194:api.post_json"
+        ],
+        "raw_mutating_request_sites": [
+          "apps/control_ui/api_client.py:138:self.request(['POST'])"
+        ]
+      },
+      "findings": [],
+      "non_vacuity_note": "requires the probe's POST to be found; 'no POST found' and 'no POST expected' must not look the same",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.053,
+      "title": "the UI reads no token and posts only the probe"
+    },
+    {
+      "check": "S-06",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "foreign_imports": {},
+        "imports": {
+          "apps/control_ui/v1_1.py": [
+            "__future__",
+            "control_ui",
+            "json",
+            "pathlib",
+            "supervisor",
+            "typing"
+          ],
+          "packages/supervisor/actuation_levels.py": [
+            "__future__",
+            "enum",
+            "jcc_core",
+            "os",
+            "typing"
+          ],
+          "packages/supervisor/budget_report.py": [
+            "__future__",
+            "dataclasses",
+            "time",
+            "typing"
+          ],
+          "packages/supervisor/directive_gate.py": [
+            "__future__",
+            "dataclasses",
+            "jcc_core",
+            "typing"
+          ],
+          "packages/supervisor/live_shadow_gate.py": [
+            "__future__",
+            "dataclasses",
+            "time",
+            "typing"
+          ]
+        }
+      },
+      "findings": [],
+      "non_vacuity_note": "requires at least one module parsed",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.013,
+      "title": "v1.1 modules import only stdlib and project roots"
+    },
+    {
+      "check": "S-07",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "all_three": {
+          "actuation_enabled": true,
+          "defects": [],
+          "effective_level": "L2",
+          "observed_decisions": 3,
+          "observed_span_s": 2.0,
+          "satisfied": true,
+          "status": "SATISFIED"
+        },
+        "variants": {
+          "ceiling_never_granted": {
+            "actuation_enabled": false,
+            "ceiling": "L0",
+            "effective_level": "L0",
+            "expected_level": "L0",
+            "satisfied": true,
+            "status": "SATISFIED"
+          },
+          "criteria_unmet": {
+            "actuation_enabled": false,
+            "ceiling": "L2",
+            "effective_level": "L0",
+            "expected_level": "L0",
+            "satisfied": false,
+            "status": "PENDING_LIVE_SHADOW_GATE"
+          },
+          "operator_switch_off": {
+            "actuation_enabled": false,
+            "ceiling": "L2",
+            "effective_level": "L2",
+            "expected_level": "L2",
+            "satisfied": true,
+            "status": "SATISFIED"
+          }
+        }
+      },
+      "findings": [],
+      "non_vacuity_note": "requires the positive control (all three conditions) to open actuation; otherwise the removals prove nothing",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.004,
+      "title": "no single condition can enable actuation"
+    },
+    {
+      "check": "S-07c",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "allowed": [
+          "apps/control_ui/render.py",
+          "apps/control_ui/v1_1.py",
+          "packages/supervisor/live_shadow_gate.py",
+          "tools/v1_1_emit_shadow_gate.py",
+          "tools/v1_1_security_gate.py"
+        ],
+        "unexpected_consumers": []
+      },
+      "findings": [],
+      "non_vacuity_note": "requires the allow-list and the scan root to be non-empty",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.061,
+      "title": "no enforcement path consumes effective_level"
+    },
+    {
+      "check": "S-08",
+      "counts": {
+        "HIGH": 0,
+        "INFO": 0,
+        "LOW": 0,
+        "MEDIUM": 0
+      },
+      "error": null,
+      "evidence": {
+        "after": {
+          "protected_port_open": true,
+          "runtime_db_sha256": "0a644062b4b5032d52c883b59a3f874333f28deb9d0cc12d14280b26af62ab53",
+          "runtime_db_size": 57344,
+          "shm_present": false,
+          "wal_present": false
+        },
+        "before": {
+          "protected_port_open": true,
+          "runtime_db_sha256": "0a644062b4b5032d52c883b59a3f874333f28deb9d0cc12d14280b26af62ab53",
+          "runtime_db_size": 57344,
+          "shm_present": false,
+          "wal_present": false
+        },
+        "protected_db": "F:\\jev\\runtime\\jcc\\jcc.db",
+        "protected_port": 4778
+      },
+      "findings": [],
+      "non_vacuity_note": "requires the protected database to exist, so 'it did not change' is a statement about a real file",
+      "non_vacuous": true,
+      "ok": true,
+      "ran": true,
+      "seconds": 0.002,
+      "title": "the protected service and runtime DB are untouched"
+    }
+  ],
+  "checks_not_run": [],
+  "checks_ran": 9,
+  "counts": {
+    "HIGH": 0,
+    "INFO": 0,
+    "LOW": 0,
+    "MEDIUM": 0
+  },
+  "generated_at": "2026-09-27T16:07:40+0800",
+  "non_vacuity_gaps": [],
+  "repo_branch": "feature/jcc-v1.1-activation",
+  "repo_head": "1d0c86ba0e30560b44e97fc3ac4e80b89bd587c3",
+  "reproducibility": {
+    "deterministic": true,
+    "normalized_sha256": "862a088692c9c15b830b9be193bebb91d5d9049a03191d58e3e084a786609060",
+    "volatile_keys_stripped": [
+      "after",
+      "before",
+      "generated_at",
+      "protected_port_open",
+      "protected_port_open_during_run",
+      "repo_branch",
+      "repo_head",
+      "runtime_db_sha256",
+      "runtime_db_size",
+      "seconds",
+      "shm_present",
+      "sinks_scanned",
+      "traceback",
+      "wal_present",
+      "worktree_dirty"
+    ]
+  },
+  "schema": "jcc.v1_1.security_gate/v1",
+  "verdict": "GO",
+  "verdict_rule": "NO-GO iff high > 0, or any check failed to run, or any check reported its own evidence as vacuous",
+  "worktree_dirty": true
+}

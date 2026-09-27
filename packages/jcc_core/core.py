@@ -28,7 +28,7 @@ from .actuator import Actuator
 from .config import Config
 from .decision import ThresholdsConfig
 from .providers.base import JevProvider
-from .redaction import scrub_value_secrets
+from .redaction import mask_secret_key_values, scrub_value_secrets
 from .schemas import (
     AEPEnvelope,
     Assessment,
@@ -210,15 +210,21 @@ class CoreEngine:
 
         ingest_started = time.time()
 
-        # 0) Value-pattern scrub BEFORE anything is persisted (defense in depth):
-        #    the agent-side normalizers already key-name-redact, but a secret
-        #    embedded inside a free-form string under a non-secret key must also
-        #    be masked. This is the single chokepoint all ingest paths (HTTP +
-        #    in-process) pass through, so no producer can bypass it.
-        #    Kernel: jcc_core.redaction (ADR-0007 D-3).
-        event.payload = scrub_value_secrets(event.payload)
+        # 0) Secret redaction BEFORE anything is persisted (defense in depth).
+        #    Two passes over BOTH payload and evidence, masked keys FIRST:
+        #      (i)  key-name pass  -> mask the VALUE of any secret-NAMED key
+        #           (api_key / token / secret / password / authorization / …);
+        #      (ii) value-pattern pass -> mask secret-looking VALUES inside every
+        #           string leaf (a secret embedded in free-form text under a
+        #           non-secret key).
+        #    The agent-side normalizers already key-name-redact via redact(), but
+        #    POST /api/assess has NO adapter in its path, so this chokepoint is
+        #    the ONLY protection for that ingress: every ingest path (HTTP +
+        #    in-process) passes through it, and no producer may bypass it.
+        #    Kernel: jcc_core.redaction (ADR-0007 D-1, D-3).
+        event.payload = scrub_value_secrets(mask_secret_key_values(event.payload))
         if event.evidence is not None:
-            event.evidence = scrub_value_secrets(event.evidence)
+            event.evidence = scrub_value_secrets(mask_secret_key_values(event.evidence))
 
         now = time.time()
         existing = self.store.get_session(event.session_id)

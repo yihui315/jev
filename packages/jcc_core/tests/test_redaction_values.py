@@ -32,6 +32,7 @@ for p in (str(PACKAGES), str(_INTEG_COMMON)):
 from jcc_core.adapters import ClaudeAdapter
 from jcc_core.redaction import (
     DEPTH_LIMIT_MARK,
+    mask_secret_key_values,
     redact,
     scrub_str,
     scrub_value_secrets,
@@ -294,3 +295,159 @@ def test_deep_nested_secret_never_persisted(depth):
         assert engine.store.get_session(env.session_id) is not None
         ok, n = engine.store.verify_audit()
         assert ok is True and n >= 1
+
+
+# --------------------------------------------------------------------------- #
+# 7) §21 S-02c — the ingest CHOKEPOINT must apply the KEY-NAME pass too.
+#    Pre-fix, engine.ingest() ran ``scrub_value_secrets`` alone (value-pattern
+#    only, key-blind), so an AEP envelope whose payload held a secret under a
+#    secret-NAMED key (api_key / token / authorization / …) was persisted
+#    VERBATIM into jcc.db. This is reachable with NO adapter in the path
+#    (POST /api/assess -> AEPEnvelope(**body) -> engine.ingest), which is exactly
+#    the ingress ADR-0007 D-1 names as relying solely on the chokepoint.
+# --------------------------------------------------------------------------- #
+BENIGN = "benign-note-keep-me-visible"
+KEYNAME_SECRET = "keyname-leak-PLANTED-4f9a2c8e1b7d3056"
+KEYNAME_SECRET2 = "keyname-evidence-PLANTED-99aa88bb77cc66dd"
+#: > MAX_TEXT_LEN (240) and free of any secret shape, so ONLY redact()'s blanket
+#: truncation could shorten it — used to pin the chokepoint's no-truncation policy.
+LONG = ("lorem ipsum dolor sit amet " * 20).strip()
+
+
+def _all_row_reprs(store) -> str:
+    """repr() of EVERY row in EVERY table — the "did it reach the DB" check."""
+    chunks = []
+    with store.connection() as conn:
+        tables = [r[0] for r in conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table'").fetchall()]
+        for t in tables:
+            for row in conn.execute(f"SELECT * FROM {t}").fetchall():
+                chunks.append(f"{t}:{row!r}")
+    return "\n".join(chunks)
+
+
+def test_keyname_secret_from_chokepoint_never_persisted(tmp_path):
+    """(a) §21 S-02c regression guard — the non-vacuous key-name chokepoint test.
+
+    Ingest an envelope whose payload carries a secret under ``api_key`` (a
+    secret-NAMED key) alongside a benign string; the evidence carries one under
+    ``token``. Asserts the secrets are absent from the RAW DB BYTES and from
+    repr() of EVERY row, while the benign string SURVIVES (so a "shred the whole
+    payload" implementation cannot pass) and the session/event rows really exist
+    (so "nothing was written at all" cannot pass).
+
+    NON-VACUITY (negative direction): before ingest, the value-pattern pass is
+    run over the SAME payload and the secret is asserted STILL PRESENT — proving
+    ``scrub_value_secrets`` alone does not close this hole, i.e. this test FAILS
+    if the key-name pass is reverted from the chokepoint.
+    """
+    payload = {"tool_input": {"api_key": KEYNAME_SECRET, "note": BENIGN}}
+    # negative direction: value-pattern-only scrubbing leaves the secret in place.
+    assert KEYNAME_SECRET in json.dumps(scrub_value_secrets(payload)), (
+        "non-vacuity broken: scrub_value_secrets alone already removed the secret, "
+        "so this test would not prove the key-name pass does anything"
+    )
+
+    engine = _engine(str(tmp_path))
+    env = AEPEnvelope(
+        event_id="ev_keyname",
+        delivery_id="dl_keyname",
+        session_id="sess-keyname",
+        agent="workbuddy",
+        project="demo",
+        cwd="/tmp",
+        event_type="tool_call",
+        payload=payload,
+        evidence={"token": KEYNAME_SECRET2, "ok": True},
+    )
+    engine.ingest(env)
+
+    blob = _db_bytes(str(tmp_path))
+    assert KEYNAME_SECRET.encode() not in blob, "payload api_key secret leaked into jcc.db!"
+    assert KEYNAME_SECRET2.encode() not in blob, "evidence token secret leaked into jcc.db!"
+
+    rows = _all_row_reprs(engine.store)
+    assert KEYNAME_SECRET not in rows, "payload secret visible in a persisted DB row"
+    assert KEYNAME_SECRET2 not in rows, "evidence secret visible in a persisted DB row"
+    # NOT a shredder: ordinary non-secret content survives the chokepoint.
+    assert BENIGN in rows, "benign value was destroyed -> the chokepoint over-reaches"
+    # NOT vacuous the other way: the write really happened.
+    assert engine.store.get_session("sess-keyname") is not None, "no session persisted"
+    with engine.store.connection() as conn:
+        (n,) = conn.execute(
+            "SELECT COUNT(*) FROM events WHERE session_id='sess-keyname'").fetchone()
+    assert n == 1, "the event was not persisted at all -> the guard is vacuous"
+
+
+def test_chokepoint_does_not_truncate_or_reshape_non_secret_payload(tmp_path):
+    """(b) No over-reach — non-secret-named keys keep their values VERBATIM,
+    including a >MAX_TEXT_LEN (240) string that ``redact()`` WOULD truncate, and
+    nested structure keeps its shape. Pins the deliberate no-truncation decision.
+    """
+    assert len(LONG) > 240, "fixture must exceed MAX_TEXT_LEN for this pin to bite"
+    payload = {"note": LONG, "nested": {"a": [1, 2, {"b": "ok"}]}}
+
+    engine = _engine(str(tmp_path))
+    env = AEPEnvelope(
+        event_id="ev_long",
+        delivery_id="dl_long",
+        session_id="sess-long",
+        agent="workbuddy",
+        project="demo",
+        cwd="/tmp",
+        event_type="tool_call",
+        payload=payload,
+        evidence=None,
+    )
+    engine.ingest(env)
+
+    with engine.store.connection() as conn:
+        (raw,) = conn.execute(
+            "SELECT payload FROM events WHERE event_id='ev_long'").fetchone()
+    stored = json.loads(raw)
+    assert stored["note"] == LONG, (
+        "a long NON-secret value was truncated at the chokepoint (over-reach)"
+    )
+    assert "[sha256:" not in stored["note"], "redact()'s truncation tag reached the chokepoint"
+    assert stored["nested"] == {"a": [1, 2, {"b": "ok"}]}, stored["nested"]
+
+
+def test_mask_secret_key_values_unit_contract():
+    """(c) Unit contract for the new kernel function."""
+    out = mask_secret_key_values({
+        "api_key": "S1",
+        "token": "S2",
+        "authorization": "S3",
+        "keep": "visible",
+        "list": [{"password": "S4", "ok": "yes"}],
+    })
+    assert out["api_key"] == "[REDACTED]"
+    assert out["token"] == "[REDACTED]"
+    assert out["authorization"] == "[REDACTED]"
+    assert out["keep"] == "visible"                       # sibling untouched
+    assert out["list"] == [{"password": "[REDACTED]", "ok": "yes"}]  # list recursion
+
+    # scalars pass through untouched: no truncation, no value scrub
+    assert mask_secret_key_values("bearer sk-abcdefghijklmnop") == "bearer sk-abcdefghijklmnop"
+    assert mask_secret_key_values(7) == 7
+    assert mask_secret_key_values(True) is True
+    assert mask_secret_key_values(None) is None
+
+    # depth cap: collapse to the SHARED marker, never raw passthrough
+    deep = mask_secret_key_values(_nest(12, "deep-leaf"))
+    node = deep
+    for _ in range(8):
+        node = node["child"]                       # descend to depth 8
+    assert node["child"] == DEPTH_LIMIT_MARK       # depth 9 collapsed
+    assert DEPTH_LIMIT_MARK in json.dumps(deep)
+    assert "deep-leaf" not in json.dumps(deep)
+
+
+def test_redact_still_truncates_long_leaf():
+    """(d) Adapter-plane semantics UNCHANGED: ``redact()`` still truncates a
+    >240-char string leaf and tags it with a sha256 digest. This pins that the new
+    chokepoint function did not alter the shared kernel's existing behaviour."""
+    out = redact({"note": LONG})
+    assert out["note"] != LONG, "redact() stopped truncating its long leaf"
+    assert "[sha256:" in out["note"], out["note"]
+    assert out["note"].startswith(LONG[:240])

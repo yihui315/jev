@@ -208,14 +208,19 @@ A8_FROZEN_AT = (
     "    (provider_mode / provider_verified / provider_activation_state, plus\n"
     "    provider_requested_mode and provider_is_real). Deliberate and recorded --\n"
     "    see docs/p3/A8_REBASELINE.json window V1.1-FREEZE-W-0.\n"
+    "RE-BASELINED for the §21 security gate fix (1 pinned file moved):\n"
+    "  packages/jcc_core/core.py\n"
+    "    old 72fc0f99.. -> new 93ee369f..\n"
+    "    §21 S-02c: ingest chokepoint now applies the key-name redaction pass, ADR-0007 D-1\n"
+    "    (mask_secret_key_values() runs before scrub_value_secrets() on payload+evidence).\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
     "config/jcc.yaml":
         "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-    "packages/jcc_core/core.py":  # A8 re-baseline (lead, 2026-09-25): P5 _broadcast fix (a74f1d9) moved this blob.
-        "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",  # old: 7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84 (frozen_at e6f5c15)
+    "packages/jcc_core/core.py":  # A8 re-baseline (§21 S-02c, 2026-09-27): ingest chokepoint now applies the key-name redaction pass (ADR-0007 D-1).
+        "93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae",  # old: 72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e (frozen_at P5 _broadcast fix a74f1d9)
     "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
     "packages/jcc_core/decision.py":

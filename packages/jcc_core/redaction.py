@@ -159,6 +159,68 @@ def scrub_value_secrets(value: Any, *, _depth: int = 0) -> Any:
     return value
 
 
+def mask_secret_key_values(value: Any, *, _depth: int = 0) -> Any:
+    """Mask the VALUE under any secret-NAMED key; nothing else changes.
+
+    The key-name half of the redaction policy, WITHOUT ``redact()``'s blanket
+    240-char truncation of every string leaf.
+
+    WHY IT EXISTS (ADR-0007 D-1). Redaction is a *persistence-boundary*
+    guarantee, not an adapter-only concern. ``CoreEngine.ingest`` is the single
+    chokepoint every ingress passes through, and ``POST /api/assess`` has **no
+    adapter** in its path — the adapter-side :func:`redact` never runs there. The
+    only protection for that ingress is the scrub applied inside
+    ``core.ingest``. That scrub previously used :func:`scrub_value_secrets`
+    alone, which only masks secret-looking *values* inside string leaves and
+    never inspects keys: a payload such as
+    ``{"tool_input": {"api_key": "<secret>"}}`` was persisted **verbatim**
+    (keys ``api[_-]?key``, ``token``, ``secret``, ``password``, ``authorization``
+    … all leaked by name). This function supplies the missing key-name pass so
+    the chokepoint applies BOTH halves of the policy.
+
+    THE NO-TRUNCATION DECISION IS DELIBERATE, NOT AN OVERSIGHT. :func:`redact`
+    additionally truncates *every* string leaf longer than ``MAX_TEXT_LEN``
+    (240) and appends a ``sha256:`` tag. Reusing ``redact`` here would silently
+    destroy audit detail at the chokepoint for every ingress — including the
+    adapter-less ``/api/assess`` path — while ADR-0007 D-1 requires only that
+    secrets not be persisted, not that ordinary long values be shortened. The
+    ``"[REDACTED]"`` marker and the value-scrub markers are precisely what the
+    audit keeps: they record *that* a credential was present. Blanket truncation
+    would lower audit fidelity without closing any hole, so it is intentionally
+    left to :func:`redact` on the adapter plane, where the free-text/PII
+    truncation policy was defined.
+
+    Shares ``MAX_SCRUB_DEPTH`` / ``DEPTH_LIMIT_MARK`` with :func:`redact` and
+    :func:`scrub_value_secrets`; all three collapse identically past the cap so
+    their behaviour cannot drift apart.
+
+    Semantics (match :func:`redact`'s key-name behaviour, and nothing more):
+      * dict: a key matching :data:`_SECRET_KEY_RE` -> value becomes the literal
+        ``"[REDACTED]"``; every other key recurses.
+      * list / tuple: recurse into elements (returned as a list).
+      * str / bool / int / float / None (and anything else): returned unchanged —
+        NO truncation, NO value scrub. The value scrub is done by
+        :func:`scrub_value_secrets` at the same call site.
+      * deeper than ``MAX_SCRUB_DEPTH`` -> ``DEPTH_LIMIT_MARK`` (the shared
+        fail-safe collapse).
+      * never raises.
+    """
+    if _depth > MAX_SCRUB_DEPTH:
+        return DEPTH_LIMIT_MARK
+    if isinstance(value, dict):
+        out: Dict[str, Any] = {}
+        for k, v in value.items():
+            key = str(k)
+            if _SECRET_KEY_RE.search(key):
+                out[key] = "[REDACTED]"
+            else:
+                out[key] = mask_secret_key_values(v, _depth=_depth + 1)
+        return out
+    if isinstance(value, (list, tuple)):
+        return [mask_secret_key_values(v, _depth=_depth + 1) for v in value]
+    return value
+
+
 def redact(value: Any, *, _depth: int = 0) -> Any:
     """Return a JSON-safe, secret-free, PII-light copy of ``value``.
 
