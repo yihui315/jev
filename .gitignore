@@ -137,3 +137,14 @@ id_ed25519
 # the provenance checks (P-01/P-05). Ignore them; do not delete them (只搬不删).
 nul
 NUL
+
+# v1.1 Real Jev Provider secrets and tokens (added 2026-09-27 by the
+# v1.1 baseline commit on feature/jcc-v1.1-activation). The provider
+# uses an env var (jev.api_key_env) and a base URL; the secret itself
+# never enters the repository. These rules are belt-and-suspenders so
+# an accidental drop of a recorded credential file is invisible to git
+# and the gate's P-01 stays satisfiable.
+fixtures/v1.1/**/*.api_key
+fixtures/v1.1/**/*.tok
+fixtures/v1.1/**/real_session_*.json
+runtime/v1.1/**/shadow_endpoint.token
