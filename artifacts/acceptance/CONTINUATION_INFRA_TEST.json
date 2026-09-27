@@ -1,5 +1,5 @@
 {
-  "check_count": 135,
+  "check_count": 138,
   "checks": [
     {
       "detail": "passed",
@@ -765,6 +765,12 @@
     },
     {
       "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
       "ok": true
@@ -773,6 +779,12 @@
       "detail": "passed",
       "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
       "ok": true
     },
     {
@@ -791,6 +803,12 @@
       "detail": "passed",
       "name": "test_the_real_jev_verdict_is_a_lawful_state",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_real_jev_verdict_is_a_lawful_state",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_replay_fixture_is_current_and_loadable",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
       "ok": true
     },
     {
@@ -941,18 +959,21 @@
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_no_credential_value_appears_in_either_artifact",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_REAL_JEV_VERIFICATION.json]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[docs/V1_1_REAL_JEV_INTERFACE.md]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_document_and_the_json_quote_the_same_card_digest",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_json_cannot_disagree_with_the_interface_card",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_real_jev_verdict_is_a_lawful_state",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_reason_does_not_contradict_the_gates",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_section_is_consistent_with_the_credential_state",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually"
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 135,
+  "passed_count": 138,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -963,5 +984,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "135/135 infrastructure test(s) passed"
+  "verdict": "138/138 infrastructure test(s) passed"
 }
