@@ -612,14 +612,37 @@ function Get-JccTail {
 }
 
 function Get-JccElapsed {
-    param([datetime]$Since)
+    param([datetime]$Since, [datetime]$Now)
     if (-not $Since) { return '( unknown )' }
+    if (-not $Now) { $Now = Get-Date }
     try {
-        $d = (Get-Date) - $Since
+        $d = $Now - $Since
         if ($d.TotalMilliseconds -lt 0) { $d = New-TimeSpan -Seconds 0 }
-        $totalSec = [int]$d.TotalSeconds
-        $hh = [int]($totalSec / 3600)
-        $mm = [int](($totalSec % 3600) / 60)
+
+        # TRUNCATE, never round.
+        #
+        # MEASURED DEFECT (2026-09-27): this used to be
+        #     $totalSec = [int]$d.TotalSeconds
+        #     $hh = [int]($totalSec / 3600)
+        #     $mm = [int](($totalSec % 3600) / 60)
+        # In PowerShell a [int] cast applied to a DOUBLE does NOT truncate -- it
+        # rounds (banker's rounding, via Convert.ToInt32). Measured on this host
+        # with the live service: an elapsed time of 31033.3186547s -- plainly
+        # 8h37m13s -- was printed as "09h37m13s", because 31033/3600 = 8.6203
+        # rounds UP to 9. The same is true of the minutes: a remainder of 34m45s
+        # (34.75) was printed as "35m".
+        #
+        # So the reading was silently ONE HOUR LONG whenever the minute
+        # remainder passed 30 -- an uptime that jumps forward by an hour on its
+        # own, which is precisely the "impossible uptime" this was reported for.
+        # It also made the bug invisible in exactly the common case: a service
+        # restarted within the last half hour shows the right hour, so a quick
+        # check after a restart passes and the drift only appears later.
+        #
+        # [math]::Floor keeps it a truncation all the way down.
+        $totalSec = [int][math]::Floor($d.TotalSeconds)
+        $hh = [int][math]::Floor($totalSec / 3600)
+        $mm = [int][math]::Floor(($totalSec % 3600) / 60)
         $ss = $totalSec % 60
         return ('{0:d2}h{1:d2}m{2:d2}s' -f $hh, $mm, $ss)
     } catch {
@@ -633,6 +656,118 @@ function New-JccEnsureDir {
     if (-not (Test-Path -LiteralPath $Path)) {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
     }
+}
+
+function Get-JccUptimeReading {
+    <#
+        The one definition of "how long has the service been up".
+
+        SOURCE PRECEDENCE (and the order is the point):
+          1. Get-Process(<service pid>).StartTime  -- authoritative
+          2. Win32_Process.CreationDate            -- cross-check ONLY
+          3. the ownership marker                  -- provenance ONLY, never a source
+
+        WHY THE MARKER MAY NOT BE A SOURCE. It is written by start.ps1 a moment
+        AFTER the process already exists (measured here: process 22:18:17.865,
+        marker 22:18:20.005 -- 2.14 s later), and it is a file: it can be copied,
+        edited, or restored from a backup. Uptime is a property of the LIVE
+        PROCESS, so a file must never be allowed to answer for it. The marker
+        still proves identity ("this is the process we started"), which is what
+        it is good at.
+
+        WHY THE RESULT CANNOT CHANGE UP/DOWN. Warnings here are observations
+        about the CLOCKS, not about the service. A drifted marker or a skewed CIM
+        reading says "I do not trust my own instrumentation", never "the service
+        is down"; misreading it as the latter would mark a healthy service DOWN.
+
+        Pure: takes timestamps, returns a reading. Testable without a service.
+    #>
+    param(
+        [datetime]$ProcessStart,
+        [datetime]$CimCreation,
+        [datetime]$MarkerStart,
+        [datetime]$Now,
+        [int]$SourceSkewWarnSec = 5,
+        [int]$MarkerDriftWarnSec = 30
+    )
+
+    if (-not $Now) { $Now = Get-Date }
+
+    $warnings = New-Object System.Collections.Generic.List[string]
+    $uptime = '-'
+    $source = 'none'
+
+    if ($ProcessStart) {
+        $uptime = (Get-JccElapsed -Since $ProcessStart -Now $Now)
+        $source = 'process'
+    } elseif ($CimCreation) {
+        $uptime = (Get-JccElapsed -Since $CimCreation -Now $Now)
+        $source = 'cim'
+        $warnings.Add('UPTIME_SOURCE_WARNING: Get-Process(StartTime) was unavailable, so uptime was read from Win32_Process.CreationDate instead. That is the cross-check, not the authoritative source.')
+    } else {
+        $warnings.Add('UPTIME_SOURCE_WARNING: neither Get-Process(StartTime) nor Win32_Process.CreationDate could be read, so uptime is unknown. It is deliberately NOT taken from the ownership marker.')
+    }
+
+    $skew = $null
+    if ($ProcessStart -and $CimCreation) {
+        $skew = [math]::Abs((($CimCreation - $ProcessStart).TotalSeconds))
+        if ($skew -gt $SourceSkewWarnSec) {
+            $warnings.Add(('UPTIME_SOURCE_WARNING: Get-Process(StartTime) and Win32_Process.CreationDate disagree by {0:N1}s (tolerance {1}s). The process reading is authoritative and was used; the CIM reading is reported for diagnosis only.' -f $skew, $SourceSkewWarnSec))
+        }
+    }
+
+    $drift = $null
+    if ($ProcessStart -and $MarkerStart) {
+        $drift = [math]::Abs((($MarkerStart - $ProcessStart).TotalSeconds))
+        if ($drift -gt $MarkerDriftWarnSec) {
+            $warnings.Add(('UPTIME_SOURCE_WARNING: the ownership marker says the service started {0:N1}s away from when the process was actually created (tolerance {1}s). The marker proves identity, not uptime, so uptime was NOT taken from it -- but the marker may be stale or from a different instance.' -f $drift, $MarkerDriftWarnSec))
+        }
+    }
+
+    return @{
+        Uptime       = $uptime
+        Source       = $source
+        Warnings     = @($warnings)
+        SkewSec      = $skew
+        MarkerDriftSec = $drift
+        NowIso       = $Now.ToString('o')
+        ProcessStartIso = $(if ($ProcessStart) { $ProcessStart.ToString('o') } else { '' })
+        CimCreationIso  = $(if ($CimCreation)  { $CimCreation.ToString('o') }  else { '' })
+        MarkerStartIso  = $(if ($MarkerStart)  { $MarkerStart.ToString('o') }  else { '' })
+    }
+}
+
+function Get-JccNextHint {
+    <#
+        What to run next, given what we just measured.
+
+        The old doctor printed "next: .\scripts\start.ps1" unconditionally, so a
+        host where the service was already UP was told to start it again -- a
+        hint that, taken literally, is a maintenance restart of a healthy
+        instance. Worse, it was printed even when the port was held by a FOREIGN
+        process, where start.ps1 would refuse (and where telling an operator to
+        cover someone else's listener is actively unsafe).
+
+        Pure: takes a port state, returns the hint. Testable without a service.
+    #>
+    param(
+        [ValidateSet('OURS','FREE','FOREIGN')]
+        [string]$PortState,
+        [int]$ForeignPid = 0
+    )
+
+    switch ($PortState) {
+        'OURS' {
+            return 'none -- JCC is already running (verify with .\scripts\status.ps1)'
+        }
+        'FREE' {
+            return '.\scripts\status.ps1  (or start it with .\scripts\start.ps1)'
+        }
+        'FOREIGN' {
+            return ('do NOT run .\scripts\start.ps1 -- port is held by foreign pid ' + $ForeignPid + '; identify it first with .\scripts\status.ps1')
+        }
+    }
+    return '.\scripts\status.ps1'
 }
 
 # NOTE: this file is DOT-SOURCED by every scripts\*.ps1, not imported as a module,

@@ -22,7 +22,16 @@ $Paths = Get-JccPaths -Root $Root
 
 Write-Output ('JCC status (W-05)')
 Write-Output ('repo root   : ' + $Root)
-Write-Output ('timestamp   : ' + (Get-Date).ToString('o'))
+# ONE instant for this entire report.
+#
+# MEASURED DEFECT (2026-09-27): the timestamp used to be printed here while the
+# uptime was computed much later -- after Get-JccPort below spawns a Python
+# process -- so the two lines came from instants up to 63 SECONDS apart. A reader
+# comparing them would compute an uptime that cannot be true for the timestamp
+# printed beside it, which is exactly the "impossible uptime" that was reported.
+# Every time-derived value in this report now comes from $now.
+$now = Get-Date
+Write-Output ('timestamp   : ' + $now.ToString('o'))
 
 $python = Get-JccPython -Root $Root
 $resolvedPort = $Port
@@ -76,29 +85,44 @@ if (Test-Path -LiteralPath $Paths.PidFile) { $pidFilePresent = 'present' }
 $markerPresent = 'absent'
 if (Test-Path -LiteralPath $Paths.MarkerFile) { $markerPresent = 'present' }
 
+$uptimeReading = $null
+$warnings = @()
 if ($pidFilePid -gt 0) {
     $pidShown = ([string]$pidFilePid)
     $info = Get-JccProcessInfo -ProcessId $pidFilePid
-    if ($info.CreationDate) {
-        try {
-            $created = [datetime]::Parse($info.CreationDate)
-            $uptime = (Get-JccElapsed -Since $created)
-        } catch {
-            $uptime = '-'
-        }
-    }
     if ($info.CommandLine) {
         Write-Output ('command line: ' + $info.CommandLine)
     }
+
+    # AUTHORITATIVE: a property of the live process itself.
+    $procStart = $null
+    try {
+        $procStart = (Get-Process -Id $pidFilePid -ErrorAction Stop).StartTime
+    } catch {
+        $procStart = $null
+    }
+
+    # CROSS-CHECK ONLY. Get-JccProcessInfo stringifies the CIM datetime, which
+    # drops the sub-second part and the offset, so this is a corroboration, never
+    # the value that gets printed when the process can be asked directly.
+    $cimCreated = $null
+    if ($info.CreationDate) {
+        try { $cimCreated = [datetime]::Parse($info.CreationDate) } catch { $cimCreated = $null }
+    }
+
+    # PROVENANCE ONLY -- the marker proves IDENTITY ("this is the process we
+    # started"), and is deliberately not allowed to answer for uptime.
+    $markerStart = $null
+    if ($marker -and $marker.start_time_local) {
+        try { $markerStart = [datetime]$marker.start_time_local } catch { $markerStart = $null }
+    }
+
+    $uptimeReading = Get-JccUptimeReading -ProcessStart $procStart `
+        -CimCreation $cimCreated -MarkerStart $markerStart -Now $now
+    $uptime = $uptimeReading.Uptime
+    $warnings = @($uptimeReading.Warnings)
 } elseif ($marker -and $marker.pid) {
     $pidShown = ('recorded ' + $marker.pid + ' (not running)')
-}
-
-if ($uptime -eq '-' -and $marker -and $marker.start_time_local) {
-    try {
-        $st = [datetime]$marker.start_time_local
-        $uptime = (Get-JccElapsed -Since $st)
-    } catch { }
 }
 
 $launcherShown = '-'
@@ -110,12 +134,28 @@ Write-Output ('  pid          : ' + $pidShown + '   (service pid: holds the sock
 Write-Output ('  launcher pid : ' + $launcherShown + '   (the process start.ps1 spawned)')
 Write-Output ('  port         : ' + $resolvedPort + ' (bound to 127.0.0.1 only)')
 Write-Output ('  port owner   : ' + $stateOwner)
-Write-Output ('  uptime       : ' + $uptime)
+$uptimeSuffix = ''
+if ($uptimeReading) { $uptimeSuffix = '   (source: ' + $uptimeReading.Source + ')' }
+Write-Output ('  uptime       : ' + $uptime + $uptimeSuffix)
 Write-Output ('  health       : ' + $healthSummary)
 Write-Output ('  pid file     : ' + $Paths.PidFile + ' -> ' + $pidFilePresent)
 Write-Output ('  marker       : ' + $Paths.MarkerFile + ' -> ' + $markerPresent)
 Write-Output ('  detail       : ' + $detail)
 Write-Output ('')
+if ($uptimeReading) {
+    Write-Output ('  uptime provenance (the marker proves identity, never uptime):')
+    Write-Output ('    process  : ' + $uptimeReading.ProcessStartIso + '   <- authoritative')
+    Write-Output ('    cim      : ' + $uptimeReading.CimCreationIso + '   <- cross-check')
+    Write-Output ('    marker   : ' + $uptimeReading.MarkerStartIso + '   <- provenance only')
+    Write-Output ('')
+}
+foreach ($w in @($warnings)) {
+    Write-Output ('  ' + $w)
+}
+if (@($warnings).Count -gt 0) {
+    Write-Output ('  (a warning is an observation about the clocks, not about the service: it never changes UP/DOWN)')
+    Write-Output ('')
+}
 Write-Output ('  health url   : ' + $healthUrl)
 Write-Output ('')
 
