@@ -136,26 +136,50 @@ function Write-JccBoot {
         created. An instrument that reports nothing must not be built out of
         anything that can fail quietly. #>
     param([string]$Stage, [string]$Detail = '')
+    $who = 'unknown'
+    try { $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { }
     try {
-        $who = 'unknown'
-        try { $who = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name } catch { }
-        $safe = ''
-        # A Windows path in JSON must not carry a raw backslash; fold it to a
-        # forward slash so the line stays readable AND valid, and strip only what
-        # would actually break the JSON.
-        if ($Detail) { $safe = (($Detail -replace '["\r\n]', ' ') -replace '\\', '/') -replace '\s+', ' ' }
-        $rec = '{"at":"' + (Get-Date).ToString('o') + '","pid":' + $PID +
-               ',"user":"' + $who + '","watchdog":' + ([bool]$Watchdog).ToString().ToLower() +
-               ',"stage":"' + $Stage + '","detail":"' + $safe + '"}'
-        if (Write-JccRawLog -Path $script:JccBootLog -Text $rec) { return $true }
-        # The beacon file itself did not accept the line. Fall back to a sibling
-        # before giving up: losing the beacon means losing the only evidence that
-        # this tick ever started, which is the exact failure the beacon exists to
-        # prevent. A sibling name is free by construction, so this cannot fail
-        # for the same reason.
-        if ($script:JccBootLog) { return (Write-JccRawLog -Path ($script:JccBootLog + '.unwritable') -Text $rec) }
+        # SERIALISED, NOT BUILT BY HAND -- and READ BACK before it is written.
+        #
+        # The first draft used '{"at":"{0}",...}' -f ..., and PowerShell read the
+        # literal braces of the JSON as format items, threw FormatException, and
+        # the catch below ate it. So the beacon whose entire purpose is to make
+        # failure visible was itself invisible. Measured 2026-09-27: the script
+        # ran, printed NOOP, and stable-runtime-boot.jsonl was never created.
+        #
+        # The next draft hand-concatenated the JSON and sanitised only `detail` --
+        # and `user` is 'YH\\Administrator', whose backslash makes \A an illegal
+        # JSON escape. Every beacon line was unparseable. Caught by
+        # tools/tests/test_stable_runtime_evidence.py, which reported the file
+        # going from 0 to 0 readable records while it was in fact growing.
+        #
+        # Both were the same mistake: inventing an encoding by hand. The line is
+        # now serialised by ConvertTo-Json and parsed back with ConvertFrom-Json
+        # BEFORE it is written, so a line the evidence consumer could not read
+        # cannot be recorded as evidence.
+        $obj = [pscustomobject]@{
+            at       = (Get-Date).ToString('o')
+            pid      = $PID
+            user     = $who
+            watchdog = [bool]$Watchdog
+            stage    = $Stage
+            detail   = [string]$Detail
+        }
+        $json = $obj | ConvertTo-Json -Compress
+        $null = $json | ConvertFrom-Json
+        if (Write-JccRawLog -Path $script:JccBootLog -Text $json) { return $true }
+        if ($script:JccBootLog) {
+            return (Write-JccRawLog -Path ($script:JccBootLog + '.unwritable') -Text $json)
+        }
         return $false
-    } catch { return $false }
+    } catch {
+        # Serialising or self-checking failed. Still leave a line: plain text is
+        # weaker evidence than JSON, but it IS evidence, and the alternative is
+        # the silence this whole mechanism exists to prevent.
+        return (Write-JccRawLog -Path $script:JccBootLog -Text (
+            'BOOT-BEACON-FALLBACK stage=' + $Stage + ' pid=' + $PID + ' user=' + $who +
+            ' error=' + $_.Exception.GetType().Name + ': ' + $_.Exception.Message))
+    }
 }
 
 # The log directory is created here, before any dependency, because the beacon
