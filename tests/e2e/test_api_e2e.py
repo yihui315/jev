@@ -45,7 +45,7 @@ def _valid_aep(session_id: str, event_id: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-def test_loopback_bind_only(api_server):
+def test_loopback_bind_only(api_server, e2e_support):
     """The real process listens ONLY on loopback addresses."""
     hosts = api_server.bound_hosts
     assert hosts, "server reported no bound sockets"
@@ -57,7 +57,11 @@ def test_loopback_bind_only(api_server):
     assert api_server.request("GET", "/api/health").status == 200
 
     # best-effort: a non-loopback interface must NOT reach the service.
-    ext = __import__("conftest").external_ip()
+    # Taken from the fixture, NOT ``__import__("conftest")``: with no
+    # ``__init__.py`` under tests/ or tools/, that bare name resolves to
+    # whichever conftest the loader reached LAST (measured: it breaks
+    # ``pytest tests/e2e tools/tests``).
+    ext = e2e_support.external_ip()
     if ext and not ext.startswith("127."):
         import urllib.error
         reached = False

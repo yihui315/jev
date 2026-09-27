@@ -42,6 +42,30 @@ Two defects this file used to carry, both found by measurement on 2026-09-26
    the commit that carries it can never be byte-stable -- committing it moves
    HEAD and invalidates its own content. Provenance is carried by the source
    hashes instead, which any reader can recompute from a clone.
+
+3. IT LEAKED A CONTROL TOKEN AND A SIGNING KEY INTO THE WHOLE PYTEST PROCESS.
+   ``InProcessServer.__init__`` wrote ``JCC_CONTROL_TOKEN`` and
+   ``JCC_DIRECTIVE_SIGNING_KEY`` straight into the process-global ``os.environ``
+   and nothing ever put them back. In a single pytest process, every test that
+   ran after the first ``api_server`` fixture therefore executed with a control
+   token and a signing key set -- including §7's
+   ``tools/v1_1_emit_real_jev_verification.py --check``, which records credential
+   PRESENCE and compares against a committed artifact that records ABSENT.
+   Measured on this tree: that check is rc 0 against a clean environment and
+   rc 1 (STALE) with either name set. The fix is a SCOPED write -- the fixture
+   uses ``monkeypatch.setenv`` -- and the server now ASSERTS the contract instead
+   of establishing it.
+
+   The same root cause made a legitimate combined run impossible. There is no
+   ``__init__.py`` anywhere under ``tests/`` or ``tools/``, so pytest imports
+   every conftest in the tree as the bare module name ``conftest`` and only one
+   of them owns ``sys.modules['conftest']`` -- whichever the loader reaches
+   last. This file's test modules imported that name directly. Measured:
+   ``pytest tests/e2e tools/tests`` failed to collect ``test_restart_recovery.py``
+   (``ImportError: cannot import name 'SubprocessServer'``) because
+   ``tools/tests/conftest.py`` had taken the name. The helpers are now handed
+   over through the ``e2e_support`` fixture, so no test module depends on
+   module-name resolution order.
 """
 from __future__ import annotations
 
@@ -76,6 +100,13 @@ from jcc_core.state_store import StateStore  # noqa: E402
 PY = str(REPO / ".venv" / "Scripts" / "python.exe")
 CONTROL_TOKEN_ENV = "JCC_CONTROL_TOKEN"
 SIGNING_KEY_ENV = "JCC_DIRECTIVE_SIGNING_KEY"
+
+#: The credentials the E-02 in-process server runs with. Named here so the
+#: ``api_server`` fixture can hand them to ``monkeypatch.setenv`` (function
+#: scope, auto-restored) and ``InProcessServer`` can ASSERT it received them --
+#: see that class's environment contract for why it must not set them itself.
+E2E_CONTROL_TOKEN = "e2e-control-token-xyz"
+E2E_SIGNING_KEY = "e2e-signing-key-32-bytes-long!!"
 
 DEFAULT_CORS = [
     "http://localhost:5173",
@@ -141,12 +172,40 @@ def _http(method: str, url: str, *, token=None, json_body=None, origin=None,
 # In-process server (E-02): real app, real uvicorn, random loopback port.
 # --------------------------------------------------------------------------- #
 class InProcessServer:
+    """Real in-process app on a random loopback port (E-02).
+
+    ENVIRONMENT CONTRACT -- this class does NOT mutate ``os.environ``
+    ----------------------------------------------------------------
+    The app resolves the control token (and, when configured, the directive
+    signing key) from the environment at REQUEST time, so both names must be set
+    for as long as this server is alive. They used to be written straight into
+    the process-global ``os.environ`` from this constructor and were NEVER
+    restored, so a control token and a signing key leaked into every test that
+    ran later in the same pytest process. Measured on this tree, that leak makes
+    ``tools/v1_1_emit_real_jev_verification.py --check`` report STALE (rc=1),
+    because §7 records credential PRESENCE and the committed artifact records
+    ABSENT -- cross-test pollution that reads like a product defect.
+
+    The CALLER applies the two names, SCOPED: the ``api_server`` fixture does it
+    with ``monkeypatch.setenv``, which restores them on teardown. This
+    constructor only ASSERTS the contract, so "someone forgot to set the token"
+    becomes an immediate, named failure instead of a wall of 403s.
+    """
+
     def __init__(self, db_path: str, token: str, cors_origins=None, signing_key=None):
         self.token = token
         self.db_path = db_path
-        os.environ[CONTROL_TOKEN_ENV] = token
-        if signing_key is not None:
-            os.environ[SIGNING_KEY_ENV] = signing_key
+        if os.environ.get(CONTROL_TOKEN_ENV) != token:
+            raise RuntimeError(
+                "%s must already be set to this server's token by the CALLER "
+                "(the api_server fixture scopes it with monkeypatch.setenv). It "
+                "is deliberately NOT set here: writing it into the process-global "
+                "environment is the leak that poisons every later test in the "
+                "same pytest process." % CONTROL_TOKEN_ENV)
+        if signing_key is not None and os.environ.get(SIGNING_KEY_ENV) != signing_key:
+            raise RuntimeError(
+                "%s must already be set to the signing key passed to "
+                "InProcessServer by the caller." % SIGNING_KEY_ENV)
         cfg = Config(
             server=ServerConfig(port=0, cors_origins=list(cors_origins or DEFAULT_CORS)),
             state_store_db_path=db_path,
@@ -255,7 +314,11 @@ class SubprocessServer:
     def start(self) -> None:
         self.port = _free_loopback_port()
         _write_config(Path(self.cfg_path), self.port, self.db_path)
-        env = os.environ.copy()
+        # A FRESH copy of the parent environment with every value this launch
+        # depends on set EXPLICITLY. The child must never have to rely on a
+        # credential that happened to be lying around in the pytest process, and
+        # the parent must never rely on the child cleaning the environment up.
+        env = dict(os.environ)
         env[CONTROL_TOKEN_ENV] = self.token
         env["JCC_CONFIG"] = self.cfg_path
         env["JCC_DB_PATH"] = self.db_path
@@ -403,17 +466,62 @@ def pid_alive(pid: int) -> bool:
 # Fixtures
 # --------------------------------------------------------------------------- #
 @pytest.fixture
-def api_server(tmp_path):
-    """Real in-process app on a random loopback port, isolated temp DB."""
+def api_server(tmp_path, monkeypatch):
+    """Real in-process app on a random loopback port, isolated temp DB.
+
+    The two credential names are applied with ``monkeypatch.setenv`` (function
+    scope), so they are restored the instant this fixture tears down. They are
+    NOT written into ``os.environ`` directly: an unrestored write here is what
+    polluted every later test in the same pytest process -- see the environment
+    contract on ``InProcessServer``.
+    """
+    monkeypatch.setenv(CONTROL_TOKEN_ENV, E2E_CONTROL_TOKEN)
+    monkeypatch.setenv(SIGNING_KEY_ENV, E2E_SIGNING_KEY)
     db = tmp_path / "jcc.db"
     srv = InProcessServer(
         str(db),
-        "e2e-control-token-xyz",
+        E2E_CONTROL_TOKEN,
         cors_origins=DEFAULT_CORS,
-        signing_key="e2e-signing-key-32-bytes-long!!",
+        signing_key=E2E_SIGNING_KEY,
     )
     yield srv
     srv.stop()
+
+
+class _Support:
+    """This conftest's helpers, exposed as ATTRIBUTES (see ``e2e_support``).
+
+    Deliberately a plain class with class attributes rather than a
+    ``SimpleNamespace`` built per test: the objects handed over are the very same
+    objects this module defines, so a test cannot end up holding a stale copy.
+    """
+
+    SubprocessServer = SubprocessServer
+    free_loopback_port = staticmethod(_free_loopback_port)
+    pid_alive = staticmethod(pid_alive)
+    external_ip = staticmethod(external_ip)
+
+
+@pytest.fixture
+def e2e_support():
+    """The helpers from THIS conftest, handed over WITHOUT importing ``conftest``.
+
+    WHY THIS FIXTURE EXISTS. There is no ``__init__.py`` anywhere under
+    ``tests/`` or ``tools/``, so pytest imports every ``conftest.py`` in the tree
+    as the bare module name ``conftest``, and only ONE of them can own
+    ``sys.modules['conftest']`` -- whichever the loader reaches last. Measured on
+    this tree: ``pytest tests/e2e tools/tests`` makes
+    ``from conftest import SubprocessServer`` raise
+    ``ImportError: cannot import name 'SubprocessServer'``, because
+    ``tools/tests/conftest.py`` had taken the name. A test module that imports
+    ``conftest`` by name is therefore correct only while the loader's directory
+    order happens to favour it -- a property nobody can maintain.
+
+    Handing the objects over through a fixture makes the dependency explicit and
+    order-independent: pytest registers each conftest as the plugin for its OWN
+    directory, so this fixture resolves to the right module under every ordering.
+    """
+    return _Support()
 
 
 # --------------------------------------------------------------------------- #

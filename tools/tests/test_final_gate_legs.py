@@ -324,3 +324,126 @@ def test_s05_refuses_a_record_that_does_not_prove_the_claim(gate, demo_fixtures,
     problems = gate.judge_demo_mode(manifest, rec, demo_fixtures)
     assert problems, f"a record broken by {needle!r} was accepted"
     assert any(needle in p for p in problems), problems
+
+
+# --------------------------------------------------------------------------- #
+# W-01..W-07: an instrument that cannot be RUN is not a parse failure.
+#
+# THE DEFECT THESE PIN. ``check_windows_scripts`` used to report the probe's own
+# inability to launch as ``g.fail(cid, "could not parse <script> (environment
+# error)")`` -- the same node the gate uses for a script that really does not
+# parse. Measured on this tree: after a test burst kills dozens of child
+# processes, ``subprocess.run(["powershell", ...])`` transiently raises
+# (WinError-1450-family "insufficient system resources"), so two consecutive runs
+# of this gate over an UNCHANGED tree emitted different verdicts (W-03 OK, then
+# W-03 FAILED) and
+# ``test_two_runs_over_the_same_tree_produce_byte_identical_verdicts`` -- the
+# fixed-point falsifier above -- correctly failed.
+#
+# The fix retries the INSTRUMENT (bounded) and never the VERDICT: a real parse
+# error is a definitive answer and is accepted on the first attempt. Both halves
+# are falsified below, because a retry that also retried a real failure would be a
+# way to launder a broken script into a pass.
+# --------------------------------------------------------------------------- #
+def _w_checks(gate, g):
+    return [c for c in g.checks if str(c["id"]).startswith("W-")]
+
+
+def test_a_probe_that_cannot_be_launched_is_retried_and_can_still_pass(gate,
+                                                                       monkeypatch):
+    """A transient launch failure is retried, and the check can still PASS."""
+    calls = {"n": 0}
+
+    def fake(path):
+        calls["n"] += 1
+        if calls["n"] == 1:
+            return None, "probe could not be launched: OSError('[WinError 1450]')"
+        return "PARSE_OK ScriptBlockAst", ""
+
+    monkeypatch.setattr(gate, "_run_ps_parse", fake)
+    g = gate.Gate()
+    gate.check_windows_scripts(g)
+    ws = _w_checks(gate, g)
+    assert len(ws) == len(gate.WIN_SCRIPTS), ws
+    assert all(c["status"] == gate.STATUS_OK for c in ws), [
+        (c["id"], c["status"], c["detail"]) for c in ws]
+    # exactly one retry: 7 scripts, the first needed two attempts
+    assert calls["n"] == len(gate.WIN_SCRIPTS) + 1, calls
+
+
+def test_a_probe_that_never_answers_fails_closed_and_says_it_is_the_environment(
+        gate, monkeypatch):
+    """Exhausted retries stay FAILED -- fail-closed -- but the detail must name the
+    environment, not claim the script does not parse."""
+    monkeypatch.setattr(
+        gate, "_run_ps_parse",
+        lambda path: (None, "probe could not be launched: OSError('[WinError 1450]')"))
+    g = gate.Gate()
+    gate.check_windows_scripts(g)
+    ws = _w_checks(gate, g)
+    assert ws, "the probe exercised nothing"
+    for c in ws:
+        assert c["status"] == gate.STATUS_FAILED, (c["id"], c["status"])
+        assert "could not RUN" in c["detail"], c
+        assert "failed to parse" not in c["detail"], c
+
+
+def test_a_real_parse_error_is_never_retried_into_a_pass(gate, monkeypatch):
+    """The other direction. A definitive ERR answer is accepted immediately and
+    fails every script, exactly once each -- so the retry cannot hide a broken
+    script."""
+    calls = {"n": 0}
+
+    def fake(path):
+        calls["n"] += 1
+        return "ERR: Unexpected token '}' at line 3", ""
+
+    monkeypatch.setattr(gate, "_run_ps_parse", fake)
+    g = gate.Gate()
+    gate.check_windows_scripts(g)
+    ws = _w_checks(gate, g)
+    assert all(c["status"] == gate.STATUS_FAILED for c in ws), [
+        (c["id"], c["status"]) for c in ws]
+    assert all("failed to parse" in c["detail"] for c in ws), [
+        c["detail"] for c in ws]
+    assert calls["n"] == len(gate.WIN_SCRIPTS), calls
+
+
+def test_the_probe_helper_separates_an_answer_from_silence(gate, monkeypatch):
+    """The helper's contract, measured: a real (mocked) launch that prints nothing
+    returns NO answer, while one that prints a parse error returns an answer.
+
+    ``subprocess`` is replaced only INSIDE the gate module's namespace (by name),
+    never the real stdlib module -- so nothing outside this probe can observe it.
+    The fake still carries the REAL ``SubprocessError``, because the gate's
+    ``except (OSError, subprocess.SubprocessError)`` clause reads it.
+    """
+    import subprocess as real_subprocess
+    from types import SimpleNamespace
+
+    class _Proc:
+        def __init__(self, out, err, rc=0):
+            self.stdout, self.stderr, self.returncode = out, err, rc
+
+    def _fake(run):
+        return SimpleNamespace(run=run,
+                               SubprocessError=real_subprocess.SubprocessError)
+
+    script = gate.REPO / "scripts" / gate.WIN_SCRIPTS[0]
+
+    monkeypatch.setattr(gate, "subprocess",
+                        _fake(lambda *a, **k: _Proc(b"", b"", 0)))
+    out, note = gate._run_ps_parse(script)
+    assert out is None and "no output" in note, (out, note)
+
+    monkeypatch.setattr(gate, "subprocess",
+                        _fake(lambda *a, **k: _Proc(b"ERR: boom", b"", 3)))
+    out, note = gate._run_ps_parse(script)
+    assert out == "ERR: boom" and note == "", (out, note)
+
+    def _boom(*a, **k):
+        raise OSError("[WinError 1450] Insufficient system resources")
+
+    monkeypatch.setattr(gate, "subprocess", _fake(_boom))
+    out, note = gate._run_ps_parse(script)
+    assert out is None and "could not be launched" in note, (out, note)

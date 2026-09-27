@@ -88,6 +88,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import time
 import xml.etree.ElementTree as ET
 from datetime import datetime, timezone
 from pathlib import Path
@@ -506,6 +507,50 @@ PS_PARSE = (
     )
 
 
+#: How many times the PROBE may be re-run when it produced NO answer at all.
+#:
+#: This retries the INSTRUMENT, never the verdict. ``Parser::ParseFile`` on a fixed
+#: file is deterministic, so a genuine syntax error returns the same ``ERR:`` text
+#: and exit 3 on every attempt and is accepted immediately -- it is never retried
+#: away. What IS retried is the case where ``powershell`` could not be launched:
+#: measured on this host, right after a test burst has killed dozens of child
+#: processes, ``subprocess.run(["powershell", ...])`` can raise
+#: ``OSError``/``SubprocessError`` ("insufficient system resources"). With no retry
+#: the check records that as FAILED, so two consecutive runs of this gate over an
+#: UNCHANGED tree emitted DIFFERENT verdicts (W-03 OK, then W-03 FAILED) and the
+#: gate's own fixed-point falsifier correctly failed. An instrument that cannot be
+#: run says nothing about the script; folding it into a product FAILED is the same
+#: error as reading "I could not query" as "it does not exist".
+PS_PROBE_ATTEMPTS = 4
+
+
+def _run_ps_parse(path: Path) -> Tuple[Optional[str], str]:
+    """Run the ParseFile probe ONCE.
+
+    Returns ``(stdout_text, "")`` when the probe ANSWERED, else ``(None, note)``.
+
+    ``None`` means the probe produced no answer -- it could not be launched, or it
+    printed nothing. That is an INSTRUMENT failure and is reported separately from a
+    non-empty stdout that lacks ``PARSE_OK``, which IS an answer (the parser
+    reported errors). Keeping those two apart is the whole point of this helper.
+    """
+    env = dict(os.environ)
+    env["JCC_PS_PATH"] = str(path).replace("/", "\\")
+    try:
+        proc = subprocess.run(
+            ["powershell", "-NoProfile", "-NonInteractive", "-Command", PS_PARSE],
+            capture_output=True, timeout=120, env=env,
+        )
+    except (OSError, subprocess.SubprocessError) as exc:
+        return None, "probe could not be launched: {!r}".format(exc)
+    out = (proc.stdout or b"").decode("utf-8", "replace").strip()
+    if not out:
+        err = (proc.stderr or b"").decode("utf-8", "replace").strip()
+        return None, "probe produced no output (rc={}): {}".format(
+            proc.returncode, err[:200] or "<empty stderr>")
+    return out, ""
+
+
 def check_windows_scripts(g: Gate) -> None:
     for cid, name in zip(
         ["W-01", "W-02", "W-03", "W-04", "W-05", "W-06", "W-07"], WIN_SCRIPTS
@@ -514,21 +559,32 @@ def check_windows_scripts(g: Gate) -> None:
         if not path.is_file():
             g.missing(cid, f"{_rel(path)} does not exist")
             continue
-        try:
-            env = dict(os.environ)
-            env["JCC_PS_PATH"] = str(path).replace("/", "\\")
-            proc = subprocess.run(
-                ["powershell", "-NoProfile", "-NonInteractive", "-Command", PS_PARSE],
-                capture_output=True, timeout=120, env=env,
-            )
-            out = (proc.stdout or b"").decode("utf-8", "replace").strip()
-        except (OSError, subprocess.SubprocessError) as exc:
-            g.fail(cid, f"could not parse {name} (environment error): {exc}")
-            continue
-        if "PARSE_OK" in out:
+        notes: List[str] = []
+        out: Optional[str] = None
+        for attempt in range(1, PS_PROBE_ATTEMPTS + 1):
+            out, note = _run_ps_parse(path)
+            if out is not None:
+                # A definitive answer: accepted at once, pass OR fail. Retrying
+                # after a real parse result would be laundering it.
+                break
+            notes.append("attempt {}: {}".format(attempt, note))
+            if attempt < PS_PROBE_ATTEMPTS:
+                # The condition being waited out is a TRANSIENT OS one (resource
+                # pressure left over from a test burst); a short backoff is what
+                # lets it clear. Reached only on an instrument failure, so a
+                # healthy run pays nothing for it.
+                time.sleep(0.3 * attempt)
+        if out is None:
+            # Fail CLOSED -- but say what actually happened. A missing answer is an
+            # ENVIRONMENT failure and must never be reported as "this script does
+            # not parse".
+            g.fail(cid, "could not RUN the parse probe for {} after {} attempt(s) -- "
+                        "this is an ENVIRONMENT failure, not a parse result: {}".format(
+                            name, PS_PROBE_ATTEMPTS, "; ".join(notes)[:300]))
+        elif "PARSE_OK" in out:
             g.ok(cid, f"{name} parses under Windows PowerShell")
         else:
-            g.fail(cid, f"{name} failed to parse: {out[:200] or 'no parser output'}")
+            g.fail(cid, f"{name} failed to parse: {out[:200]}")
 
 
 # ---------------------------------------------------------------------------
