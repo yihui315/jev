@@ -1,6 +1,6 @@
 {
   "adapter": "workbuddy",
-  "probe_at": "2026-09-25T08:16:09Z",
+  "probe_at": "2026-09-27T06:34:28Z",
   "probe_script": "tools/probe_adapter_capabilities.py",
   "probe_exit_code": 0,
   "status": "UNSUPPORTED",
@@ -8,7 +8,7 @@
   "capabilities": {
     "telemetry": {
       "status": "VERIFIED",
-      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-fa8802a4f2ddc9eaca1599f8, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\16412.json"
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-fa8802a4f2ddc9eaca1599f8, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\21552.json"
     },
     "pause": {
       "status": "UNSUPPORTED",
@@ -42,12 +42,12 @@
   "capabilities_detail": {
     "telemetry": {
       "record_source": "live",
-      "record_path": "C:\\Users\\Administrator\\.workbuddy\\sessions\\16412.json",
+      "record_path": "C:\\Users\\Administrator\\.workbuddy\\sessions\\21552.json",
       "envelope_event_id": "workbuddy-fa8802a4f2ddc9eaca1599f8",
       "envelope_session_id": "9cbdd2f1-6ec2-44f4-9d74-fa4914ae076b",
       "envelope_event_type": "EventType.UNKNOWN",
       "envelope_schema_ok": true,
-      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-fa8802a4f2ddc9eaca1599f8, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\16412.json",
+      "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-fa8802a4f2ddc9eaca1599f8, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\21552.json",
       "mode": "live"
     },
     "pause": {

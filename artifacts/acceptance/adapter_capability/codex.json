@@ -1,6 +1,6 @@
 {
   "adapter": "codex",
-  "probe_at": "2026-09-25T08:16:14Z",
+  "probe_at": "2026-09-27T06:34:32Z",
   "probe_script": "tools/probe_adapter_capabilities.py",
   "probe_exit_code": 0,
   "status": "UNVERIFIED",
