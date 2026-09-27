@@ -69,12 +69,22 @@ FAILURE MODES — all fail closed, none degrade silently
     * Other schema version             -> ``ReplayVersion``
     * Missing required metadata field  -> ``ReplayCorrupt`` (names the fields)
     * ``fixture_digest`` mismatch      -> ``ReplayCorrupt`` (recorded assessment edited)
+    * §9 boundary violation            -> ``ReplayCorrupt`` (names the line; §9)
     * ``input_digest`` mismatch        -> ``ReplayCorrupt`` (entry self-inconsistent)
     * Duplicate lookup key             -> ``ReplayCorrupt`` (ambiguous recording)
     * Inconsistent ``recording_id``    -> ``ReplayCorrupt`` (two files concatenated?)
     * Secret-shaped content            -> ``ReplayCorrupt`` (names the JSON path)
     * Envelope not in file             -> ``ReplayMiss`` (raised)
     * Index hit, digest differs        -> ``ReplayMiss`` (raised, WITH a distinct message)
+
+    ORDER MATTERS BETWEEN THE FIRST THREE: integrity is checked before meaning.
+    A hand-edited recording is usually BOTH digest-mismatched and (if the edit
+    was the interesting kind) boundary-violating, and "these bytes are not what
+    was recorded" is the more specific, more actionable of the two true things.
+    The §9 check exists for the recording that is properly signed and still
+    names an action -- a third-party writer that computed its digests correctly.
+    Both orders are defensible; this one is pinned by a test so that changing it
+    is a decision rather than a tidy-up.
 
     A MISSING file is deliberately NOT an exception. "No recording configured" is
     a configuration state that ``build_provider`` turns into ``DisabledProvider``
@@ -93,6 +103,7 @@ import re
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
+from ..provider_contract import find_violations_in_mapping
 from ..redaction import scrub_str
 from ..schemas import AEPEnvelope, Assessment, SessionState
 from .base import JevProvider
@@ -292,6 +303,16 @@ def build_entry(
             f"refusing to write a recording entry containing secret-shaped "
             f"content at {bad}; recordings are committed to version control"
         )
+    # §9 — the writer must not emit a recording its own loader will reject. A
+    # recorder that can write an unloadable file turns a boundary violation into
+    # a mystery at load time; refusing here names the offending line at capture.
+    bad = find_violations_in_mapping(asd_json)
+    if bad:
+        raise ValueError(
+            f"refusing to write a recording entry whose assessment is outside "
+            f"the §9 provider boundary ({', '.join(bad)}); a scorer may emit only "
+            f"its eight outputs and must not choose a directive"
+        )
     return entry
 
 
@@ -390,6 +411,7 @@ class RecordReplayProvider(JevProvider):
             self._check_required_fields(entry, path, lineno)
             self._check_provider_source(entry, path, lineno)
             self._check_fixture_digest(entry, path, lineno)
+            self._check_assessment_within_boundary(entry, path, lineno)
             self._check_input_digest(entry, path, lineno)
             self._check_recording_id(entry, path, lineno)
             self._check_no_secrets(entry, path, lineno)
@@ -512,6 +534,30 @@ class RecordReplayProvider(JevProvider):
                 "recording %s line %d contains secret-shaped content at %s. "
                 "Recordings are committed to version control; the value is NOT "
                 "echoed here and must not be committed." % (path, lineno, bad))
+
+    @staticmethod
+    def _check_assessment_within_boundary(
+        entry: Dict[str, Any], path: Path, lineno: int
+    ) -> None:
+        """§9 — a recording whose assessment names an action is a bad recording.
+
+        Checked at LOAD time rather than left to the §9 hook at ``assess`` time,
+        for two reasons. The error kind matters to whoever has to fix it: "the
+        recording is corrupt" points at the recording, while a violation surfacing
+        on replay points at the code. And this is the only moment the LINE NUMBER
+        is known, which is what makes the recording repairable.
+
+        The rules are the same ones the live channel gets, via the same engine --
+        a recorded assessment is held to the boundary, not to a laxer copy of it.
+        """
+        bad = find_violations_in_mapping(entry.get("assessment") or {})
+        if bad:
+            raise ReplayCorrupt(
+                "recording %s line %d records an assessment outside the §9 "
+                "provider boundary: %s. A scorer may emit only its eight outputs "
+                "and must not choose a directive; re-record this entry from a "
+                "compliant provider rather than editing the assessment by hand."
+                % (path, lineno, ", ".join(bad)))
 
     # -- JevProvider surface ---------------------------------------------- #
 

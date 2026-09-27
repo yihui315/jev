@@ -8,8 +8,11 @@ stub, disabled until key + feature flag present).
 """
 from __future__ import annotations
 
+import functools
 from abc import ABC, abstractmethod
+from typing import Any
 
+from ..provider_contract import assert_within_boundary
 from ..schemas import AEPEnvelope, Assessment, SessionState
 
 #: §7D — the four legal provider modes. There are exactly four: anything that is
@@ -50,6 +53,60 @@ class JevProvider(ABC):
     #: reaches the external Jev scorer. Every stand-in (mock / replay / disabled)
     #: is False, so a UI badge can never render REAL over a stand-in's number.
     is_real = False
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        """§9 -- make the eight-output boundary automatic instead of remembered.
+
+        Whatever a concrete provider's ``assess`` returns is checked against
+        :mod:`..provider_contract` before the kernel can read it. This lives on
+        the BASE class for one reason: a boundary that each provider opts into is
+        a boundary that the fifth provider forgets. Wrapping at subclass creation
+        means "is this provider checked?" has exactly one answer, for every
+        provider that will ever exist, including ones that bypass
+        ``build_provider`` by being constructed directly.
+
+        Why wrapping HERE is also the correct SCOPE, not just a convenient one:
+        ``core.CoreEngine.ingest`` (ADR-0008 D-26) synthesises its own
+        ``Assessment(escalate=True, ...)`` when a provider RAISES. That object
+        sets a forbidden flag on purpose and is NOT a violation, because it is
+        the ENGINE's emergency statement rather than a scorer's opinion -- §9
+        constrains the scorer. Wrapping provider classes therefore exempts it for
+        the right reason instead of by an allowlist entry that someone would
+        eventually widen.
+
+        A subclass that does not define its own ``assess`` is left alone, so an
+        intermediate abstract base keeps its abstract method and stays
+        uninstantiable.
+        """
+        super().__init_subclass__(**kwargs)
+        raw = cls.__dict__.get("assess")
+        if raw is None or getattr(raw, "_jcc_boundary_checked", False):
+            return
+        if isinstance(raw, (staticmethod, classmethod)):
+            # Cannot be wrapped, and SKIPPING it would let that provider bypass
+            # §9 silently -- the one outcome this hook exists to prevent. Loud at
+            # class-creation time is the honest failure: it is a declaration
+            # error, and it fires while someone is looking.
+            raise TypeError(
+                f"{cls.__name__}.assess is a {type(raw).__name__}; the §9 boundary "
+                f"hook can only wrap a normal method. Declare assess(self, event, "
+                f"session) so the boundary cannot be skipped by accident."
+            )
+
+        @functools.wraps(raw)
+        def assess(self, event, session=None, *args, **kwargs):  # type: ignore[no-untyped-def]
+            out = raw(self, event, session, *args, **kwargs)
+            assert_within_boundary(out)
+            return out
+
+        assess._jcc_boundary_checked = True  # type: ignore[attr-defined]
+        # ``functools.wraps`` copies the wrapped function's ``__dict__``, which
+        # for an ``@abstractmethod`` carries ``__isabstractmethod__ = True``.
+        # Left in place that would make a CONCRETE provider abstract (and so
+        # uninstantiable). The subclass's own ``assess`` is not abstract, so the
+        # marker is cleared explicitly rather than by relying on copy order.
+        assess.__isabstractmethod__ = False  # type: ignore[attr-defined]
+        cls.assess = assess  # type: ignore[assignment]
 
     @abstractmethod
     def assess(self, event: AEPEnvelope, session: SessionState) -> Assessment:
