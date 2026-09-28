@@ -65,6 +65,17 @@ OPEN_GET_ENDPOINTS = (
     "/api/connections",
     "/api/connections/{agent}",
     "/api/onboarding/state",
+    # v1.3 Wave 1 — Project/Mission domain (read-only discovery)
+    "/api/v1/domain/home",
+    "/api/v1/domain/projects",
+    "/api/v1/domain/projects/{pid}",
+    "/api/v1/domain/missions",
+    "/api/v1/domain/missions/{mid}",
+    "/api/v1/domain/missions/{mid}/timeline",
+    "/api/v1/domain/missions/{mid}/runs",
+    "/api/v1/domain/missions/{mid}/artifacts",
+    "/api/v1/domain/connections",
+    "/api/v1/domain/needs-attention",
 )
 
 
@@ -96,7 +107,7 @@ class ProjectionManager:
 def create_app(engine: CoreEngine, config) -> FastAPI:
     app = FastAPI(
         title="JCC Core Control Plane",
-        version="v1.2.1",
+        version="v1.3",
         # P4 #77.1: no Swagger / ReDoc / OpenAPI routes. FastAPI serves four
         # GET routes by default (``/docs``, ``/redoc``, ``/openapi.json``,
         # ``/docs/oauth2-redirect``) and every one of them is an UNDECLARED open
@@ -160,6 +171,17 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     conn_db_path = str(Path(config.state_store_db_path).parent / "connections.db")
     registry = ConnectionRegistry(conn_db_path)
     app.state.connection_registry = registry
+
+    # v1.3 Wave 1 — Project/Mission domain. Shares the control-plane SQLite file
+    # so a Mission and its Session live in one database and one backup. The
+    # domain module is ADDITIVE: its tables are created beside the v1.2 ones and
+    # nothing existing is altered.
+    from .domain import (
+        ApprovalState, ArtifactKind, AttentionKind, CapabilityKind,
+        DomainStore, MissionStatus,
+    )
+    domain = DomainStore(config.state_store_db_path)
+    app.state.domain_store = domain
 
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
@@ -318,6 +340,232 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     @app.get("/api/onboarding/state")
     def onboarding_state():
         return registry.onboarding_state()
+
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 1 — Project/Mission domain (read-only GET surface)
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/domain/home")
+    def domain_home():
+        """Home screen aggregates, computed from persisted state only."""
+        summary = domain.home_summary()
+        return {
+            "schema": "jcc/v1.3-domain-home/1",
+            "active_projects": summary["active_projects"],
+            "running_missions": summary["running_missions"],
+            "needs_attention": summary["needs_attention"],
+            "completed_missions": summary["completed_missions"],
+            "recent_deliverables": summary["recent_deliverables"],
+            "attention_items": summary["attention_items"],
+            # honest constants: the UI must never invent these
+            "actuation_enabled": engine.actuator.enabled,
+            "localhost_only": True,
+        }
+
+    @app.get("/api/v1/domain/projects")
+    def domain_list_projects(include_archived: bool = False):
+        return [p.model_dump(mode="json")
+                for p in domain.list_projects(include_archived=include_archived)]
+
+    @app.get("/api/v1/domain/projects/{pid}")
+    def domain_get_project(pid: str):
+        p = domain.get_project(pid)
+        if not p:
+            raise HTTPException(status_code=404, detail="project not found")
+        return {
+            **p.model_dump(mode="json"),
+            "missions": [m.model_dump(mode="json")
+                         for m in domain.list_missions(project_id=pid)],
+        }
+
+    @app.get("/api/v1/domain/missions")
+    def domain_list_missions(project_id: Optional[str] = None,
+                             status_filter: Optional[str] = None,
+                             limit: int = 200):
+        return [m.model_dump(mode="json")
+                for m in domain.list_missions(project_id=project_id,
+                                              status=status_filter, limit=limit)]
+
+    @app.get("/api/v1/domain/missions/{mid}")
+    def domain_get_mission(mid: str):
+        m = domain.get_mission(mid)
+        if not m:
+            raise HTTPException(status_code=404, detail="mission not found")
+        return m.model_dump(mode="json")
+
+    @app.get("/api/v1/domain/missions/{mid}/timeline")
+    def domain_mission_timeline(mid: str):
+        if not domain.get_mission(mid):
+            raise HTTPException(status_code=404, detail="mission not found")
+        return domain.mission_timeline(mid)
+
+    @app.get("/api/v1/domain/missions/{mid}/runs")
+    def domain_mission_runs(mid: str):
+        if not domain.get_mission(mid):
+            raise HTTPException(status_code=404, detail="mission not found")
+        return domain.list_runs(mid)
+
+    @app.get("/api/v1/domain/missions/{mid}/artifacts")
+    def domain_mission_artifacts(mid: str):
+        if not domain.get_mission(mid):
+            raise HTTPException(status_code=404, detail="mission not found")
+        return [a.model_dump(mode="json") for a in domain.list_artifacts(mission_id=mid)]
+
+    @app.get("/api/v1/domain/connections")
+    def domain_list_connections():
+        """Domain-side agent connections. Secrets are NEVER returned -- only the
+        env var NAME, and never a value."""
+        out = []
+        for c in domain.list_connections():
+            d = c.model_dump(mode="json")
+            d["control_verified"] = domain.is_control_verified(c.connection_id)
+            d["capabilities"] = [cap.model_dump(mode="json")
+                                 for cap in domain.list_capabilities(c.connection_id)]
+            out.append(d)
+        return out
+
+    @app.get("/api/v1/domain/needs-attention")
+    def domain_needs_attention():
+        return domain.needs_attention()
+
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 1 — Project/Mission domain (mutating, token-gated)
+    # ------------------------------------------------------------------ #
+    @app.post("/api/v1/domain/projects")
+    def domain_create_project(body: dict,
+                              _token: bool = Depends(require_control_token)):
+        name = str(body.get("name") or "").strip()
+        if not name:
+            raise HTTPException(status_code=422, detail="name is required")
+        p = domain.create_project(name, root_path=str(body.get("root_path") or ""),
+                                  description=str(body.get("description") or ""))
+        return p.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/missions")
+    def domain_create_mission(body: dict,
+                              _token: bool = Depends(require_control_token)):
+        pid = str(body.get("project_id") or "").strip()
+        title = str(body.get("title") or "").strip()
+        if not pid or not title:
+            raise HTTPException(status_code=422,
+                                detail="project_id and title are required")
+        try:
+            m = domain.create_mission(
+                pid, title, goal=str(body.get("goal") or ""),
+                agent=str(body.get("agent") or "workbuddy"),
+                working_directory=str(body.get("working_directory") or ""),
+                context=str(body.get("context") or ""),
+                permissions=list(body.get("permissions") or []),
+                budget_units=float(body.get("budget_units") or 0.0),
+                connection_ref=body.get("connection_ref"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return m.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/missions/{mid}/transition")
+    def domain_transition_mission(mid: str, body: dict,
+                                  _token: bool = Depends(require_control_token)):
+        to = str(body.get("to") or "").strip()
+        if not to:
+            raise HTTPException(status_code=422, detail="to is required")
+        kind = body.get("attention_kind")
+        try:
+            m = domain.transition_mission(
+                mid, MissionStatus(to), reason=str(body.get("reason") or ""),
+                attention_kind=AttentionKind(kind) if kind else None,
+                attention_reason=body.get("attention_reason"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return m.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/missions/{mid}/runs")
+    def domain_create_run(mid: str, body: dict,
+                          _token: bool = Depends(require_control_token)):
+        try:
+            r = domain.create_run(mid, str(body.get("agent") or "workbuddy"),
+                                  connection_ref=body.get("connection_ref"))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return r.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/missions/{mid}/artifacts")
+    def domain_add_artifact(mid: str, body: dict,
+                            _token: bool = Depends(require_control_token)):
+        try:
+            a = domain.add_artifact(
+                mid, str(body.get("name") or "artifact"),
+                kind=ArtifactKind(str(body.get("kind") or "other")),
+                uri=str(body.get("uri") or ""),
+                sha256=body.get("sha256"), bytes_=int(body.get("bytes") or 0),
+                run_id=body.get("run_id"), session_id=body.get("session_id"),
+                provenance=body.get("provenance") or {},
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return a.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/connections")
+    def domain_upsert_connection(body: dict,
+                                 _token: bool = Depends(require_control_token)):
+        agent = str(body.get("agent") or "").strip()
+        if not agent:
+            raise HTTPException(status_code=422, detail="agent is required")
+        try:
+            c = domain.upsert_connection(
+                agent, display_name=str(body.get("display_name") or ""),
+                connection_type=str(body.get("connection_type") or "LOCAL_CLI"),
+                endpoint=str(body.get("endpoint") or ""),
+                secret_env_var=body.get("secret_env_var"),
+                connection_id=body.get("connection_id"),
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return c.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/connections/{cid}/capability")
+    def domain_set_capability(cid: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        kind = str(body.get("kind") or "").strip()
+        if not kind:
+            raise HTTPException(status_code=422, detail="kind is required")
+        if not domain.get_connection(cid):
+            raise HTTPException(status_code=404, detail="connection not found")
+        try:
+            cap = domain.set_capability(
+                cid, CapabilityKind(kind), detail=str(body.get("detail") or ""),
+                evidence_ref=body.get("evidence_ref"))
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return cap.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/missions/{mid}/approvals")
+    def domain_create_approval(mid: str, body: dict,
+                               _token: bool = Depends(require_control_token)):
+        try:
+            a = domain.create_approval(
+                mid, str(body.get("kind") or "GENERIC"),
+                reason=str(body.get("reason") or ""),
+                requested_by=str(body.get("requested_by") or "system"),
+                payload=body.get("payload") or {})
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return a.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/approvals/{aid}/decide")
+    def domain_decide_approval(aid: str, body: dict,
+                               _token: bool = Depends(require_control_token)):
+        state = str(body.get("state") or "").strip()
+        decided_by = str(body.get("decided_by") or "").strip()
+        if not state or not decided_by:
+            raise HTTPException(status_code=422,
+                                detail="state and decided_by are required")
+        try:
+            a = domain.decide_approval(aid, ApprovalState(state),
+                                       decided_by=decided_by)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return a.model_dump(mode="json")
 
 
 

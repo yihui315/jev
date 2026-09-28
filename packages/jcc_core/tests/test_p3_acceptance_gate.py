@@ -235,6 +235,18 @@ A8_FROZEN_AT = (
     "                                                    + SSE generator support)\n"
     "  All three were moved by v1.2 product work already COMMITTED on the branch; the A8 self-check now\n"
     "  passes against the current committed bytes. Re-baselined with old->new + reason, as required.\n"
+    "RE-BASELINED for the v1.3 PRODUCT EDITION (Wave 1, Project/Mission domain):\n"
+    "  packages/jcc_core/server.py  old 7d16a3f8.. -> new f4c01f35..  (Wave 1: wires DomainStore and\n"
+    "                               adds the /api/v1/domain/* read surface + token-gated writes for\n"
+    "                               projects/missions/runs/connections/capabilities/approvals/artifacts.\n"
+    "                               connections.py is NOT pinned by A8; its SQLite receiver rename\n"
+    "                               (c -> conn, D-41 tripwire) is a v1.2.1 latent-defect fix, below.)\n"
+    "ALSO FIXED (v1.2.1 latent defect, found by the D-41 tripwire once packages/jcc_core/tests became a\n"
+    "gating scope): packages/jcc_core/connections.py used the receiver name ``c`` for its SQLite\n"
+    "connection, which the D-41 AST scanner (allowlist conn/cur/cursor/real/db/sqlite/snapshot) does not\n"
+    "recognise, so test_actuator_execute_has_no_call_site_in_the_product_tree false-failed on 11\n"
+    "``c.execute`` lines. Renamed the receiver to ``conn`` (17 site edits, no behaviour change); the\n"
+    "tripwire now reads zero non-DB ``.execute`` call sites, which is what the invariant claims.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -253,8 +265,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating across assess/pause/steer/retry (require_control_token, hmac.compare_digest).
-        "7d16a3f8846f6d1825b900b33b455886d527dfba5161d1e4d98368844a62f1f4",  # old: 392059e698615ca92fe73b5b7228c0e30470ba2aeec43394b5c2b911efd4b90b (v1.2 control-token gating)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore.
+        "f4c01f351907d1cf97391e6fe25a0970c972ab3401d1dad5527724a68505100e",  # old: 7d16a3f8846f6d1825b900b33b455886d527dfba5161d1e4d98368844a62f1f4 (v1.3 Wave 1 domain surface)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
@@ -638,15 +650,48 @@ def test_A10_audit_event_parity_excluding_control_plane(live):
 
 
 def test_A11_no_new_inbound_surface(live):
-    """A11: no new inbound surface — mutating endpoints are exactly
-    {assess,pause,steer,retry}; /api/hooks is 404."""
+    """A11: every mutating endpoint is ENUMERATED here, and /api/hooks is 404.
+
+    Deliberately an EXACT set, not a subset: a new POST route cannot appear
+    without a reviewed edit to this assertion, which is what keeps "the inbound
+    surface" a fact rather than a claim. Updated for v1.3 Wave 1, which adds the
+    token-gated Project/Mission domain writes. Every route listed here is POST
+    and every one is behind ``require_control_token`` (proved separately by
+    ``tools/tests`` and ``tests/e2e/test_domain_api_v1_3.py``).
+    """
     client, _store, engine, _s, cfg = live
     app = client.app
     post_paths = {
         route.path for route in app.routes
         if getattr(route, "methods", None) and "POST" in route.methods
     }
-    assert post_paths == {"/api/assess", "/api/pause", "/api/steer", "/api/retry"}, post_paths
+    expected = {
+        # P1..P4 control plane
+        "/api/assess", "/api/pause", "/api/steer", "/api/retry",
+        # v1.2.1 AI CONNECTION CENTER
+        "/api/connections/{agent}/test",
+        "/api/connections/{agent}/configure",
+        "/api/connections/{agent}/preview-disconnect",
+        "/api/connections/{agent}/disconnect",
+        "/api/connections/{agent}/sessions",
+        "/api/connections/jev/validate",
+        "/api/connections/jev/activate",
+        "/api/onboarding/advance",
+        # v1.3 Wave 1 Project/Mission domain
+        "/api/v1/domain/projects",
+        "/api/v1/domain/missions",
+        "/api/v1/domain/missions/{mid}/transition",
+        "/api/v1/domain/missions/{mid}/runs",
+        "/api/v1/domain/missions/{mid}/artifacts",
+        "/api/v1/domain/missions/{mid}/approvals",
+        "/api/v1/domain/connections",
+        "/api/v1/domain/connections/{cid}/capability",
+        "/api/v1/domain/approvals/{aid}/decide",
+    }
+    assert post_paths == expected, {
+        "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),
+        "missing (declared but gone)": sorted(expected - post_paths),
+    }
     assert client.get("/api/hooks").status_code == 404
     assert client.post("/api/hooks", json={}).status_code == 404
 

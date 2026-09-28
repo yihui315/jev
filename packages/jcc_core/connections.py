@@ -168,17 +168,17 @@ class ConnectionRegistry:
         self.db_path = db_path
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
         self._lock = threading.Lock()
-        with self._connect() as c:
-            c.executescript(SCHEMA)
-            c.commit()
+        with self._connect() as conn:
+            conn.executescript(SCHEMA)
+            conn.commit()
 
     # ---- low level ---------------------------------------------------------
 
     def _connect(self) -> sqlite3.Connection:
-        c = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
-        c.execute("PRAGMA journal_mode=WAL")
-        c.execute("PRAGMA foreign_keys=ON")
-        return c
+        conn = sqlite3.connect(self.db_path, timeout=10.0, check_same_thread=False)
+        conn.execute("PRAGMA journal_mode=WAL")
+        conn.execute("PRAGMA foreign_keys=ON")
+        return conn
 
     # ---- config save/load (NON-SECRET) ------------------------------------
 
@@ -190,8 +190,8 @@ class ConnectionRegistry:
                 raise ValueError(
                     "refusing to persist a field that starts with 'secret_': %s" % k
                 )
-        with self._lock, self._connect() as c:
-            c.execute(
+        with self._lock, self._connect() as conn:
+            conn.execute(
                 """
                 INSERT INTO connection_config(agent, connection_type, executable_path,
                     working_directory, arguments_json, api_base_url, api_key_env,
@@ -215,11 +215,11 @@ class ConnectionRegistry:
                     json.dumps(cfg.extra), time.time(),
                 ),
             )
-            c.commit()
+            conn.commit()
 
     def get_config(self, agent: str) -> Optional[ConnectionConfig]:
-        with self._lock, self._connect() as c:
-            row = c.execute(
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
                 "SELECT * FROM connection_config WHERE agent=?", (agent,)
             ).fetchone()
         if not row:
@@ -241,8 +241,8 @@ class ConnectionRegistry:
         return ConnectionConfig(arguments=args, extra=extra, **d)
 
     def all_configs(self) -> Dict[str, ConnectionConfig]:
-        with self._lock, self._connect() as c:
-            rows = c.execute("SELECT agent FROM connection_config").fetchall()
+        with self._lock, self._connect() as conn:
+            rows = conn.execute("SELECT agent FROM connection_config").fetchall()
         out: Dict[str, ConnectionConfig] = {}
         for (a,) in rows:
             cfg = self.get_config(a)
@@ -260,8 +260,8 @@ class ConnectionRegistry:
                   last_tested_at: Optional[float] = None,
                   last_test_steps: Optional[List[Dict[str, Any]]] = None) -> None:
         steps_json = json.dumps(last_test_steps or [])
-        with self._lock, self._connect() as c:
-            c.execute(
+        with self._lock, self._connect() as conn:
+            conn.execute(
                 """
                 INSERT INTO connection_state(agent, state, last_event_at,
                     last_event_summary, last_session_id, version, last_tested_at,
@@ -280,11 +280,11 @@ class ConnectionRegistry:
                 (agent, state, last_event_at, last_event_summary,
                  last_session_id, version, last_tested_at, steps_json, time.time()),
             )
-            c.commit()
+            conn.commit()
 
     def get_state(self, agent: str) -> Dict[str, Any]:
-        with self._lock, self._connect() as c:
-            row = c.execute(
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
                 "SELECT state, last_event_at, last_event_summary, last_session_id, "
                 "version, last_tested_at, last_test_steps_json FROM "
                 "connection_state WHERE agent=?", (agent,)
@@ -309,8 +309,8 @@ class ConnectionRegistry:
     # ---- jev real-provider config (endpoint + schema + key env name) -------
 
     def get_jev_real(self) -> Dict[str, Any]:
-        with self._lock, self._connect() as c:
-            row = c.execute(
+        with self._lock, self._connect() as conn:
+            row = conn.execute(
                 "SELECT endpoint, request_schema, api_key_env FROM jev_real_config WHERE id=1"
             ).fetchone()
         if not row:
@@ -319,8 +319,8 @@ class ConnectionRegistry:
 
     def set_jev_real(self, *, endpoint: Optional[str], request_schema: Optional[str],
                      api_key_env: Optional[str]) -> None:
-        with self._lock, self._connect() as c:
-            c.execute(
+        with self._lock, self._connect() as conn:
+            conn.execute(
                 """
                 INSERT INTO jev_real_config(id, endpoint, request_schema, api_key_env, updated_at)
                 VALUES(1, ?, ?, ?, ?)
@@ -332,13 +332,13 @@ class ConnectionRegistry:
                 """,
                 (endpoint, request_schema, api_key_env, time.time()),
             )
-            c.commit()
+            conn.commit()
 
     # ---- onboarding --------------------------------------------------------
 
     def onboarding_state(self) -> Dict[str, Any]:
-        with self._lock, self._connect() as c:
-            rows = c.execute(
+        with self._lock, self._connect() as conn:
+            rows = conn.execute(
                 "SELECT step, completed_at FROM onboarding ORDER BY step"
             ).fetchall()
         completed = {int(r[0]): float(r[1]) for r in rows}
@@ -366,12 +366,12 @@ class ConnectionRegistry:
         }
 
     def mark_step(self, step: int) -> None:
-        with self._lock, self._connect() as c:
-            c.execute(
+        with self._lock, self._connect() as conn:
+            conn.execute(
                 "INSERT OR REPLACE INTO onboarding(step, completed_at) VALUES(?, ?)",
                 (step, time.time()),
             )
-            c.commit()
+            conn.commit()
 
 
 # ---------------------------------------------------------------------------

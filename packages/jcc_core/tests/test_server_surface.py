@@ -84,7 +84,15 @@ def test_health_declares_exactly_the_open_get_surface(client):
 
 
 def test_declared_surface_contents_are_the_five_read_endpoints():
-    """Pins the list itself, so a rename cannot pass via the anti-drift check."""
+    """Pins the list itself, so a rename cannot pass via the anti-drift check.
+
+    Updated for v1.3 Wave 1, which ADDS a read-only Project/Mission domain GET
+    surface (``/api/v1/domain/*``). Every entry here is a GET with no token
+    dependency, and the anti-drift test above refuses any route that is served
+    but not declared. The ``/api/v1/domain/*`` reads are open BY DESIGN: the
+    product Home screen must render before any token exists, and none of them
+    mutates anything. Writes stay token-gated.
+    """
     assert set(OPEN_GET_ENDPOINTS) == {
         "/api/health",
         "/api/sessions",
@@ -94,9 +102,27 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/audit/verify",
         "/api/v1/scene",
         "/api/v1/events/stream",
+        # v1.2.1 AI CONNECTION CENTER
+        "/api/connections",
+        "/api/connections/{agent}",
+        "/api/onboarding/state",
+        # v1.3 Wave 1 Project/Mission domain
+        "/api/v1/domain/home",
+        "/api/v1/domain/projects",
+        "/api/v1/domain/projects/{pid}",
+        "/api/v1/domain/missions",
+        "/api/v1/domain/missions/{mid}",
+        "/api/v1/domain/missions/{mid}/timeline",
+        "/api/v1/domain/missions/{mid}/runs",
+        "/api/v1/domain/missions/{mid}/artifacts",
+        "/api/v1/domain/connections",
+        "/api/v1/domain/needs-attention",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)
+    # Every declared domain read must be a GET, never a mutating verb.
+    assert not any("/domain/" in p and p.endswith(("/transition", "/decide"))
+                   for p in OPEN_GET_ENDPOINTS)
 
 
 def test_every_declared_open_endpoint_is_reachable_without_a_token(client):
