@@ -168,7 +168,7 @@ ADAPTERS = ["workbuddy", "claude", "codex", "hermes"]
 # "fix" this back without re-deriving the definition: the freeze is the position
 # at which every leg may be signed, and moving it invalidates all three
 # signatures.
-RELEASE_FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"
+RELEASE_FREEZE = "4925bb4e917c274c127878b58c2367b272310591"
 # What a release-evidence commit is allowed to touch. If something outside this
 # set moves after the freeze, a signature written at the freeze describes a
 # product that is no longer in HEAD -- that is a stale signature, not a pass.
