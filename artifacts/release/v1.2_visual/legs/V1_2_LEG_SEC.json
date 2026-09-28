@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "SEC",
   "notes": "v1.1 security generator re-run canonical; --check CLEAN (verdict=GO, high=0).",
-  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "80390b4e6b95a23c7c39a3987895dd55cb231b0486fa57b6ad2da9a6c6ecbf59",
+  "signature": "d6cc9bee7759131121947884e1b546bd51750beea2ce19b4b05b494337d435ab",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:58:13Z"
+  "timestamp_utc": "2026-09-28T14:54:56Z"
 }

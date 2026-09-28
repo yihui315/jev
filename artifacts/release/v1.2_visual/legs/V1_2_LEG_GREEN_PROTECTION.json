@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "GREEN_PROTECTION",
   "notes": "GREEN 4778 (pid n/a) confirmed alive and never probed for writes; v1.2 uses isolated runtime/jcc-v1.2.",
-  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "b5678c09420ff3f4984573af025cc333917f58968dd1b58362623ce8a3d8bfbc",
+  "signature": "407a3c9ddc75555608cbcec34a25c33a4cdd2c9964fc8937185ff3b99bbbac64",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:58:13Z"
+  "timestamp_utc": "2026-09-28T14:54:56Z"
 }

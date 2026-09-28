@@ -4,15 +4,15 @@
   "distinct_from_release": true,
   "evidence_path": "artifacts/release/v1.2_visual/V1_2_RELEASE_MANIFEST.json",
   "evidence_sha256": null,
-  "evidence_verdict": "files=24 check=None",
+  "evidence_verdict": "files=26 check=None",
   "freeze_sha": "ddca208",
   "leg_id": "REL",
-  "notes": "Manifest --check CLEAN (21 files). Durable Runtime host Task Scheduler registration = RELEASE_READY_PENDING_HOST_ACTIVATION (schtasks.exe sandboxed); non-blocking for UI release.",
-  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "notes": "Manifest --check CLEAN (26 files). Durable Runtime host Task Scheduler registration = RELEASE_READY_PENDING_HOST_ACTIVATION (schtasks.exe sandboxed); non-blocking for UI release.",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "35c4d6270e1da9a0256fadad399202dcece54299937e000ba936b3573abcd5d1",
+  "signature": "686f2b19ad58bbd550d4533800b4a135cce2c94b7453d695bd16eb93af045ba0",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:58:13Z"
+  "timestamp_utc": "2026-09-28T14:54:56Z"
 }

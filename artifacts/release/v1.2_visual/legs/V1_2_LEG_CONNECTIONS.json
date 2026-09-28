@@ -1,0 +1,18 @@
+{
+  "decision": "GO",
+  "dimension": "AI Connection Center (v1.2.1)",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/v1.2_visual/V1_2_1_BROWSER_E2E.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "verdict=PASS engine=playwright-chromium",
+  "freeze_sha": "ddca208",
+  "leg_id": "CONNECTIONS",
+  "notes": "Real-browser E2E (15 steps, playwright-chromium): 5 agents listed, all states in the closed vocabulary with UNKNOWN never green, actuation_enabled=False cross-checked against the live API, disconnect remains preview-first, Jev real activation stays PENDING_EXTERNAL_ACTIVATION.",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "8671e50e5d68c2ebbdb433e22078136cf54e08a2b03f5b812bf040a2ee18242f",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T14:54:56Z"
+}
