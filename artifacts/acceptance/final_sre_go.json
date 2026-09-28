@@ -5,7 +5,7 @@
   "steps_pass": 22,
   "steps_not_pass": [],
   "verdict": "GO",
-  "release_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+  "release_sha": "4925bb4e917c274c127878b58c2367b272310591",
   "e07_head_sha": "b11d77426ed35a086526791c70d1986adeeedfde",
   "signed_at": "2026-09-26T16:27:43.133437+08:00",
   "signer": "generate_final_sre_go.py",
@@ -302,12 +302,23 @@
       "exit_code": null,
       "stdout_sha256": null,
       "stderr_sha256": null
-    }
+    },
+    "re-signed at v1.1 release freeze 4925bb4 (2026-09-28T10:37:40+08:00); RELEASE-BASELINE-OUTDATED correction"
   ],
   "throughput": {
     "rate_per_s": 15.67,
     "ok": 941,
     "failed": 0,
     "window_s": 60
+  },
+  "reanchored_at": "2026-09-28T10:37:40+08:00",
+  "reanchor": {
+    "from": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+    "to": "4925bb4e917c274c127878b58c2367b272310591",
+    "reason": "RELEASE-BASELINE-OUTDATED correction (not a product failure). The prior GO signature sat at the stale freeze 5ab5e20d, which predated the two v1.1 product moves already pinned in A8 (_BASELINE_HASHES): core.py 93ee369f.. (§21 S-02c redaction) and server.py 392059e6.. (§7D provider-mode contract). The product this leg attests is byte-identical at the new v1.1 release freeze 4925bb4 (A8 _BASELINE_HASHES 12/12 current), so the verdict stands unchanged.",
+    "product_byte_identical_at_new_freeze": true,
+    "a8_pins_current": "12/12",
+    "resigned_by": "Orion (release owner) under FINAL-BASELINE re-baseline 2026-09-28",
+    "prior_reanchor": null
   }
 }
