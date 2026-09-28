@@ -1,0 +1,81 @@
+{
+  "evidence_head": "8f0447a6084e5d81d1cf56c879736fc8430c7305",
+  "file_count": 6,
+  "files": [
+    {
+      "bytes": 893540,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/jcc_core",
+      "sha256": "b244ecbace531a9ea96c92eb2935581e23afe28500b61193177f829bd2e3b392"
+    },
+    {
+      "bytes": 191261,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "apps/command_center_3d",
+      "sha256": "09aacbe4a5bf074d3ba67c3d88c0ec1c4f6d6c3f60fc3e37a328e9246cb18cbd"
+    },
+    {
+      "bytes": 10143,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "config",
+      "sha256": "8ae54d878caaea3cc4f70aac9a39170ced3fb3fb638b9f8152e7ff3090a4fe05"
+    },
+    {
+      "bytes": 16836,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/jcc_release_manifest.py",
+      "sha256": "ed7cb02e24e943a085eb09e77f81130954559e1c3849b6ac5ef88bd10248c622"
+    },
+    {
+      "bytes": 5199,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/emit_v1_3_release_manifest.py",
+      "sha256": "cb211426149d63568ceed4e5655d61cf17c86cd5547796734c1913af6a90a48e"
+    },
+    {
+      "bytes": 10350,
+      "hash_convention": "git_blob",
+      "owner": "protocol-architect",
+      "path": "docs/v1_2/FINAL_PRODUCT_FREEZE.md",
+      "sha256": "82f9144e65c38abd4a64c7a1afcda32e2451a61f04b3e8b0e29834749e2b319e"
+    }
+  ],
+  "final_gate": {
+    "note": "v1.3 final gate has not run yet",
+    "present": false
+  },
+  "generated_at": "2026-09-28T22:08:13.385666+00:00",
+  "generated_by": "tools/emit_v1_3_release_manifest.py",
+  "generated_by_sha256": "cb211426149d63568ceed4e5655d61cf17c86cd5547796734c1913af6a90a48e",
+  "hash_convention": "sha256(git cat-file blob <PRODUCT_FREEZE_SHA>:<path>) for tracked files; sha256(content fingerprint over tracked files) for directories",
+  "product_deny": [
+    "packages/**",
+    "apps/**",
+    "facades/**",
+    "scripts/**",
+    "config/**",
+    "fixtures/**",
+    "tools/**",
+    "integrations/**",
+    "adapters/**",
+    "policies/**",
+    "evals/**",
+    "tests/**"
+  ],
+  "product_freeze_sha": "8f0447a6084e5d81d1cf56c879736fc8430c7305",
+  "release": "JCC v1.3 Product Edition (local)",
+  "release_metadata_allow": [
+    "artifacts/release/**",
+    "artifacts/acceptance/**",
+    "docs/v1_3/**",
+    "docs/release/**",
+    "artifacts/release/v1.3_product/**"
+  ],
+  "schema": "jcc/release-manifest/2",
+  "tag_head": null
+}
