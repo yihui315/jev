@@ -1,5 +1,5 @@
 {
-  "evidence_head": "8f0447a6084e5d81d1cf56c879736fc8430c7305",
+  "evidence_head": "9654e10047f04551c2b8cc42a8fd2fd49c18f22a",
   "file_count": 6,
   "files": [
     {
@@ -49,7 +49,7 @@
     "note": "v1.3 final gate has not run yet",
     "present": false
   },
-  "generated_at": "2026-09-28T22:08:13.385666+00:00",
+  "generated_at": "2026-09-28T22:09:25.838039+00:00",
   "generated_by": "tools/emit_v1_3_release_manifest.py",
   "generated_by_sha256": "cb211426149d63568ceed4e5655d61cf17c86cd5547796734c1913af6a90a48e",
   "hash_convention": "sha256(git cat-file blob <PRODUCT_FREEZE_SHA>:<path>) for tracked files; sha256(content fingerprint over tracked files) for directories",
@@ -77,5 +77,5 @@
     "artifacts/release/v1.3_product/**"
   ],
   "schema": "jcc/release-manifest/2",
-  "tag_head": null
+  "tag_head": "9654e10047f04551c2b8cc42a8fd2fd49c18f22a"
 }
