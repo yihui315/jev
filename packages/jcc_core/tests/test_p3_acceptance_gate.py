@@ -213,6 +213,17 @@ A8_FROZEN_AT = (
     "    old 72fc0f99.. -> new 93ee369f..\n"
     "    §21 S-02c: ingest chokepoint now applies the key-name redaction pass, ADR-0007 D-1\n"
     "    (mask_secret_key_values() runs before scrub_value_secrets() on payload+evidence).\n"
+    "RE-ANCHORED RELEASE FREEZE (v1.1 final acceptance; pointer move ONLY, no product hash change):\n"
+    "  RELEASE_FREEZE moved 5ab5e20d961db4c9807f578195ae8530dea2f7d9 -> the v1.1 release freeze\n"
+    "  (see docs/p3/V1_1_REBASELINE_RECORD.md for the concrete new-freeze SHA + old/new sha256).\n"
+    "  The 12 pinned product files ALREADY carried their v1.1 hashes at the time of this re-anchor\n"
+    "  (core.py 93ee369f.. from the §21 S-02c redaction fix, server.py 392059e6.. from the §7D\n"
+    "  provider-mode contract); the stale freeze 5ab5e20d PREDATED those two moves, so the legs and\n"
+    "  the release manifest that were signed against 5ab5e20d were RELEASE-BASELINE-OUTDATED, not\n"
+    "  product failures. Reason recorded in the gate: JCC v1.1 intentional product evolution.\n"
+    "  _BASELINE_HASHES is NOT modified by this re-anchor -- every pinned value still matches the\n"
+    "  byte-for-byte current product as enforced by the A8 self-check (current bytes PASS, single-byte\n"
+    "  tamper FAIL). The manifest was merely never regenerated after the two v1.1 product moves.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
