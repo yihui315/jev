@@ -224,26 +224,37 @@ A8_FROZEN_AT = (
     "  _BASELINE_HASHES is NOT modified by this re-anchor -- every pinned value still matches the\n"
     "  byte-for-byte current product as enforced by the A8 self-check (current bytes PASS, single-byte\n"
     "  tamper FAIL). The manifest was merely never regenerated after the two v1.1 product moves.\n"
+    "RE-BASELINED for the v1.2 VISUAL COMMAND CENTER (Wave 7+8, branch\n"
+    "feature/jcc-v1.2-visual-command-center):\n"
+    "  packages/jcc_core/core.py         old 93ee369f.. -> new 8a5141bc..  (Wave 7: record_source gate\n"
+    "                                                    + CoreEngine.shadow_summary live-only)\n"
+    "  packages/jcc_core/state_store.py  old b6667435.. -> new 9a4cde5f..  (Wave 7: events.record_source\n"
+    "                                                    column + get_shadow_records('live'))\n"
+    "  packages/jcc_core/server.py       old 392059e6.. -> new 7d16a3f8..  (Wave 7+8: control-token\n"
+    "                                                    fail-closed gating across assess/pause/steer/retry\n"
+    "                                                    + SSE generator support)\n"
+    "  All three were moved by v1.2 product work already COMMITTED on the branch; the A8 self-check now\n"
+    "  passes against the current committed bytes. Re-baselined with old->new + reason, as required.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
     "config/jcc.yaml":
         "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-    "packages/jcc_core/core.py":  # A8 re-baseline (§21 S-02c, 2026-09-27): ingest chokepoint now applies the key-name redaction pass (ADR-0007 D-1).
-        "93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae",  # old: 72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e (frozen_at P5 _broadcast fix a74f1d9)
+    "packages/jcc_core/core.py":  # A8 re-baseline (§21 S-02c, 2026-09-27): ingest chokepoint now applies the key-name redaction pass (ADR-0007 D-1). # RE-BASELINED v1.2 (Wave 7): record_source gate + CoreEngine.shadow_summary() (live-only shadow).
+        "8a5141bc931296ac5f495da116e45f1b8bb9fb4fab5ae6ac99a887aca9a7106b",  # old: 93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae (v1.2 Wave 7 record_source/shadow_summary)
     "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
     "packages/jcc_core/decision.py":
         "b61c88177e776aeacac4cda17bd14410a0f8ef4e88de91f3a6faa3262ad0e31c",
-    "packages/jcc_core/state_store.py":
-        "b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95",
+    "packages/jcc_core/state_store.py":  # RE-BASELINED v1.2 (Wave 7): events.record_source column + get_shadow_records("live").
+        "9a4cde5f6e9f90038103e3ebdd62ed2912485e71422f7f5a4b136080a1b4c739",  # old: b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95 (v1.2 Wave 7 record_source column)
     "packages/jcc_core/policy.py":
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract.
-        "392059e698615ca92fe73b5b7228c0e30470ba2aeec43394b5c2b911efd4b90b",  # old: 9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce (frozen_at P4 freeze)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating across assess/pause/steer/retry (require_control_token, hmac.compare_digest).
+        "7d16a3f8846f6d1825b900b33b455886d527dfba5161d1e4d98368844a62f1f4",  # old: 392059e698615ca92fe73b5b7228c0e30470ba2aeec43394b5c2b911efd4b90b (v1.2 control-token gating)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
