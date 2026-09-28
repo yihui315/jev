@@ -32,19 +32,19 @@
     "api_health": {
       "bytes": 430,
       "ok": true,
-      "seconds": 0.0523,
+      "seconds": 0.0482,
       "status": 200
     },
     "ui_health": {
       "bytes": 63,
       "ok": true,
-      "seconds": 0.0012,
+      "seconds": 0.0011,
       "status": 200
     },
     "ui_index": {
       "bytes": 336,
       "ok": true,
-      "seconds": 0.0015,
+      "seconds": 0.013,
       "status": 200
     }
   },
@@ -59,8 +59,8 @@
     "root_present": true
   },
   "release_branch": "feature/jcc-v1.2-visual-command-center",
-  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
   "result": "HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
-  "timestamp_utc": "2026-09-28T12:45:31Z",
+  "timestamp_utc": "2026-09-28T12:47:00Z",
   "worktree_dirty_at_probe": true
 }

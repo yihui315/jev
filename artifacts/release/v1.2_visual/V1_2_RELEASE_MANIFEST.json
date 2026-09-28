@@ -90,42 +90,42 @@
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/V1_1_SECURITY_GATE.json",
-      "sha256": "f4c0474a37c11d88fe790c50a080eeb587b004a3d18a79c52817503f3a6ba17a"
+      "sha256": "a3e86c2b39eb1b639096e75fce519acb9fb13aaac5a6f8f70d52302b1d1876bc"
     },
     {
       "bytes": 1255,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/GREEN_PROTECTION_PROOF.json",
-      "sha256": "624ce923e48dd96c768ea2ffb0617702ed5f684be3cd6211d216626c8f640362"
+      "sha256": "40e2bfb3acf489787002e5e66db0ce27a96fe0eebbdfb1ea1f604676fd2efbe4"
     },
     {
       "bytes": 1572,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/DURABLE_RUNTIME_PROOF.json",
-      "sha256": "3ccd1644041534fb9ffc34c961cc0a1da3b9510f4264487ead78922a08feb271"
+      "sha256": "c5df3637da2dfb135e50070aa97e8b400f3344cadecaf8de78467fa0a49f1d77"
     },
     {
       "bytes": 1058,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/FOUR_AGENT_EVIDENCE.json",
-      "sha256": "4c1a202794caa37587d3d645206eba9556306c6f1c3bc3d8691a0b260ab835d1"
+      "sha256": "ec8df1cf91efc1ee5e576587df504a3a78cde53b56b0771b79744c082baeeea2"
     },
     {
       "bytes": 987,
-      "hash_convention": "raw_file",
+      "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/FIRST_NATIVE_LIVE_3D_SESSION.json",
-      "sha256": "6ae667e7f38f006dbeb2d03d7f157b55cac6e544c08ea8cfbd1cb2c1bb5d1e03"
+      "sha256": "177e58b2ccd05748d652df389948408f4be5490d88c58fd075ea1897a6b41cfe"
     },
     {
-      "bytes": 1745,
+      "bytes": 1744,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json",
-      "sha256": "c8f7d97ee47e2e9a0d63555e49dfbbcdbf63723eeee03ccbe745ce58b6ca256a"
+      "sha256": "f91ce9c7e0e9ec5c344cb84b2a20c15f52c22b5e20466c5449102bdb5f0b870c"
     },
     {
       "bytes": 1357,
@@ -136,10 +136,10 @@
     },
     {
       "bytes": 2251,
-      "hash_convention": "raw_file",
+      "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/legs/V1_2_LEG_SIGNATURES.json",
-      "sha256": "32bf9bcb70996be0e09a83d3d430901254e76902ae594e16eb689e1e87ef8adf"
+      "sha256": "8785965c44df891003a5f3fa64f355770e9b861da805c68f24c6c2298ca3ce31"
     },
     {
       "bytes": 14656,
@@ -153,11 +153,11 @@
       "hash_convention": "git_blob",
       "owner": "lead",
       "path": "tools/emit_v1_2_release_manifest.py",
-      "sha256": "2d52791ea7503b92c6b70ebf2e52f950e4ce7982d7e4a740c05243d6bf74274e"
+      "sha256": "0cc7911944fd7260e56598309a55c9c5c6d8fdd5ab7eb7bbb099b48791238daf"
     },
     {
       "bytes": 8835,
-      "hash_convention": "raw_file",
+      "hash_convention": "git_blob",
       "owner": "lead",
       "path": "tools/emit_v1_2_legs.py",
       "sha256": "f2a7b7f588586340794dc82d6050fcfc8a15a8bff9735841e5e3682477f86352"
@@ -179,13 +179,13 @@
     "project_complete": true,
     "release_readiness": "RELEASE_READY"
   },
-  "generated_at": "2026-09-28T12:45:40.713768+00:00",
+  "generated_at": "2026-09-28T12:47:46.477255+00:00",
   "generated_by": "tools/emit_v1_2_release_manifest.py",
   "generated_by_sha256": "0cc7911944fd7260e56598309a55c9c5c6d8fdd5ab7eb7bbb099b48791238daf",
   "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(content fingerprint) for directories",
   "product_freeze_frozen_at": "ddca208",
   "product_freeze_sha": "ddca208b4b38913b75cafc2a15ee2ac538b22c8c",
-  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
   "schema": "jcc/v1.2-release-manifest/1",
-  "test_sha": "cd07e7da1da816cc6243004f48badea53f8e476b"
+  "test_sha": "91212602785a05f0741160d70e16036e45b2b4e4"
 }
