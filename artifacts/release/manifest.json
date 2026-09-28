@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "generator": "scripts/emit_release_evidence.py",
-  "frozen_at": "3cca8ff",
+  "frozen_at": "c2c8367",
   "entries": [
     {
       "path": "config/jcc.yaml",
@@ -29,8 +29,8 @@
     },
     {
       "path": "packages/jcc_core/core.py",
-      "sha256": "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",
-      "bytes": 15499,
+      "sha256": "93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae",
+      "bytes": 16009,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
@@ -61,8 +61,8 @@
     },
     {
       "path": "packages/jcc_core/server.py",
-      "sha256": "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
-      "bytes": 12541,
+      "sha256": "392059e698615ca92fe73b5b7228c0e30470ba2aeec43394b5c2b911efd4b90b",
+      "bytes": 14064,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"

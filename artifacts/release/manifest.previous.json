@@ -1,7 +1,7 @@
 {
   "schema_version": "1.0",
   "generator": "scripts/emit_release_evidence.py",
-  "frozen_at": "60168e8",
+  "frozen_at": "3cca8ff",
   "entries": [
     {
       "path": "config/jcc.yaml",
