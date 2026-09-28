@@ -251,6 +251,7 @@ TRACE = {
         "chain_intact": ("gate", "verdict.chain_intact"),
         "defects": ("gate", "verdict.defects"),
         "thresholds": ("gate", "verdict.thresholds"),
+        "db_present": ("gate", "db.present"),
     },
     "actuation": {
         "effective_level": ("gate", "headline.effective_level"),
@@ -264,6 +265,9 @@ TRACE = {
         "ladder": ("gate", "actuation_ladder"),
         "defects": ("gate", "verdict.defects"),
         "db_present": ("gate", "db.present"),
+        "policy_permitted": DERIVED,
+        "currently_executable": DERIVED,
+        "blocked_reason": DERIVED,
         "note": ("gate", "note"),
     },
     "pending_activation": {

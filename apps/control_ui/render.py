@@ -123,12 +123,32 @@ def render_dashboard(m: Dict[str, Any]) -> str:
     agent_rows: List[List[Any]] = []
     for name in ("workbuddy", "claude", "codex", "hermes"):
         cap = agents.get(name) or {}
-        status = cap.get("status", "UNKNOWN")
-        kind = "ok" if str(status).upper() == "CONNECTED" else "warn"
+        adapter_state = cap.get("status", "UNKNOWN")
+        aep = cap.get("aep")
+        verified = cap.get("verified")
+        kind = "ok" if str(adapter_state).upper() == "CONNECTED" else "warn"
+        # Defect A: three SEMANTIC dimensions, never collapsed into one row.
+        #  - adapter state  = the live telemetry/adapter connection
+        #  - AEP normalization = whether the agent's events normalize to AEP v0.1
+        #  - capability set verified = P2 surface probe passed (NOT actuation)
         agent_rows.append([
-            esc(name), _badge(kind, status), esc(cap.get("version", "")),
-            esc(cap.get("aep", "")), esc(cap.get("verified", "")),
+            esc(name),
+            _badge(kind, adapter_state),
+            _tri(aep),
+            _tri(verified),
         ])
+
+    # Authoritative actuation count from the frozen §10 record. Kept visually
+    # distinct from "capability set verified" so the two cannot be conflated.
+    va = m.get("verified_actuable") or {}
+    if va.get("available"):
+        act_banner = _badge(
+            "warn",
+            f"Verified actuable agents: {va.get('actuable_capability_count')}"
+            f"/{va.get('agent_count')}",
+        )
+    else:
+        act_banner = _badge("mut", "Verified actuable agents: unavailable")
 
     risk = m["risk_by_band"]
     risk_rows: List[List[Any]] = [
@@ -157,7 +177,12 @@ def render_dashboard(m: Dict[str, Any]) -> str:
     ])}
 
     <h2>Agent capabilities (from config)</h2>
-    {_table(['agent','status','version','aep','verified'], agent_rows)}
+    {act_banner}
+    <p class="note">Three SEMANTIC dimensions are shown separately. &quot;capability
+    set verified&quot; means the P2 capability-surface probe passed (adapter
+    present, AEP wired) -- it is NOT &quot;actuation-capable&quot;. The authoritative
+    actuation count is the frozen §10 record, rendered in the banner above.</p>
+    {_table(['agent','adapter state (telemetry)','AEP normalization','capability set verified'], agent_rows)}
 
     <h2>Sessions</h2>
     <p>Sessions in store: <strong>{esc(m['session_count'])}</strong>
@@ -583,21 +608,56 @@ def _render_capability_matrix(p: Dict[str, Any]) -> str:
 
 def _render_shadow_stats(p: Dict[str, Any]) -> str:
     d = p["data"]
-    return _panel_source(p) + _rows_table([
+    # Defect B: the flat row-list mixed three DIFFERENT semantic facts -- whether
+    # the shadow tape is stored, how many observations were made, and what gate
+    # defects exist -- into one undifferentiated table. Each is its own sub-section
+    # so a reader can tell "the storage is present" apart from "we observed N
+    # decisions" apart from "the gate has defects".
+    out = [_panel_source(p)]
+    out.append("<h3>Storage</h3>")
+    out.append(_rows_table([
+        ("shadow tape present (db_present)", _tri(d.get("db_present"))),
+    ]))
+    out.append("<h3>Observations (release-time)</h3>")
+    out.append(_rows_table([
         ("status", d.get("status")),
         ("satisfied", _tri(d.get("satisfied"))),
         ("observed_decisions", d.get("observed_decisions")),
         ("observed_span_s", d.get("observed_span_s")),
         ("actuated_observations", d.get("actuated_observations")),
         ("chain_intact", _tri(d.get("chain_intact"))),
+    ]))
+    out.append("<h3>Gate defects</h3>")
+    out.append(_rows_table([
         ("defects", _join(d.get("defects")) or "(none)"),
         ("thresholds", _dict_text(d.get("thresholds"))),
-    ])
+    ]))
+    return "".join(out)
 
 
 def _render_actuation(p: Dict[str, Any]) -> str:
     d = p["data"]
     out = [_panel_source(p)]
+    # Defect C: the ladder is POLICY's view (what the gate permits); the operator
+    # switch is the EXECUTION view (what can actually fire). They are different
+    # facts and must not read as one. The "Execution state" block states both and
+    # the three-state blocked reason for why nothing is actuating right now.
+    out.append("<h3>Execution state</h3>")
+    blocked = d.get("blocked_reason")
+    blocked_text = "(none — actuation is executable)" if blocked is None else blocked
+    out.append(_rows_table([
+        ("POLICY-PERMITTED (gate ladder)", _tri(d.get("policy_permitted"))),
+        ("CURRENTLY-EXECUTABLE (policy + operator switch)",
+         _tri(d.get("currently_executable"))),
+        ("BLOCKED reason (three-state)", blocked_text),
+    ]))
+    if blocked:
+        out.append(
+            f'<p class="note">blocked_reason={esc(blocked)} — actuation is held by '
+            f"exactly one of: config_off (operator switch off), "
+            f"gate_not_satisfied (live-shadow gate not met), ceiling_L0 "
+            f"(granted ceiling is L0). It is never silently off.</p>")
+    out.append("<h3>Ladder / gate detail</h3>")
     out.append(_rows_table([
         ("effective_level", d.get("effective_level")),
         ("configured_level", d.get("configured_level")),

@@ -318,6 +318,11 @@ def shadow_stats_panel() -> Dict[str, Any]:
         return _panel("shadow_stats", source, reason=got["reason"], detail=got["detail"])
     verdict = (got["data"] or {}).get("verdict") or {}
     readings = _gate_readings(verdict)
+    # Storage presence is a SEPARATE semantic fact from the observation count and
+    # the gate defects (Defect B). It lives in the same gate artifact as the
+    # verdict, so it shares this panel's source -- but it is surfaced as its own
+    # labelled sub-section in the renderer rather than buried in one flat row.
+    readings["db_present"] = (got["data"] or {}).get("db", {}).get("present")
     if readings["observed_decisions"] is None:
         return _panel("shadow_stats", source, reason=REASON_ARTIFACT_UNREADABLE,
                       detail="the gate artifact carries no verdict readings")
@@ -362,8 +367,47 @@ def actuation_panel(health: Dict[str, Any]) -> Dict[str, Any]:
         "ladder": ladder,
         "defects": list((doc.get("verdict") or {}).get("defects") or []),
         "db_present": (doc.get("db") or {}).get("present"),
+        # -- Defect C: POLICY-PERMITTED vs CURRENTLY-EXECUTABLE --
+        # The ladder tells you what POLICY permits; the operator switch
+        # (actuation.enabled) tells you what is CURRENTLY executable. Conflating
+        # the two is the classic "the ladder says L3 so we are actuating" trap.
+        # `policy_permitted` is derived purely from the gate (ceiling above L0 and
+        # the gate satisfied). `currently_executable` is policy_permitted AND the
+        # operator switch is on. `blocked_reason` is the three-state reason an
+        # executable actuation is not happening right now.
+        "policy_permitted": (
+            bool(head.get("satisfied"))
+            and str(head.get("granted_ceiling") or "") not in ("L0", "None", "none", "")
+        ),
+        "currently_executable": (
+            bool(head.get("satisfied"))
+            and str(head.get("granted_ceiling") or "") not in ("L0", "None", "none", "")
+            and bool(configured_bool)
+        ),
+        "blocked_reason": _actuation_blocked_reason(head, configured_bool),
         "note": doc.get("note"),
     })
+
+
+def _actuation_blocked_reason(head: Dict[str, Any],
+                              configured_bool: Optional[bool]) -> Optional[str]:
+    """Three-state BLOCKED reason (Defect C).
+
+    Returns ``None`` only when actuation is genuinely executable. Otherwise one of
+    ``config_off`` / ``gate_not_satisfied`` / ``ceiling_L0`` / ``unknown`` -- each
+    a distinct, operator-meaningful cause, never a silent "no".
+    """
+    if bool(configured_bool):
+        if not bool(head.get("satisfied")):
+            return "gate_not_satisfied"
+        if str(head.get("granted_ceiling") or "") in ("L0", "None", "none", ""):
+            return "ceiling_L0"
+        return None
+    if str(head.get("granted_ceiling") or "") in ("L0", "None", "none", ""):
+        return "ceiling_L0"
+    if not bool(head.get("satisfied")):
+        return "gate_not_satisfied"
+    return "config_off"
 
 
 def pending_activation_panel() -> Dict[str, Any]:
