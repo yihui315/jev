@@ -1,24 +1,191 @@
 {
-  "release": "JCC v1.2 Visual Command Center (local)",
-  "branch": "feature/jcc-v1.2-visual-command-center",
-  "gates": {
-    "visual_ui_gate": "PASS",
-    "control_ui_gate": "PASS",
-    "live_shadow_ui_gate": "PASS (activation PENDING, non-blocking)",
-    "green_protection_gate": "PASS (PROTECTED)",
-    "a8_self_check": "PASS (12/12 pinned product files match committed bytes)",
-    "performance_gate": "PASS (real HTTP serving; browser FCP PENDING_HOST)",
-    "frontend_tests": "PASS (13/13 + typecheck, hermetic TEMP)",
-    "wave6_commit_audit": "PASS (path-limited, no git add .)",
-    "orphaned_blue_reclaim": "PASS (SAFE_RECLAIM)",
-    "canonical_ports_restored": "PASS (API 4779 / UI 4780 / dev 4781; 4782 not used as production)"
-  },
-  "pending_external_action": [
-    "Windows Task Scheduler durable-task registration (schtasks blacklist in sandbox) -- host-side durability layer",
-    "Browser-render FCP/LCP measurement (no headless browser in agent sandbox)",
-    "Activation Gate enablement (actuation + real provider + control token) -- design-gated, non-blocking"
+  "file_count": 24,
+  "files": [
+    {
+      "bytes": 4609,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "config/jcc-v1.2.yaml",
+      "sha256": "6ca51934b1d82663fb702fe8b94dbac5ac65e4020822a199c492aaca3fe1364b"
+    },
+    {
+      "bytes": 104997209,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "apps/command_center_3d",
+      "sha256": "5740a2939d5f90f728cab3dcc850f5eddf749bff81e5f7819ab966cacc331d09"
+    },
+    {
+      "bytes": 7412,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/jcc-v1.2-register-tasks.ps1",
+      "sha256": "806b2cce246cc2b85a3cc6c9bef14cd3f4a2a4993f18d88aa66d5e9a685cce94"
+    },
+    {
+      "bytes": 11751,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/start-jcc-v1.2.ps1",
+      "sha256": "4e278a40852a382174bcb3bf95401391328b0c60a639e8050b8f08768e779625"
+    },
+    {
+      "bytes": 7179,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/stop-jcc-v1.2.ps1",
+      "sha256": "795eab9bd825200be487a020333ee6abc7d6ad46995de6fc0dcbe467e82a0580"
+    },
+    {
+      "bytes": 8083,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/status-jcc-v1.2.ps1",
+      "sha256": "d8d9f6a3c544f70e6c4e0155853ee7d103ea6b475f66dc4fab416fbff0389c16"
+    },
+    {
+      "bytes": 5694,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/start-jcc-v1.2-visual-ui.ps1",
+      "sha256": "19925af7e542ad4580d4a1afe0592d5429b5687ad3aeb6bb1d095a291e5db3c2"
+    },
+    {
+      "bytes": 6576,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/stop-jcc-v1.2-visual-ui.ps1",
+      "sha256": "4dd9605263834b0c23f778b6707a1dc94d67e6654800001fc5aae1351dc2fbd9"
+    },
+    {
+      "bytes": 7155,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/restart-jcc-v1.2.ps1",
+      "sha256": "d03ae12d384c8f0fca236902c5a491d86641e08353073f782e79427e4679ea61"
+    },
+    {
+      "bytes": 4386,
+      "hash_convention": "git_blob",
+      "owner": "core-platform",
+      "path": "scripts/test-visual-ui.ps1",
+      "sha256": "0cf8dac08958ed433c9b9bf74595251e4bd2f3a22f5449504cbf112c7df39173"
+    },
+    {
+      "bytes": 2349565,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/jcc_core",
+      "sha256": "3cc3261a47067a0c75db52377843097f599c4b5d2443da0fa6a3b443ad113b8b"
+    },
+    {
+      "bytes": 10350,
+      "hash_convention": "git_blob",
+      "owner": "protocol-architect",
+      "path": "docs/v1_2/FINAL_PRODUCT_FREEZE.md",
+      "sha256": "82f9144e65c38abd4a64c7a1afcda32e2451a61f04b3e8b0e29834749e2b319e"
+    },
+    {
+      "bytes": 12639,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/V1_1_SECURITY_GATE.json",
+      "sha256": "f4c0474a37c11d88fe790c50a080eeb587b004a3d18a79c52817503f3a6ba17a"
+    },
+    {
+      "bytes": 1255,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/GREEN_PROTECTION_PROOF.json",
+      "sha256": "624ce923e48dd96c768ea2ffb0617702ed5f684be3cd6211d216626c8f640362"
+    },
+    {
+      "bytes": 1572,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/DURABLE_RUNTIME_PROOF.json",
+      "sha256": "3ccd1644041534fb9ffc34c961cc0a1da3b9510f4264487ead78922a08feb271"
+    },
+    {
+      "bytes": 1058,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/FOUR_AGENT_EVIDENCE.json",
+      "sha256": "4c1a202794caa37587d3d645206eba9556306c6f1c3bc3d8691a0b260ab835d1"
+    },
+    {
+      "bytes": 987,
+      "hash_convention": "raw_file",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/FIRST_NATIVE_LIVE_3D_SESSION.json",
+      "sha256": "6ae667e7f38f006dbeb2d03d7f157b55cac6e544c08ea8cfbd1cb2c1bb5d1e03"
+    },
+    {
+      "bytes": 1745,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json",
+      "sha256": "c8f7d97ee47e2e9a0d63555e49dfbbcdbf63723eeee03ccbe745ce58b6ca256a"
+    },
+    {
+      "bytes": 1357,
+      "hash_convention": "git_blob",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/LIVE_SHADOW_UI_GATE.json",
+      "sha256": "a6269785b78a9e7a0afaa053378e2fbe315a6ca9bc7283c8b5e314367a2ad418"
+    },
+    {
+      "bytes": 2251,
+      "hash_convention": "raw_file",
+      "owner": "release-evidence",
+      "path": "artifacts/release/v1.2_visual/legs/V1_2_LEG_SIGNATURES.json",
+      "sha256": "32bf9bcb70996be0e09a83d3d430901254e76902ae594e16eb689e1e87ef8adf"
+    },
+    {
+      "bytes": 14656,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_2_collect_evidence.py",
+      "sha256": "ce04b87959ef2ddfce6abfe4683ebc3843682b8e651a150d8f1ba6a252b88c3e"
+    },
+    {
+      "bytes": 12890,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/emit_v1_2_release_manifest.py",
+      "sha256": "2d52791ea7503b92c6b70ebf2e52f950e4ce7982d7e4a740c05243d6bf74274e"
+    },
+    {
+      "bytes": 8835,
+      "hash_convention": "raw_file",
+      "owner": "lead",
+      "path": "tools/emit_v1_2_legs.py",
+      "sha256": "f2a7b7f588586340794dc82d6050fcfc8a15a8bff9735841e5e3682477f86352"
+    },
+    {
+      "bytes": 9268,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/final_gate_run_v1_2.py",
+      "sha256": "476ce45af22f82a17cd9b40c8bb9ade7fc836777be06dc07fa49c2f5a58d3800"
+    }
   ],
-  "rollback_tag_preserved": "jcc-v1.1-local",
-  "release_tag_to_create": "jcc-v1.2-visual-local (local only, NO push)",
-  "verdict": "ALL_GO_EXCEPT_NONBLOCKING_PENDING"
+  "final_gate": {
+    "blocker": 0,
+    "blockers": [],
+    "final_release": true,
+    "pending_host_activation": [],
+    "present": true,
+    "project_complete": true,
+    "release_readiness": "RELEASE_READY"
+  },
+  "generated_at": "2026-09-28T12:45:40.713768+00:00",
+  "generated_by": "tools/emit_v1_2_release_manifest.py",
+  "generated_by_sha256": "0cc7911944fd7260e56598309a55c9c5c6d8fdd5ab7eb7bbb099b48791238daf",
+  "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(content fingerprint) for directories",
+  "product_freeze_frozen_at": "ddca208",
+  "product_freeze_sha": "ddca208b4b38913b75cafc2a15ee2ac538b22c8c",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "schema": "jcc/v1.2-release-manifest/1",
+  "test_sha": "cd07e7da1da816cc6243004f48badea53f8e476b"
 }

@@ -1,0 +1,52 @@
+{
+  "freeze_sha": "ddca208",
+  "generated_at": "2026-09-28T12:44:37Z",
+  "legs": {
+    "ARCH": {
+      "decision": "GO",
+      "evidence_verdict": "FREEZE_SHA=ddca208 (doc=n/a)",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "91ed2d77a81e2c5a686d92a31b6b276fb02c6b1e0c2c391fc94049e11fae4a8d"
+    },
+    "CONTROL_UI": {
+      "decision": "GO",
+      "evidence_verdict": "CONTROL-UI GATE: PASS (0 failures)",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "04e052a39dcdbb30b56f21295a49566a063e8eb7403d785d6728f8a985afe6c7"
+    },
+    "GREEN_PROTECTION": {
+      "decision": "GO",
+      "evidence_verdict": "verdict=PROTECTED",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "9470af9aa6a05eb369d5ace219080fc0d90fb317a59a15d73882eb285fca1151"
+    },
+    "LIVE_SHADOW": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "verdict=UI_GATE_PASS_ACTIVATION_PENDING",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "9fb675782a407901a33262e09bec20de32bc4dbf8c22df8b739031a53877ccef"
+    },
+    "REL": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "files=21 check=None",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "e26bade4af6d97f3f9ceba3f304d269e4d604a19ed4bf736ceb502e26a3b43cb"
+    },
+    "SEC": {
+      "decision": "GO",
+      "evidence_verdict": "verdict=GO high=None ran=9",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "625460bf18d1107404d0f321014b5140c87116a254d504006f9a80fbeca94186"
+    },
+    "VISUAL": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+      "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+      "signature": "e9862f7d22ce29d563acf91d986bff97f7d8af09fdd9b8ce3895736f9fb85284"
+    }
+  },
+  "note": "All signatures freshly computed at generation; none reuse v1.0.1 (f8ac95d) or v1.1 signatures.",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "schema": "jcc/v1.2-leg-signatures/1",
+  "signer": "Orion (JCC v1.2 orchestrator)"
+}

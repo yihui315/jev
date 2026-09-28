@@ -1,0 +1,18 @@
+{
+  "decision": "GO",
+  "dimension": "Architecture / Product Freeze",
+  "distinct_from_release": true,
+  "evidence_path": "docs/v1_2/FINAL_PRODUCT_FREEZE.md",
+  "evidence_sha256": null,
+  "evidence_verdict": "FREEZE_SHA=ddca208 (doc=n/a)",
+  "freeze_sha": "ddca208",
+  "leg_id": "ARCH",
+  "notes": "v1.2 architecture frozen at ddca208; double-ownership isolation from GREEN 4778 via independent runtime/jcc-v1.2 config + DB.",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "91ed2d77a81e2c5a686d92a31b6b276fb02c6b1e0c2c391fc94049e11fae4a8d",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T12:44:37Z"
+}

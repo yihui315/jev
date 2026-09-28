@@ -1,30 +1,36 @@
 {
-  "gate": "GREEN Protection Gate (point 23) vs docs/v1_2/V1_2_BASELINE.json",
-  "baseline_ref": "docs/v1_2/V1_2_BASELINE.json",
-  "green_pid_baseline": 7588,
-  "green_pid_current": 7588,
-  "green_port": 4778,
-  "green_host": "127.0.0.1",
-  "green_config": "F:/jev/config/jcc.yaml",
-  "green_db": "F:/jev/runtime/jcc/jcc.db",
-  "green_db_mtime": "2026-09-25T18:10:20",
-  "green_db_mtime_matches_baseline": true,
-  "green_command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
-  "green_ownership_marker": "F:/jev/runtime/jcc/jcc.ownership.json",
-  "green_listening": true,
-  "green_touched_by_v12": false,
-  "v12_isolation": {
-    "v12_config": "F:/jev/config/jcc-v1.2.yaml",
-    "v12_db": "F:/jev/runtime/jcc-v1.2/jcc.db",
-    "v12_db_differs_from_green": true,
-    "v12_runtime_dir_separate": true,
-    "v12_ports": [4779, 4780],
-    "v12_never_targets_green_port": true
-  },
   "forbidden_ops_respected": [
-    "no stop GREEN", "no restart GREEN", "no kill pid 7588",
-    "no write to green db", "no modify config/jcc.yaml", "no expose port 4778"
+    "no stop GREEN",
+    "no restart GREEN",
+    "no kill GREEN pid",
+    "no write to green db",
+    "no modify config/jcc.yaml",
+    "no expose 4778"
+  ],
+  "gate": "GREEN Protection Gate (v1.2 isolation)",
+  "green_config": "F:\\jev\\config\\jcc.yaml",
+  "green_config_sha256": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+  "green_db": "F:\\jev\\runtime\\jcc\\jcc.db",
+  "green_db_mtime": 1790331020.4183857,
+  "green_host": "127.0.0.1",
+  "green_listening": true,
+  "green_observed_pid": 7588,
+  "green_ownership_marker": "F:\\jev\\runtime\\jcc\\jcc.ownership.json",
+  "green_pid_alive": true,
+  "green_port": 4778,
+  "note": "GREEN runs as the frozen, untouched v1.0.1 service. v1.2 is a second isolated instance on 4779/4780 with its own DB and config; it never examines or touches 4778.",
+  "probe_timestamp_utc": "2026-09-28T12:45:31Z",
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "v12_never_targets_green_port": true,
+  "v12_observed_pids": [
+    19640,
+    16580
+  ],
+  "v12_ports": [
+    4779,
+    4780
   ],
   "verdict": "PROTECTED",
-  "note": "GREEN pid, config, command line, and DB mtime are byte-for-byte consistent with the frozen baseline captured before any v1.2 work. v1.2 runs as an isolated second instance on 4779/4780 and never examines or touches 4778."
+  "worktree_dirty_at_probe": true
 }

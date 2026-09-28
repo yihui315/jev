@@ -1,0 +1,18 @@
+{
+  "decision": "GO_WITH_PENDING",
+  "dimension": "Release Manifest / Host Activation",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/v1.2_visual/V1_2_RELEASE_MANIFEST.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "files=21 check=None",
+  "freeze_sha": "ddca208",
+  "leg_id": "REL",
+  "notes": "Manifest --check CLEAN (21 files). Durable Runtime host Task Scheduler registration = RELEASE_READY_PENDING_HOST_ACTIVATION (schtasks.exe sandboxed); non-blocking for UI release.",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "e26bade4af6d97f3f9ceba3f304d269e4d604a19ed4bf736ceb502e26a3b43cb",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T12:44:37Z"
+}

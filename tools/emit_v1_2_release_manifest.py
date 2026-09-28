@@ -58,9 +58,12 @@ FILES: List[Dict[str, str]] = [
     {"path": "artifacts/release/v1.2_visual/FOUR_AGENT_EVIDENCE.json", "owner": "release-evidence"},
     {"path": "artifacts/release/v1.2_visual/FIRST_NATIVE_LIVE_3D_SESSION.json", "owner": "release-evidence"},
     {"path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json", "owner": "release-evidence"},
+    {"path": "artifacts/release/v1.2_visual/LIVE_SHADOW_UI_GATE.json", "owner": "release-evidence"},
+    {"path": "artifacts/release/v1.2_visual/legs/V1_2_LEG_SIGNATURES.json", "owner": "release-evidence"},
     # --- v1.2 release governance (lead) ---
     {"path": "tools/v1_2_collect_evidence.py", "owner": "lead"},
     {"path": "tools/emit_v1_2_release_manifest.py", "owner": "lead"},
+    {"path": "tools/emit_v1_2_legs.py", "owner": "lead"},
     {"path": "tools/final_gate_run_v1_2.py", "owner": "lead"},
 ]
 

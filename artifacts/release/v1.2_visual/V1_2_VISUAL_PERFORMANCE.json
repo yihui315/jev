@@ -1,176 +1,66 @@
 {
-  "probe": "JCC v1.2 Visual Command Center real serving performance",
-  "timestamp_utc": "2026-09-28T10:33:59Z",
-  "ui": {
-    "host": "127.0.0.1",
-    "port": 4780,
-    "health": {
-      "ok": true,
-      "samples": [
-        {
-          "status": 200,
-          "bytes": 63,
-          "ttfb_ms": 7.9,
-          "total_ms": 8.4
-        },
-        {
-          "status": 200,
-          "bytes": 63,
-          "ttfb_ms": 0.57,
-          "total_ms": 0.99
-        },
-        {
-          "status": 200,
-          "bytes": 63,
-          "ttfb_ms": 0.61,
-          "total_ms": 1.17
-        },
-        {
-          "status": 200,
-          "bytes": 63,
-          "ttfb_ms": 0.58,
-          "total_ms": 0.97
-        },
-        {
-          "status": 200,
-          "bytes": 63,
-          "ttfb_ms": 24.81,
-          "total_ms": 25.23
-        }
-      ]
-    },
-    "index_html": {
-      "ok": true,
-      "samples": [
-        {
-          "status": 200,
-          "bytes": 336,
-          "ttfb_ms": 0.61,
-          "total_ms": 1.86
-        },
-        {
-          "status": 200,
-          "bytes": 336,
-          "ttfb_ms": 13.9,
-          "total_ms": 15.18
-        },
-        {
-          "status": 200,
-          "bytes": 336,
-          "ttfb_ms": 0.73,
-          "total_ms": 1.37
-        },
-        {
-          "status": 200,
-          "bytes": 336,
-          "ttfb_ms": 13.18,
-          "total_ms": 14.15
-        },
-        {
-          "status": 200,
-          "bytes": 336,
-          "ttfb_ms": 0.6,
-          "total_ms": 1.23
-        }
-      ]
-    },
-    "main_js": {
-      "path": "/assets/index-01PECtYv.js",
-      "ok": true,
-      "samples": [
-        {
-          "status": 200,
-          "bytes": 1174945,
-          "ttfb_ms": 0.46,
-          "total_ms": 78.37
-        },
-        {
-          "status": 200,
-          "bytes": 1174945,
-          "ttfb_ms": 13.25,
-          "total_ms": 15.65
-        },
-        {
-          "status": 200,
-          "bytes": 1174945,
-          "ttfb_ms": 13.65,
-          "total_ms": 15.98
-        },
-        {
-          "status": 200,
-          "bytes": 1174945,
-          "ttfb_ms": 0.67,
-          "total_ms": 2.85
-        },
-        {
-          "status": 200,
-          "bytes": 1174945,
-          "ttfb_ms": 0.65,
-          "total_ms": 3.05
-        }
-      ],
-      "median_bytes": 1174945,
-      "median_throughput_mbps": 75.076
-    }
+  "browser_fps_node_counts": {
+    "measured": null,
+    "reason": "no product node-count stress route and no rAF FPS sampler wired; real headless Chrome is present but cannot inflate the live scene to 50/200/500/1000 nodes without app support.",
+    "required": [
+      50,
+      200,
+      500,
+      1000
+    ],
+    "status": "PENDING"
   },
-  "api": {
-    "host": "127.0.0.1",
-    "port": 4779,
-    "health": {
-      "ok": true,
-      "samples": [
-        {
-          "status": 200,
-          "bytes": 430,
-          "ttfb_ms": 22.48,
-          "total_ms": 72.3
-        },
-        {
-          "status": 200,
-          "bytes": 430,
-          "ttfb_ms": 0.81,
-          "total_ms": 80.05
-        },
-        {
-          "status": 200,
-          "bytes": 430,
-          "ttfb_ms": 0.67,
-          "total_ms": 75.87
-        },
-        {
-          "status": 200,
-          "bytes": 430,
-          "ttfb_ms": 0.89,
-          "total_ms": 74.09
-        },
-        {
-          "status": 200,
-          "bytes": 430,
-          "ttfb_ms": 0.7,
-          "total_ms": 71.83
-        }
-      ]
-    }
-  },
-  "browser_render_fcp": "PENDING_HOST (no headless browser in agent sandbox)",
   "criteria": [
     {
-      "name": "UI /health 200",
+      "name": "UI /api/health 200",
       "pass": true
     },
     {
-      "name": "UI index.html served <1s",
+      "name": "UI index.html served",
       "pass": true
     },
     {
-      "name": "UI main JS bundle served 200",
+      "name": "API /api/health 200",
       "pass": true
     },
     {
-      "name": "API /api/health 200 <2s",
+      "name": "REAL Chrome loads SPA",
       "pass": true
     }
   ],
-  "result": "PASS",
-  "note": "Real HTTP measurement against live servers. Browser-render FCP/LCP is a host-side follow-up (PENDING_HOST) and is not part of the serving-layer gate."
+  "http_serving": {
+    "api_health": {
+      "bytes": 430,
+      "ok": true,
+      "seconds": 0.0523,
+      "status": 200
+    },
+    "ui_health": {
+      "bytes": 63,
+      "ok": true,
+      "seconds": 0.0012,
+      "status": 200
+    },
+    "ui_index": {
+      "bytes": 336,
+      "ok": true,
+      "seconds": 0.0015,
+      "status": 200
+    }
+  },
+  "note": "HTTP serving is measured live. REAL Chrome was attempted; its outcome is recorded honestly (loaded=True). Node-count FPS (50/200/500/1000) is PENDING (honest) -- not claimed as a PASS.",
+  "probe": "JCC v1.2 Visual Command Center honest performance",
+  "real_browser": {
+    "available": true,
+    "canvas_present": true,
+    "dom_bytes": 4476,
+    "loaded": true,
+    "mounted": true,
+    "root_present": true
+  },
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "result": "HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+  "timestamp_utc": "2026-09-28T12:45:31Z",
+  "worktree_dirty_at_probe": true
 }

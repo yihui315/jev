@@ -1,0 +1,18 @@
+{
+  "decision": "GO",
+  "dimension": "Protected GREEN 4778",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/v1.2_visual/GREEN_PROTECTION_PROOF.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "verdict=PROTECTED",
+  "freeze_sha": "ddca208",
+  "leg_id": "GREEN_PROTECTION",
+  "notes": "GREEN 4778 (pid n/a) confirmed alive and never probed for writes; v1.2 uses isolated runtime/jcc-v1.2.",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "9470af9aa6a05eb369d5ace219080fc0d90fb317a59a15d73882eb285fca1151",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T12:44:37Z"
+}

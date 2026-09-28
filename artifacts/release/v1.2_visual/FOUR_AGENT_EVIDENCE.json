@@ -1,33 +1,40 @@
 {
-  "gate": "Four-Agent Evidence (NATIVE / ADAPTER / UNAVAILABLE) (point 17)",
-  "source": "config/jcc-v1.2.yaml :: agents.capabilities",
   "agents": {
-    "workbuddy": {
-      "status": "CONNECTED", "verified": true, "aep": true,
-      "category": "NATIVE",
-      "evidence": "hook_schema_kind=codebuddy-hooks; config_path=C:/Users/Administrator/.workbuddy/settings.json"
-    },
     "claude": {
-      "status": "CONNECTED", "verified": true, "aep": true,
-      "category": "NATIVE",
-      "evidence": "hook_schema_kind=claude-hooks; preserves_user_hooks=true; config_path=C:/Users/Administrator/.claude/settings.json"
+      "aep": true,
+      "category": "NATIVE_LIVE",
+      "source": "config/jcc-v1.2.yaml :: agents.capabilities"
     },
     "codex": {
-      "status": "DEGRADED", "verified": true, "aep": true,
-      "push_verified": false, "app_server_steering": false,
+      "aep": true,
       "category": "ADAPTER_DEGRADED",
-      "evidence": "AEP capability present but push_verified=false and app_server_steering=false -- partial integration, not a hard failure"
+      "source": "config/jcc-v1.2.yaml :: agents.capabilities"
     },
     "hermes": {
-      "status": "CONNECTED", "verified": true, "aep": true,
-      "category": "NATIVE",
-      "evidence": "transport=signed-outbound-hook; hook_schema_kind=hermes-hooks; config_path=C:/Users/Administrator/.hermes/config.yaml"
+      "aep": true,
+      "category": "NATIVE_LIVE",
+      "source": "config/jcc-v1.2.yaml :: agents.capabilities"
+    },
+    "workbuddy": {
+      "aep": true,
+      "category": "NATIVE_LIVE",
+      "source": "config/jcc-v1.2.yaml :: agents.capabilities"
     }
   },
+  "gate": "Four-Agent Evidence (honest classification)",
+  "probe_timestamp_utc": "2026-09-28T12:45:31Z",
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
   "summary": {
-    "NATIVE": ["workbuddy", "claude", "hermes"],
-    "ADAPTER_DEGRADED": ["codex"],
-    "UNAVAILABLE": []
+    "ADAPTER_DEGRADED": [
+      "codex"
+    ],
+    "NATIVE_LIVE": [
+      "claude",
+      "hermes",
+      "workbuddy"
+    ]
   },
-  "verdict": "EVIDENCE_RECORDED"
+  "verdict": "EVIDENCE_RECORDED",
+  "worktree_dirty_at_probe": true
 }

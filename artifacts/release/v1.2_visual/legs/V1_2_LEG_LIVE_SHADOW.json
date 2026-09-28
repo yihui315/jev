@@ -1,0 +1,18 @@
+{
+  "decision": "GO_WITH_PENDING",
+  "dimension": "Live Shadow UI Gate",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/v1.2_visual/LIVE_SHADOW_UI_GATE.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "verdict=UI_GATE_PASS_ACTIVATION_PENDING",
+  "freeze_sha": "ddca208",
+  "leg_id": "LIVE_SHADOW",
+  "notes": "UI gate PASS (SPA from real sources, single source of truth, WebGL2 fallback, not mock). Activation (Visual UI drives actuation) PENDING by design fail-closed; non-blocking.",
+  "release_sha": "cd07e7da1da816cc6243004f48badea53f8e476b",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "9fb675782a407901a33262e09bec20de32bc4dbf8c22df8b739031a53877ccef",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T12:44:37Z"
+}
