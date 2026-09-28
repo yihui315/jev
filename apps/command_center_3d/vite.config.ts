@@ -11,8 +11,35 @@ export default defineConfig({
   cacheDir: ".vite-cache",
   server: { host: "127.0.0.1", port: 4781, strictPort: true },
   preview: { host: "127.0.0.1", port: 4781, strictPort: true },
-  build: { outDir: "dist", sourcemap: false },
+  build: {
+    outDir: "dist",
+    sourcemap: false,
+    // three.js is ~1MB and is only needed on the World/Graph surfaces. Split it
+    // into its own chunk so the product views (Home, Missions, Studio…) load
+    // without paying for the renderer.
+    rollupOptions: {
+      output: {
+        manualChunks: (id) => {
+          if (id.includes("node_modules/three") || id.includes("@react-three")) {
+            return "three";
+          }
+          if (id.includes("node_modules/@radix-ui") || id.includes("node_modules/cmdk")) {
+            return "radix";
+          }
+          return undefined;
+        },
+      },
+    },
+    chunkSizeWarningLimit: 900,
+  },
   test: {
-    cache: { dir: ".vitest-cache" },
+    // v2.1.9 deprecates `test.cache` in favour of Vite's own cacheDir above.
+    cache: false,
+    // The sandbox's brokered-fs shim rejects the parallel workers' SSR
+    // transform-cache writes (`EPERM …/<tmp>/ssr/<hash>`), which vitest 2.1.9
+    // reports as an *unhandled error* and marks the run failed. Running test
+    // files serially keeps the cache single-writer and the run clean; the suite
+    // is small, so the time cost is negligible.
+    fileParallelism: false,
   },
 });

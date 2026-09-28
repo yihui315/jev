@@ -1,0 +1,169 @@
+/**
+ * JCC v1.3 — the design-token layer (shadcn/ui pattern).
+ *
+ * One file defines every colour, radius and font the product uses. Components
+ * never hardcode a hex value; they reference a Tailwind semantic token, which
+ * resolves to one of these variables. That is what makes the "UNKNOWN is never
+ * green" rule enforceable in ONE place instead of in every component.
+ *
+ * Default theme is DARK (the operator theme the v1.2 UI already used). A light
+ * theme is provided via `[data-theme="light"]` so the product can be used in a
+ * bright office without a second stylesheet.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme="dark"] {
+    /* Surfaces — mirrors the v1.2 palette (#0e1116 background, #d6dde6 text). */
+    --background: 218 24% 7%;
+    --foreground: 213 24% 87%;
+
+    --card: 218 22% 10%;
+    --card-foreground: 213 24% 87%;
+
+    --popover: 218 24% 9%;
+    --popover-foreground: 213 24% 87%;
+
+    --primary: 142 60% 69%;
+    --primary-foreground: 218 40% 9%;
+
+    --secondary: 216 20% 16%;
+    --secondary-foreground: 213 24% 87%;
+
+    --muted: 216 18% 15%;
+    --muted-foreground: 212 14% 58%;
+
+    --accent: 216 20% 18%;
+    --accent-foreground: 213 24% 92%;
+
+    --destructive: 0 74% 62%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 216 18% 20%;
+    --input: 216 18% 20%;
+    --ring: 142 60% 55%;
+
+    /* Semantic status. `unknown` is deliberately grey — never green. */
+    --status-ok: 142 60% 69%;
+    --status-live: 142 60% 69%;
+    --status-warn: 43 92% 60%;
+    --status-danger: 0 74% 62%;
+    --status-info: 213 90% 68%;
+    --status-unknown: 212 14% 52%;
+
+    --radius: 0.5rem;
+    --font-sans: ui-sans-serif, system-ui, "Segoe UI", Roboto, "Helvetica Neue",
+      Arial, "Noto Sans", sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+      monospace;
+  }
+
+  [data-theme="light"] {
+    --background: 0 0% 100%;
+    --foreground: 218 32% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 218 32% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 218 32% 14%;
+
+    --primary: 152 58% 32%;
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 214 24% 95%;
+    --secondary-foreground: 218 32% 18%;
+
+    --muted: 214 24% 95%;
+    --muted-foreground: 215 16% 42%;
+
+    --accent: 214 24% 93%;
+    --accent-foreground: 218 32% 16%;
+
+    --destructive: 0 72% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 20% 88%;
+    --input: 214 20% 88%;
+    --ring: 152 58% 32%;
+
+    --status-ok: 152 58% 32%;
+    --status-live: 152 58% 32%;
+    --status-warn: 32 88% 38%;
+    --status-danger: 0 72% 46%;
+    --status-info: 214 82% 42%;
+    --status-unknown: 215 14% 45%;
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* Accessibility baseline: every interactive element gets a visible,
+     high-contrast focus ring. Never remove it; only restyle it. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  /* Screen-reader-only utility (used by icons that carry meaning). */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--background));
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border));
+    border-radius: 6px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+  }
+}
+
+@layer utilities {
+  /* The 3D world canvas must never let a stray scrollbar or focus ring break
+     the fixed-height flex column. */
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  /* Respect the OS "reduce motion" setting for every animation, including the
+     world's pulse rings. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+    }
+  }
+}

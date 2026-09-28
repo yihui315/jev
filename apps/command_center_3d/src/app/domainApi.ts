@@ -1,0 +1,367 @@
+/**
+ * domainApi — the ONLY client that talks to the v1.3 domain surface.
+ *
+ * Every view reads through here instead of calling `fetch` directly. That gives
+ * one place to (a) attach the in-memory control token to mutating calls,
+ * (b) keep the token out of URLs / localStorage / logs, and (c) return a
+ * structured result so a component can render an honest failure rather than an
+ * empty list.
+ *
+ * HARD RULES enforced here:
+ *  - The control token is passed per-call from memory. It is never persisted,
+ *    never put in a query string, never logged.
+ *  - A non-2xx response is returned as `{ok:false}` with the server's own
+ *    detail text intact — never swallowed into a fake empty success.
+ *  - Read helpers never throw; they return `ok:false` + `error`.
+ */
+
+export interface ApiResult<T> {
+  ok: boolean;
+  status: number;
+  data: T | null;
+  error: string | null;
+}
+
+function extractDetail(body: unknown, status: number): string {
+  if (body && typeof body === "object" && "detail" in body) {
+    const d = (body as { detail?: unknown }).detail;
+    if (typeof d === "string") return d;
+    if (d != null) return JSON.stringify(d);
+  }
+  if (typeof body === "string" && body.trim()) return body.slice(0, 400);
+  return `HTTP ${status}`;
+}
+
+async function request<T>(
+  base: string,
+  method: "GET" | "POST",
+  path: string,
+  opts: { body?: unknown; token?: string | null; timeoutMs?: number } = {},
+): Promise<ApiResult<T>> {
+  const { body, token, timeoutMs = 15000 } = opts;
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+  try {
+    const headers: Record<string, string> = {};
+    if (body !== undefined) headers["Content-Type"] = "application/json";
+    // Token travels in a header only. Never in the URL, never persisted.
+    if (token) headers["X-JCC-Token"] = token;
+    const res = await fetch(base + path, {
+      method,
+      headers,
+      body: body === undefined ? undefined : JSON.stringify(body),
+      signal: ctrl.signal,
+    });
+    let parsed: unknown = null;
+    const text = await res.text();
+    if (text) {
+      try {
+        parsed = JSON.parse(text);
+      } catch {
+        parsed = text;
+      }
+    }
+    if (!res.ok) {
+      return { ok: false, status: res.status, data: null, error: extractDetail(parsed, res.status) };
+    }
+    return { ok: true, status: res.status, data: parsed as T, error: null };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    const friendly = msg.includes("abort") ? `request timed out after ${timeoutMs}ms` : msg;
+    return { ok: false, status: 0, data: null, error: friendly };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Wire types (mirror packages/jcc_core/domain.py models)
+// ---------------------------------------------------------------------------
+
+export interface Project {
+  project_id: string;
+  name: string;
+  root_path: string;
+  description: string;
+  created_at: number;
+  updated_at: number;
+  archived: boolean;
+}
+
+export interface Mission {
+  mission_id: string;
+  project_id: string;
+  title: string;
+  goal: string;
+  agent: string;
+  connection_ref: string | null;
+  working_directory: string;
+  context: string;
+  permissions: string[];
+  budget_units: number;
+  status: string;
+  attention_kind: string | null;
+  attention_reason: string | null;
+  created_at: number;
+  updated_at: number;
+  started_at: number | null;
+  finished_at: number | null;
+  session_id: string | null;
+}
+
+export interface ProjectDetail extends Project {
+  missions: Mission[];
+}
+
+export interface AgentRun {
+  run_id: string;
+  mission_id: string;
+  agent: string;
+  connection_ref: string | null;
+  session_id: string | null;
+  status: string;
+  launched_at: number | null;
+  ended_at: number | null;
+  exit_reason: string | null;
+  created_at: number;
+}
+
+export interface Artifact {
+  artifact_id: string;
+  mission_id: string;
+  run_id: string | null;
+  session_id: string | null;
+  kind: string;
+  name: string;
+  uri: string;
+  sha256: string | null;
+  bytes: number;
+  status: string;
+  provenance: Record<string, unknown>;
+  created_at: number;
+}
+
+export interface DomainCapability {
+  capability_id: string;
+  connection_id: string;
+  kind: string;
+  detail: string;
+  evidence_ref: string | null;
+  measured_at: number | null;
+  created_at: number;
+}
+
+export interface DomainConnection {
+  connection_id: string;
+  agent: string;
+  display_name: string;
+  connection_type: string;
+  endpoint: string;
+  secret_env_var: string | null;
+  health: string;
+  last_probe_at: number | null;
+  last_event_at: number | null;
+  last_session_id: string | null;
+  detail: Record<string, unknown>;
+  created_at: number;
+  updated_at: number;
+  /** Server-computed: only true when a CONTROL_VERIFIED capability exists. */
+  control_verified: boolean;
+  capabilities: DomainCapability[];
+}
+
+export interface AttentionItem {
+  mission_id: string;
+  title: string;
+  project_id: string;
+  kind: string | null;
+  reason: string | null;
+  updated_at: number;
+}
+
+export interface HomeSummary {
+  schema: string;
+  active_projects: number;
+  running_missions: number;
+  needs_attention: number;
+  completed_missions: number;
+  recent_deliverables: number;
+  attention_items: AttentionItem[];
+  actuation_enabled: boolean;
+  localhost_only: boolean;
+}
+
+/** One row of `mission_events`, as returned by GET …/missions/{id}/timeline. */
+export interface TimelineEntry {
+  seq: number;
+  /** Unix seconds (server writes `time.time()`), not milliseconds. */
+  timestamp: number;
+  from_status: string | null;
+  to_status: string;
+  reason: string;
+}
+
+export interface ApprovalRecord {
+  approval_id: string;
+  mission_id: string;
+  kind: string;
+  reason: string;
+  state: string;
+  requested_by: string;
+  decided_by: string | null;
+  decided_at: number | null;
+  payload: Record<string, unknown>;
+  created_at: number;
+}
+
+// ---------------------------------------------------------------------------
+// Client
+// ---------------------------------------------------------------------------
+
+export class DomainApi {
+  constructor(private base: string) {}
+
+  setBase(base: string): void {
+    this.base = base;
+  }
+
+  // --- reads (open, token-free) ---
+  home(): Promise<ApiResult<HomeSummary>> {
+    return request<HomeSummary>(this.base, "GET", "/api/v1/domain/home");
+  }
+  projects(includeArchived = false): Promise<ApiResult<Project[]>> {
+    const q = includeArchived ? "?include_archived=true" : "";
+    return request<Project[]>(this.base, "GET", `/api/v1/domain/projects${q}`);
+  }
+  project(pid: string): Promise<ApiResult<ProjectDetail>> {
+    return request<ProjectDetail>(this.base, "GET", `/api/v1/domain/projects/${encodeURIComponent(pid)}`);
+  }
+  missions(filter: { projectId?: string; status?: string; limit?: number } = {}):
+    Promise<ApiResult<Mission[]>> {
+    const p = new URLSearchParams();
+    if (filter.projectId) p.set("project_id", filter.projectId);
+    if (filter.status) p.set("status_filter", filter.status);
+    if (filter.limit) p.set("limit", String(filter.limit));
+    const q = p.toString();
+    return request<Mission[]>(this.base, "GET", `/api/v1/domain/missions${q ? "?" + q : ""}`);
+  }
+  mission(mid: string): Promise<ApiResult<Mission>> {
+    return request<Mission>(this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}`);
+  }
+  missionTimeline(mid: string): Promise<ApiResult<TimelineEntry[]>> {
+    return request<TimelineEntry[]>(
+      this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/timeline`);
+  }
+  missionRuns(mid: string): Promise<ApiResult<AgentRun[]>> {
+    return request<AgentRun[]>(
+      this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/runs`);
+  }
+  missionArtifacts(mid: string): Promise<ApiResult<Artifact[]>> {
+    return request<Artifact[]>(
+      this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/artifacts`);
+  }
+  connections(): Promise<ApiResult<DomainConnection[]>> {
+    return request<DomainConnection[]>(this.base, "GET", "/api/v1/domain/connections");
+  }
+  needsAttention(): Promise<ApiResult<AttentionItem[]>> {
+    return request<AttentionItem[]>(this.base, "GET", "/api/v1/domain/needs-attention");
+  }
+
+  // --- writes (token-gated) ---
+  // NOTE: an approval payload is passed through verbatim; the server owns
+  // the decision. `decideApproval` only records a human's verdict.
+  createProject(token: string, body: { name: string; root_path?: string; description?: string }) {
+    return request<Project>(this.base, "POST", "/api/v1/domain/projects", { body, token });
+  }
+  createMission(
+    token: string,
+    body: {
+      project_id: string;
+      title: string;
+      goal?: string;
+      agent?: string;
+      working_directory?: string;
+      context?: string;
+      permissions?: string[];
+      budget_units?: number;
+      connection_ref?: string | null;
+    },
+  ) {
+    return request<Mission>(this.base, "POST", "/api/v1/domain/missions", { body, token });
+  }
+  transitionMission(
+    token: string,
+    mid: string,
+    body: { to: string; reason?: string; attention_kind?: string; attention_reason?: string },
+  ) {
+    return request<Mission>(
+      this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/transition`,
+      { body, token });
+  }
+  createRun(token: string, mid: string, body: { agent?: string; connection_ref?: string | null }) {
+    return request<AgentRun>(
+      this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/runs`,
+      { body, token });
+  }
+  addArtifact(token: string, mid: string, body: Record<string, unknown>) {
+    return request<Artifact>(
+      this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/artifacts`,
+      { body, token });
+  }
+  upsertConnection(token: string, body: Record<string, unknown>) {
+    return request<DomainConnection>(
+      this.base, "POST", "/api/v1/domain/connections", { body, token });
+  }
+  setCapability(token: string, cid: string, body: { kind: string; detail?: string; evidence_ref?: string | null }) {
+    return request<DomainCapability>(
+      this.base, "POST",
+      `/api/v1/domain/connections/${encodeURIComponent(cid)}/capability`, { body, token });
+  }
+  createApproval(token: string, mid: string, body: Record<string, unknown>) {
+    return request<ApprovalRecord>(
+      this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/approvals`,
+      { body, token });
+  }
+  decideApproval(token: string, aid: string, body: { state: string; decided_by: string }) {
+    return request<ApprovalRecord>(
+      this.base, "POST", `/api/v1/domain/approvals/${encodeURIComponent(aid)}/decide`,
+      { body, token });
+  }
+}
+
+/**
+ * Formatting helpers shared by the domain views.
+ *
+ * Kept here (not in a component) so every surface renders a timestamp the same
+ * way and so the "no data" case is handled in one place.
+ */
+export function fmtTime(ts: number | null | undefined): string {
+  if (!ts || !Number.isFinite(ts)) return "—";
+  const d = new Date(ts * 1000);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString();
+}
+
+export function fmtRelative(ts: number | null | undefined, now = Date.now()): string {
+  if (!ts || !Number.isFinite(ts)) return "—";
+  const secs = Math.floor(now / 1000 - ts);
+  if (secs < 0) return "just now";
+  if (secs < 60) return `${secs}s ago`;
+  const mins = Math.floor(secs / 60);
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+export function fmtBytes(n: number | null | undefined): string {
+  if (n == null || !Number.isFinite(n) || n <= 0) return "—";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let v = n;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+}

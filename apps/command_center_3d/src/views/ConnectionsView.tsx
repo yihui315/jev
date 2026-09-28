@@ -3,14 +3,18 @@ import { AgentCard } from "../components/AgentCard";
 import { JevProviderCard } from "../components/JevProviderCard";
 import { OnboardingWizard } from "../components/OnboardingWizard";
 
-const API_BASE: string =
+// The connection centre reads through the same API base as the shell. It is
+// passed in via props from App so there is exactly ONE base in the product;
+// the module-level fallback exists only for a standalone import in tests.
+const FALLBACK_API_BASE: string =
   (import.meta as unknown as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE ||
   "http://127.0.0.1:4779";
 
 // Read-only API base used when an unauthenticated GET suffices.
-async function httpGet(path: string): Promise<{ ok: boolean; status: number; body: any }> {
+async function httpGet(path: string, base: string = FALLBACK_API_BASE):
+    Promise<{ ok: boolean; status: number; body: any }> {
   try {
-    const r = await fetch(API_BASE + path, { method: "GET" });
+    const r = await fetch(base + path, { method: "GET" });
     let body: any = null;
     try { body = await r.json(); } catch { body = null; }
     return { ok: r.ok, status: r.status, body };
@@ -21,10 +25,11 @@ async function httpGet(path: string): Promise<{ ok: boolean; status: number; bod
 
 // Token-gated mutating call. The token is held in memory (never persisted) and
 // supplied by the operator through the top-bar control-token field.
-async function httpPost(path: string, body: any, token: string | null):
+async function httpPost(path: string, body: any, token: string | null,
+                        base: string = FALLBACK_API_BASE):
     Promise<{ ok: boolean; status: number; body: any }> {
   try {
-    const r = await fetch(API_BASE + path, {
+    const r = await fetch(base + path, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -89,16 +94,16 @@ export function ConnectionsView({ scene, apiBase, controlToken }: {
   const refresh = useCallback(async () => {
     setLastError(null);
     const [connR, jevR, onbR] = await Promise.all([
-      httpGet("/api/connections"),
-      httpGet("/api/connections/jev"),
-      httpGet("/api/onboarding/state"),
+      httpGet("/api/connections", apiBase),
+      httpGet("/api/connections/jev", apiBase),
+      httpGet("/api/onboarding/state", apiBase),
     ]);
     if (!connR.ok) { setLastError("connections: HTTP " + connR.status); return; }
     const all: ConnectionSnapshot[] = connR.body?.agents ?? [];
     setSnapshots(all.filter(a => ORDER.includes(a.agent)));
     setJevSnap(jevR.ok ? jevR.body : null);
     setOnboarding(onbR.ok ? onbR.body : null);
-  }, []);
+  }, [apiBase]);
 
   useEffect(() => { void refresh(); }, [refresh]);
 
@@ -106,21 +111,21 @@ export function ConnectionsView({ scene, apiBase, controlToken }: {
     setBusy(`${agent}/${action}`);
     setLastError(null);
     let r;
-    if (action === "test") r = await httpPost(`/api/connections/${agent}/test`, payload ?? {}, controlToken);
-    else if (action === "configure") r = await httpPost(`/api/connections/${agent}/configure`, payload ?? {}, controlToken);
-    else if (action === "preview-disconnect") r = await httpPost(`/api/connections/${agent}/preview-disconnect`, payload ?? {}, controlToken);
-    else if (action === "disconnect") r = await httpPost(`/api/connections/${agent}/disconnect`, payload ?? {}, controlToken);
-    else if (action === "sessions") r = await httpPost(`/api/connections/${agent}/sessions`, payload ?? {}, controlToken);
-    else if (action === "validate-jev") r = await httpPost(`/api/connections/jev/validate`, payload ?? {}, controlToken);
-    else if (action === "activate-jev") r = await httpPost(`/api/connections/jev/activate`, payload ?? {}, controlToken);
-    else if (action === "onboard-advance") r = await httpPost(`/api/onboarding/advance`, payload ?? {}, controlToken);
+    if (action === "test") r = await httpPost(`/api/connections/${agent}/test`, payload ?? {}, controlToken, apiBase);
+    else if (action === "configure") r = await httpPost(`/api/connections/${agent}/configure`, payload ?? {}, controlToken, apiBase);
+    else if (action === "preview-disconnect") r = await httpPost(`/api/connections/${agent}/preview-disconnect`, payload ?? {}, controlToken, apiBase);
+    else if (action === "disconnect") r = await httpPost(`/api/connections/${agent}/disconnect`, payload ?? {}, controlToken, apiBase);
+    else if (action === "sessions") r = await httpPost(`/api/connections/${agent}/sessions`, payload ?? {}, controlToken, apiBase);
+    else if (action === "validate-jev") r = await httpPost(`/api/connections/jev/validate`, payload ?? {}, controlToken, apiBase);
+    else if (action === "activate-jev") r = await httpPost(`/api/connections/jev/activate`, payload ?? {}, controlToken, apiBase);
+    else if (action === "onboard-advance") r = await httpPost(`/api/onboarding/advance`, payload ?? {}, controlToken, apiBase);
     else { setBusy(null); return; }
     if (!r.ok) {
       setLastError(`${agent} ${action}: HTTP ${r.status} ${JSON.stringify(r.body).slice(0, 240)}`);
     }
     setBusy(null);
     await refresh();
-  }, [controlToken, refresh]);
+  }, [controlToken, refresh, apiBase]);
 
   return (
     <div style={{
@@ -132,7 +137,7 @@ export function ConnectionsView({ scene, apiBase, controlToken }: {
         <div>
           <h1 style={{ margin: 0, fontSize: 20, color: "#7ee2a0" }}>AI CONNECTION CENTER</h1>
           <div style={{ color: "#6b7c8f", fontSize: 11, marginTop: 4 }}>
-            v1.2.1 · loopback-only · API {apiBase} · control token {controlToken ? "✓ set" : "✗ not set — Configure / Test / Disconnect will fail-closed"}
+            v1.3 · loopback-only · API {apiBase || "same-origin"} · control token {controlToken ? "✓ set" : "✗ not set — Configure / Test / Disconnect will fail-closed"}
           </div>
         </div>
         <div style={{ display: "flex", gap: 6 }}>
