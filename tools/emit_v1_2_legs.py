@@ -9,6 +9,7 @@ One signed approval (a "leg") per release dimension:
   CONTROL_UI    control surface fail-closed + inert actuation
   LIVE_SHADOW   live-shadow UI gate PASS / activation design-gated PENDING
   GREEN_PROTECTION  protected GREEN 4778 untouched
+  CONNECTIONS   v1.2.1 AI CONNECTION CENTER real-browser E2E PASS
 
 Honesty rules (point 6 -- re-sign, never reuse v1.0.1/v1.1 signatures):
   * Every leg's `signature` is a FRESH sha256 of the leg's canonical content,
@@ -136,9 +137,10 @@ def gather() -> list[dict]:
         "artifacts/release/v1.2_visual/V1_2_RELEASE_MANIFEST.json",
         "files=%s check=%s" % (len(man.get("files", [])), man.get("gate")),
         "GO_WITH_PENDING",
-        "Manifest --check CLEAN (21 files). Durable Runtime host Task "
+        "Manifest --check CLEAN (%d files). Durable Runtime host Task "
         "Scheduler registration = RELEASE_READY_PENDING_HOST_ACTIVATION "
-        "(schtasks.exe sandboxed); non-blocking for UI release."))
+        "(schtasks.exe sandboxed); non-blocking for UI release."
+        % len(man.get("files", []))))
 
     # VISUAL -- visual performance
     vis = read_json(ART / "V1_2_VISUAL_PERFORMANCE.json")
@@ -180,6 +182,19 @@ def gather() -> list[dict]:
         "GO",
         "GREEN 4778 (pid %s) confirmed alive and never probed for writes; "
         "v1.2 uses isolated runtime/jcc-v1.2." % gp.get("green_pid", "n/a")))
+
+    # CONNECTIONS -- v1.2.1 AI CONNECTION CENTER
+    ce = read_json(ART / "V1_2_1_BROWSER_E2E.json")
+    legs.append(leg_record(
+        "CONNECTIONS", "AI Connection Center (v1.2.1)",
+        "artifacts/release/v1.2_visual/V1_2_1_BROWSER_E2E.json",
+        "verdict=%s engine=%s" % (ce.get("verdict"), ce.get("engine")),
+        "GO",
+        "Real-browser E2E (%d steps, %s): 5 agents listed, all states in the "
+        "closed vocabulary with UNKNOWN never green, actuation_enabled=False "
+        "cross-checked against the live API, disconnect remains preview-first, "
+        "Jev real activation stays PENDING_EXTERNAL_ACTIVATION."
+        % (len(ce.get("steps", [])), ce.get("engine", "n/a"))))
 
     return legs
 
