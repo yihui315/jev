@@ -179,6 +179,70 @@ export interface AttentionItem {
   updated_at: number;
 }
 
+/** Wave 3 — one launch step's outcome (the server names the step it died on). */
+export interface LaunchStep {
+  step: string;
+  ok: boolean;
+  detail: string;
+}
+
+/** Wave 3 — a launch result. `ok=false` is a legitimate negative, not an error. */
+export interface LaunchResult {
+  mission_id: string;
+  agent: string;
+  steps: LaunchStep[];
+  run_id: string | null;
+  session_id: string | null;
+  ingested: boolean;
+  ok: boolean;
+  error?: string;
+  ingest?: { action?: string; session_status?: string; acted?: boolean } | null;
+  capture_source?: {
+    kind: string; file: string | null; session_id: string | null;
+    pid: number | null; version: string | null;
+    liveness: LaunchLiveness;
+  } | null;
+}
+
+/** Wave 3 — three-state liveness. NEVER render `stale`/`dead` as green. */
+export interface LaunchLiveness {
+  state: "live" | "stale" | "dead";
+  reason: string;
+  pid_alive: boolean;
+  heartbeat_age_ms: number | null;
+  fresh: boolean;
+}
+
+export interface LaunchProbe {
+  schema: string;
+  launchable_agents: string[];
+  workbuddy: {
+    ok: boolean;
+    reason?: string | null;
+    detail?: string | null;
+    session_count: number;
+    observed: Array<{
+      sessionId: string; pid: number; cwd: string; version: string;
+      state: string; reason: string;
+    }>;
+    source?: LaunchResult["capture_source"];
+  };
+  actuation: false;
+}
+
+export interface MissionWorkload {
+  mission_id: string;
+  mission_status: string;
+  agent: string;
+  run_count: number;
+  runs: AgentRun[];
+  session_ids: string[];
+  sessions: Array<Record<string, unknown> & { session_id: string; known: boolean }>;
+  live_session_count: number;
+  actuation: false;
+  observed_at: number;
+}
+
 export interface HomeSummary {
   schema: string;
   active_projects: number;
@@ -266,6 +330,15 @@ export class DomainApi {
   needsAttention(): Promise<ApiResult<AttentionItem[]>> {
     return request<AttentionItem[]>(this.base, "GET", "/api/v1/domain/needs-attention");
   }
+  /** Wave 3: is there a live WorkBuddy this host can actually launch against? */
+  launchProbe(): Promise<ApiResult<LaunchProbe>> {
+    return request<LaunchProbe>(this.base, "GET", "/api/v1/domain/launch/probe");
+  }
+  /** Wave 3: the REAL telemetry a mission's runs produced (from the session store). */
+  missionWorkload(mid: string): Promise<ApiResult<MissionWorkload>> {
+    return request<MissionWorkload>(
+      this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/workload`);
+  }
 
   // --- writes (token-gated) ---
   // NOTE: an approval payload is passed through verbatim; the server owns
@@ -301,6 +374,23 @@ export class DomainApi {
   createRun(token: string, mid: string, body: { agent?: string; connection_ref?: string | null }) {
     return request<AgentRun>(
       this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/runs`,
+      { body, token });
+  }
+  /**
+   * Wave 3 — launch a mission against a REAL agent session.
+   *
+   * `capture` defaults to true: the server discovers a live WorkBuddy on this
+   * host and uses its real session record as the launch event. The client never
+   * supplies a fabricated event -- there is no code path in this client that
+   * builds one.
+   */
+  launchMission(
+    token: string,
+    mid: string,
+    body: { capture?: boolean; cwd?: string; event?: Record<string, unknown> } = {},
+  ) {
+    return request<LaunchResult>(
+      this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/launch`,
       { body, token });
   }
   addArtifact(token: string, mid: string, body: Record<string, unknown>) {

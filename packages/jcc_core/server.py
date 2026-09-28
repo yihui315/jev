@@ -76,7 +76,15 @@ OPEN_GET_ENDPOINTS = (
     "/api/v1/domain/missions/{mid}/artifacts",
     "/api/v1/domain/connections",
     "/api/v1/domain/needs-attention",
+    # v1.3 Wave 3 — mission launch bridge (read-only discovery + workload)
+    "/api/v1/domain/launch/probe",
+    "/api/v1/domain/missions/{mid}/workload",
 )
+
+#: Server-side truth for which agents a Mission may actually be launched
+#: against. Mirrors ``mission_runtime.LAUNCHABLE_AGENTS``; kept as a literal here
+#: so the OpenAPI surface does not import the runtime for a constant.
+LAUNCHABLE_AGENTS_SERVER = ("workbuddy",)
 
 
 class ProjectionManager:
@@ -182,6 +190,14 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     )
     domain = DomainStore(config.state_store_db_path)
     app.state.domain_store = domain
+
+    # v1.3 Wave 3 — the mission runtime. This is the ONE seam that joins the
+    # domain (a Mission) to the AEP pipeline (a real Session + ingest), and it is
+    # constructed WITHOUT an actuator: a launch cannot actuate because the seam is
+    # not reachable from the runtime (see jcc_core.mission_runtime).
+    from .mission_runtime import MissionRuntime
+    runtime = MissionRuntime(domain, engine)
+    app.state.mission_runtime = runtime
 
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
@@ -567,11 +583,114 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc))
         return a.model_dump(mode="json")
 
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 3 — MISSION LAUNCH (the real WorkBuddy bridge)
+    #
+    # These endpoints are what turn a DRAFT mission into a RUNNING mission that
+    # produced REAL AEP telemetry. They are the only place in the server where a
+    # launch happens, and they delegate every step to MissionRuntime so the
+    # state machine and the adapter contract are enforced in one place.
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/domain/launch/probe")
+    def domain_launch_probe():
+        """Open, read-only: is there a live WorkBuddy to launch against?
+
+        Returns the honest three-state answer (live / stale / dead) plus the
+        sessions observed. A caller uses this to explain WHY a launch cannot
+        proceed instead of showing a generic failure.
+        """
+        from .workbuddy_launch import capture_launch_event, list_sessions, _pid_alive
+
+        sessions = list_sessions()
+        cap = capture_launch_event()
+        from .workbuddy_launch import liveness
+        return {
+            "schema": "jcc/v1.3-launch-probe/1",
+            "launchable_agents": list(LAUNCHABLE_AGENTS_SERVER),
+            "workbuddy": {
+                "ok": cap["ok"],
+                "reason": cap.get("reason"),
+                "detail": cap.get("detail"),
+                "session_count": len(sessions),
+                "observed": [
+                    {"sessionId": s.get("sessionId"), "pid": s.get("pid"),
+                     "cwd": s.get("cwd"), "version": s.get("version"),
+                     **liveness(s)}
+                    for s in sessions[:5]
+                ],
+                "source": cap.get("source"),
+            },
+            # This probe never actuates; state it so a UI cannot imply otherwise.
+            "actuation": False,
+        }
+
+    @app.post("/api/v1/domain/missions/{mid}/launch")
+    def domain_launch_mission(mid: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        """Launch a mission against a REAL agent session and ingest its AEP.
+
+        Body (all optional):
+          * ``capture``: when true (default) the server discovers a live
+            WorkBuddy session on this host and uses it as the launch event.
+            Set false to supply ``event`` explicitly.
+          * ``event``: an explicit raw agent event (used by the gate/driver).
+          * ``cwd``: prefer a live session whose cwd matches.
+
+        Returns the runtime's structured result. A refused transition comes back
+        as HTTP 200 with ``ok=false`` and the refusing step named -- it is a
+        legitimate negative outcome, not a server error. Only a programming
+        error (unknown mission, no live session when capture was requested) is a
+        4xx, and a launch that failed mid-walk is never reported as ok.
+        """
+        from .mission_runtime import MissionRuntimeError
+
+        mission = domain.get_mission(mid)
+        if mission is None:
+            raise HTTPException(status_code=404, detail="mission not found")
+
+        event = body.get("event")
+        capture = body.get("capture", True)
+        if event is None and capture:
+            from .workbuddy_launch import capture_launch_event
+
+            cap = capture_launch_event(cwd=body.get("cwd") or mission.working_directory or None)
+            if not cap.get("ok"):
+                # No live session is a 409 (a state conflict), not a 500: the
+                # caller can act on it (start WorkBuddy, then retry).
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": cap.get("reason"), "detail": cap.get("detail"),
+                            "observed": cap.get("observed"),
+                            "sessions_dir": cap.get("sessions_dir")},
+                )
+            event = cap["event"]
+            body = dict(body)
+            body["_capture_source"] = cap.get("source")
+
+        try:
+            result = runtime.launch(mid, event=event)
+        except MissionRuntimeError as exc:
+            raise HTTPException(status_code=422,
+                                detail={"code": exc.step, "detail": exc.detail})
+        result["capture_source"] = body.get("_capture_source")
+        return result
+
+    @app.get("/api/v1/domain/missions/{mid}/workload")
+    def domain_mission_workload(mid: str):
+        """Open, read-only: the REAL telemetry a mission's runs produced.
+
+        Derived from the engine's session store, never from the mission row. A
+        mission that says RUNNING with no session therefore reports zero live
+        sessions -- which is the honest answer and what the UI must render.
+        """
+        from .mission_runtime import MissionRuntimeError
+
+        try:
+            return runtime.workload(mid)
+        except MissionRuntimeError as exc:
+            raise HTTPException(status_code=404, detail=exc.detail)
 
 
-    # ------------------------------------------------------------------ #
-    # Mutating (token-gated) endpoints
-    # ------------------------------------------------------------------ #
     @app.post("/api/assess")
     def assess(body: dict, _token: bool = Depends(require_control_token)):
         """Manual AEP ingest trigger. Token required. Actuation stays disabled.

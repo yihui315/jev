@@ -709,6 +709,54 @@ class DomainStore:
                 "status", "launched_at", "ended_at", "exit_reason", "created_at"]
         return [dict(zip(keys, r)) for r in rows]
 
+    def attach_run_session(self, run_id: str, session_id: str) -> None:
+        """Bind an AgentRun to the Session its telemetry arrives under.
+
+        Wave 3. The run -- not the mission -- owns the Session, so this is the
+        column the mission runtime must fill the moment it knows the adapter's
+        session id. Kept here rather than attached from the runtime module: an
+        import-side-effect helper is invisible to any caller that imports only
+        ``domain``, which is exactly how a run ended up with a null session while
+        the mission carried the id (a Wave 3 gate finding).
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                conn.execute("UPDATE agent_runs SET session_id=? WHERE run_id=?",
+                             (session_id, run_id))
+                conn.commit()
+            finally:
+                conn.close()
+
+    def mark_run_launched(self, run_id: str,
+                          status: MissionStatus = MissionStatus.RUNNING) -> None:
+        """Record that a run's telemetry actually reached the engine."""
+        now = _now()
+        with self._lock:
+            conn = self._conn()
+            try:
+                conn.execute(
+                    "UPDATE agent_runs SET status=?, launched_at=? WHERE run_id=?",
+                    (MissionStatus(status).value, now, run_id))
+                conn.commit()
+            finally:
+                conn.close()
+
+    def end_run(self, run_id: str, *, reason: str = "",
+                status: MissionStatus = MissionStatus.FAILED) -> None:
+        """Close a run that did not reach (or no longer deserves) RUNNING."""
+        now = _now()
+        with self._lock:
+            conn = self._conn()
+            try:
+                conn.execute(
+                    "UPDATE agent_runs SET status=?, ended_at=?, exit_reason=? "
+                    "WHERE run_id=?",
+                    (MissionStatus(status).value, now, reason, run_id))
+                conn.commit()
+            finally:
+                conn.close()
+
     # -- connections (domain-side; secrets never persisted) ----------------
 
     def upsert_connection(self, agent: str, *, display_name: str = "",

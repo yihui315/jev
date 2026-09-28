@@ -342,21 +342,45 @@ def check_s01_auth_fail_closed(ctx: Ctx) -> CheckResult:
                         "S-01", SEV_HIGH,
                         f"{method} {path} answered {wrong} with a WRONG token",
                         {"route": path, "status": wrong}))
-                if ok not in (200, 201, 202):
-                    # Not a security finding in the leak sense, but a probe that
-                    # cannot show the gate OPENING cannot show it is a gate and
-                    # not a wall. Recorded as MEDIUM so it cannot pass unnoticed.
+                # The CORRECT token must not be refused by the AUTH gate. Any
+                # status other than 401/403 means the token was accepted and the
+                # request moved past auth into the handler's own validation. A
+                # 422 (schema mismatch on THIS probe body) or a 404 (path-param
+                # substituted with a literal that does not exist) is DOWNSTREAM
+                # of auth, so it is not evidence of a wall -- only 401/403 would
+                # prove the gate refused a valid token.
+                #
+                # NOTE (v1.3): before this change the predicate was "ok in
+                # (200,201,202)", which flagged every mutating route whose body
+                # schema did not match the probe's generic session_start payload
+                # as MEDIUM vacuous. That was an instrument defect, not a product
+                # defect: auth was fail-closed on all of them (no_token and
+                # wrong_token were 403). It surfaced when Wave 1/Wave 3 added the
+                # /api/v1/domain/* write routes, whose bodies differ from the
+                # legacy /api/* routes. The non-vacuity guarantee is preserved
+                # below by requiring at least one route to actually reach 2xx.
+                if ok in (401, 403):
                     r.findings.append(Finding(
                         "S-01", SEV_MEDIUM,
-                        f"{method} {path} answered {ok} with the CORRECT token; "
-                        "the probe cannot distinguish a gate from a wall",
+                        f"{method} {path} REFUSED the CORRECT token with {ok}; "
+                        "the gate does not open for a valid token",
                         {"route": path, "status": ok}))
     finally:
         _stop_uvicorn(server, thread)
         os.environ.pop("JCC_CONTROL_TOKEN", None)
 
     r.evidence["probes"] = probes
-    r.non_vacuous = all(p["correct_token"] in (200, 201, 202) for p in probes)
+    # Non-vacuity is preserved in two parts: (a) no route may refuse the correct
+    # token at the auth layer, and (b) at least one route must actually reach a
+    # 2xx with the correct token -- otherwise a build where EVERY handler 422s
+    # its way out would look "clean" while proving nothing about the gate. Part
+    # (b) is what keeps "refused without a token" from being a statement about a
+    # wall rather than a gate.
+    opens = [p for p in probes if p["correct_token"] in (200, 201, 202)]
+    r.evidence["routes_reaching_2xx_with_correct_token"] = len(opens)
+    r.evidence["routes_total"] = len(probes)
+    r.non_vacuous = (all(p["correct_token"] not in (401, 403) for p in probes)
+                     and len(opens) >= 1)
     r.non_vacuity_note = ("the correct token must open the gate, otherwise "
                           "'refused without a token' proves nothing")
     return r

@@ -9,8 +9,9 @@
  * Launch is preview-first: pressing Launch shows exactly which transitions will
  * be attempted, and only the explicit confirm issues them.
  */
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Activity,
   AlertTriangle,
   CheckCircle2,
   FolderPlus,
@@ -43,7 +44,7 @@ import {
   validateMissionForm,
   type MissionFormValues,
 } from "../app/missionForm";
-import type { DomainApi, Mission, Project } from "../app/domainApi";
+import type { DomainApi, LaunchProbe, Mission, Project } from "../app/domainApi";
 
 export interface StudioProps {
   api: DomainApi;
@@ -67,6 +68,19 @@ export function MissionStudio(props: StudioProps) {
     { step: string; ok: boolean; detail: string }[]
   >([]);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  // Wave 3 — the real launch probe. Refreshed when the launch preview opens so
+  // the dialog shows whether a live agent session actually exists right now,
+  // rather than a promise that the launch will work.
+  const [probe, setProbe] = useState<LaunchProbe | null>(null);
+
+  const refreshProbe = useCallback(async () => {
+    const r = await props.api.launchProbe();
+    setProbe(r.ok && r.data ? r.data : null);
+  }, [props.api]);
+
+  useEffect(() => {
+    if (launchPreview) void refreshProbe();
+  }, [launchPreview, refreshProbe]);
 
   const { errors, payload } = useMemo(() => validateMissionForm(v), [v]);
   const showErrors = touched;
@@ -97,45 +111,61 @@ export function MissionStudio(props: StudioProps) {
   }
 
   /**
-   * Launch = the declared handshake, executed step by step against the server.
-   * Each transition is a separate authenticated call and each is logged. If one
-   * is refused we STOP — we do not continue on a broken chain and we do not
-   * pretend the later steps happened.
+   * Launch = ONE authenticated call to the mission runtime, which:
+   *   1. discovers a REAL live WorkBuddy session on this host,
+   *   2. walks DRAFT -> READY -> STARTING -> RUNNING (stopping at any refusal),
+   *   3. creates the AgentRun, binds the Session, and ingests real AEP telemetry.
+   *
+   * The client does NOT build a launch event and does NOT walk the transitions
+   * itself. Wave 3 moved that to the server so the state machine, the adapter
+   * contract and the session binding are enforced in one place, and so a client
+   * cannot manufacture a "successful" launch with no telemetry behind it.
+   *
+   * This method shows the server's own step log verbatim — including a refusal.
    */
   async function runLaunch(m: Mission) {
     setBusy(true);
     setLaunchLog([]);
     const log: { step: string; ok: boolean; detail: string }[] = [];
-    let current = m;
-    for (const step of LAUNCH_SEQUENCE) {
-      const r = await props.api.transitionMission(props.controlToken, current.mission_id, {
-        to: step,
-        reason: "launched from Mission Studio",
-      });
-      if (!r.ok || !r.data) {
-        log.push({ step, ok: false, detail: r.error ?? "refused" });
-        setLaunchLog([...log]);
-        setBusy(false);
-        return;
-      }
-      current = r.data;
-      log.push({ step, ok: true, detail: `now ${current.status}` });
-      setLaunchLog([...log]);
+    const r = await props.api.launchMission(props.controlToken, m.mission_id, {
+      capture: true,
+      cwd: m.working_directory || undefined,
+    });
+    if (!r.ok || !r.data) {
+      log.push({ step: "launch", ok: false, detail: r.error ?? "refused" });
+      setLaunchLog(log);
+      setBusy(false);
+      return;
     }
-    // The mission is RUNNING; open the run record so a Session can attach.
-    const run = await props.api.createRun(props.controlToken, current.mission_id, {
-      agent: current.agent,
-      connection_ref: current.connection_ref,
-    });
+    const res = r.data;
+    for (const s of res.steps) {
+      log.push({ step: s.step, ok: s.ok, detail: s.detail });
+    }
+    if (res.capture_source) {
+      const lv = res.capture_source.liveness;
+      log.unshift({
+        step: "capture",
+        ok: lv.state === "live",
+        detail: `${res.capture_source.kind} · session ${res.capture_source.session_id} · ${lv.reason}`,
+      });
+    }
     log.push({
-      step: "create-run",
-      ok: run.ok,
-      detail: run.ok && run.data ? run.data.run_id : (run.error ?? "failed"),
+      step: "aep",
+      ok: res.ingested,
+      detail: res.ingested
+        ? `ingested · action=${res.ingest?.action ?? "?"} · session=${res.ingest?.session_status ?? "?"}`
+        : (res.error ?? "no telemetry ingested"),
     });
-    setLaunchLog([...log]);
+    setLaunchLog(log);
     setBusy(false);
-    setResult(current);
-    props.onCreated(current);
+    if (res.ok) {
+      const fresh = await props.api.mission(m.mission_id);
+      if (fresh.ok && fresh.data) {
+        setResult(fresh.data);
+        props.onCreated(fresh.data);
+      }
+    }
+    setServerError(res.ok ? null : (res.error ?? "launch did not complete"));
   }
 
   const launchable = LAUNCHABLE_AGENTS.includes(v.agent);
@@ -440,10 +470,13 @@ export function MissionStudio(props: StudioProps) {
           <div className="space-y-2 text-xs">
             <p className="text-muted-foreground">
               Launching{" "}
-              <code className="text-foreground">{launchPreview?.title}</code> will apply this
-              exact transition sequence against the server:
+              <code className="text-foreground">{launchPreview?.title}</code> will run this
+              exact sequence on the server, against a real agent session:
             </p>
             <ol className="list-inside list-decimal space-y-1 rounded-md border border-border bg-background/50 p-3 font-mono">
+              <li>
+                discover a <span className="text-status-info">live {launchPreview?.agent ?? "agent"} session</span> on this host
+              </li>
               <li>
                 DRAFT → <span className="text-status-info">READY</span>
               </li>
@@ -453,14 +486,36 @@ export function MissionStudio(props: StudioProps) {
                 </li>
               ))}
               <li>
-                create <span className="text-status-info">AgentRun</span> (Session attaches at Wave 3)
+                create <span className="text-status-info">AgentRun</span> + bind the Session
+              </li>
+              <li>
+                ingest real <span className="text-status-info">AEP telemetry</span> (assessment →
+                policy → directive → audit)
               </li>
             </ol>
+            {probe && !probe.workbuddy.ok && (
+              <p className="flex items-start gap-2 rounded-md border border-status-warn/40 bg-status-warn/10 px-3 py-2 text-status-warn">
+                <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  No live {launchPreview?.agent} session detected — {probe.workbuddy.detail ?? probe.workbuddy.reason}.
+                  Launch will be refused rather than faked. Start the agent, then retry.
+                </span>
+              </p>
+            )}
+            {probe && probe.workbuddy.ok && (
+              <p className="flex items-start gap-2 rounded-md border border-status-info/40 bg-status-info/10 px-3 py-2 text-status-info">
+                <Activity className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                <span>
+                  Live session ready: <code>{probe.workbuddy.source?.session_id}</code> (pid{" "}
+                  {probe.workbuddy.source?.pid})
+                </span>
+              </p>
+            )}
             <p className="flex items-start gap-2 rounded-md border border-status-ok/40 bg-status-ok/10 px-3 py-2 text-status-ok">
               <CheckCircle2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
               <span>
-                Actuation is disabled. Launching a mission records intent and state;
-                it does not mount an actuator.
+                Actuation is disabled. Launching a mission records intent, binds a
+                Session and ingests telemetry; it does not mount an actuator.
               </span>
             </p>
             {!launchable && (

@@ -32,6 +32,27 @@
       "start": "<the v1.1 §7 commit>",
       "end": "<the same commit>",
       "compliance_note": "Only packages/jcc_core/server.py moved. The byte change (server.py /api/health) and the pin update (test_p3_acceptance_gate.py _BASELINE_HASHES + A8_FROZEN_AT) are in ONE commit, so BOTH wordings of the rule are satisfied. The v1.1 branch is a NEW development line; the P3 verdict of 355/0/0/0 remains valid for ITS tree (认证 SHA 3936c96) and is NOT carried over -- v1.1 verdicts are produced fresh by the v1.1 gate runs."
+    },
+    {
+      "id": "V1.2-FREEZE-W-CENTER",
+      "authorized_batch": "v1.2 VISUAL COMMAND CENTER (Wave 7+8, branch feature/jcc-v1.2-visual-command-center)",
+      "start": "<the v1.2 Wave 7 commit 959231e>",
+      "end": "<the v1.2 Wave 8 commit>",
+      "compliance_note": "Three pinned files moved by v1.2 product work already COMMITTED on the branch: core.py (record_source gate), state_store.py (events.record_source column + get_shadow_records('live')), server.py (control-token fail-closed gating across assess/pause/steer/retry + SSE generator support). Pinned hashes live in test_p3_acceptance_gate.py _BASELINE_HASHES comments with old->new + reason."
+    },
+    {
+      "id": "V1.3-FREEZE-W-1-DOMAIN",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 1 — Project/Mission domain (branch feature/jcc-v1.2-visual-command-center)",
+      "start": "1be13ca",
+      "end": "1be13ca",
+      "compliance_note": "One pinned file moved: packages/jcc_core/server.py, old 7d16a3f8.. -> new f4c01f35.., because Wave 1 wires DomainStore and adds the /api/v1/domain/* read surface plus token-gated writes. Byte change and pin update are in ONE commit (1be13ca)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-3-LAUNCH",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 3 — first real WorkBuddy mission (MissionRuntime launch bridge)",
+      "start": "v1.3-wave3-live-mission",
+      "end": "v1.3-wave3-live-mission",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old f4c01f35.. -> new 4ac96c0e.., because Wave 3 wires MissionRuntime (app.state.mission_runtime) and adds GET /api/v1/domain/launch/probe (open), POST /api/v1/domain/missions/{mid}/launch (token-gated), GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave3-live-mission). Also in this window: A11 inbound surface gains the launch POST, and test_server_surface's declared-open list gains the two Wave 3 GETs -- both reviewed edits, no unreviewed route."
     }
   ],
 

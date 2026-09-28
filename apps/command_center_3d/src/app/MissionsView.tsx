@@ -19,6 +19,7 @@ import {
   fmtTime,
   type DomainApi,
   type Mission,
+  type MissionWorkload,
   type TimelineEntry,
 } from "../app/domainApi";
 
@@ -192,6 +193,10 @@ function MissionDetailDrawer({
 }) {
   const [timeline, setTimeline] = useState<TimelineEntry[] | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  // Wave 3 — the REAL telemetry this mission's runs produced, from the session
+  // store. Kept null until a successful read so a failure never renders as
+  // "no workload", which would be a false claim that the mission is idle.
+  const [workload, setWorkload] = useState<MissionWorkload | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -203,6 +208,11 @@ function MissionDetailDrawer({
         return;
       }
       setTimeline(r.data ?? []);
+    })();
+    void (async () => {
+      const w = await api.missionWorkload(mission.mission_id);
+      if (cancelled) return;
+      if (w.ok && w.data) setWorkload(w.data);
     })();
     return () => {
       cancelled = true;
@@ -246,6 +256,52 @@ function MissionDetailDrawer({
             {mission.attention_kind}: {mission.attention_reason}
           </div>
         )}
+
+        {/* Wave 3 — LIVE WORKLOAD. Derived from the engine's session store, so a
+            mission that claims RUNNING with no telemetry shows zero live
+            sessions here rather than a fabricated activity indicator. */}
+        <Card className="mt-4" data-testid="mission-workload">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              Live workload
+              {workload && (
+                <Badge variant={workload.live_session_count > 0 ? "live" : "unknown"}>
+                  {workload.live_session_count > 0
+                    ? `${workload.live_session_count} live session${workload.live_session_count > 1 ? "s" : ""}`
+                    : "no live session"}
+                </Badge>
+              )}
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            {workload === null ? (
+              <div className="text-xs text-muted-foreground">
+                Workload unknown — the session store has not answered.
+              </div>
+            ) : (
+              <dl className="space-y-2 text-xs">
+                <Row label="Agent runs" value={String(workload.run_count)} />
+                <Row
+                  label="Sessions"
+                  value={workload.session_ids.length ? workload.session_ids.join(", ") : "—"}
+                  mono
+                />
+                <Row
+                  label="Live telemetry"
+                  value={
+                    workload.live_session_count > 0
+                      ? `${workload.live_session_count} session(s) with real AEP events`
+                      : "none — no AEP events under this mission's sessions"
+                  }
+                />
+                <Row
+                  label="Actuation"
+                  value={workload.actuation === false ? "OFF (fail-closed)" : "unknown"}
+                />
+              </dl>
+            )}
+          </CardContent>
+        </Card>
 
         <Card className="mt-4">
           <CardHeader>

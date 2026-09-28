@@ -265,8 +265,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore.
-        "f4c01f351907d1cf97391e6fe25a0970c972ab3401d1dad5527724a68505100e",  # old: 7d16a3f8846f6d1825b900b33b455886d527dfba5161d1e4d98368844a62f1f4 (v1.3 Wave 1 domain surface)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23.
+        "4ac96c0e1c0655f1ade74466a24f6a446d2dff47ed9929aa0e9f5d212c6bcf85",  # old: f4c01f351907d1cf97391e6fe25a0970c972ab3401d1dad5527724a68505100e (v1.3 Wave 1 domain surface)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
@@ -687,6 +687,11 @@ def test_A11_no_new_inbound_surface(live):
         "/api/v1/domain/connections",
         "/api/v1/domain/connections/{cid}/capability",
         "/api/v1/domain/approvals/{aid}/decide",
+        # v1.3 Wave 3 first real mission: the launch bridge. Token-gated, and it
+        # carries NO actuator (MissionRuntime is constructed without one), so it
+        # cannot actuate; it only walks the Mission state machine and ingests a
+        # real adapter-normalized event.
+        "/api/v1/domain/missions/{mid}/launch",
     }
     assert post_paths == expected, {
         "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),

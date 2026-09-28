@@ -117,6 +117,12 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/v1/domain/missions/{mid}/artifacts",
         "/api/v1/domain/connections",
         "/api/v1/domain/needs-attention",
+        # v1.3 Wave 3 first real mission: the launch probe reports only host-side
+        # session liveness (three-state), and the workload endpoint reports only
+        # telemetry the engine already holds. Neither mutates, so both are open
+        # reads by design; the launch write itself stays token-gated.
+        "/api/v1/domain/launch/probe",
+        "/api/v1/domain/missions/{mid}/workload",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)
