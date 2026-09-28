@@ -1,0 +1,27 @@
+{
+  "name": "command_center_3d",
+  "private": true,
+  "version": "1.2.0",
+  "type": "module",
+  "description": "JEV COMMAND CENTER v1.2 — Visual Command Center (3D AI Agent Command Center). Single source of truth: SceneStore.",
+  "scripts": {
+    "dev": "vite --host 127.0.0.1 --port 4781",
+    "build": "vite build",
+    "typecheck": "tsc --noEmit",
+    "preview": "vite preview --host 127.0.0.1 --port 4781"
+  },
+  "dependencies": {
+    "@react-three/fiber": "9.8.1",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "three": "0.186.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/three": "0.186.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.6.3",
+    "vite": "5.4.11"
+  }
+}
