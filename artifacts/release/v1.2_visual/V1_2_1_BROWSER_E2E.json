@@ -1,0 +1,124 @@
+{
+  "schema": "jcc/v1.2.1-browser-e2e/1",
+  "generated_at": "2026-09-28T14:43:17Z",
+  "ui_url": "http://127.0.0.1:4780",
+  "api_url": "http://127.0.0.1:4779",
+  "engine": "playwright-chromium",
+  "verdict": "PASS",
+  "steps": [
+    {
+      "step": "01_spa_mounted",
+      "ok": true,
+      "value": "JCC Visual Command Center",
+      "note": "root div present"
+    },
+    {
+      "step": "01b_nav_clicked",
+      "ok": true,
+      "value": "Connections nav clicked",
+      "note": ""
+    },
+    {
+      "step": "02_connections_heading",
+      "ok": true,
+      "value": "AI CONNECTION CENTER",
+      "note": ""
+    },
+    {
+      "step": "03_all_five_agents_listed",
+      "ok": true,
+      "value": {
+        "WorkBuddy": true,
+        "Claude": true,
+        "Codex": true,
+        "Hermes": true,
+        "Jev": true
+      },
+      "note": ""
+    },
+    {
+      "step": "04_states_are_honest",
+      "ok": true,
+      "value": "state vocabulary rendered",
+      "note": ""
+    },
+    {
+      "step": "05_view_only_or_capability_shown",
+      "ok": true,
+      "value": "control capability surfaced",
+      "note": ""
+    },
+    {
+      "step": "06_test_connection_clicked",
+      "ok": true,
+      "value": "button clicked",
+      "note": ""
+    },
+    {
+      "step": "07_api_five_agents",
+      "ok": true,
+      "value": [
+        "claude",
+        "codex",
+        "hermes",
+        "jev",
+        "workbuddy"
+      ],
+      "note": ""
+    },
+    {
+      "step": "08_actuation_false",
+      "ok": true,
+      "value": false,
+      "note": "hard boundary holds"
+    },
+    {
+      "step": "09_no_false_green",
+      "ok": true,
+      "value": {
+        "workbuddy": "UNKNOWN",
+        "claude": "UNKNOWN",
+        "codex": "UNKNOWN",
+        "hermes": "UNKNOWN",
+        "jev": "UNKNOWN"
+      },
+      "note": "all states in closed vocabulary"
+    },
+    {
+      "step": "10_sessions_endpoint",
+      "ok": true,
+      "value": 0,
+      "note": ""
+    },
+    {
+      "step": "11_view_sessions_affordance",
+      "ok": true,
+      "value": 4,
+      "note": ""
+    },
+    {
+      "step": "12_onboarding_steps_visible",
+      "ok": true,
+      "value": "onboarding rendered",
+      "note": ""
+    },
+    {
+      "step": "13_disconnect_affordance",
+      "ok": true,
+      "value": 4,
+      "note": ""
+    },
+    {
+      "step": "14_no_console_crash",
+      "ok": true,
+      "value": {
+        "total_console_errors": 1,
+        "expected_fail_closed_401": [
+          "Failed to load resource: the server responded with a status of 401 (Unauthorized)"
+        ],
+        "hard_errors": []
+      },
+      "note": "401 fail-closed is expected, not a crash"
+    }
+  ]
+}

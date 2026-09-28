@@ -1,5 +1,5 @@
 {
-  "check_count": 226,
+  "check_count": 228,
   "checks": [
     {
       "detail": "passed",
@@ -143,6 +143,18 @@
       "detail": "passed",
       "name": "test_saving_state_keeps_the_previous_generation",
       "node_id": "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_schtasks_documentation_only_is_not_flagged",
+      "node_id": "tools/tests/test_continuation_infra.py::test_schtasks_documentation_only_is_not_flagged",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_schtasks_invocation_falsifier_is_detected",
+      "node_id": "tools/tests/test_continuation_infra.py::test_schtasks_invocation_falsifier_is_detected",
       "ok": true
     },
     {
@@ -1384,6 +1396,8 @@
     "tools/tests/test_continuation_infra.py::test_pid_liveness_is_by_handle_not_by_name",
     "tools/tests/test_continuation_infra.py::test_publish_then_verify_is_a_fixed_point_and_still_refusable",
     "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
+    "tools/tests/test_continuation_infra.py::test_schtasks_documentation_only_is_not_flagged",
+    "tools/tests/test_continuation_infra.py::test_schtasks_invocation_falsifier_is_detected",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_budget_is_bounded",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_monitors_nothing_until_the_release_is_ready",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_refuses_foreign_occupancy",
@@ -1589,7 +1603,7 @@
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 226,
+  "passed_count": 228,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -1600,5 +1614,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "226/226 infrastructure test(s) passed"
+  "verdict": "228/228 infrastructure test(s) passed"
 }

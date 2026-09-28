@@ -15,7 +15,15 @@
           "/api/assess",
           "/api/pause",
           "/api/steer",
-          "/api/retry"
+          "/api/retry",
+          "/api/connections/{agent}/test",
+          "/api/connections/{agent}/configure",
+          "/api/connections/{agent}/preview-disconnect",
+          "/api/connections/{agent}/disconnect",
+          "/api/connections/{agent}/sessions",
+          "/api/connections/jev/validate",
+          "/api/connections/jev/activate",
+          "/api/onboarding/advance"
         ],
         "probes": [
           {
@@ -45,6 +53,62 @@
             "no_token": 403,
             "route": "/api/retry",
             "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/{agent}/test",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/{agent}/configure",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/{agent}/preview-disconnect",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/{agent}/disconnect",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/{agent}/sessions",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/jev/validate",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/connections/jev/activate",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 200,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/onboarding/advance",
+            "wrong_token": 403
           }
         ]
       },
@@ -53,7 +117,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 2.254,
+      "seconds": 2.646,
       "title": "auth fail-closed on every mutating route"
     },
     {
@@ -95,7 +159,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.681,
+      "seconds": 0.768,
       "title": "planted secrets absent from every persisted sink"
     },
     {
@@ -111,8 +175,11 @@
         "actual_get_routes": [
           "/api/audit",
           "/api/audit/verify",
+          "/api/connections",
+          "/api/connections/{agent}",
           "/api/decisions",
           "/api/health",
+          "/api/onboarding/state",
           "/api/sessions",
           "/api/sessions/{sid}",
           "/api/v1/events/stream",
@@ -123,8 +190,11 @@
         "declared_open_get": [
           "/api/audit",
           "/api/audit/verify",
+          "/api/connections",
+          "/api/connections/{agent}",
           "/api/decisions",
           "/api/health",
+          "/api/onboarding/state",
           "/api/sessions",
           "/api/sessions/{sid}",
           "/api/v1/events/stream",
@@ -142,7 +212,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.864,
+      "seconds": 0.924,
       "title": "loopback-only bind and no undeclared open route"
     },
     {
@@ -183,7 +253,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.019,
+      "seconds": 0.025,
       "title": "v1.1 modules add no write and no egress"
     },
     {
@@ -224,7 +294,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.056,
+      "seconds": 0.076,
       "title": "the UI reads no token and posts only the probe"
     },
     {
@@ -279,7 +349,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.014,
+      "seconds": 0.026,
       "title": "v1.1 modules import only stdlib and project roots"
     },
     {
@@ -360,7 +430,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.125,
+      "seconds": 0.17,
       "title": "no enforcement path consumes effective_level"
     },
     {
@@ -395,7 +465,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.002,
+      "seconds": 0.003,
       "title": "the protected service and runtime DB are untouched"
     }
   ],
@@ -407,13 +477,13 @@
     "LOW": 0,
     "MEDIUM": 0
   },
-  "generated_at": "2026-09-28T19:54:38+0800",
+  "generated_at": "2026-09-28T22:26:26+0800",
   "non_vacuity_gaps": [],
   "repo_branch": "feature/jcc-v1.2-visual-command-center",
-  "repo_head": "a46a74c0cdb93f0980fa8fe57a90a277b2a1c4e5",
+  "repo_head": "14681c3b040b69de1c8fab74fb975266c3548500",
   "reproducibility": {
     "deterministic": true,
-    "normalized_sha256": "309bff77f63e9d58496fcdfd4258c53723f44c30cb8c952a0c8edf4abaea510e",
+    "normalized_sha256": "b1805585eaeadce0aa96de80851db43e90eb844b24309dd87ade513d3225ca57",
     "volatile_keys_stripped": [
       "after",
       "before",

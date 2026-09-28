@@ -1,5 +1,5 @@
 {
-  "check_count": 12,
+  "check_count": 13,
   "checks": [
     {
       "detail": "passed",
@@ -17,6 +17,12 @@
       "detail": "passed",
       "name": "test_loopback_bind_only",
       "node_id": "tests/e2e/test_api_e2e.py::test_loopback_bind_only",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_loopback_probe_bypasses_http_proxy",
+      "node_id": "tests/e2e/test_api_e2e.py::test_loopback_probe_bypasses_http_proxy",
       "ok": true
     },
     {
@@ -79,6 +85,7 @@
     "tests/e2e/test_api_e2e.py::test_audit_chain_hash_linked_and_tamper_detected",
     "tests/e2e/test_api_e2e.py::test_cors_is_allowlist_not_wildcard",
     "tests/e2e/test_api_e2e.py::test_loopback_bind_only",
+    "tests/e2e/test_api_e2e.py::test_loopback_probe_bypasses_http_proxy",
     "tests/e2e/test_api_e2e.py::test_mutating_endpoints_accept_bearer_token",
     "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_when_token_unset",
     "tests/e2e/test_api_e2e.py::test_mutating_endpoints_refuse_without_token[/api/assess]",
@@ -94,9 +101,9 @@
     "command": "pytest tests/e2e",
     "deterministic": true,
     "generator": "tests/e2e/conftest.py",
-    "generator_sha256": "2f219689292a55d43066a7cf448c2241c097d32f6da1e6aa5b17c0fd2448dcd6",
+    "generator_sha256": "a88f8e67cc2188c85f0087bc04a6297488f430e0cd8694515e46151323845992",
     "module": "tests/e2e/test_api_e2e.py",
-    "module_sha256": "4f97029937003b7996d43550763221f0e28bc4f700408ceaecb59dfef199bda3"
+    "module_sha256": "625408deb136b3643f5955f1a8734ac642ddba427cfa5d14e67c3113f4428b56"
   },
   "schema": "jcc-e2e-evidence/2",
   "status": "PASS"
