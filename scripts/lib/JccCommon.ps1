@@ -54,6 +54,103 @@ function Get-JccPaths {
     }
 }
 
+function Get-JccV12Paths {
+    <#
+        The JCC v1.2 VISUAL COMMAND CENTER runs as a SECOND, fully isolated
+        instance so the frozen GREEN service on 127.0.0.1:4778 is NEVER touched:
+
+          * its own config (config\jcc-v1.2.yaml -> server.port 4779),
+          * its own runtime dir (runtime\jcc-v1.2) with its own pid/marker/logs,
+          * its own SQLite database (runtime\jcc-v1.2\jcc-v1.2.db).
+
+        run.py writes its Python-side marker (JCC-marker) into the SAME directory
+        as state_store.db_path, so an isolated db_path already gives the v1.2
+        instance a separate JCC-marker too -- there is no cross-talk with the
+        GREEN runtime\jcc\JCC-marker.
+
+        Every ownership / health helper in this file takes a $Paths table, so the
+        v1.2 launcher reuses Test-JccOwnership / Write-JccOwnershipMarker /
+        Get-JccPortOwner / Invoke-JccHealth unchanged, pointed at these paths.
+    #>
+    param([string]$Root)
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $runtime = Join-Path $Root 'runtime\jcc-v1.2'
+    $req = Join-Path (Join-Path $Root 'packages\jcc_core') 'requirements.txt'
+    if (-not (Test-Path -LiteralPath $req)) {
+        $alt = Join-Path $Root 'scripts\requirements.txt'
+        if (Test-Path -LiteralPath $alt) { $req = $alt }
+    }
+
+    return @{
+        Root            = $Root
+        Runtime         = $runtime
+        VenvPython      = Join-Path $Root '.venv\Scripts\python.exe'
+        VenvPip         = Join-Path $Root '.venv\Scripts\pip.exe'
+        Config          = Join-Path $Root 'config\jcc-v1.2.yaml'
+        EnvExample      = Join-Path $Root 'config\.env.example'
+        EnvFile         = Join-Path $Root '.env'
+        PidFile         = Join-Path $runtime 'jcc-v1.2.pid'
+        MarkerFile      = Join-Path $runtime 'jcc-v1.2.ownership.json'
+        ServerLog       = Join-Path $runtime 'server.log'
+        ServerErrLog    = Join-Path $runtime 'server.err.log'
+        Requirements    = $req
+        GateRunner      = Join-Path (Join-Path $Root 'artifacts\acceptance') 'final_gate_run.py'
+        CorePackage     = Join-Path $Root 'packages\jcc_core'
+    }
+}
+
+function Get-JccV12Port {
+    <#
+        The v1.2 instance's port, read from config\jcc-v1.2.yaml. Mirrors
+        Get-JccPort but targets the v1.2 config (server.port, normally 4779) so
+        the launcher and the service can never disagree about which port is "v1.2".
+        Falls back to a YAML line-parse, then to 4779.
+    #>
+    param([string]$Root, [string]$Python)
+
+    $cfg = Join-Path $Root 'config\jcc-v1.2.yaml'
+    if ($Python -and (Test-Path -LiteralPath $cfg)) {
+        $code = @'
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
+os.environ['JCC_CONFIG'] = r'{0}'
+from jcc_core.config import load_config
+print(load_config().server.port)
+'@ -f $cfg
+        $cur = $null
+        try { $cur = (Get-Location).Path } catch { $cur = $null }
+        try {
+            Set-Location -LiteralPath $Root -ErrorAction Stop
+            $out = & $Python '-c' $code 2>$null
+            $v = ([string]$out).Trim()
+            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
+        } catch {
+            # fall through to the YAML fallback below
+        } finally {
+            if ($cur) {
+                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $cfg) {
+        $inServer = $false
+        foreach ($line in Get-Content -LiteralPath $cfg) {
+            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
+                $key = $Matches[1]
+                $inServer = ($key -eq 'server')
+                continue
+            }
+            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
+                return [int]$Matches[1]
+            }
+        }
+    }
+
+    return 4779
+}
+
 function Get-JccPython {
     param([string]$Root)
 
@@ -389,12 +486,20 @@ function Write-JccOwnershipMarker {
         [string]$PythonExe,
         [string]$Root,
         [int]$LauncherPid = 0,
-        [int]$ServicePid = 0
+        [int]$ServicePid = 0,
+        [string]$Config = '',
+        [string]$CreatedBy = ''
     )
 
     # `pid` / `service_pid` are the SERVICE process: the one that actually holds
     # the listening socket. `launcher_pid` is the process the launching script
     # started and that owns the redirected log handles.
+    # -Config lets a second instance (e.g. v1.2 on port 4779) record its OWN
+    #   config file in the marker instead of the default config\jcc.yaml; the
+    #   default is unchanged so the GREEN launcher's behaviour is identical.
+    # -CreatedBy records which launcher wrote the marker (default start.ps1).
+    $configField = if ($Config) { $Config } else { (Join-Path $Root 'config\jcc.yaml') }
+    $createdByField = if ($CreatedBy) { $CreatedBy } else { 'scripts/start.ps1' }
     $marker = [ordered]@{
         service        = 'jcc-core'
         pid            = (Get-JccPidFromFile -Paths $Paths)
@@ -410,9 +515,9 @@ function Write-JccOwnershipMarker {
         module         = 'jcc_core.run'
         port           = $Port
         host           = '127.0.0.1'
-        config         = (Join-Path $Root 'config\jcc.yaml')
+        config         = $configField
         platform       = 'windows'
-        created_by     = 'scripts/start.ps1'
+        created_by     = $createdByField
     }
 
     if (-not (Test-Path -LiteralPath $Paths.Runtime)) {
@@ -539,6 +644,11 @@ function Invoke-JccHealth {
         $req.ReadWriteTimeout = [int][Math]::Max(1000, $TimeoutMs)
         $req.AllowAutoRedirect = $false
         $req.KeepAlive = $false
+        # Loopback health checks must bypass any system HTTP proxy (this host
+        # runs a v2rayN proxy that otherwise swallows 127.0.0.1:<port> and
+        # returns a misleading HTTP 502 instead of "no listener"). An empty proxy
+        # forces a direct connection to localhost.
+        try { $req.Proxy = [System.Net.GlobalProxySelection]::GetEmptyWebProxy() } catch { }
     } catch {
         $res.Error = 'cannot build request: ' + $_.Exception.Message
         return $res
@@ -683,10 +793,10 @@ function Get-JccUptimeReading {
         Pure: takes timestamps, returns a reading. Testable without a service.
     #>
     param(
-        [datetime]$ProcessStart,
-        [datetime]$CimCreation,
-        [datetime]$MarkerStart,
-        [datetime]$Now,
+        [System.Nullable[datetime]]$ProcessStart,
+        [System.Nullable[datetime]]$CimCreation,
+        [System.Nullable[datetime]]$MarkerStart,
+        [System.Nullable[datetime]]$Now,
         [int]$SourceSkewWarnSec = 5,
         [int]$MarkerDriftWarnSec = 30
     )
