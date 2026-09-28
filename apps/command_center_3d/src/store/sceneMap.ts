@@ -10,6 +10,8 @@
  * 0 / false / [] / healthy.
  */
 
+import { detectWebGL2 } from "../lib/webgl";
+
 export type Source = "LIVE" | "RELEASE" | "DERIVED" | "UNKNOWN";
 
 export interface CoreNode {
@@ -110,6 +112,11 @@ export interface SceneState {
   budget: BudgetSummary | null;
   capabilities: CapabilityMatrix | null;
   capabilitiesSource: Source | null;
+  /** Full shadow section (source + data + reason). The UI falsifier
+   *  (shadowView.summarizeShadow) reads THIS — not just the enum — so an
+   *  UNKNOWN gap renders honestly (no numbers) and a LIVE section shows its
+   *  real counts. */
+  shadow: Section | null;
   shadowSource: Source | null;
   auditSource: Source | null;
   auditChainIntact: boolean | null;
@@ -123,6 +130,9 @@ export interface SceneState {
   agentFilter: string | null;
   statusFilter: string | null;
   view: ViewMode;
+  /** WebGL2 availability (Wave 8 fallback). When false the app opens in the
+   *  table view so the 3D world never renders into a dead canvas. */
+  webgl2Supported: boolean;
   /** Operator console (Wave 6) — memory-only, never persisted. */
   operatorMode: "view" | "operate";
   controlToken: string;
@@ -143,6 +153,7 @@ export const EMPTY_SCENE: SceneState = {
   budget: null,
   capabilities: null,
   capabilitiesSource: null,
+  shadow: null,
   shadowSource: null,
   auditSource: null,
   auditChainIntact: null,
@@ -153,6 +164,7 @@ export const EMPTY_SCENE: SceneState = {
   agentFilter: null,
   statusFilter: null,
   view: "world",
+  webgl2Supported: detectWebGL2(),
   operatorMode: "view",
   controlToken: "",
   pendingAction: null,
@@ -308,8 +320,9 @@ export function mapScene(doc: unknown): SceneState {
   }
 
   // --- shadow / audit (source only for the badges) -----------------------
-  out.shadowSource = asSection(d.shadow)?.source ?? null;
-  out.shadowSource = asSection(d.shadow)?.source ?? null;
+  const shadowSec = asSection(d.shadow);
+  out.shadowSource = shadowSec?.source ?? null;
+  out.shadow = shadowSec;
   const audit = asSection(d.audit_summary);
   out.auditSource = audit?.source ?? null;
   if (audit && audit.data && typeof audit.data === "object") {

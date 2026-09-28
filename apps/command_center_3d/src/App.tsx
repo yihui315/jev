@@ -23,6 +23,11 @@ export function App() {
   useEffect(() => {
     void sceneStore.load(API_BASE);
     sceneStore.connectStream(API_BASE);
+    // Wave 8 fallback: without WebGL2 the 3D world has no context to render
+    // into, so open in the (GPU-free) table view instead.
+    if (!sceneStore.getSnapshot().webgl2Supported) {
+      sceneStore.setView("table");
+    }
     return () => sceneStore.disconnect();
   }, []);
 

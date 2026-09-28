@@ -2,3 +2,7 @@ node_modules
 dist
 *.local
 .DS_Store
+# Wave 8: vite/vitest cache + sandbox-local TEMP redirect (writable, non-node_modules)
+.vite-cache
+.vitest-cache
+.vitetmp
