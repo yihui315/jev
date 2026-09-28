@@ -92,6 +92,7 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/audit",
         "/api/decisions",
         "/api/audit/verify",
+        "/api/v1/scene",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)

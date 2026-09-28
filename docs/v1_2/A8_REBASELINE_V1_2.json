@@ -1,0 +1,41 @@
+{
+  "doc": "v1.2 A8 rebaseline record (Wave 3 — Scene API)",
+  "note": "server.py is one of the 12 A8-pinned production artifacts. Adding the /api/v1/scene route is an A8 rebaseline event: the committed blob sha changed and MUST be reflected in the v1.2 release manifest (artifacts/release/*.manifest.json) and in packages/jcc_core/tests/test_p3_acceptance_gate.py::_BASELINE_HASHES at Wave 9. scene.py is a NEW module (not in the A8 set) recorded only for traceability.",
+  "generated_at": "2026-09-28",
+  "branch": "feature/jcc-v1.2-visual-command-center",
+  "pre_change_head": "d3d338b",
+  "changes": [
+    {
+      "path": "packages/jcc_core/server.py",
+      "a8_pinned": true,
+      "old_sha256": "02a1c9ef4c4f477347e815d1745ec181c503c440",
+      "new_sha256": "d10a190ceca6cae5863ee95789896d6ca7455909",
+      "reason": "Wave 3 — added GET /api/v1/scene (jcc-scene/1 projection route) and declared it on OPEN_GET_ENDPOINTS; added `from .scene import build_scene` and `from pathlib import Path`.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to the new committed blob sha"
+    },
+    {
+      "path": "packages/jcc_core/scene.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "438fa20b327d19f5f6d152912c4971c9e5cb8d46",
+      "reason": "NEW module — the jcc-scene/1 projection builder (projection-only, anti-fabrication: UNKNOWN never coerced to 0/false/healthy).",
+      "action_required_at_release": "none (not A8-pinned)"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_scene_api.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — 6-scenario contract tests (empty/live/demo/mixed/hostile/large-state) + anti-fabrication invariant.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_server_surface.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "Pinned OPEN_GET_ENDPOINTS set now includes /api/v1/scene (anti-drift must move WITH the route).",
+      "action_required_at_release": "none"
+    }
+  ]
+}

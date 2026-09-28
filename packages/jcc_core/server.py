@@ -30,6 +30,7 @@ import json
 import logging
 import os
 import time
+from pathlib import Path
 from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, status
@@ -39,6 +40,7 @@ from pydantic import ValidationError
 from .core import CoreEngine
 from .providers.base import activation_state_for_requested
 from .schemas import AEPEnvelope, Directive, DirectiveAction
+from .scene import build_scene
 
 logger = logging.getLogger("jcc.server")
 
@@ -54,6 +56,7 @@ OPEN_GET_ENDPOINTS = (
     "/api/audit",
     "/api/decisions",
     "/api/audit/verify",
+    "/api/v1/scene",
 )
 
 
@@ -193,6 +196,24 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     def audit_verify():
         ok, count = engine.store.verify_audit()
         return {"intact": ok, "entries": count}
+
+    # ------------------------------------------------------------------ #
+    # Wave 3 — Scene projection (the single read-only world-state surface
+    # for the v1.2 Visual Command Center). Schema ``jcc-scene/1``.
+    # PROJECTION ONLY: reads live engine/store + released artifacts, never
+    # writes, never creates a second truth store. Every section is labelled
+    # LIVE / RELEASE / DERIVED / UNKNOWN; UNKNOWN is never coerced to
+    # 0 / false / healthy / [] (see packages/jcc_core/scene.py).
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/scene")
+    def scene():
+        cap_path = os.environ.get("JCC_CAPABILITY_MATRIX") or str(
+            Path(__file__).resolve().parents[2]
+            / "artifacts"
+            / "release"
+            / "V1_1_CAPABILITY_MATRIX.json"
+        )
+        return build_scene(engine, config, capability_matrix_path=cap_path)
 
     # ------------------------------------------------------------------ #
     # Mutating (token-gated) endpoints
