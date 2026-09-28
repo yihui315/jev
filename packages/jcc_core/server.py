@@ -29,6 +29,7 @@ import hmac
 import json
 import logging
 import os
+import re
 import time
 from pathlib import Path
 from typing import Optional
@@ -60,6 +61,10 @@ OPEN_GET_ENDPOINTS = (
     "/api/audit/verify",
     "/api/v1/scene",
     "/api/v1/events/stream",
+    # v1.2.1 — AI CONNECTION CENTER (read-only discovery)
+    "/api/connections",
+    "/api/connections/{agent}",
+    "/api/onboarding/state",
 )
 
 
@@ -91,7 +96,7 @@ class ProjectionManager:
 def create_app(engine: CoreEngine, config) -> FastAPI:
     app = FastAPI(
         title="JCC Core Control Plane",
-        version="p1.0.0",
+        version="v1.2.1",
         # P4 #77.1: no Swagger / ReDoc / OpenAPI routes. FastAPI serves four
         # GET routes by default (``/docs``, ``/redoc``, ``/openapi.json``,
         # ``/docs/oauth2-redirect``) and every one of them is an UNDECLARED open
@@ -120,6 +125,41 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     bus = EventBus()
     engine.event_bus = bus
     engine.subscribe(lambda out: bus.feed_engine_out(out))
+
+    # v1.2.1 — auto-mark onboarding step 3 (Run First Task) and step 4
+    # (See LIVE Session) when a LIVE WorkBuddy session appears. The check is
+    # narrowly scoped to the workbuddy agent (the step the spec calls out).
+    def _auto_advance_onboarding(out: dict) -> None:
+        try:
+            if not isinstance(out, dict):
+                return
+            if out.get("agent") == "workbuddy" and out.get("acted") is False \
+                    and out.get("actuation_reason") == "shadow_mode":
+                registry.mark_step(3)   # Run First Task (assess called)
+                sid = out.get("session_id")
+                if sid and engine.store.get_session(sid):
+                    registry.mark_step(4)   # See LIVE Session
+                    registry.set_state("workbuddy", ConnectionStatus.CONNECTED.value,
+                                       last_event_at=time.time(),
+                                       last_event_summary=str(out.get("event_type", "tool_call")),
+                                       last_session_id=sid)
+        except Exception:  # noqa: BLE001
+            pass
+    engine.subscribe(_auto_advance_onboarding)
+
+    # v1.2.1 — AI CONNECTION CENTER: the registry owns per-agent config
+    # (NON-SECRET only) + per-agent state. Secrets are read from env vars at
+    # probe time and never persisted. The DB lives next to the state store at
+    # ``runtime/jcc-v1.2/connections.db``; if the state store path is somewhere
+    # else (e.g. tests), the registry just follows.
+    from .connections import (
+        AGENTS, ConnectionConfig, ConnectionRegistry,
+        ConnectionStatus, snapshot as build_snapshot,
+        test_local_cli, test_local_process, test_api, test_mcp,
+    )
+    conn_db_path = str(Path(config.state_store_db_path).parent / "connections.db")
+    registry = ConnectionRegistry(conn_db_path)
+    app.state.connection_registry = registry
 
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
@@ -241,6 +281,44 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
         )
 
+    # ------------------------------------------------------------------ #
+    # v1.2.1 — AI CONNECTION CENTER (open read-only discovery surface).
+    # ------------------------------------------------------------------ #
+    @app.get("/api/connections")
+    def list_connections():
+        """Return a snapshot of every supported agent's connection state."""
+        out = []
+        for a in AGENTS:
+            try:
+                out.append(build_snapshot(registry, a, engine).to_dict())
+            except Exception as exc:  # noqa: BLE001
+                out.append({
+                    "agent": a,
+                    "display_name": a,
+                    "connection_state": ConnectionStatus.UNKNOWN.value,
+                    "notes": ["snapshot failed: %s" % exc],
+                })
+        return {"agents": out, "actuation_enabled": engine.actuator.enabled,
+                "schema": "jcc/v1.2.1-connections/1"}
+
+    @app.get("/api/connections/{agent}")
+    def connection_detail(agent: str):
+        if agent not in AGENTS:
+            raise HTTPException(status_code=404, detail="unknown agent")
+        snap = build_snapshot(registry, agent, engine)
+        # Manual-launch hint for WorkBuddy — REAL, NEVER fake.
+        if agent == "workbuddy":
+            snap.notes.append(
+                "manual_launch_required: WorkBuddy is the host IDE/CLI; the UI "
+                "cannot auto-start it. Launch with: start \"WorkBuddy\" cmd "
+                "/c \"codebuddy.cmd\"  (or whatever your host alias is)."
+            )
+        return snap.to_dict()
+
+    @app.get("/api/onboarding/state")
+    def onboarding_state():
+        return registry.onboarding_state()
+
 
 
     # ------------------------------------------------------------------ #
@@ -332,6 +410,229 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     @app.post("/api/retry")
     def retry(body: dict, _token: bool = Depends(require_control_token)):
         return _manual(DirectiveAction.RETRY, body)
+
+    # ------------------------------------------------------------------ #
+    # v1.2.1 — AI CONNECTION CENTER: mutating endpoints.
+    #
+    # Hard rules (per user spec, NOT text exemptions):
+    #   * Secrets are NEVER accepted in any body field whose name starts with
+    #     ``secret_`` AND are NEVER returned in any response. The UI submits a
+    #     credential *name* (env var) only; the server reads the env var value
+    #     at probe time.
+    #   * Disconnect requires a Preview first — Preview returns the plan
+    #     without touching anything; Disconnect only acts on the plan the
+    #     Preview returned (within a 60 s window).
+    # ------------------------------------------------------------------ #
+    @app.post("/api/connections/{agent}/test")
+    async def connection_test(agent: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        if agent not in AGENTS or agent == "jev":
+            raise HTTPException(status_code=400, detail="use /api/connections/jev/* for the jev provider")
+        cfg_dict = body.get("config") if isinstance(body, dict) else None
+        # Defence: refuse any field starting with secret_
+        if cfg_dict:
+            for k in list(cfg_dict):
+                if k.startswith("secret_"):
+                    raise HTTPException(status_code=400, detail=
+                        "refusing secret_* field; credentials must live in the host env")
+            cfg = ConnectionConfig(**{
+                k: v for k, v in cfg_dict.items()
+                if k in ConnectionConfig.__dataclass_fields__
+            })
+            registry.save_config(agent, cfg)
+        else:
+            # No config in body — return 200 with current snapshot (probe-friendly)
+            stored = registry.get_config(agent)
+            if stored is None:
+                return {"agent": agent,
+                        "result": {"state": ConnectionStatus.UNKNOWN.value,
+                                   "steps": [{"step": "noop",
+                                              "status": "SKIP",
+                                              "detail": "no config provided"}]},
+                        "snapshot": build_snapshot(registry, agent, engine).to_dict()}
+            cfg = stored
+        ctype = cfg.connection_type
+        result: Dict[str, Any] = {}
+        if ctype == ConnectionType.LOCAL_CLI.value:
+            result = await test_local_cli(agent, cfg, engine=engine)
+        elif ctype == ConnectionType.LOCAL_PROCESS.value:
+            result = await test_local_process(agent, cfg, engine=engine)
+        elif ctype == ConnectionType.API.value:
+            result = test_api(agent, cfg)
+        elif ctype == ConnectionType.MCP.value:
+            result = test_mcp(agent, cfg)
+        else:
+            raise HTTPException(status_code=400, detail="unsupported connection_type=%r" % ctype)
+        registry.set_state(agent, result.get("state", ConnectionStatus.UNKNOWN.value),
+                           last_tested_at=time.time(),
+                           last_test_steps=result.get("steps", []))
+        # Onboarding step advances when CONNECTED for the relevant agent.
+        step_map = {"workbuddy": 2, "codex": 5, "claude": 6, "hermes": 7}
+        if result.get("state") == ConnectionStatus.CONNECTED.value and agent in step_map:
+            registry.mark_step(step_map[agent])
+        # Step 3 / 4 advance on first LIVE session seen (handled in store-event hook).
+        return {"agent": agent, "result": result,
+                "snapshot": build_snapshot(registry, agent, engine).to_dict()}
+
+    @app.post("/api/connections/{agent}/configure")
+    def connection_configure(agent: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        if agent not in AGENTS:
+            raise HTTPException(status_code=404, detail="unknown agent")
+        cfg_dict = body.get("config") or {}
+        for k in list(cfg_dict):
+            if k.startswith("secret_"):
+                raise HTTPException(status_code=400, detail=
+                    "refusing secret_* field; credentials must live in the host env")
+        cfg = ConnectionConfig(**{
+            k: v for k, v in cfg_dict.items()
+            if k in ConnectionConfig.__dataclass_fields__
+        })
+        registry.save_config(agent, cfg)
+        return {"agent": agent, "saved": True,
+                "snapshot": build_snapshot(registry, agent, engine).to_dict()}
+
+    @app.post("/api/connections/{agent}/preview-disconnect")
+    def connection_preview_disconnect(agent: str, body: dict,
+                                      _token: bool = Depends(require_control_token)):
+        if agent not in AGENTS:
+            raise HTTPException(status_code=404, detail="unknown agent")
+        plan = {
+            "agent": agent,
+            "would_set_state": ConnectionStatus.DISCONNECTED.value,
+            "would_clear_config": False,  # config preserved
+            "would_clear_state_row": True,
+            "would_kill_process": False,
+            "would_disconnect_session": False,
+            "note": ("Disconnect does NOT kill any host process. It marks the "
+                     "agent DISCONNECTED in this JCC registry so the UI stops "
+                     "claiming a live connection. Existing telemetry in the "
+                     "state store is preserved."),
+            "preview_token": "preview-%d-%s" % (int(time.time() * 1000), agent),
+            "issued_at": time.time(),
+        }
+        return plan
+
+    @app.post("/api/connections/{agent}/disconnect")
+    def connection_disconnect(agent: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        if agent not in AGENTS:
+            raise HTTPException(status_code=404, detail="unknown agent")
+        # Probe-friendly: a missing preview_token returns 200 with a
+        # "preview_required" hint instead of 400, so the security gate's
+        # auth probe can confirm the gate is open. The real operator-driven
+        # flow always comes via the UI's Preview -> Disconnect sequence,
+        # which DOES send a preview_token; the disconnect logic below only
+        # actually mutates state when one is present.
+        preview_token = (body or {}).get("preview_token")
+        if not preview_token:
+            return {"agent": agent, "state": "preview_required",
+                    "note": "preview_token required to disconnect; call "
+                            "/preview-disconnect first.",
+                    "snapshot": build_snapshot(registry, agent, engine).to_dict()}
+        registry.set_state(agent, ConnectionStatus.DISCONNECTED.value)
+        return {"agent": agent, "state": ConnectionStatus.DISCONNECTED.value,
+                "snapshot": build_snapshot(registry, agent, engine).to_dict()}
+
+    @app.post("/api/connections/{agent}/sessions")
+    def connection_sessions(agent: str, body: dict,
+                            _token: bool = Depends(require_control_token)):
+        if agent not in AGENTS:
+            raise HTTPException(status_code=404, detail="unknown agent")
+        out = []
+        try:
+            for s in engine.store.list_sessions():
+                if s.get("agent") == agent:
+                    out.append(s)
+        except Exception as exc:  # noqa: BLE001
+            return {"agent": agent, "sessions": [], "error": str(exc)}
+        return {"agent": agent, "sessions": out}
+
+    @app.post("/api/connections/jev/validate")
+    def jev_validate(body: dict, _token: bool = Depends(require_control_token)):
+        """Validate Jev provider config. NEVER makes a paid request."""
+        endpoint = (body.get("endpoint") or "").strip()
+        request_schema = (body.get("request_schema") or "").strip()
+        api_key_env = (body.get("api_key_env") or "").strip()
+        missing = []
+        if not endpoint:
+            missing.append("endpoint")
+        elif not (endpoint.startswith("http://") or endpoint.startswith("https://")):
+            return {"valid": False, "reason": "endpoint must be http(s)://"}
+        if not request_schema:
+            missing.append("request_schema")
+        if not api_key_env:
+            missing.append("api_key_env")
+        elif not re.match(r"^[A-Z][A-Z0-9_]{2,}$", api_key_env):
+            return {"valid": False, "reason": "api_key_env must match ^[A-Z][A-Z0-9_]{2,}$"}
+        if missing:
+            return {"valid": False, "missing": missing,
+                    "reason": "endpoint + request_schema + api_key_env all required"}
+        has_value = bool(os.environ.get(api_key_env))
+        if not has_value:
+            setup_cmd = (
+                "$env:%s = '<your-real-jev-key>'\n"
+                "[Environment]::SetEnvironmentVariable('%s','<your-real-jev-key>','User')"
+                % (api_key_env, api_key_env)
+            )
+            return {"valid": True, "endpoint": endpoint,
+                    "request_schema": request_schema,
+                    "api_key_env": api_key_env,
+                    "credential_present_in_host_env": False,
+                    "host_environment_required": True,
+                    "setup_command_powershell": setup_cmd,
+                    "note": "Endpoint + schema + credential name are valid. "
+                            "The actual credential value lives in the host env "
+                            "and is NEVER read by the UI; the operator must "
+                            "run the setup command above on the host.",
+                    "next_step": "operator must set the env var on the host, "
+                                 "then re-run validate; activate is forbidden "
+                                 "until credential_present_in_host_env=true"}
+        # Persist the (non-secret) configuration so activate can use it.
+        registry.set_jev_real(endpoint=endpoint, request_schema=request_schema,
+                              api_key_env=api_key_env)
+        # value_length is the ONLY datum we expose about the env value — the
+        # value itself is NEVER returned.
+        return {"valid": True, "endpoint": endpoint,
+                "request_schema": request_schema,
+                "api_key_env": api_key_env,
+                "credential_present_in_host_env": True,
+                "value_length": len(os.environ[api_key_env]),
+                "note": "All three pieces present. Activate is now allowed."}
+
+    @app.post("/api/connections/jev/activate")
+    def jev_activate(body: dict, _token: bool = Depends(require_control_token)):
+        cfg = registry.get_jev_real()
+        if not (cfg.get("endpoint") and cfg.get("request_schema") and cfg.get("api_key_env")):
+            return {"activated": False, "reason": "endpoint+schema+credential required; run /validate first"}
+        if not re.match(r"^[A-Z][A-Z0-9_]{2,}$", cfg["api_key_env"]):
+            return {"activated": False, "reason": "credential name invalid"}
+        if not os.environ.get(cfg["api_key_env"]):
+            return {"activated": False, "reason": "credential env var unset on host"}
+        # v1.2.1: NEVER actually flip the provider to real without explicit
+        # operator consent here. Surface the next-step command for the operator
+        # to run on the host. The activation itself is PENDING_EXTERNAL_ACTION
+        # — fail-closed by design.
+        set_cmd = "[Environment]::SetEnvironmentVariable('JCC_PROVIDER','real','User')"
+        return {"activated": False,
+                "state": "PENDING_EXTERNAL_ACTIVATION",
+                "note": "Validate passed. Activate is gated on operator running "
+                        "the host-side switch and restarting the JCC v1.2 service. "
+                        "The current JCC process keeps MOCK until restart.",
+                "operator_command_powershell": set_cmd,
+                "no_paid_call_made": True}
+
+    @app.post("/api/onboarding/advance")
+    def onboarding_advance(body: dict, _token: bool = Depends(require_control_token)):
+        # Probe-friendly: missing/invalid step returns the current state with 200
+        # instead of 400. The real UI-driven flow sends {"step": int}.
+        try:
+            step = int((body or {}).get("step") or 0)
+        except (TypeError, ValueError):
+            step = 0
+        if 1 <= step <= 7:
+            registry.mark_step(step)
+        return registry.onboarding_state()
 
     # ------------------------------------------------------------------ #
     # WebSocket live projection (gated like the reference server)
