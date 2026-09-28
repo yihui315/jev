@@ -53,7 +53,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 2.17,
+      "seconds": 2.199,
       "title": "auth fail-closed on every mutating route"
     },
     {
@@ -95,7 +95,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.69,
+      "seconds": 0.695,
       "title": "planted secrets absent from every persisted sink"
     },
     {
@@ -138,7 +138,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.424,
+      "seconds": 0.867,
       "title": "loopback-only bind and no undeclared open route"
     },
     {
@@ -179,7 +179,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.017,
+      "seconds": 0.018,
       "title": "v1.1 modules add no write and no egress"
     },
     {
@@ -220,7 +220,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.108,
+      "seconds": 0.052,
       "title": "the UI reads no token and posts only the probe"
     },
     {
@@ -275,7 +275,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.013,
+      "seconds": 0.014,
       "title": "v1.1 modules import only stdlib and project roots"
     },
     {
@@ -329,7 +329,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.004,
+      "seconds": 0.005,
       "title": "no single condition can enable actuation"
     },
     {
@@ -356,7 +356,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.594,
+      "seconds": 0.061,
       "title": "no enforcement path consumes effective_level"
     },
     {
@@ -403,10 +403,10 @@
     "LOW": 0,
     "MEDIUM": 0
   },
-  "generated_at": "2026-09-28T07:17:56+0800",
+  "generated_at": "2026-09-28T10:38:40+0800",
   "non_vacuity_gaps": [],
   "repo_branch": "feature/jcc-v1.1-activation",
-  "repo_head": "96f615273b1a5d1442f16440883114dc8c31ddc1",
+  "repo_head": "bf8ebc7eea18380af357dfa9f0dda062c708589f",
   "reproducibility": {
     "deterministic": true,
     "normalized_sha256": "862a088692c9c15b830b9be193bebb91d5d9049a03191d58e3e084a786609060",
