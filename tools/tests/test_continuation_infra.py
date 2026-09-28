@@ -532,20 +532,88 @@ def test_every_watchdog_script_parses_under_windows_powershell_51(parse_report):
         bad, indent=2)
 
 
+_SCHTASKS_VERB = re.compile(r"(?i)\bschtasks(?:\.exe)?\s+/\w+")
+_SCHTASKS_LAUNCH = re.compile(
+    r"(?i)(?:^\s*|[|&;>]\s*|&\s*|Start-Process\s+|cmd\s+/c\s+)\bschtasks(?:\.exe)?\b"
+)
+
+
+def _detects_schtasks_invocation(text: str) -> bool:
+    """True iff ``text`` contains a REAL ``schtasks(.exe)`` command invocation.
+
+    Distinguishes a launch from a documentation mention. The host blacklists
+    ``schtasks.exe``, and several scripts DOCUMENT that blacklist in their prose
+    and status strings ("this host blocks schtasks.exe", "schtasks.exe is not
+    available"). A guard that fires on the documentation gets deleted; it must
+    fire only on an actual invocation:
+
+      * ``schtasks.exe /Create ...`` -- a verb switch follows the binary, or
+      * ``& schtasks`` / ``Start-Process schtasks`` / ``cmd /c schtasks`` -- it is
+        the target of an execution operator, or
+      * ``schtasks --flag`` -- a POSIX-style flag follows.
+
+    A bare mention like ``Write-Output "this host blocks schtasks.exe"`` matches
+    NONE of these and is correctly ignored.
+    """
+    code = _code_only(text)
+    if _SCHTASKS_VERB.search(code):
+        return True
+    if _SCHTASKS_LAUNCH.search(code):
+        return True
+    return False
+
+
 def test_no_script_shells_out_to_schtasks():
     """`schtasks.exe` is on this host's program blacklist.
 
     A registration path that shells out to it does not fail loudly -- it fails
     to register, and the failure is only visible the next time the pipeline dies
-    and does not come back. Scanned as CODE: the prohibition is itself written
-    down in these files, and a guard that fires on the prohibition is a guard
-    that gets deleted.
+    and does not come back.
+
+    The detector looks for a REAL invocation (verb switch or execution operator),
+    not a documentation mention. The prohibition is itself written down in these
+    files, and a guard that fires on the prohibition is a guard that gets deleted
+    -- so it must fire only on an actual ``schtasks.exe /verb`` / ``& schtasks``
+    launch. See the two falsifier tests that bracket this one.
     """
     offenders = []
     for path in sorted(SCRIPTS.rglob("*.ps1")):
-        if "schtasks" in _code_only(path.read_text(encoding="utf-8", errors="replace")).lower():
+        if _detects_schtasks_invocation(path.read_text(encoding="utf-8", errors="replace")):
             offenders.append(path.name)
     assert offenders == [], "schtasks is blacklisted on this host: %s" % offenders
+
+
+def test_schtasks_invocation_falsifier_is_detected(tmp_path):
+    """FALSIFIER (gate must be STRICT): a real `schtasks.exe /Create` MUST be caught.
+
+    If this fails, the detector is too LOOSE -- a genuine shell-out to the
+    blacklisted binary slipped through. A correct guard flags this file.
+    """
+    bad = tmp_path / "evil-register.ps1"
+    bad.write_text(
+        "# we never actually call it like this in product code:\n"
+        'schtasks.exe /Create /TN "JEV-X" /TR "cmd /c evil.cmd" /SC ONSTART\n',
+        encoding="utf-8",
+    )
+    assert _detects_schtasks_invocation(bad.read_text(encoding="utf-8")), \
+        "gate missed a real schtasks.exe /Create invocation -- it is too loose"
+
+
+def test_schtasks_documentation_only_is_not_flagged(tmp_path):
+    """FALSIFIER (gate must not be LOOSE-ON-DOCS): a doc-only mention MUST pass.
+
+    If this fails, the detector is a FALSE POSITIVE -- it flags a script that only
+    DOCUMENTS the blacklist (the `jcc-v1.2-register-tasks.ps1` status strings do
+    exactly this). A correct guard passes this file.
+    """
+    ok = tmp_path / "honest-script.ps1"
+    ok.write_text(
+        'Write-Output "this host blocks schtasks.exe"\n'
+        'Write-Output "PENDING_EXTERNAL_ACTION: schtasks.exe is not available here"\n',
+        encoding="utf-8",
+    )
+    assert not _detects_schtasks_invocation(ok.read_text(encoding="utf-8")), \
+        "gate flagged a documentation-only mention of schtasks.exe -- false positive"
 
 
 def test_no_watchdog_kills_python_by_image_name():

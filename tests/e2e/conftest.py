@@ -150,8 +150,27 @@ class Resp:
         return json.loads(self.body) if self.body else None
 
 
+#: Loopback-safe opener: an EXPLICIT no-proxy handler.
+#:
+#: The host runs a loopback-intercepting proxy (v2rayN), so urllib's DEFAULT
+#: opener would route 127.0.0.1 / localhost through that proxy and time out.
+#: Every e2e call in this suite talks to a REAL server bound on loopback, so we
+#: open those URLs with ``ProxyHandler({})`` -- a direct connection that ignores
+#: any host-wide HTTP(S)_PROXY. This is the T-14 fix: the probe must reach the
+#: local server even when the process has a bogus/intercepting proxy configured.
+#: Non-loopback URLs keep the default opener (which honours proxy env), because
+#: the product's real outbound calls are allowed to use the proxy.
+_LOOPBACK_OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
+
+
+def _is_loopback_url(url: str) -> bool:
+    from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").lower()
+    return host in _LOOPBACK_HOSTS or host in ("localhost", "localhost.")
+
+
 def _http(method: str, url: str, *, token=None, json_body=None, origin=None,
-          headers=None, timeout=10) -> Resp:
+          headers=None, timeout=10, stream=False) -> Resp:
     data = json.dumps(json_body).encode("utf-8") if json_body is not None else None
     req = urllib.request.Request(url, data=data, method=method)
     req.add_header("Content-Type", "application/json")
@@ -161,9 +180,21 @@ def _http(method: str, url: str, *, token=None, json_body=None, origin=None,
         req.add_header("Origin", origin)
     for k, v in (headers or {}).items():
         req.add_header(k, v)
+    # Loopback URLs bypass any host-wide HTTP(S)_PROXY; everything else uses the
+    # default opener (which honours proxy env, as the product requires elsewhere).
+    open_fn = _LOOPBACK_OPENER.open if _is_loopback_url(url) else urllib.request.urlopen
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
-            return Resp(resp.status, dict(resp.headers), resp.read().decode("utf-8", "replace"))
+        with open_fn(req, timeout=timeout) as resp:
+            if stream:
+                # Streaming endpoint (SSE): the body never ends. The headers
+                # (status, content-type) are already parsed, which is all a
+                # reachability probe needs. Returning WITHOUT resp.read() and
+                # letting the `with` close the response cancels the open stream
+                # instead of hanging the caller on it.
+                body = ""
+            else:
+                body = resp.read().decode("utf-8", "replace")
+            return Resp(resp.status, dict(resp.headers), body)
     except urllib.error.HTTPError as exc:
         return Resp(exc.code, dict(exc.headers), exc.read().decode("utf-8", "replace"))
 
@@ -238,10 +269,10 @@ class InProcessServer:
     def bound_hosts(self):
         return [s.getsockname()[0] for s in self._uv.servers[0].sockets]
 
-    def request(self, method, path, *, token=..., json_body=None, origin=None, headers=None):
+    def request(self, method, path, *, token=..., json_body=None, origin=None, headers=None, stream=False):
         tk = token if token is not ... else self.token
         return _http(method, self.base_url + path, token=tk, json_body=json_body,
-                     origin=origin, headers=headers)
+                     origin=origin, headers=headers, stream=stream)
 
     def stop(self):
         try:
@@ -344,10 +375,10 @@ class SubprocessServer:
             time.sleep(0.2)
         raise RuntimeError(f"server not healthy on {self.base_url}: {last_err}")
 
-    def request(self, method, path, *, token=..., json_body=None, origin=None, headers=None):
+    def request(self, method, path, *, token=..., json_body=None, origin=None, headers=None, stream=False):
         tk = token if token is not ... else self.token
         return _http(method, self.base_url + path, token=tk, json_body=json_body,
-                     origin=origin, headers=headers)
+                     origin=origin, headers=headers, stream=stream)
 
     def kill_abrupt(self) -> None:
         """Simulate a Windows abrupt kill (TerminateProcess) -- marker survives.
