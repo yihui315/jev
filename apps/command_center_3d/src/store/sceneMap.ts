@@ -79,6 +79,24 @@ export interface SceneEvent {
 export type ViewMode = "world" | "graph" | "table";
 export type ConnectionState = "CONNECTING" | "LIVE" | "RECONNECTING" | "POLLING" | "OFFLINE";
 
+export interface AgentCapability {
+  status: string;
+  reason: string | null;
+  reportedStatus?: string;
+}
+
+export interface AgentCap {
+  adapterSelfStatus?: string;
+  adapterState?: string;
+  capabilities: Record<string, AgentCapability>;
+}
+
+export interface CapabilityMatrix {
+  actuationCapabilities: string[];
+  actuationSummary?: { actuable: string[]; actuableCapabilityCount: number; note?: string };
+  agents: Record<string, AgentCap>;
+}
+
 export interface SceneState {
   /** Meta */
   schemaVersion: string | null;
@@ -90,6 +108,7 @@ export interface SceneState {
   decisions: DecisionNode[];
   risks: RiskSummary | null;
   budget: BudgetSummary | null;
+  capabilities: CapabilityMatrix | null;
   capabilitiesSource: Source | null;
   shadowSource: Source | null;
   auditSource: Source | null;
@@ -104,6 +123,11 @@ export interface SceneState {
   agentFilter: string | null;
   statusFilter: string | null;
   view: ViewMode;
+  /** Operator console (Wave 6) — memory-only, never persisted. */
+  operatorMode: "view" | "operate";
+  controlToken: string;
+  pendingAction: { agent: string; action: string } | null;
+  lastControlResult: { ok: boolean; status: number; detail: string } | null;
   loaded: boolean;
   error: string | null;
 }
@@ -117,6 +141,7 @@ export const EMPTY_SCENE: SceneState = {
   decisions: [],
   risks: null,
   budget: null,
+  capabilities: null,
   capabilitiesSource: null,
   shadowSource: null,
   auditSource: null,
@@ -128,6 +153,10 @@ export const EMPTY_SCENE: SceneState = {
   agentFilter: null,
   statusFilter: null,
   view: "world",
+  operatorMode: "view",
+  controlToken: "",
+  pendingAction: null,
+  lastControlResult: null,
   loaded: false,
   error: null,
 };
@@ -264,8 +293,22 @@ export function mapScene(doc: unknown): SceneState {
     };
   }
 
-  // --- capabilities / shadow / audit (source only for the badges) --------
-  out.capabilitiesSource = asSection(d.capabilities)?.source ?? null;
+  // --- capabilities (RELEASE matrix: per-agent actuation gating) ----------
+  const cap = asSection(d.capabilities);
+  out.capabilitiesSource = cap?.source ?? null;
+  if (cap && cap.source !== "UNKNOWN" && cap.data && typeof cap.data === "object") {
+    const c = cap.data as Record<string, unknown>;
+    out.capabilities = {
+      actuationCapabilities: Array.isArray(c.actuation_capabilities)
+        ? (c.actuation_capabilities as string[])
+        : [],
+      actuationSummary: (c.actuation_summary as CapabilityMatrix["actuationSummary"]) ?? undefined,
+      agents: (c.agents as Record<string, AgentCap>) ?? {},
+    };
+  }
+
+  // --- shadow / audit (source only for the badges) -----------------------
+  out.shadowSource = asSection(d.shadow)?.source ?? null;
   out.shadowSource = asSection(d.shadow)?.source ?? null;
   const audit = asSection(d.audit_summary);
   out.auditSource = audit?.source ?? null;

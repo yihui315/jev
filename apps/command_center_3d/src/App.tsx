@@ -6,6 +6,9 @@ import { TableView } from "./views/TableView";
 import { GraphView } from "./views/GraphView";
 import { Inspector } from "./components/Inspector";
 import { Timeline } from "./components/Timeline";
+import { RiskRadar } from "./components/RiskRadar";
+import { DecisionExplanation } from "./components/DecisionExplanation";
+import { OperatorConsole } from "./components/OperatorConsole";
 import { Header } from "./components/Header";
 
 // Read-only API base. Defaults to the v1.2 control plane (4779 bridge / v1.2
@@ -52,13 +55,20 @@ export function App() {
           display: "flex",
           flexDirection: "column",
           borderLeft: "1px solid #2a313c",
-          overflow: "hidden",
+          overflowY: "auto",
         }}
       >
-        <div style={{ flex: "0 0 auto", borderBottom: "1px solid #2a313c" }}>
+        <div style={{ borderBottom: "1px solid #2a313c" }}>
           <Inspector scene={scene} />
         </div>
-        <div style={{ flex: 1, minHeight: 0, borderBottom: "1px solid #2a313c" }}>
+        <div style={{ borderBottom: "1px solid #2a313c" }}>
+          <RiskRadar scene={scene} />
+        </div>
+        <div style={{ borderBottom: "1px solid #2a313c" }}>
+          <DecisionExplanation scene={scene} />
+        </div>
+        <OperatorConsole scene={scene} />
+        <div style={{ borderTop: "1px solid #2a313c" }}>
           <Timeline scene={scene} />
         </div>
       </aside>

@@ -24,6 +24,7 @@ import {
   type SceneState,
   type ViewMode,
 } from "./sceneMap";
+import { CONTROL_ENDPOINT } from "./capability";
 
 const EVENT_TYPES = [
   "session.created",
@@ -74,6 +75,66 @@ export class SceneStore {
   }
   setView(view: ViewMode): void {
     this.set({ view });
+  }
+
+  // --- operator console (Wave 6) -----------------------------------------
+  // MEMORY-ONLY: the control token lives in the browser session and is never
+  // written to disk or to the control plane's state store. Actuation is disabled
+  // in this build, so a "send" only ever emits an INERT, requires_human directive.
+  setOperatorMode(mode: "view" | "operate"): void {
+    this.set({ operatorMode: mode });
+  }
+  setControlToken(token: string): void {
+    this.set({ controlToken: token });
+  }
+  selectAction(agent: string, action: string): void {
+    this.set({ pendingAction: { agent, action }, lastControlResult: null });
+  }
+  clearAction(): void {
+    this.set({ pendingAction: null });
+  }
+
+  /** Emit a control directive. Gated by operator mode, token and capability. */
+  async sendControl(): Promise<void> {
+    const pending = this.state.pendingAction;
+    if (!pending) return;
+    const { agent, action } = pending;
+    if (this.state.operatorMode !== "operate") {
+      this.set({ lastControlResult: { ok: false, status: 0, detail: "operator mode is VIEW (switch to OPERATE)" } });
+      return;
+    }
+    if (!this.state.controlToken) {
+      this.set({ lastControlResult: { ok: false, status: 0, detail: "control token required (memory-only)" } });
+      return;
+    }
+    const endpoint = CONTROL_ENDPOINT[action];
+    if (!endpoint) {
+      this.set({ lastControlResult: { ok: false, status: 0, detail: `no v1.2 control endpoint for "${action}"` } });
+      return;
+    }
+    try {
+      const res = await fetch(`${this.apiBase}${endpoint}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-JCC-Token": this.state.controlToken },
+        body: JSON.stringify({ agent, session_id: this.state.selectedSessionId ?? "manual" }),
+      });
+      const text = await res.text();
+      this.set({
+        lastControlResult: {
+          ok: res.ok,
+          status: res.status,
+          detail: text.slice(0, 300) || `HTTP ${res.status}`,
+        },
+      });
+    } catch (e) {
+      this.set({
+        lastControlResult: {
+          ok: false,
+          status: 0,
+          detail: e instanceof Error ? e.message : String(e),
+        },
+      });
+    }
   }
 
   // --- live event application (Wave 4 SSE) -------------------------------
