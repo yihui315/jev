@@ -78,7 +78,7 @@ export interface SceneEvent {
   data: Record<string, unknown>;
 }
 
-export type ViewMode = "world" | "graph" | "table";
+export type ViewMode = "world" | "graph" | "table" | "connections";
 export type ConnectionState = "CONNECTING" | "LIVE" | "RECONNECTING" | "POLLING" | "OFFLINE";
 
 export interface AgentCapability {

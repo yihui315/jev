@@ -9,7 +9,7 @@ const CONN_COLOR: Record<ConnectionState, string> = {
   OFFLINE: "#f87171",
 };
 
-const VIEWS: ViewMode[] = ["world", "graph", "table"];
+const VIEWS: ViewMode[] = ["world", "graph", "table", "connections"];
 
 export function Header({ scene, apiBase }: { scene: SceneState; apiBase: string }) {
   const statuses = Array.from(new Set(scene.sessions.map((s) => s.status))).sort();

@@ -4,6 +4,7 @@ import { sceneStore } from "./store/SceneStore";
 import { CommandCenter3D } from "./scene/CommandCenter3D";
 import { TableView } from "./views/TableView";
 import { GraphView } from "./views/GraphView";
+import { ConnectionsView } from "./views/ConnectionsView";
 import { Inspector } from "./components/Inspector";
 import { Timeline } from "./components/Timeline";
 import { RiskRadar } from "./components/RiskRadar";
@@ -36,6 +37,8 @@ export function App() {
       <TableView scene={scene} />
     ) : scene.view === "graph" ? (
       <GraphView scene={scene} />
+    ) : scene.view === "connections" ? (
+      <ConnectionsView scene={scene} apiBase={API_BASE} controlToken={scene.controlToken || null} />
     ) : (
       <CommandCenter3D scene={scene} />
     );
@@ -54,29 +57,31 @@ export function App() {
         <Header scene={scene} apiBase={API_BASE} />
         <div style={{ flex: 1, minHeight: 0, position: "relative" }}>{main}</div>
       </div>
-      <aside
-        style={{
-          width: 340,
-          display: "flex",
-          flexDirection: "column",
-          borderLeft: "1px solid #2a313c",
-          overflowY: "auto",
-        }}
-      >
-        <div style={{ borderBottom: "1px solid #2a313c" }}>
-          <Inspector scene={scene} />
-        </div>
-        <div style={{ borderBottom: "1px solid #2a313c" }}>
-          <RiskRadar scene={scene} />
-        </div>
-        <div style={{ borderBottom: "1px solid #2a313c" }}>
-          <DecisionExplanation scene={scene} />
-        </div>
-        <OperatorConsole scene={scene} />
-        <div style={{ borderTop: "1px solid #2a313c" }}>
-          <Timeline scene={scene} />
-        </div>
-      </aside>
+      {scene.view !== "connections" && (
+        <aside
+          style={{
+            width: 340,
+            display: "flex",
+            flexDirection: "column",
+            borderLeft: "1px solid #2a313c",
+            overflowY: "auto",
+          }}
+        >
+          <div style={{ borderBottom: "1px solid #2a313c" }}>
+            <Inspector scene={scene} />
+          </div>
+          <div style={{ borderBottom: "1px solid #2a313c" }}>
+            <RiskRadar scene={scene} />
+          </div>
+          <div style={{ borderBottom: "1px solid #2a313c" }}>
+            <DecisionExplanation scene={scene} />
+          </div>
+          <OperatorConsole scene={scene} />
+          <div style={{ borderTop: "1px solid #2a313c" }}>
+            <Timeline scene={scene} />
+          </div>
+        </aside>
+      )}
     </div>
   );
 }
