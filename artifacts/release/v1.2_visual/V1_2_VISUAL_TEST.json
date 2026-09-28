@@ -1,0 +1,14 @@
+{
+  "test_target": "apps/command_center_3d (JCC v1.2 Visual Command Center SPA)",
+  "run_via": "scripts/test-visual-ui.ps1",
+  "temp": "F:/jev/runtime/jcc-v1.2/test-temp (hermetic, redirected away from system TEMP)",
+  "node": "C:/Users/Administrator/.workbuddy/binaries/node/versions/22.22.2-3",
+  "typecheck": "PASS (tsc --noEmit)",
+  "test_runner": "vitest v2.1.9",
+  "test_files": 4,
+  "tests_passed": 13,
+  "tests_failed": 0,
+  "flakiness_control": "hermetic TEMP + --pool=forks + --reporter=basic (no watch)",
+  "result": "GREEN",
+  "timestamp_utc": "2026-09-28T10:30:57Z"
+}

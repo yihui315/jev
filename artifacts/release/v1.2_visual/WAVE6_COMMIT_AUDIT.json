@@ -1,0 +1,14 @@
+{
+  "audit": "Wave 6 commit discipline",
+  "branch": "feature/jcc-v1.2-visual-command-center",
+  "wave6_head_commit": "da84296",
+  "wave6_commit_subject": "Wave 6 — Operator Console + capability gating (real SceneStore)",
+  "files_changed": 8,
+  "scope": "apps/command_center_3d/src/** (OperatorConsole, RiskRadar, DecisionExplanation, SceneStore, capability, sceneMap, capability.test.ts)",
+  "path_limited": true,
+  "stray_files_in_commit": false,
+  "used_git_add_dot": false,
+  "uncommitted_wave6_changes_at_audit_time": false,
+  "verdict": "PASS",
+  "note": "Single cleanly-scoped commit; no 'git add .' of unrelated files; working tree was clean before this session's v1.2 work. Path-limited commit discipline upheld."
+}
