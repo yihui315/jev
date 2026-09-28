@@ -1,0 +1,112 @@
+{
+  "schema": "jcc-v1.2-orphaned-blue-reconciliation/1.0",
+  "generated_at": "2026-09-28T09:55:17.798774+00:00",
+  "host": "YH",
+  "green_protection": {
+    "pid": 7588,
+    "port": 4778,
+    "command_line_pre": "F:\\jev\\.venv\\Scripts\\python.exe  -m jcc_core.run ",
+    "tcp_listen_pre": true,
+    "http_health_pre": {
+      "status": null,
+      "error": "<HTTPError 404: 'Not Found'>"
+    },
+    "touched_by_this_script": false
+  },
+  "blue_targets": [
+    {
+      "pid": 20044,
+      "role": "blue_api",
+      "port": 4779,
+      "expected_sig": "run_blue_api.py",
+      "classification": "PROJECT_ORPHANED_DEV",
+      "pre": {
+        "alive": false,
+        "command_line": null,
+        "tcp_listen": false,
+        "http_health": {
+          "status": null,
+          "error": "TimeoutError('timed out')"
+        },
+        "ownership_json": "{\n  \"service\": \"jcc-core-blue\",\n  \"pid\": 20044,\n  \"service_pid\": 20044,\n  \"ui_pid\": 9028,\n  \"start_time\": \"2026-09-28T03:28:29Z\",\n  \"start_time_local\": \"2026-09-28T11:28:29.975148\",\n  \"script_version\": \"1.1.0\",\n  \"repo_path\": \"F:/jev\",\n  \"cwd\": \"F:/jev\",\n  \"venv_python\": \"F:/jev/.venv/Scripts/python.exe\",\n  \"command_line\": \"F:/jev/.venv/Scripts/python.exe .workbuddy/scratch/blue/run_blue_api.py\",\n  \"module\": \"jcc_core.run\",\n  \"port\": 4779,\n  \"ui_port\": 4780,\n  \"host\": \"127.0.0.1\",\n  \"config\": \"F:/jev/runtime/v1.1/jcc.blue.yaml\",\n  \"platform\": \"windows\",\n  \"created_by\": \"Orion BLUE user-acceptance startup (isolated runtime/v1.1/)\",\n  \"isolated_from_green\": true,\n  \"green_untouched\": true\n}",
+        "marker_file": "pid=20044\ndb=F:/jev/runtime/v1.1/jcc.db\nstarted=1790565904.7008786\n",
+        "pid_file": "20044"
+      },
+      "reclaim": {
+        "action": "no-op",
+        "result": "ALREADY_DEAD",
+        "safe": true
+      },
+      "classification_reason": "command_line references F:\\jev project tree (.workbuddy/scratch/blue/<sig>); isolated runtime/v1.1 config+db (NOT GREEN runtime/jcc); distinct pid from frozen GREEN (pid 7588/port 4778); no GREEN ownership marker."
+    },
+    {
+      "pid": 9028,
+      "role": "blue_ui",
+      "port": 4780,
+      "expected_sig": "run_blue_ui.py",
+      "classification": "PROJECT_ORPHANED_DEV",
+      "pre": {
+        "alive": false,
+        "command_line": null,
+        "tcp_listen": false,
+        "http_health": {
+          "status": null,
+          "error": "TimeoutError('timed out')"
+        },
+        "ownership_json": "{\n  \"service\": \"jcc-core-blue\",\n  \"pid\": 20044,\n  \"service_pid\": 20044,\n  \"ui_pid\": 9028,\n  \"start_time\": \"2026-09-28T03:28:29Z\",\n  \"start_time_local\": \"2026-09-28T11:28:29.975148\",\n  \"script_version\": \"1.1.0\",\n  \"repo_path\": \"F:/jev\",\n  \"cwd\": \"F:/jev\",\n  \"venv_python\": \"F:/jev/.venv/Scripts/python.exe\",\n  \"command_line\": \"F:/jev/.venv/Scripts/python.exe .workbuddy/scratch/blue/run_blue_api.py\",\n  \"module\": \"jcc_core.run\",\n  \"port\": 4779,\n  \"ui_port\": 4780,\n  \"host\": \"127.0.0.1\",\n  \"config\": \"F:/jev/runtime/v1.1/jcc.blue.yaml\",\n  \"platform\": \"windows\",\n  \"created_by\": \"Orion BLUE user-acceptance startup (isolated runtime/v1.1/)\",\n  \"isolated_from_green\": true,\n  \"green_untouched\": true\n}",
+        "marker_file": "pid=20044\ndb=F:/jev/runtime/v1.1/jcc.db\nstarted=1790565904.7008786\n",
+        "pid_file": "20044"
+      },
+      "reclaim": {
+        "action": "no-op",
+        "result": "ALREADY_DEAD",
+        "safe": true
+      },
+      "classification_reason": "command_line references F:\\jev project tree (.workbuddy/scratch/blue/<sig>); isolated runtime/v1.1 config+db (NOT GREEN runtime/jcc); distinct pid from frozen GREEN (pid 7588/port 4778); no GREEN ownership marker."
+    }
+  ],
+  "blue_scripts": {
+    "run_blue_api.py": {
+      "path": "F:/jev/.workbuddy/scratch/blue\\run_blue_api.py",
+      "sha256": "8ed32bc82391c13b6b63fa9bf9f68946a93b25aaa946f0c4f69dc16a5cbadbf9",
+      "exists": true
+    },
+    "run_blue_ui.py": {
+      "path": "F:/jev/.workbuddy/scratch/blue\\run_blue_ui.py",
+      "sha256": "c66e36561a488aaf724812720f8fb5585c5bde68329c504eeb945af7762e5e26",
+      "exists": true
+    },
+    "seed_blue.py": {
+      "path": "F:/jev/.workbuddy/scratch/blue\\seed_blue.py",
+      "sha256": "4db96ba2953f49c824a8f9abda19048bc6c896644ebf225a14e847e0fddb9aa8",
+      "exists": true
+    },
+    "pids.txt": {
+      "path": "F:/jev/.workbuddy/scratch/blue\\pids.txt",
+      "sha256": "10cfa227eb3ca8d2326e2c610a9b24d1d64c04a51e16ce282c95657d21df28d9",
+      "exists": true
+    }
+  },
+  "summary": {
+    "classification": "PROJECT_ORPHANED_DEV",
+    "green_untouched": true,
+    "safe_reclaim": "PASS",
+    "ports_freed_for_v12": [
+      4779,
+      4780
+    ],
+    "generated_at": "2026-09-28T09:55:28.039234+00:00"
+  },
+  "post_reclaim_verification": {
+    "green_tcp_listen": true,
+    "green_http_health": {
+      "status": null,
+      "error": "<HTTPError 404: 'Not Found'>"
+    },
+    "green_command_line": "F:\\jev\\.venv\\Scripts\\python.exe  -m jcc_core.run ",
+    "port_4779_free": true,
+    "port_4780_free": true,
+    "port_4782_free": true,
+    "blue_pids_still_alive": []
+  }
+}
