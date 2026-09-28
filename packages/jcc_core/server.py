@@ -33,11 +33,13 @@ import time
 from pathlib import Path
 from typing import Optional
 
-from fastapi import Depends, FastAPI, Header, HTTPException, WebSocket, WebSocketDisconnect, status
+from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
 from pydantic import ValidationError
 
 from .core import CoreEngine
+from .events import EventBus, format_sse
 from .providers.base import activation_state_for_requested
 from .schemas import AEPEnvelope, Directive, DirectiveAction
 from .scene import build_scene
@@ -57,6 +59,7 @@ OPEN_GET_ENDPOINTS = (
     "/api/decisions",
     "/api/audit/verify",
     "/api/v1/scene",
+    "/api/v1/events/stream",
 )
 
 
@@ -110,6 +113,13 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
 
     manager = ProjectionManager()
     engine.subscribe(manager.emit)
+
+    # Wave 4 — attach the live event bus to the engine. The bus only READS the
+    # engine's broadcast and forwards typed events; it never writes state. The
+    # engine owns the attribute so the SSE route can reach it.
+    bus = EventBus()
+    engine.event_bus = bus
+    engine.subscribe(lambda out: bus.feed_engine_out(out))
 
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
@@ -214,6 +224,24 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             / "V1_1_CAPABILITY_MATRIX.json"
         )
         return build_scene(engine, config, capability_matrix_path=cap_path)
+
+    # ------------------------------------------------------------------ #
+    # Wave 4 — Server-Sent Events live stream (schema ``jcc-events/1``).
+    # READ-ONLY projection: forwards engine broadcasts as ten typed events.
+    # Supports Last-Event-ID resume (replay buffered events after the id) and
+    # idempotent dedupe (re-published event_id is a no-op). The stream emits an
+    # immediate ``: connected`` comment + periodic ``: ping`` heartbeats so a
+    # client with no pending events still receives bytes.
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/events/stream")
+    async def events_stream(request: Request):
+        return StreamingResponse(
+            events_stream_generator(request, engine),
+            media_type="text/event-stream",
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
+
+
 
     # ------------------------------------------------------------------ #
     # Mutating (token-gated) endpoints
@@ -337,3 +365,69 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             manager.unregister(ws)
 
     return app
+
+
+# ------------------------------------------------------------------ #
+# Wave 4 — SSE streaming body as a MODULE-LEVEL async generator.
+#
+# Defined at module scope (NOT inside ``create_app``) so the v1.2 tests can
+# drive it directly with a ``FakeRequest`` — Starlette's ``TestClient`` buffers
+# the whole streamed body and never delivers it incrementally, which makes
+# socket-based SSE tests hang. The route above is a thin ``StreamingResponse``
+# wrapper around this generator; the bytes are byte-identical to what a real
+# ASGI server streams. The route references this name at call time, so the
+# module-level placement does not affect ``create_app``'s closure.
+# ------------------------------------------------------------------ #
+async def events_stream_generator(request: Request, engine=None):
+    """Yield SSE frames for one client connection (READ-ONLY projection).
+
+    Forwards engine broadcasts as the ten typed events. Supports
+    ``Last-Event-ID`` resume (replays only events AFTER that id, no dupes) and
+    idempotent dedupe (a re-published ``event_id`` is a no-op upstream). Emits
+    an immediate ``: connected`` comment so a client with no pending events
+    still receives bytes and the connection stays alive.
+    """
+    bus = getattr(engine, "event_bus", None)
+    if bus is None:
+        bus = EventBus()
+        engine.event_bus = bus
+    last_id = request.headers.get("Last-Event-ID")
+
+    q: "asyncio.Queue[dict]" = asyncio.Queue()
+
+    def _on(ev: dict) -> None:
+        try:
+            q.put_nowait(ev)
+        except Exception:  # noqa: BLE001 -- queue full / closed
+            pass
+
+    # Start listening for NEW events before replaying history, so a live event
+    # published in the same instant the client connects is never missed
+    # (the replay loop only re-emits what is already buffered; subscribe catches
+    # everything published from this point on).
+    bus.subscribe(_on)
+    # Replay buffered events the client has not yet applied.
+    for ev in bus.replay_since(last_id):
+        yield format_sse(ev)
+    yield ": connected\n\n"
+    try:
+        while True:
+            # Race the next queued event against client disconnect.
+            # ``request.receive()`` returns ``http.disconnect`` when the client
+            # goes away, so the stream ends promptly instead of blocking forever
+            # on an empty queue.
+            recv_task = asyncio.ensure_future(request.receive())
+            get_task = asyncio.ensure_future(q.get())
+            done, pending = await asyncio.wait(
+                {recv_task, get_task}, return_when=asyncio.FIRST_COMPLETED
+            )
+            if recv_task in done:
+                break
+            ev = get_task.result()
+            for t in pending:
+                t.cancel()
+            yield format_sse(ev)
+    except asyncio.CancelledError:
+        pass
+    finally:
+        bus.unsubscribe(_on)

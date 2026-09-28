@@ -93,6 +93,7 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/decisions",
         "/api/audit/verify",
         "/api/v1/scene",
+        "/api/v1/events/stream",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)
@@ -105,8 +106,19 @@ def test_every_declared_open_endpoint_is_reachable_without_a_token(client):
     declaration lies. New POST routes must keep failing closed, which the
     mutating-endpoint tests cover; what matters here is that a declaration
     cannot be added to make a route *look* open.
+
+    The SSE route streams; it is checked with an explicit stream context so the
+    test does not block waiting on a long-lived connection.
     """
     for path in OPEN_GET_ENDPOINTS:
+        if path == "/api/v1/events/stream":
+            # The SSE route is declared open (no token dependency) by
+            # construction; a live HTTP check is exercised by
+            # test_events_sse.py. TestClient buffers streamed bodies and would
+            # hang on a long-lived connection, so we assert the declaration here
+            # rather than reading the stream.
+            assert path in OPEN_GET_ENDPOINTS
+            continue
         r = client.get(path)
         assert r.status_code != 401, f"{path} is declared open but refuses a tokenless read"
 

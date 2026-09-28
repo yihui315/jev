@@ -1,6 +1,6 @@
 {
-  "doc": "v1.2 A8 rebaseline record (Wave 3 — Scene API)",
-  "note": "server.py is one of the 12 A8-pinned production artifacts. Adding the /api/v1/scene route is an A8 rebaseline event: the committed blob sha changed and MUST be reflected in the v1.2 release manifest (artifacts/release/*.manifest.json) and in packages/jcc_core/tests/test_p3_acceptance_gate.py::_BASELINE_HASHES at Wave 9. scene.py is a NEW module (not in the A8 set) recorded only for traceability.",
+  "doc": "v1.2 A8 rebaseline record (Wave 3 — Scene API, Wave 4 — SSE)",
+  "note": "server.py is one of the 12 A8-pinned production artifacts. Adding the /api/v1/scene route (Wave 3) and the /api/v1/events/stream route (Wave 4) are A8 rebaseline events: the committed blob sha changed and MUST be reflected in the v1.2 release manifest (artifacts/release/*.manifest.json) and in packages/jcc_core/tests/test_p3_acceptance_gate.py::_BASELINE_HASHES at Wave 9. scene.py / events.py are NEW modules (not in the A8 set) recorded only for traceability.",
   "generated_at": "2026-09-28",
   "branch": "feature/jcc-v1.2-visual-command-center",
   "pre_change_head": "d3d338b",
@@ -11,7 +11,7 @@
       "old_sha256": "02a1c9ef4c4f477347e815d1745ec181c503c440",
       "new_sha256": "d10a190ceca6cae5863ee95789896d6ca7455909",
       "reason": "Wave 3 — added GET /api/v1/scene (jcc-scene/1 projection route) and declared it on OPEN_GET_ENDPOINTS; added `from .scene import build_scene` and `from pathlib import Path`.",
-      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to the new committed blob sha"
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to the FINAL committed blob sha (superseded by Wave 4 below)"
     },
     {
       "path": "packages/jcc_core/scene.py",
@@ -34,7 +34,31 @@
       "a8_pinned": false,
       "old_sha256": null,
       "new_sha256": "see git",
-      "reason": "Pinned OPEN_GET_ENDPOINTS set now includes /api/v1/scene (anti-drift must move WITH the route).",
+      "reason": "Pinned OPEN_GET_ENDPOINTS set now includes /api/v1/scene (Wave 3) and /api/v1/events/stream (Wave 4); anti-drift must move WITH the routes.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/server.py",
+      "a8_pinned": true,
+      "old_sha256": "d10a190ceca6cae5863ee95789896d6ca7455909",
+      "new_sha256": "82555e1236195c0dae645d72cbd537b2d625e728",
+      "reason": "Wave 4 — added GET /api/v1/events/stream (jcc-events/1 SSE route) + module-level events_stream_generator; attached EventBus to engine in create_app; imported `from .events import EventBus, format_sse` and `from fastapi.responses import StreamingResponse`. Two real bugs fixed en route: (1) the SSE generator subscribed AFTER yielding `: connected`, so a live event published in the same instant was missed — subscribe now happens before replay; (2) EventBus.replay_since returned [] for an unknown Last-Event-ID instead of the full buffer (docstring contract) — now returns the full ring so a reconnecting client can re-sync.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to 82555e1236195c0dae645d72cbd537b2d625e728"
+    },
+    {
+      "path": "packages/jcc_core/events.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "92c589c1e318192c671d2273ab199da9e3967742",
+      "reason": "NEW module — the Wave 4 live EventBus + SSE framing (10 typed events, bounded replay ring, idempotent dedupe, engine-broadcast translation). Projection-only; never writes state.",
+      "action_required_at_release": "none (not A8-pinned)"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_events_sse.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — bus unit tests (dedupe/replay/unknown-type/translate/framing) + generator-driven SSE tests (all-ten-types/resume/dedupe/live-delivery). Drives events_stream_generator directly with a FakeRequest because Starlette TestClient buffers the whole streamed body.",
       "action_required_at_release": "none"
     }
   ]
