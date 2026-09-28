@@ -1,0 +1,24 @@
+{
+  "release": "JCC v1.2 Visual Command Center (local)",
+  "branch": "feature/jcc-v1.2-visual-command-center",
+  "gates": {
+    "visual_ui_gate": "PASS",
+    "control_ui_gate": "PASS",
+    "live_shadow_ui_gate": "PASS (activation PENDING, non-blocking)",
+    "green_protection_gate": "PASS (PROTECTED)",
+    "a8_self_check": "PASS (12/12 pinned product files match committed bytes)",
+    "performance_gate": "PASS (real HTTP serving; browser FCP PENDING_HOST)",
+    "frontend_tests": "PASS (13/13 + typecheck, hermetic TEMP)",
+    "wave6_commit_audit": "PASS (path-limited, no git add .)",
+    "orphaned_blue_reclaim": "PASS (SAFE_RECLAIM)",
+    "canonical_ports_restored": "PASS (API 4779 / UI 4780 / dev 4781; 4782 not used as production)"
+  },
+  "pending_external_action": [
+    "Windows Task Scheduler durable-task registration (schtasks blacklist in sandbox) -- host-side durability layer",
+    "Browser-render FCP/LCP measurement (no headless browser in agent sandbox)",
+    "Activation Gate enablement (actuation + real provider + control token) -- design-gated, non-blocking"
+  ],
+  "rollback_tag_preserved": "jcc-v1.1-local",
+  "release_tag_to_create": "jcc-v1.2-visual-local (local only, NO push)",
+  "verdict": "ALL_GO_EXCEPT_NONBLOCKING_PENDING"
+}

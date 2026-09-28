@@ -1,0 +1,33 @@
+{
+  "gate": "Four-Agent Evidence (NATIVE / ADAPTER / UNAVAILABLE) (point 17)",
+  "source": "config/jcc-v1.2.yaml :: agents.capabilities",
+  "agents": {
+    "workbuddy": {
+      "status": "CONNECTED", "verified": true, "aep": true,
+      "category": "NATIVE",
+      "evidence": "hook_schema_kind=codebuddy-hooks; config_path=C:/Users/Administrator/.workbuddy/settings.json"
+    },
+    "claude": {
+      "status": "CONNECTED", "verified": true, "aep": true,
+      "category": "NATIVE",
+      "evidence": "hook_schema_kind=claude-hooks; preserves_user_hooks=true; config_path=C:/Users/Administrator/.claude/settings.json"
+    },
+    "codex": {
+      "status": "DEGRADED", "verified": true, "aep": true,
+      "push_verified": false, "app_server_steering": false,
+      "category": "ADAPTER_DEGRADED",
+      "evidence": "AEP capability present but push_verified=false and app_server_steering=false -- partial integration, not a hard failure"
+    },
+    "hermes": {
+      "status": "CONNECTED", "verified": true, "aep": true,
+      "category": "NATIVE",
+      "evidence": "transport=signed-outbound-hook; hook_schema_kind=hermes-hooks; config_path=C:/Users/Administrator/.hermes/config.yaml"
+    }
+  },
+  "summary": {
+    "NATIVE": ["workbuddy", "claude", "hermes"],
+    "ADAPTER_DEGRADED": ["codex"],
+    "UNAVAILABLE": []
+  },
+  "verdict": "EVIDENCE_RECORDED"
+}

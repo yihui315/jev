@@ -1,0 +1,23 @@
+{
+  "gate": "Live Shadow UI Gate vs Activation Gate (point 16)",
+  "ui_gate": {
+    "name": "Visual Command Center UI Gate",
+    "status": "PASS",
+    "evidence": {
+      "spa_built_from_real_sources": true,
+      "single_source_of_truth": "SceneStore (apps/command_center_3d/src/store/SceneStore.ts)",
+      "serve_visual_health_200": true,
+      "webgl2_fallback_present": true,
+      "not_mock": true,
+      "live_shadow_wiring": "engine.shadow_summary live-only + record_source gate (Wave 7); events.record_source column + get_shadow_records('live') (Wave 7)"
+    }
+  },
+  "activation_gate": {
+    "name": "Activation Gate (Visual UI drives live agent control / actuation)",
+    "status": "PENDING",
+    "blocking": false,
+    "reason": "actuation_enabled=false, jev real_provider=false, control token unset (JCC_CONTROL_TOKEN) -- by design fail-closed. Wiring the Visual UI to issue directives requires explicit operator enablement of actuation + a real provider key + a control token. Recorded as design-gated / PENDING_EXTERNAL_ACTION; it does NOT block the UI release.",
+    "controls_required_to_activate": ["actuation.enabled=true", "jev.provider=real + JEV_API_KEY", "JCC_CONTROL_TOKEN set", "control-token fail-closed gating verified (server.py require_control_token, hmac.compare_digest)"]
+  },
+  "verdict": "UI_GATE_PASS_ACTIVATION_PENDING"
+}
