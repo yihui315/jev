@@ -295,8 +295,17 @@ def check_s01_auth_fail_closed(ctx: Ctx) -> CheckResult:
         if path is None or path.startswith(("/docs", "/openapi", "/redoc")):
             continue
         if methods & {"POST", "PUT", "PATCH", "DELETE"}:
-            routes.append((path, sorted(methods)))
-    r.evidence["mutating_routes"] = [p for p, _ in routes]
+            # FastAPI path templates use {param}; for the probe we substitute
+            # real values so the request actually reaches the handler. The
+            # probe is about AUTH gating, not path-param validation.
+            probe_path = path
+            for agent_name in ("workbuddy", "claude", "codex", "hermes"):
+                probe_path = probe_path.replace("{agent}", agent_name, 1)
+            # Generic {sid} / etc. — substitute the probe session id.
+            for k in ("{sid}", "{id}"):
+                probe_path = probe_path.replace(k, "probe", 1)
+            routes.append((path, sorted(methods), probe_path))
+    r.evidence["mutating_routes"] = [p for p, _, _ in routes]
     if not routes:
         r.findings.append(Finding("S-01", SEV_HIGH,
                                   "no mutating route found; the probe would be vacuous"))
@@ -308,16 +317,16 @@ def check_s01_auth_fail_closed(ctx: Ctx) -> CheckResult:
     base = f"http://127.0.0.1:{port}"
     probes: List[Dict[str, Any]] = []
     try:
-        for path, methods in routes:
+        for path, methods, probe_path in routes:
             for method in methods:
                 body = b'{"session_id":"s01","event_id":"e1","delivery_id":"e1-d1",' \
                        b'"agent":"workbuddy","project":"SEC","event_type":"session_start"}'
-                no_token, _ = _http(method, base + path, body=body,
+                no_token, _ = _http(method, base + probe_path, body=body,
                                     headers={"Content-Type": "application/json"})
-                wrong, _ = _http(method, base + path, body=body,
+                wrong, _ = _http(method, base + probe_path, body=body,
                                  headers={"Content-Type": "application/json",
                                           "X-JCC-Token": token + "-wrong"})
-                ok, _ = _http(method, base + path, body=body,
+                ok, _ = _http(method, base + probe_path, body=body,
                               headers={"Content-Type": "application/json",
                                        "X-JCC-Token": token})
                 probes.append({"route": path, "method": method,
