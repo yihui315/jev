@@ -6,3 +6,6 @@ dist
 .vite-cache
 .vitest-cache
 .vitetmp
+# Vite/Vitest temp config snapshot emitted to the source dir during `vitest run`
+vite.config.ts.timestamp-*.mjs
+*.timestamp-*.mjs
