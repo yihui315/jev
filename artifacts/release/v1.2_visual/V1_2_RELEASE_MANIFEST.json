@@ -97,35 +97,35 @@
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/GREEN_PROTECTION_PROOF.json",
-      "sha256": "40e2bfb3acf489787002e5e66db0ce27a96fe0eebbdfb1ea1f604676fd2efbe4"
+      "sha256": "af8b2e0a52163f7d89633c7126760b8a8a75fe1d61242a59b1533ed7a1ab8e6d"
     },
     {
       "bytes": 1572,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/DURABLE_RUNTIME_PROOF.json",
-      "sha256": "c5df3637da2dfb135e50070aa97e8b400f3344cadecaf8de78467fa0a49f1d77"
+      "sha256": "b7c25fdf8929edac802d49a13baa5bf9f3d18af0d300cfc186e30806ade70ce9"
     },
     {
       "bytes": 1058,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/FOUR_AGENT_EVIDENCE.json",
-      "sha256": "ec8df1cf91efc1ee5e576587df504a3a78cde53b56b0771b79744c082baeeea2"
+      "sha256": "3cda63e7c1a7cb49fe9033064c542ea4671d7f2ea7eb0a0bd0d64fa00d469a82"
     },
     {
       "bytes": 987,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/FIRST_NATIVE_LIVE_3D_SESSION.json",
-      "sha256": "177e58b2ccd05748d652df389948408f4be5490d88c58fd075ea1897a6b41cfe"
+      "sha256": "000ec12ea98d94c62e810d5e2dcadd5a2c8442e61234bcc80d7d24e9f3cffa82"
     },
     {
-      "bytes": 1744,
+      "bytes": 2002,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json",
-      "sha256": "f91ce9c7e0e9ec5c344cb84b2a20c15f52c22b5e20466c5449102bdb5f0b870c"
+      "sha256": "7a44680415083e56e71c16c362088efa0c3b9bb85c4b792531fcd46e75910a6a"
     },
     {
       "bytes": 1357,
@@ -135,11 +135,11 @@
       "sha256": "a6269785b78a9e7a0afaa053378e2fbe315a6ca9bc7283c8b5e314367a2ad418"
     },
     {
-      "bytes": 2251,
+      "bytes": 2258,
       "hash_convention": "git_blob",
       "owner": "release-evidence",
       "path": "artifacts/release/v1.2_visual/legs/V1_2_LEG_SIGNATURES.json",
-      "sha256": "8785965c44df891003a5f3fa64f355770e9b861da805c68f24c6c2298ca3ce31"
+      "sha256": "0fb56c4f74bcd7d4f558f76de22ceca10ce59d3d7e733f1dfa362124aeecc9ea"
     },
     {
       "bytes": 14656,
@@ -179,13 +179,13 @@
     "project_complete": true,
     "release_readiness": "RELEASE_READY"
   },
-  "generated_at": "2026-09-28T12:47:46.477255+00:00",
+  "generated_at": "2026-09-28T12:58:14.463653+00:00",
   "generated_by": "tools/emit_v1_2_release_manifest.py",
   "generated_by_sha256": "0cc7911944fd7260e56598309a55c9c5c6d8fdd5ab7eb7bbb099b48791238daf",
   "hash_convention": "sha256(git cat-file blob <commit>:<path>) for tracked files; sha256(raw bytes) otherwise; sha256(content fingerprint) for directories",
   "product_freeze_frozen_at": "ddca208",
   "product_freeze_sha": "ddca208b4b38913b75cafc2a15ee2ac538b22c8c",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "schema": "jcc/v1.2-release-manifest/1",
-  "test_sha": "91212602785a05f0741160d70e16036e45b2b4e4"
+  "test_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382"
 }

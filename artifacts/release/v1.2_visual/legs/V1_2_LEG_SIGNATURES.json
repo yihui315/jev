@@ -1,52 +1,52 @@
 {
   "freeze_sha": "ddca208",
-  "generated_at": "2026-09-28T12:47:45Z",
+  "generated_at": "2026-09-28T12:58:13Z",
   "legs": {
     "ARCH": {
       "decision": "GO",
       "evidence_verdict": "FREEZE_SHA=ddca208 (doc=n/a)",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "f2a46f6b22e026431caf32bd36c9b5b608b0ec8afd971adec8d1162704b7f052"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "0efd42fcd9c161d73d4d3c72c057869de44b650c82372d225cdbd6ed5d6d670e"
     },
     "CONTROL_UI": {
       "decision": "GO",
       "evidence_verdict": "CONTROL-UI GATE: PASS (0 failures)",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "e57615f053b0f75c3d51cf704d023785ed35ee557384cd16b9a45307c19db28b"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "0212afc2ab0ca4e888b93eda063938b640f82f12db712f18e97857a75b44ca61"
     },
     "GREEN_PROTECTION": {
       "decision": "GO",
       "evidence_verdict": "verdict=PROTECTED",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "e2705aaf372f051b91ef89f2cbdc80d65f800704861987bd1e5d7e5f710d9f79"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "b5678c09420ff3f4984573af025cc333917f58968dd1b58362623ce8a3d8bfbc"
     },
     "LIVE_SHADOW": {
       "decision": "GO_WITH_PENDING",
       "evidence_verdict": "verdict=UI_GATE_PASS_ACTIVATION_PENDING",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "0f31174b31b81b2f6d8e7f19998dd0d34dd4554de893c4e821ca12ded399daaa"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "63ae425eea9edc314974fcef82edf2fb0b9e71b1a21edb6f17adf513f9a1bde3"
     },
     "REL": {
       "decision": "GO_WITH_PENDING",
       "evidence_verdict": "files=24 check=None",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "0dfc305de695cdf08c0f8952bb9e0e70c8230cdd18cf626ad37e7d1f5bf5d0b9"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "35c4d6270e1da9a0256fadad399202dcece54299937e000ba936b3573abcd5d1"
     },
     "SEC": {
       "decision": "GO",
       "evidence_verdict": "verdict=GO high=None ran=9",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "4e3b29b71675061a41a4d74dbbe197b726e5ae5c57b829553a43af35bc8eac70"
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "80390b4e6b95a23c7c39a3987895dd55cb231b0486fa57b6ad2da9a6c6ecbf59"
     },
     "VISUAL": {
       "decision": "GO_WITH_PENDING",
-      "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
-      "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
-      "signature": "21927fba1724091d9b08740f764af2158858184615c45c1067b616b8dbdf0901"
+      "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD_FAILED; FPS_PENDING",
+      "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+      "signature": "bf730b5a2db40b51f839df7b00df73afadd93c38f9b34b5bc5e40e3dccd367c1"
     }
   },
   "note": "All signatures freshly computed at generation; none reuse v1.0.1 (f8ac95d) or v1.1 signatures.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "schema": "jcc/v1.2-leg-signatures/1",
   "signer": "Orion (JCC v1.2 orchestrator)"
 }

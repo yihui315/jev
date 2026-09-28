@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "ARCH",
   "notes": "v1.2 architecture frozen at ddca208; double-ownership isolation from GREEN 4778 via independent runtime/jcc-v1.2 config + DB.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "f2a46f6b22e026431caf32bd36c9b5b608b0ec8afd971adec8d1162704b7f052",
+  "signature": "0efd42fcd9c161d73d4d3c72c057869de44b650c82372d225cdbd6ed5d6d670e",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:47:45Z"
+  "timestamp_utc": "2026-09-28T12:58:13Z"
 }

@@ -12,9 +12,9 @@
   "host_durable_task": "PENDING_EXTERNAL_ACTION",
   "live_processes_verified": true,
   "note": "The v1.2 services are proven ALIVE as long-lived processes, but surviving a host reboot requires the Windows Task Scheduler tasks, which are PENDING host-side activation. This is NOT a FINAL release until the operator registers the durable tasks on the host.",
-  "probe_timestamp_utc": "2026-09-28T12:47:00Z",
+  "probe_timestamp_utc": "2026-09-28T12:59:12Z",
   "release_branch": "feature/jcc-v1.2-visual-command-center",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "task_names": [
     "JCC-v1.2-API",
     "JCC-v1.2-VisualUI"

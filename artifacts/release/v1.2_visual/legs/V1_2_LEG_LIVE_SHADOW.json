@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "LIVE_SHADOW",
   "notes": "UI gate PASS (SPA from real sources, single source of truth, WebGL2 fallback, not mock). Activation (Visual UI drives actuation) PENDING by design fail-closed; non-blocking.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "0f31174b31b81b2f6d8e7f19998dd0d34dd4554de893c4e821ca12ded399daaa",
+  "signature": "63ae425eea9edc314974fcef82edf2fb0b9e71b1a21edb6f17adf513f9a1bde3",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:47:45Z"
+  "timestamp_utc": "2026-09-28T12:58:13Z"
 }

@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "REL",
   "notes": "Manifest --check CLEAN (21 files). Durable Runtime host Task Scheduler registration = RELEASE_READY_PENDING_HOST_ACTIVATION (schtasks.exe sandboxed); non-blocking for UI release.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "0dfc305de695cdf08c0f8952bb9e0e70c8230cdd18cf626ad37e7d1f5bf5d0b9",
+  "signature": "35c4d6270e1da9a0256fadad399202dcece54299937e000ba936b3573abcd5d1",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:47:45Z"
+  "timestamp_utc": "2026-09-28T12:58:13Z"
 }

@@ -4,15 +4,15 @@
   "distinct_from_release": true,
   "evidence_path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json",
   "evidence_sha256": null,
-  "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+  "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD_FAILED; FPS_PENDING",
   "freeze_sha": "ddca208",
   "leg_id": "VISUAL",
   "notes": "HTTP serving + REAL Chrome SPA load PASS (live). Node-count FPS (50/200/500/1000) PENDING -- no product stress route; not claimed PASS.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "21927fba1724091d9b08740f764af2158858184615c45c1067b616b8dbdf0901",
+  "signature": "bf730b5a2db40b51f839df7b00df73afadd93c38f9b34b5bc5e40e3dccd367c1",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:47:45Z"
+  "timestamp_utc": "2026-09-28T12:58:13Z"
 }

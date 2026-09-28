@@ -8,11 +8,11 @@
   "freeze_sha": "ddca208",
   "leg_id": "CONTROL_UI",
   "notes": "In-process TestClient gate: token fail-closed (401/403), authorized actuation inert (acted=False, shadow_mode), structurally non-actuating. No socket bound; GREEN 4778 untouched.",
-  "release_sha": "91212602785a05f0741160d70e16036e45b2b4e4",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
   "reuses_v1_0_1_signature": false,
   "reuses_v1_1_signature": false,
   "schema": "jcc/v1.2-leg/1",
-  "signature": "e57615f053b0f75c3d51cf704d023785ed35ee557384cd16b9a45307c19db28b",
+  "signature": "0212afc2ab0ca4e888b93eda063938b640f82f12db712f18e97857a75b44ca61",
   "signer": "Orion (JCC v1.2 orchestrator)",
-  "timestamp_utc": "2026-09-28T12:47:45Z"
+  "timestamp_utc": "2026-09-28T12:58:13Z"
 }
