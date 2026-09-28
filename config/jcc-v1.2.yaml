@@ -1,0 +1,119 @@
+# JCC Core control-plane configuration -- v1.2 VISUAL COMMAND CENTER instance.
+#
+# This is a SECOND, fully isolated JCC Core instance that runs ALONGSIDE the
+# frozen GREEN service on 127.0.0.1:4778. It exists ONLY to serve the v1.2
+# Visual Command Center (apps/command_center_3d). It MUST NOT disturb GREEN:
+#   * a different port  (4779, not 4778)
+#   * a different runtime dir + SQLite database (runtime/jcc-v1.2, not jcc)
+#   * the same loopback-only bind (127.0.0.1) -- never 0.0.0.0
+#
+# run.py derives its Python-side marker (JCC-marker) and the WAL database from
+# state_store.db_path, so pointing that at runtime/jcc-v1.2/jcc-v1.2.db gives
+# this instance a completely separate on-disk surface from GREEN.
+#
+# Secrets are NEVER stored here -- only env-var NAMES. See config/.env.example.
+
+server:
+  host: 127.0.0.1          # localhost-only; run.py also forces 127.0.0.1 at bind
+  # CANONICAL v1.2 port. 4779 (API) is the permanent design port -- NOT 4782.
+  # 4780 is the v1.2 Visual UI (static SPA served by apps/command_center_3d/
+  # serve_visual.py) and 4781 is the local DEV/debug UI. 4782 is reserved ONLY
+  # for temporary smoke/diagnostic and MUST NOT be used as the production port.
+  # On a cold/fresh host 4779/4780/4781 are free. On THIS host they were briefly
+  # held by orphaned BLUE scratch processes (pid 20044/9028) which the Wave-9
+  # ORPHANED BLUE reconciliation safely reclaimed (see
+  # artifacts/release/v1.2_visual/ORPHANED_BLUE_RECONCILIATION.json) before this
+  # instance was brought up. The launch scripts read the port from THIS file via
+  # Get-JccV12Port and run.py binds config.server.port.
+  port: 4779
+  cors_origins:            # EXPLICIT allowlist only -- never "*"
+    - http://localhost:4780   # v1.2 Visual Command Center (static SPA build)
+    - http://127.0.0.1:4780
+    - http://localhost:4781   # v1.2 Visual Command Center DEV/debug UI
+    - http://127.0.0.1:4781
+
+control:
+  token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
+
+state_store:
+  db_path: F:/jev/runtime/jcc-v1.2/jcc.db   # gitignored; isolated from GREEN
+
+jev:
+  provider: mock            # mock | disabled | real
+  model: jev-1.13.0
+  api_key_env: JEV_API_KEY
+  base_url: https://api.typesafe.ai
+  feature_flags:
+    real_provider: false    # real provider stays OFF until explicitly enabled + key present
+
+actuation:
+  enabled: false            # P0-P2: actuation OFF (ADR-0004). Refuses ALL side-effects.
+  allowed_actions: []       # none permitted in P1
+
+policy:
+  version: p3.0.0           # ADR-0008 D-37: p1.0.0 -> p3.0.0 (R6 threshold surface)
+  priority: [ESCALATE, PAUSE, VERIFY, STEER, RETRY, FINISH, CONTINUE]
+  thresholds:               # ADR-0008 D-24: RETIRED / INERT -- superseded by
+    escalate_risk: 0.8      #   p3.shadow.thresholds. Kept for config back-compat
+    pause_risk: 0.6         #   ONLY; editing these has NO effect.
+    verify_risk: 0.4
+
+p3:                         # ADR-0008 P3 shadow supervision (Sentinel + Metric).
+  shadow:
+    enabled: false          # v1.2 is the visual layer; shadow plane stays inert
+    budget:
+      assess_calls: 200
+      scorer_tokens: 200000
+      events: 2000
+      directives: 200
+      retries: 5
+      escalations: 3
+      wall_clock_s: 28800
+      cost_units: 500
+      cost_units_per_hour: 2000
+      directives_per_minute: 600
+    thresholds:
+      default: {escalate_risk: 0.8, pause_risk: 0.6, steer_risk: 0.4, finish_risk: 0.1}
+      per_agent:
+        workbuddy: {}
+        claude: {}
+        codex: {}
+        hermes: {}
+    signing:
+      key_env: JCC_DIRECTIVE_SIGNING_KEY
+      required: false
+
+agents:
+  capabilities:
+    workbuddy:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "5.5.6"
+      config_path: "C:/Users/Administrator/.workbuddy/settings.json"
+      hook_schema_kind: codebuddy-hooks
+      permission_request_hooked: false
+    claude:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "2.1.196"
+      config_path: "C:/Users/Administrator/.claude/settings.json"
+      hook_schema_kind: claude-hooks
+      preserves_user_hooks: true
+    codex:
+      aep: true
+      verified: true
+      status: DEGRADED
+      config_path: "C:/Users/Administrator/.codex/config.toml"
+      hook_schema_kind: codex-native-hooks+notify
+      push_verified: false
+      app_server_steering: false
+    hermes:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "0.4.0"
+      config_path: "C:/Users/Administrator/.hermes/config.yaml"
+      hook_schema_kind: hermes-hooks
+      transport: signed-outbound-hook
