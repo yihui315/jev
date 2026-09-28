@@ -84,6 +84,15 @@ class AEPEnvelope(BaseModel):
     payload: Dict[str, Any] = Field(default_factory=dict)
     evidence: Optional[Dict[str, Any]] = None   # required for safe completion
     schema_ok: bool = True             # adapter marks parse success
+    # -- v1.2 Wave 7 (Jev shadow gate) ---------------------------------------
+    # Provenance of the telemetry record. The shadow surface ONLY counts
+    # ``record_source == "live"``; replay/demo/seed records are excluded so the
+    # supervision summary can never be padded by synthetic data. Default "live"
+    # (every record ingested through the real adapter/ingest path is live) keeps
+    # the change backward-compatible: pre-Wave-7 producers that omit the field
+    # are treated as live, and explicit "replay"/"demo" writers opt out of the
+    # shadow gate by construction.
+    record_source: str = "live"       # live | replay | demo | seed
 
     def model_dump_api(self) -> Dict[str, Any]:
         return self.model_dump(mode="json")

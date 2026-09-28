@@ -369,3 +369,67 @@ class CoreEngine:
         # 9) Live projection.
         self._broadcast(out)
         return out
+
+    # -- v1.2 Wave 7: Jev shadow surface -----------------------------------
+    def shadow_summary(self) -> Optional[Dict[str, Any]]:
+        """Jev shadow supervision summary over LIVE telemetry ONLY.
+
+        The shadow gate counts ONLY ``record_source == 'live'`` events. Replay /
+        demo / seed records are deliberately excluded so the supervision summary
+        cannot be padded by synthetic data (the D-34-style "fake-clean" defect
+        class). Returns ``None`` when there is no live telemetry at all — the
+        scene layer maps that to an UNKNOWN section (an honest gap, never a
+        coerced empty-clean dict), so a shadow with nothing to supervise is
+        rendered as "unknown", not "verified none".
+
+        This is a READ-ONLY projection of persisted events; it never writes.
+        """
+        rows = self.store.get_shadow_records("live")
+        if not rows:
+            return None
+
+        by_agent: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            agent = str(r["agent"])
+            bucket = by_agent.get(agent)
+            if bucket is None:
+                bucket = by_agent[agent] = {
+                    "agent": agent,
+                    "live_event_count": 0,
+                    "session_ids": set(),
+                    "event_types": {},
+                    "latest_ts": 0.0,
+                }
+            bucket["live_event_count"] += 1
+            if r["session_id"] is not None:
+                bucket["session_ids"].add(r["session_id"])
+            et = str(r["event_type"] or "unknown")
+            bucket["event_types"][et] = bucket["event_types"].get(et, 0) + 1
+            ts = r["timestamp"] or 0.0
+            if ts > bucket["latest_ts"]:
+                bucket["latest_ts"] = ts
+
+        agents = [
+            {
+                "agent": a,
+                "live_event_count": b["live_event_count"],
+                "distinct_session_count": len(b["session_ids"]),
+                "event_type_distribution": b["event_types"],
+                "latest_live_ts": b["latest_ts"],
+            }
+            for a, b in sorted(by_agent.items())
+        ]
+
+        return {
+            "live_record_count": len(rows),
+            "distinct_agent_count": len(by_agent),
+            "agents": agents,
+            "gate": "LIVE_ONLY",
+            "record_source_filter": "live",
+            "excluded_record_sources": ["replay", "demo", "seed"],
+            "observed_at": time.time(),
+            "note": (
+                "Jev shadow surface: supervision summary over LIVE telemetry only; "
+                "replay/demo/seed records are excluded by the shadow gate."
+            ),
+        }

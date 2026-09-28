@@ -129,14 +129,21 @@ def test_demo_state_uses_release_capability_matrix(tmp_path):
 
 
 def test_mixed_state_has_all_four_sources(tmp_path):
-    """LIVE + DERIVED + RELEASE + UNKNOWN all coexist honestly."""
+    """LIVE + DERIVED + RELEASE + UNKNOWN all coexist honestly.
+
+    With NO live telemetry the shadow section stays UNKNOWN (an honest gap),
+    while the LIVE empty sections, the DERIVED empty sections, and the RELEASE
+    capability matrix still appear -- proving the projection can emit all four
+    source kinds without coercing any gap to a false-clean value.
+    """
     engine, cfg = _make_engine(tmp_path)
-    _ingest(engine, "s1", AgentName.HERMES, 1)
-    _ingest(engine, "s2", AgentName.CODEX, 2)
     scene = build_scene(engine, cfg)
     _assert_scene_contract(scene)
     sources = {scene[k]["source"] for k in SECTION_KEYS}
     assert sources == VALID_SOURCES, f"expected all four sources, got {sources}"
+    # No live telemetry here -> shadow must be UNKNOWN, not a fabricated clean LIVE.
+    assert scene["shadow"]["source"] == "UNKNOWN"
+    assert scene["shadow"]["data"] is None
 
 
 def test_hostile_state_never_crashes_and_never_coerces(tmp_path):
@@ -161,8 +168,13 @@ def test_hostile_state_never_crashes_and_never_coerces(tmp_path):
     # The sessions read failed to parse -> degraded to UNKNOWN honestly.
     assert scene["sessions"]["source"] == "UNKNOWN"
     assert scene["sessions"]["data"] is None
-    # shadow stays UNKNOWN (not coerced to a false-clean value)
-    assert scene["shadow"]["data"] is None
+    # The one well-formed ingest made the shadow LIVE with real data; a hostile
+    # row must NOT crash it nor coerce it to a false-clean value.
+    assert scene["shadow"]["source"] in ("LIVE", "UNKNOWN")
+    if scene["shadow"]["source"] == "LIVE":
+        assert isinstance(scene["shadow"]["data"], dict)
+        assert scene["shadow"]["data"]["live_record_count"] >= 1
+        assert scene["shadow"]["data"]["record_source_filter"] == "live"
     # assessments derive defensively even from the good row
     assert scene["assessments"]["source"] in ("LIVE", "UNKNOWN")
 

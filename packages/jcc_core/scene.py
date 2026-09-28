@@ -209,11 +209,27 @@ def _capabilities(capability_matrix_path: Optional[str]) -> Dict[str, Any]:
 
 
 def _shadow(engine: Any) -> Dict[str, Any]:
-    """UNKNOWN until Wave 7 wires a shadow surface; never fabricated."""
+    """LIVE Jev shadow surface, gated to record_source=='live' telemetry.
+
+    Wires to ``engine.shadow_summary()`` (v1.2 Wave 7). The engine returns
+    ``None`` when there is no live telemetry to supervise -- that is an HONEST
+    gap (not a fabricated empty-clean summary), so it is rendered as UNKNOWN
+    with ``data: null``. A shadow that counts replay/demo records would be the
+    D-34 fake-clean defect; the gate in ``CoreEngine.shadow_summary`` excludes
+    them by construction.
+    """
     summary = getattr(engine, "shadow_summary", None)
     if callable(summary):
         try:
-            return _section("LIVE", summary())
+            data = summary()
+            if data is None:
+                return _section(
+                    "UNKNOWN",
+                    None,
+                    reason="no live telemetry records ingested; shadow gate has "
+                    "nothing to supervise (all records are replay/demo or none exist)",
+                )
+            return _section("LIVE", data)
         except Exception as exc:  # noqa: BLE001 -- defensive
             return _section("UNKNOWN", None, reason=f"shadow read failed: {exc}")
     return _section(

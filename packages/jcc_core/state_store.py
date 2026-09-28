@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS events (
   event_type  TEXT,
   payload     TEXT,
   evidence    TEXT,
+  record_source TEXT,
   PRIMARY KEY (session_id, event_id)
 );
 CREATE INDEX IF NOT EXISTS idx_events_delivery ON events(delivery_id);
@@ -309,6 +310,23 @@ def _ensure_directives_origin_column(conn) -> bool:
     return True
 
 
+def _ensure_events_record_source_column(conn) -> bool:
+    """Add the ``record_source`` column to an ``events`` table that predates
+    v1.2 Wave 7 (ADR shadow gate).
+
+    The shadow surface counts ONLY ``record_source == 'live'`` telemetry, so the
+    column must exist on any pre-Wave-7 database that the v1.2 engine opens. The
+    CREATE in :data:`SCHEMA` already carries the column for fresh databases; this
+    is the idempotent repair for existing ones. Returns True when the column was
+    added (never raises on a healthy SQLite connection).
+    """
+    have = {row[1] for row in conn.execute("PRAGMA table_info(events)")}
+    if "record_source" in have:
+        return False
+    conn.execute("ALTER TABLE events ADD COLUMN record_source TEXT")
+    return True
+
+
 def _action_matches(action: Optional[str], name: str) -> bool:
     """Compare a persisted ``action`` column against a ``DirectiveAction`` value.
 
@@ -363,6 +381,10 @@ class StateStore:
         with self._lock:
             conn = self._conn()
             conn.executescript(SCHEMA)
+            # v1.2 Wave 7 (ADR shadow gate): ensure the ``record_source`` column
+            # exists on a pre-Wave-7 ``events`` table (the CREATE above only
+            # helps a brand-new database). Idempotent + non-destructive.
+            _ensure_events_record_source_column(conn)
             conn.commit()
             conn.close()
 
@@ -465,10 +487,14 @@ class StateStore:
         with self._lock:
             conn = self._conn()
             try:
+                # v1.2 Wave 7: ensure the column exists even on a pre-Wave-7 db
+                # opened by this engine (non-destructive; no-op on fresh dbs).
+                _ensure_events_record_source_column(conn)
                 conn.execute(
                     "INSERT OR REPLACE INTO events "
                     "(event_id, session_id, delivery_id, agent, project, "
-                    " timestamp, event_type, payload, evidence) VALUES (?,?,?,?,?,?,?,?,?)",
+                    " timestamp, event_type, payload, evidence, record_source) "
+                    "VALUES (?,?,?,?,?,?,?,?,?,?)",
                     (
                         event.event_id,
                         event.session_id,
@@ -479,11 +505,42 @@ class StateStore:
                         str(event.event_type.value if hasattr(event.event_type, "value") else event.event_type),
                         json.dumps(event.payload or {}, sort_keys=True),
                         json.dumps(event.evidence, sort_keys=True) if event.evidence is not None else None,
+                        getattr(event, "record_source", "live") or "live",
                     ),
                 )
                 conn.commit()
             finally:
                 conn.close()
+
+    def get_shadow_records(self, record_source: str) -> List[Dict[str, Any]]:
+        """Lightweight projection of telemetry rows for the shadow gate.
+
+        Returns only the columns the Jev shadow surface needs
+        (``session_id``, ``agent``, ``event_type``, ``timestamp``) for events
+        whose ``record_source`` matches -- so replay/demo/seed records can be
+        EXCLUDED by the gate rather than counted. The payload blob is NOT
+        fetched (cheap at scale).
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                _ensure_events_record_source_column(conn)
+                rows = conn.execute(
+                    "SELECT session_id, agent, event_type, timestamp "
+                    "FROM events WHERE record_source=? ORDER BY timestamp ASC",
+                    (record_source,),
+                ).fetchall()
+            finally:
+                conn.close()
+        return [
+            {
+                "session_id": r[0],
+                "agent": r[1],
+                "event_type": r[2],
+                "timestamp": r[3],
+            }
+            for r in rows
+        ]
 
     # -- sessions ------------------------------------------------------------
     def upsert_session(self, s: SessionState) -> None:
