@@ -127,6 +127,117 @@ This section exists because the repository's own rule is that a claim quoted
 from memory is not evidence: the number, the instrument, and the reversal are
 here so the next person does not re-derive the wrong conclusion.
 
+### 3a. AMENDMENT (same night, later): the reverted hypothesis was re-measured on a live product database, and the conclusion above does not hold in that state
+
+The table in §3 was measured on a **stable, already-WAL, freshly-created**
+database. Wave 10's seed then put a real number on the state the product
+*actually* runs in, and re-opening the question was unavoidable: the same host
+showed 186 ms/write in §3 and **1.2 s/write** for the same call an hour later.
+
+Re-measured on a **private copy of the live 400 KB product database** (WAL, with
+`-wal`/`-shm` present, one process, one thread, no contention, no HTTP):
+
+| Series (median of 5) | ms |
+|---|---|
+| `connect + close` | **26.9** |
+| `connect + foreign_keys=ON + close` | 5.3 |
+| `connect + synchronous=NORMAL + close` | **686.3** |
+| `connect + journal_mode=WAL + close` | **410.9** |
+| full `DomainStore._conn()` (all three pragmas) + close | 403.7 |
+| the same, plus one `SELECT` | 539.2 |
+| whole `get_project` (one open/close) | 437.9 |
+| whole `domain_counts` (one open/close, 4 × COUNT) | 772.1 |
+| whole `list_missions(1000)` | 1007.5 |
+| whole `needs_attention` | 1100.3 |
+| whole `create_mission` (**two** open/close pairs) | **934.8** |
+
+A control with **no product code in the loop** (raw `sqlite3`, one table, four
+file sizes 12 KB → 1.68 MB, three journal modes, bulk-filled so the row counts
+are reached cheaply) established what the cost is *not*. Both this control and
+the pragma decomposition below are **published and re-runnable** as
+`tools/v1_3_domain_io_profile.py`:
+
+| `journal_mode` | 12 KB | 36 KB | 1.68 MB |
+|---|---|---|---|
+| `delete` (rollback journal) | 106 ms | 227 ms | 299 ms |
+| `memory` | 216 ms | 169 ms | 159 ms |
+| `wal` | 0.9 ms | 0.9 ms | **1.1 ms** |
+
+**The per-commit cost does not track the data size** — it is flat from 12 KB to
+1.68 MB in every mode — so "the write path is O(n)" is refuted. What the control
+does show is that on this host a *file-syncing* operation costs 100–700 ms and a
+WAL append costs ~1 ms.
+
+**What this changes about §3.** The pragma hypothesis was recorded as *wrong*
+and reverted. On the state the product actually runs in, the two pragmas
+`_conn()` re-issues per connection cost 410–686 ms while `connect + close` costs
+27 ms — so the reversal in §3 was drawn from a sample that did not include the
+database state the product ships against, and the "obvious cleanup" that §3's
+last paragraph tells the next person not to repeat **is in fact the right
+cleanup for this state**. The original numbers are left standing above rather
+than edited: they were a real measurement of a real state, they are simply not
+the state that matters.
+
+Two things follow, and neither is being done tonight:
+
+1. §3's attribution to `Connection.close()` (82 ms × 2) is **superseded**.
+   `close()` measures 27 ms here. The dominant term is the pragma/sync work
+   `_conn()` performs per connection.
+2. The `_conn` docstring in `packages/jcc_core/state_store.py` — the A8-pinned
+   file — carries §3's now-superseded conclusion and tells a future reader not
+   to repeat the fix. Correcting that comment means moving an A8 pin, and a pin
+   is not moved for a comment at freeze time; it is corrected in the same commit
+   as the structural fix below, which re-baselines that pin anyway. Until then
+   the comment is **known to be misleading**, and this amendment is the record
+   that says so.
+
+**Still recorded as a P4 item, not fixed here** — and now with hard numbers: the
+fix is connection reuse (one connection, or one per thread, per store), which
+makes the per-connection pragmas run once per process instead of once per
+operation, and would recover ~0.4–1.1 s per domain operation on this host. It
+also makes `create_mission`'s check and insert share one transaction. It is a
+structural change to the storage layer — `StateStore.connection()` is a *public*
+contextmanager whose contract is "a FRESH connection, always closed", and many
+tests open the same database concurrently — so it needs its own wave with its own
+falsifiers, not a late-night edit to a tree that is about to be frozen.
+
+**A caveat on the numbers above, stated rather than hidden:** five repetitions
+per series is enough to rank the costs, not to pin them. `synchronous=NORMAL`
+alone (686 ms) measured *slower* than all three pragmas together (404 ms), which
+cannot be a deterministic property and is a sign that these medians are
+dominated by host fsync variance. The ranking is robust; the individual figures
+are not, and nothing was changed on the strength of them.
+
+### 3b. The magnitudes in §3a were ALSO over-read, and the reason is now measured
+
+§3a's figures were taken while this session was running its own I/O probes
+against the same disk, and they are a property of that contention rather than of
+the product. The published profiler
+(`tools/v1_3_domain_io_profile.py`) re-measures the same series on a quiet host
+and the difference is large:
+
+| Series | §3a (contended) | quiet host |
+|---|---|---|
+| `connect + close` | 26.9 ms | **1.6–1.9 ms** |
+| `connect + journal_mode=WAL + close` | 410.9 ms | **4.8–6.5 ms** |
+| full `_conn()` + close | 403.7 ms | **6.9 ms** |
+| whole `get_project` | 437.9 ms | **6.8 ms** |
+| whole `create_mission` | 934.8 ms | **194.1 ms** |
+
+So §3a's reversal of §3 was directionally right (the exposure is the
+per-connection work, not `close()`) and its magnitudes were wrong by up to 60×.
+The tool now prints the spread beside every median, and
+`docs/v1_3/WAVE_10_REAL_BROWSER_PERFORMANCE.md` §8 presents both conditions
+side by side. **Three successive conclusions were drawn from this one cost and
+only the third survived a controlled measurement** — which is itself the argument
+for publishing the instrument and printing its spread rather than quoting a
+single figure.
+
+Published separately, because they are separate facts: the commit cost does not
+track data size (raw control, three journal modes, 12 KB → 1.68 MB, flat), and
+the HTTP layer contributes nothing (HTTP 178 ms vs direct 178 ms for the same
+call in one process).
+
 ## 4. Tests
 
 | Suite | Added | What it pins |

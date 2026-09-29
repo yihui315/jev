@@ -40,7 +40,7 @@ the value the anchor resolves to **cannot go stale**.
 | `apps/command_center_3d` | React 19 + TS + Vite product SPA, ASGI serving path |
 | `config` | `jcc.yaml` (protected GREEN) and `jcc-v1.3.yaml` (product) |
 | `scripts` | the operator control plane: `jcc-v1.3.ps1` (up/down/restart/status/doctor/repair/mark), `jcc-v1.3-register-tasks.ps1`, `lib/JccCommon.ps1` |
-| `tools/*gate*.py`, `tools/jcc_release_manifest.py`, `tools/emit_v1_3_*` | the gates themselves — an untracked gate is an unreproducible verdict |
+| `tools/*gate*.py`, `tools/jcc_release_manifest.py`, `tools/emit_v1_3_*`, `tools/v1_3_wave10_browser_perf.py`, `tools/v1_3_domain_io_profile.py` | the gates and the published measurements — an untracked gate is an unreproducible verdict, and a quoted number whose instrument is not in the repository is not evidence |
 | `tests/e2e` | the v1.3 end-to-end contract |
 | `docs/v1_3/FINAL_PRODUCT_FREEZE.md` | this document |
 
@@ -57,6 +57,8 @@ product whose runtime wrapper sat outside the certified set; v1.3 closes that.
 | The SPA is served by a real ASGI server, not python's stdlib demo server | **ENFORCED** | `tools/v1_3_ui_runtime_audit.py`, AST-based, with positive evidence required (`uvicorn_imported` / `uvicorn_run_called` / `starlette_app_referenced` / `serves_files`) — and the auditor itself is proved falsifiable by feeding it a file that really imports `http.server` |
 | No paid provider call / no external publish / no git push | **YES** | `jev.provider=mock`; no remote configured for this release; the tag is local |
 | UNKNOWN is never rendered as CONNECTED / SAFE / VERIFIED | **ENFORCED** | W7 rule: a probe measures capability, the caller can never state the outcome, and a v1.3 probe never returns `CONTROL_VERIFIED` with actuation off |
+| A bounded list is never presented as a complete one | **ENFORCED** | W9.3: `GET /api/v1/domain/counts` reports uncapped totals; the client classifies every list as `complete`/`truncated`/`at-ceiling`/`unknown` and says so. `unknown` and `at-ceiling` are never rendered as complete — pinned by `apps/…/src/app/truncation.test.ts` and, over HTTP, by `tests/e2e/test_domain_counts_v1_3.py::test_a_truncated_list_is_DETECTABLE` |
+| The operational plane renders the domain it is given | **MEASURED** | W10 gate leg `B8_W10_BROWSER_PERF` counts the plane's real WebGL draw calls in real Chrome and asserts they scale with the domain (measured: 1.015 draw calls per added mission, monotonic across 50→200→500→1000) |
 | Ports | 4778 GREEN (frozen) · 4779 product API · 4780 product UI (uvicorn ASGI) · 4781 dev · 4782 smoke-only | `config/jcc-v1.3.yaml`; gate leg `E4_NO_LISTENERS_LEFT_BEHIND` proves nothing is left holding them |
 
 ## 4. The v1.3 surface this freeze covers
@@ -72,7 +74,18 @@ product whose runtime wrapper sat outside the certified set; v1.3 closes that.
 | W6 | operational 3D world (a map of the work, not of the engine) | `b2782e9` |
 | W7 | agent connection verification (measured, not asserted) | `ff21bb7` |
 | W8 | Windows durable product runtime (single fail-closed control plane) | `ff3fa69` |
-| W9 | final product gates (this freeze) | *this commit* |
+| W9 | final product gates | `c3060f7` — product freeze · `e836636` — measured gate result, signed legs and manifest |
+| W9.1 | the host launcher starts work, and refuses to lie about it | `8e417b8` |
+| W9.2 | the mission launch control plane — Start Mission starts work | `05d4907` |
+| W9.3 | no silent truncation (a bounded list must say it is bounded) | `13d3849` |
+| W10 | real-browser plane performance · **this freeze** | *this commit* — product freeze |
+
+**W9.1 → W10 are additive product work on a *finalization* branch, not a rewrite
+of the W9 freeze.** They change product code, so they carry their own freeze
+anchor: this document was re-introduced by this commit, and the value E5 resolves
+is now THIS commit. The W9 anchor (`c3060f7` / evidence `e836636`) is not moved,
+not deleted, and does not claim to cover the code added after it — the whole
+point of re-anchoring rather than re-labelling.
 
 ## 5. Release readiness at the freeze
 
@@ -127,19 +140,79 @@ exactly what has and has not been done on a host.
    Until this runs, the product is operated by `scripts\jcc-v1.3.ps1` and is NOT
    registered to survive a reboot.
 
+3. **Authenticate the WorkBuddy CLI for the account that runs the JCC API.** This
+   is the ONE blocker that keeps `JCC_LAUNCHED_NATIVE_WORKBUDDY_MISSION` from
+   being claimed (W9.2, `docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md` §8). The
+   Start Mission path is complete and measured end to end: the launch intent is
+   built from the domain, an operator-approved directive is signed with a short
+   TTL and a single-use nonce bound to mission + project root + adapter, the
+   Host Launcher verifies nine checks and spawns the workload under a Windows Job
+   Object, and the run's own session id is read back from the child's stream. On
+   this host the spawned CLI reports `Authentication required`, so the read-back
+   classifies the run as `AUTH_REQUIRED` and — by design — the mission is NOT
+   walked to `RUNNING` and a `LAUNCH_HOST_ACTIVATION` operator task is raised
+   instead.
+
+   ```powershell
+   # as the account the JCC API service runs under, once:
+   #   log the CLI in so a spawned non-interactive process can obtain credentials
+   ```
+
+   Until it is done, the capability probe reports `HOST_ACTIVATION_PENDING` (not
+   green) and `final_release` stays `false`. **Nothing in the product pretends
+   otherwise**, and no component falls back to a mock to make the path look
+   complete.
+
 ## 7. Deliberately NOT claimed
 
 Each of these would be an unmeasured claim if it were written as a pass. They are
 listed so their absence is visible rather than implied.
 
-* **Real-browser FPS at node counts 50/200/500/1000.** The product has no stress
-  route; timing a synthetic page would be a measurement of the harness. The v1.2
-  `PENDING` verdict is carried forward unchanged.
+* **A hardware frame rate, and any target FPS.** W10 *does* now measure the real
+  shipped operational plane in real Chrome over 50/200/500/1000 objects of real
+  persisted work (gate leg `B8_W10_BROWSER_PERF`; the numbers are in that leg's
+  evidence, and the freeze does not restate them). But headless Chrome on this
+  host rasterizes through ANGLE/SwiftShader — verified by launching it four ways
+  (default, `--enable-gpu`, `--use-angle=d3d11`, `--use-angle=gl
+  --ignore-gpu-blocklist`), every one of which reported `SwiftShader`. The frame
+  times are therefore a **software rasterizer's floor**, not this host's GPU
+  throughput, and the gate's evidence records the renderer string and a derived
+  `renderer_class` so the number cannot be quoted without that context. No
+  target-FPS claim is made: there is no measured baseline on this machine for
+  what "fast enough" is, and inventing a threshold would be exactly the
+  unfalsifiable green the rest of this release exists to remove.
+* **More than `DOMAIN_LIST_LIMIT` (1000) objects in one view.** Beyond it the
+  product says the view is partial (W9.3) but does not page. The honest limit is
+  measured and disclosed, not hidden.
+* **That real Chrome is exercised on a GPU-accelerated path.** The browser, the
+  bundle, the ASGI server, the cross-origin API calls and the 3D render loop are
+  all real; the *rasterizer* is software. Both facts are in the evidence.
 * **Parent-exit survival of the product runtime.** The W8 restart transcript is
   evidence about the *controller*. Whether the service outlives its launcher
   depends on the caller's job object, not on the product — only the host Task
   Scheduler registration (section 6.2) can settle it, and the claim stays open
   until it is measured on a host.
+* **That domain writes are fast — on any host, or on this one under load.** Measured
+  during W10's seed and chased to a root cause that **corrects Wave 9.3 §3** and
+  that also corrects my own first correction of it. What is established:
+  `DomainStore._conn()` re-issues `PRAGMA journal_mode=WAL` / `synchronous=NORMAL`
+  / `foreign_keys=ON` on *every* connection, and the store opens a fresh
+  connection per operation — twice per `create_mission` — so it is exposed to the
+  host's file-syncing latency on every call. What is refuted: that the cost
+  tracks data size (a control with no product code in it is **flat** from 12 KB to
+  1.68 MB in three journal modes) and that the HTTP layer contributes (HTTP 178 ms
+  vs direct 178 ms for the same call). On a quiet host `create_mission` is 194 ms
+  and `get_project` 6.8 ms; under contention the same measurements reached 935 ms
+  and 438 ms, and the gate's seed ranged from 0.18 s to 1.4 s per mission. **~14 ms
+  of the 194 ms is accounted for; the rest is recorded as unexplained rather than
+  guessed at.** The fix — connection reuse — is a structural storage-layer change
+  (`StateStore.connection()` is a public "FRESH connection, always closed"
+  contextmanager), so it is the top **P4** item rather than a change folded into a
+  frozen tree. Evidence: `tools/v1_3_domain_io_profile.py`,
+  `docs/v1_3/WAVE_10_REAL_BROWSER_PERFORMANCE.md` §8, and
+  `docs/v1_3/WAVE_9_3_NO_SILENT_TRUNCATION.md` §3a — the latter also records that
+  `state_store.py`'s `_conn` docstring still carries the superseded explanation
+  and is corrected only when that A8 pin is legitimately re-baselined.
 * **DPAPI-at-rest for the control token.** The token remains an environment
   variable, which is what W8 shipped and what the health contract exposes.
 * **Reboot recovery.** It follows from the durable registration, which is not

@@ -21,6 +21,7 @@ Dimensions
   GREEN_PROTECTION protected GREEN 4778 alive and never written to
   RELEASE_HYGIENE  frozen tree, committed inputs, A8 pins vs git blobs
   SELF_FALSIFICATION the gate's own instruments reject the false shapes
+  BROWSER_PERF     the shipped 3D plane measured in a real browser at 50/200/500/1000
 
 Honesty rules
 -------------
@@ -110,6 +111,15 @@ DIMENSIONS: Dict[str, tuple] = {
     "SELF_FALSIFICATION": ("The gate's own instruments can fail",
                            ["F1_INSTRUMENTS_ARE_FALSIFIABLE"],
                            None),
+    # Wave 10. The freeze doc used to carry "real-browser FPS at
+    # 50/200/500/1000" as NOT CLAIMED, because timing a synthetic page would
+    # have measured the harness. This dimension is the measurement that
+    # replaced the caveat: the shipped plane, the real domain, real Chrome.
+    "BROWSER_PERF": ("Real-browser operational-plane performance",
+                     ["B8_W10_BROWSER_PERF"],
+                     "Measured headless, so the frame times are a software "
+                     "rasterizer's (see `renderer` in the gate evidence); no "
+                     "hardware FPS and no target FPS are claimed."),
 }
 
 

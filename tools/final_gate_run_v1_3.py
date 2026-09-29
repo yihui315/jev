@@ -656,6 +656,17 @@ GROUP_B = (
      "tools/v1_3_wave7_connection_gate.py", 20),
     ("B7_W8_RUNTIME_GATE", "W8 durable runtime gate",
      "tools/v1_3_wave8_runtime_gate.py", 54),
+    # Wave 10. The freeze doc carried "real-browser FPS at 50/200/500/1000" as
+    # DELIBERATELY NOT CLAIMED on the grounds that the product had no stress
+    # route; this leg is the answer to that -- it seeds the REAL domain and
+    # measures the REAL shipped plane in REAL Chrome. The floor (26) is the leg's
+    # own check count: 10 setup/browser checks + 3 per node count (4 counts) + the
+    # scaling assertion + the view sweep + teardown, stated so "it ran and
+    # reported nothing" cannot pass -- and it was MEASURED failing: with $TEMP
+    # pointed at a non-existent path the leg reported 9/12 and exit 1 rather than
+    # a green "0 rows measured".
+    ("B8_W10_BROWSER_PERF", "W10 real-browser operational-plane performance",
+     "tools/v1_3_wave10_browser_perf.py", 26),
 )
 
 
@@ -951,6 +962,18 @@ GATE_INPUTS = (
     "tools/v1_3_wave6_world_gate.py",
     "tools/v1_3_wave7_connection_gate.py",
     "tools/v1_3_wave8_runtime_gate.py",
+    # Added 2026-09-29 during Wave 10, before the freeze. The release now CLAIMS
+    # a measured real-browser performance curve (the freeze doc previously
+    # carried it as not-claimed), and a claim that rests on an uncommitted gate
+    # is an unreproducible claim -- the exact rule E2 exists to enforce.
+    "tools/v1_3_wave10_browser_perf.py",
+    # Added 2026-09-29 during Wave 10. The freeze doc quotes a per-operation cost
+    # for the domain store, and it CORRECTS the explanation Wave 9.3 shipped.
+    # A number whose instrument is not in the repository is not evidence, so the
+    # profiler that produced it is an input this release rests on. It is a
+    # measurement tool, not a gate leg: the finding it documents is recorded as
+    # a P4 item and is deliberately NOT fixed here.
+    "tools/v1_3_domain_io_profile.py",
     "tools/tests/test_release_manifest_v1_3.py",
     "scripts/jcc-v1.3.ps1",
     "scripts/jcc-v1.3-register-tasks.ps1",
@@ -959,6 +982,10 @@ GATE_INPUTS = (
     "apps/command_center_3d/serve_visual.py",
     "packages/jcc_core/tests/test_p3_acceptance_gate.py",
     "packages/jcc_core/tests/test_server_surface.py",
+    # Wave 9.3's own contract tests: the release's "no silent truncation" claim
+    # rests on them, so they belong in the set the release is reproducible from.
+    "packages/jcc_core/tests/test_domain_counts_v1_3.py",
+    "tests/e2e/test_domain_counts_v1_3.py",
     "tests/e2e/test_domain_api_v1_3.py",
     "tests/e2e/test_mission_launch_v1_3.py",
     "tests/e2e/test_attention_control_v1_3.py",
@@ -1199,12 +1226,40 @@ PENDING_HOST = (
     "Run scripts\\jcc-v1.3-register-tasks.ps1 -Apply from an ELEVATED PowerShell "
     "on the host to create the durable JCC-v1.3-API / JCC-v1.3-VisualUI tasks, "
     "then `scripts\\jcc-v1.3.ps1 -Action mark` to adopt them.",
+    # Added 2026-09-29 (Wave 10). This is the ONE action that keeps
+    # JCC_LAUNCHED_NATIVE_WORKBUDDY_MISSION unclaimable, and it was missing from
+    # this list while the freeze doc carried it as section 6.3 -- so the gate
+    # result said `final_release=false` and named two reasons when there were
+    # three. An under-reported pending action is a claim that is wrong in the
+    # reader's favour, which is the kind this release exists to remove.
+    "Authenticate the WorkBuddy CLI for the account the JCC API runs under, so a "
+    "launcher-spawned non-interactive process can obtain credentials. Until it "
+    "is done the launch read-back classifies the run as AUTH_REQUIRED, the "
+    "mission is NOT walked to RUNNING by design, and the capability reads "
+    "HOST_ACTIVATION_PENDING (see docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md "
+    "section 8).",
 )
 
 NON_BLOCKING_DELIBERATE = (
-    "Real-browser FPS at node counts 50/200/500/1000 is NOT claimed: the product "
-    "has no stress route, and 'measured on a synthetic page' is not a product "
-    "measurement. The v1.2 verdict PENDING is carried forward unchanged.",
+    # REWRITTEN 2026-09-29 (Wave 10). The previous text said "Real-browser FPS at
+    # node counts 50/200/500/1000 is NOT claimed: the product has no stress
+    # route". That was true and is now FALSE: tools/v1_3_wave10_browser_perf.py
+    # seeds the REAL domain, serves the REAL bundle from the product's own ASGI
+    # server and measures the plane in REAL Chrome (leg B8_W10_BROWSER_PERF). A
+    # gate result that still denied the measurement while the release claimed it
+    # would have been an instrument contradicting its own product.
+    "A HARDWARE frame rate is NOT claimed, and neither is a target FPS. The "
+    "node-count curve IS measured now (leg B8_W10_BROWSER_PERF, over 50/200/"
+    "500/1000 objects of real persisted work, in real Chrome, on the real "
+    "cross-origin topology), but headless Chrome on this host rasterizes through "
+    "ANGLE/SwiftShader -- verified by launching it four ways, all four CPU -- so "
+    "the frame times are a software rasterizer's floor. The gate's evidence "
+    "records the renderer string and a derived renderer_class so the number "
+    "cannot be quoted without that context. The v1.2 verdict PENDING is carried "
+    "forward unchanged.",
+    "Single-view rendering beyond DOMAIN_LIST_LIMIT (1000) objects is NOT "
+    "claimed. The product SAYS the view is partial (Wave 9.3) but does not page; "
+    "the honest limit is measured and disclosed rather than hidden.",
     "Parent-exit survival of the product runtime is NOT claimed by this gate. The "
     "W8 restart transcript is evidence about the CONTROLLER, not proof that the "
     "service outlives its launcher; only the host Task Scheduler registration "
@@ -1213,6 +1268,15 @@ NON_BLOCKING_DELIBERATE = (
     "DPAPI-at-rest for the control token is NOT claimed: the token stays an "
     "environment variable, which is what W8 shipped and what the health contract "
     "exposes. A stronger claim would need a key store the sandbox cannot provide.",
+    "Fast domain writes are NOT claimed. Measured, disclosed and NOT fixed: "
+    "DomainStore._conn() re-issues three PRAGMAs per connection and the store "
+    "opens a fresh connection per operation -- twice per mission creation -- so "
+    "every call is exposed to the host's file-syncing latency. Measured 194 ms "
+    "for create_mission on a quiet host and up to ~1.4 s under load, with the "
+    "per-commit cost shown NOT to track data size and the HTTP layer shown NOT "
+    "to contribute. Part of that cost is unexplained and is recorded as "
+    "unexplained. See tools/v1_3_domain_io_profile.py and "
+    "docs/v1_3/WAVE_10_REAL_BROWSER_PERFORMANCE.md section 8.",
 )
 
 
