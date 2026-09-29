@@ -151,6 +151,156 @@ print(load_config().server.port)
     return 4779
 }
 
+function Get-JccConfigPort {
+    <#
+        Read `server.port` out of an arbitrary JCC config file.
+
+        PRECEDENCE (same as Get-JccPort / Get-JccV12Port, and for the same
+        reason): ask the CONFIG MODULE itself -- packages/jcc_core/config.py, via
+        JCC_CONFIG -- so the launcher and the service can never disagree about
+        the port; then a YAML line-parse restricted to the `server:` block; then
+        a caller-supplied fallback.
+
+        This exists so a THIRD instance does not have to copy that read a third
+        time. Get-JccPort (4778) and Get-JccV12Port (4779) deliberately keep
+        their own bodies: 4778 is the frozen GREEN path and 4779 is the frozen
+        v1.2 path, and neither is worth re-baselining for a cosmetic refactor.
+    #>
+    param(
+        [string]$Root,
+        [string]$ConfigFile,
+        [string]$Python,
+        [int]$FallbackPort = 0
+    )
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $cfg = Join-Path $Root ('config\' + $ConfigFile)
+
+    if ($Python -and (Test-Path -LiteralPath $cfg)) {
+        $code = @'
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
+os.environ['JCC_CONFIG'] = r'{0}'
+from jcc_core.config import load_config
+print(load_config().server.port)
+'@ -f $cfg
+        $cur = $null
+        try { $cur = (Get-Location).Path } catch { $cur = $null }
+        try {
+            Set-Location -LiteralPath $Root -ErrorAction Stop
+            $out = & $Python '-c' $code 2>$null
+            $v = ([string]$out).Trim()
+            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
+        } catch {
+            # fall through to the YAML fallback below
+        } finally {
+            if ($cur) {
+                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $cfg) {
+        $inServer = $false
+        foreach ($line in Get-Content -LiteralPath $cfg) {
+            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
+                $key = $Matches[1]
+                $inServer = ($key -eq 'server')
+                continue
+            }
+            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
+                return [int]$Matches[1]
+            }
+        }
+    }
+
+    return $FallbackPort
+}
+
+function Get-JccV13Paths {
+    <#
+        JCC v1.3 PRODUCT EDITION paths.
+
+        v1.3 is the PRODUCT runtime. It runs the SAME service code as v1.2
+        (packages/jcc_core/run.py -> "python -m jcc_core.run") against its OWN
+        config, so a version bump changes ZERO Python product files and the
+        frozen GREEN instance on 127.0.0.1:4778 is never touched.
+
+        v1.3 owns TWO listeners, and they are TWO processes:
+
+          * CORE API -- config\jcc-v1.3.yaml -> server.port (4779), with its own
+            runtime dir (runtime\jcc-v1.3), its own pid/marker/logs and its own
+            SQLite database. 4778 (GREEN) and 4779 (v1.2) are never touched.
+
+          * VISUAL UI -- apps\command_center_3d\dist served by
+            apps\command_center_3d\serve_visual.py on port 4780, under uvicorn
+            (ASGI). v1.2 served the same dist with python's http.server; v1.3
+            replaced that because http.server is the stdlib demo server and is
+            not a product runtime.
+
+        The UI gets its OWN pid/marker pair because it holds no control-plane
+        state and has no write path: it must be independently stoppable without
+        touching the API, and its ownership must never be conflated with the
+        API's.
+    #>
+    param([string]$Root)
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $runtime = Join-Path $Root 'runtime\jcc-v1.3'
+    $uiDir = Join-Path (Join-Path $Root 'apps') 'command_center_3d'
+    $req = Join-Path (Join-Path $Root 'packages\jcc_core') 'requirements.txt'
+    if (-not (Test-Path -LiteralPath $req)) {
+        $alt = Join-Path $Root 'scripts\requirements.txt'
+        if (Test-Path -LiteralPath $alt) { $req = $alt }
+    }
+
+    return @{
+        Root            = $Root
+        Runtime         = $runtime
+        VenvPython      = Join-Path $Root '.venv\Scripts\python.exe'
+        VenvPip         = Join-Path $Root '.venv\Scripts\pip.exe'
+        Config          = Join-Path $Root 'config\jcc-v1.3.yaml'
+        EnvExample      = Join-Path $Root 'config\.env.example'
+        EnvFile         = Join-Path $Root '.env'
+        PidFile         = Join-Path $runtime 'jcc-v1.3.pid'
+        MarkerFile      = Join-Path $runtime 'jcc-v1.3.ownership.json'
+        ServerLog       = Join-Path $runtime 'server.log'
+        ServerErrLog    = Join-Path $runtime 'server.err.log'
+        Requirements    = $req
+        GateRunner      = Join-Path (Join-Path $Root 'artifacts\acceptance') 'final_gate_run.py'
+        CorePackage     = Join-Path $Root 'packages\jcc_core'
+
+        # Visual UI half (separate process, separate ownership pair)
+        UiDir           = $uiDir
+        UiServeScript   = Join-Path $uiDir 'serve_visual.py'
+        UiDist          = Join-Path $uiDir 'dist'
+        UiPidFile       = Join-Path $runtime 'jcc-v1.3-ui.pid'
+        UiMarkerFile    = Join-Path $runtime 'jcc-v1.3-ui.ownership.json'
+        UiLog           = Join-Path $runtime 'ui.log'
+        UiErrLog        = Join-Path $runtime 'ui.err.log'
+    }
+}
+
+function Get-JccV13Port {
+    <#
+        The v1.3 CORE API port, read from config\jcc-v1.3.yaml (normally 4779).
+    #>
+    param([string]$Root, [string]$Python)
+    return (Get-JccConfigPort -Root $Root -ConfigFile 'jcc-v1.3.yaml' -Python $Python -FallbackPort 4779)
+}
+
+function Get-JccV13UiPort {
+    <#
+        The v1.3 VISUAL UI port. A constant ON PURPOSE: serve_visual.py is a
+        launcher-owned script and is not the config module, so there is nothing
+        to read it back from -- pinning it here is what keeps the launcher, the
+        doctor and the scheduled-task definition in agreement.
+
+        It must never collide with GREEN's 4778 or the CORE API's 4779.
+    #>
+    return 4780
+}
+
 function Get-JccPython {
     param([string]$Root)
 
@@ -349,15 +499,38 @@ function Get-JccProcessInfo {
 function Get-JccPortOwner {
     param([int]$Port)
 
+    # EXPLICIT -ErrorAction SilentlyContinue, and the reason matters.
+    #
+    # MEASURED (2026-09-29, while building the v1.3 durable runtime): with the
+    # caller's $ErrorActionPreference='Stop' and `-ErrorAction Stop` here, asking
+    # about a port that simply has NO LISTENER did not return "no listener" -- it
+    # raised a CIM query error ("no matching MSFT_NetTCPConnection object"), which
+    # this try/catch then swallowed and turned into a netstat spawn. The returned
+    # value was correct, but a TERMINATING ERROR was still written to the error
+    # stream, so it showed up in normal run output and in every Start-Transcript
+    # log:
+    #
+    #     PS>TerminatingError(Get-NetTCPConnection): ... no matching ... object
+    #
+    # An expected condition ("nothing is listening") must not emit an error
+    # record: it trains operators to ignore errors, and it makes a correct
+    # transcript look like a failing one.
+    #
+    # The Get-Command guard preserves the ORIGINAL purpose of the netstat
+    # fallback: it exists for a host where the CMDLET is missing, not for a host
+    # where the port happens to be free. (Returning early on an empty result also
+    # stops every free-port check from spawning netstat.)
     try {
-        $conns = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop)
+        $conns = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
         if ($conns.Count -gt 0) {
             $o = $conns[0]
             $opid = 0
             if ($o.OwningProcess) { $opid = [int]$o.OwningProcess }
             return @{ Pid = $opid; Method = 'Get-NetTCPConnection' }
         }
-        return @{ Pid = 0; Method = 'none' }
+        if (Get-Command 'Get-NetTCPConnection' -ErrorAction SilentlyContinue) {
+            return @{ Pid = 0; Method = 'none' }
+        }
     } catch { }
 
     # Fallback for a host without the TCP cmdlets: read-only netstat parse.
