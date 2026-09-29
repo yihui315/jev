@@ -445,6 +445,30 @@ export interface Deliverable extends Artifact {
   mission_title: string;
 }
 
+/**
+ * Wave 9.3 — uncapped domain totals (`GET /api/v1/domain/counts`).
+ *
+ * Present so the UI can tell a bounded list from a complete one. A count that
+ * could not be read must render as UNKNOWN, never as zero — the same rule the
+ * attention badge already follows.
+ */
+export interface DomainCounts {
+  schema: string;
+  projects: number;
+  archived_projects: number;
+  missions: number;
+  deliverables: number;
+}
+
+/**
+ * The ceiling the UI asks the bounded list reads for. It is deliberately NOT
+ * the server's default (200): asking for the server default made the client's
+ * own bound invisible, which is the defect Wave 9.3 fixes. It is also
+ * deliberately not "no limit" — an unbounded read is its own defect, and the
+ * `counts()` read above is how the UI knows when even this ceiling was hit.
+ */
+export const DOMAIN_LIST_LIMIT = 1000;
+
 /** One row of `mission_events`, as returned by GET …/missions/{id}/timeline. */
 export interface TimelineEntry {
   seq: number;
@@ -489,6 +513,18 @@ export class DomainApi {
   }
   project(pid: string): Promise<ApiResult<ProjectDetail>> {
     return request<ProjectDetail>(this.base, "GET", `/api/v1/domain/projects/${encodeURIComponent(pid)}`);
+  }
+  /**
+   * Wave 9.3: the UNCAPPED domain totals.
+   *
+   * The list reads below are bounded (`DOMAIN_LIST_LIMIT`), which is correct —
+   * an unbounded read is its own defect. What was wrong is that the UI had no
+   * way to tell a truncated list from a complete one, so a workspace with 500
+   * missions rendered 200 of them and looked identical to a workspace with 200.
+   * This is the read that makes the bound visible.
+   */
+  counts(): Promise<ApiResult<DomainCounts>> {
+    return request<DomainCounts>(this.base, "GET", "/api/v1/domain/counts");
   }
   missions(filter: { projectId?: string; status?: string; limit?: number } = {}):
     Promise<ApiResult<Mission[]>> {

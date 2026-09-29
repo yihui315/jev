@@ -84,6 +84,11 @@ OPEN_GET_ENDPOINTS = (
     # v1.3 Wave 5 — deliverables (server-side view + one deliverable by identity)
     "/api/v1/domain/deliverables",
     "/api/v1/domain/artifacts/{aid}",
+    # v1.3 Wave 9.3 — uncapped totals, so a bounded list read can be compared
+    # against the real domain size. The lists stay bounded; only the KNOWLEDGE of
+    # how many there are is added, because "the first 200" and "all 200 there are"
+    # are indistinguishable on screen without it.
+    "/api/v1/domain/counts",
     # v1.3 Wave 7 — connection verification (one connection with provenance)
     "/api/v1/domain/connections/{cid}",
 )
@@ -473,6 +478,19 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             "actuation_enabled": engine.actuator.enabled,
             "localhost_only": True,
         }
+
+    @app.get("/api/v1/domain/counts")
+    def domain_counts():
+        """UNCAPPED domain totals — the read that makes a bounded list honest.
+
+        ``/api/v1/domain/missions`` and ``/deliverables`` are bounded (a
+        documented ceiling, see ``domain.MAX_DOMAIN_LIST_LIMIT``). A client that
+        renders a bounded list as the whole domain silently drops the rest, so
+        this endpoint exists to let it say "showing 200 of 1,000" instead. It is
+        open like the other read-only projections: four scalars, no rows, and it
+        mutates nothing.
+        """
+        return {"schema": "jcc/v1.3-domain-counts/1", **domain.domain_counts()}
 
     @app.get("/api/v1/domain/projects")
     def domain_list_projects(include_archived: bool = False):

@@ -239,7 +239,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 4.243,
+      "seconds": 4.595,
       "title": "auth fail-closed on every mutating route"
     },
     {
@@ -289,7 +289,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 1.26,
+      "seconds": 1.219,
       "title": "planted secrets absent from every persisted sink"
     },
     {
@@ -315,6 +315,7 @@
           "/api/v1/domain/artifacts/{aid}",
           "/api/v1/domain/connections",
           "/api/v1/domain/connections/{cid}",
+          "/api/v1/domain/counts",
           "/api/v1/domain/deliverables",
           "/api/v1/domain/home",
           "/api/v1/domain/launch/probe",
@@ -346,6 +347,7 @@
           "/api/v1/domain/artifacts/{aid}",
           "/api/v1/domain/connections",
           "/api/v1/domain/connections/{cid}",
+          "/api/v1/domain/counts",
           "/api/v1/domain/deliverables",
           "/api/v1/domain/home",
           "/api/v1/domain/launch/probe",
@@ -374,7 +376,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 1.218,
+      "seconds": 1.249,
       "title": "loopback-only bind and no undeclared open route"
     },
     {
@@ -456,7 +458,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.061,
+      "seconds": 0.065,
       "title": "the UI reads no token and posts only the probe"
     },
     {
@@ -511,7 +513,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.016,
+      "seconds": 0.017,
       "title": "v1.1 modules import only stdlib and project roots"
     },
     {
@@ -592,7 +594,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.212,
+      "seconds": 0.27,
       "title": "no enforcement path consumes effective_level"
     },
     {
@@ -639,13 +641,13 @@
     "LOW": 0,
     "MEDIUM": 0
   },
-  "generated_at": "2026-09-29T23:42:59+0800",
+  "generated_at": "2026-09-30T00:15:29+0800",
   "non_vacuity_gaps": [],
   "repo_branch": "release/jcc-v1.3-final",
-  "repo_head": "8e417b803b8ce6b5f616f7e80963ae8995e3c029",
+  "repo_head": "05d4907da6067b81e50e6e1f5dccda8fe8c90cc5",
   "reproducibility": {
     "deterministic": true,
-    "normalized_sha256": "01d22e769c3324b7421007b675bab2d092d4f2dce1210b1ff8942e4737384137",
+    "normalized_sha256": "63e46dcd461ba78d59c710722acb06e7e2d46d26a19003e520d8d04f5d39dbc3",
     "volatile_keys_stripped": [
       "after",
       "before",

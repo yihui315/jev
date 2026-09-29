@@ -25,6 +25,7 @@ import { NeedsAttentionView } from "./app/NeedsAttentionView";
 import { ConnectionVerificationView } from "./app/ConnectionVerificationView";
 import { AuditView, DiagnosticsView, SettingsView } from "./app/SystemViews";
 import { useDomain } from "./app/useDomain";
+import { truncationNote } from "./app/truncation";
 import { CommandPalette, type CommandItemSpec } from "./ui/CommandPalette";
 import { TooltipProvider } from "./ui/Tooltip";
 import { Badge } from "./ui/Badge";
@@ -219,6 +220,8 @@ export function App() {
             missions={domain.missions}
             loading={domain.missionsLoading}
             error={domain.missionsError}
+            total={domain.counts ? domain.counts.missions : null}
+            scopeNote={truncationNote(domain.missionsTruncation, { singular: "mission", plural: "missions" })}
             onNewMission={() => goto("studio")}
             onRefresh={() => void domain.refresh()}
           />
@@ -240,6 +243,7 @@ export function App() {
           <DeliverablesView
             api={domain.api}
             controlToken={controlToken}
+            totalDeliverables={domain.counts ? domain.counts.deliverables : null}
             onRefresh={() => void domain.refresh()}
           />
         );
@@ -324,6 +328,7 @@ export function App() {
                 <OperationalWorldOverlay
                   world={world}
                   hovered={hoveredMission}
+                  scopeNote={truncationNote(domain.missionsTruncation, { singular: "mission", plural: "missions" })}
                   onGotoMissions={openMission}
                 />
               </>

@@ -263,6 +263,25 @@ A8_FROZEN_AT = (
     "    NON-ACTUATION IS UNCHANGED: launch_control holds no actuator, and the capability it honours\n"
     "    (USER_INITIATED_MISSION_LAUNCH) is a different name from anything the autonomous controller\n"
     "    uses -- engine directives cannot reach it. See docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md.\n"
+    "RE-BASELINED for the v1.3 WAVE 9.3 NO SILENT TRUNCATION (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old dbb661bbe0e3… -> new 61a55d1d4902…\n"
+    "    The product client asked the bounded list reads for 200 rows and rendered whatever came\n"
+    "    back as if it were the whole domain, so with 500 missions the Missions surface AND the\n"
+    "    operational 3D plane both showed 200 of them with no visible difference from a workspace\n"
+    "    that really has 200. Measured while building the real-browser performance gate, which is\n"
+    "    the first instrument that counted the plane's draw calls against the domain and therefore\n"
+    "    the first one that could see the shortfall.\n"
+    "    The fix keeps every list BOUNDED (an unbounded read is its own defect) and makes the bound\n"
+    "    VISIBLE: new open GET /api/v1/domain/counts returns uncapped totals, and the caller is\n"
+    "    what compares them with the rows it received. DomainStore.domain_counts() is the read;\n"
+    "    MAX_DOMAIN_LIST_LIMIT is now the single documented ceiling both list_missions and\n"
+    "    list_deliverables clamp to (they had two silent ones). OPEN_GET_ENDPOINTS 27->28, so the\n"
+    "    declared-open set in test_server_surface.py moved too -- a reviewed edit, not a widening.\n"
+    "    packages/jcc_core/domain.py is NOT an A8-pinned file, so its change is not recorded here;\n"
+    "    the pin moves only because server.py gained the route.\n"
+    "    NON-ACTUATION IS UNCHANGED: counts() issues four COUNT queries and returns four integers.\n"
+    "    See docs/v1_3/WAVE_9_3_NO_SILENT_TRUNCATION.md.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -281,8 +300,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27.
-        "dbb661bbe0e32f1bc2984677a71cef7c2f48df30bfc533d42ff1b5ee4fe21e18",  # old: 09f9955ca759edb2a6a86198dd7fcb3b0616ba04cad4f76832ad5bd6845b450f (v1.3 Wave 3/4/5/7 launch+attention+deliverables+verify routes)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27. # RE-BASELINED v1.3 (Wave 9.3): GET /api/v1/domain/counts (open, uncapped totals) so a BOUNDED list read can be compared against the real domain size; OPEN_GET_ENDPOINTS 27->28.
+        "61a55d1d49027e61d995b13a3ea0b95b924061c9624872c2c9336dea9853c7dd",  # old: dbb661bbe0e32f1bc2984677a71cef7c2f48df30bfc533d42ff1b5ee4fe21e18 (v1.3 Wave 9.2 launch control plane)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":

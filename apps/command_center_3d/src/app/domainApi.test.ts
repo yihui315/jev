@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { DomainApi, fmtBytes, fmtRelative, fmtTime } from "./domainApi";
+import { DOMAIN_LIST_LIMIT, DomainApi, fmtBytes, fmtRelative, fmtTime } from "./domainApi";
 
 /**
  * Formatters are shared by every domain view, so a regression here misreports
@@ -336,6 +336,79 @@ describe("connection verification client contract", () => {
       expect(body).not.toContain("CONTROL_VERIFIED");
     } finally {
       restore();
+    }
+  });
+});
+
+/**
+ * Wave 9.3 — the domain-totals read.
+ *
+ * This endpoint exists so a bounded list can be recognised as bounded. If the
+ * client ever stops asking for it, or asks for it with a token it does not need,
+ * the disclosure it enables quietly disappears — so the wire shape is pinned.
+ */
+describe("domain totals client contract", () => {
+  function spyApi(payload: unknown) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify(payload),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, api: new DomainApi("http://x"), restore: () => { globalThis.fetch = original; } };
+  }
+
+  it("reads the uncapped totals from the open, token-free route", async () => {
+    const { calls, api, restore } = spyApi({
+      schema: "jcc/v1.3-domain-counts/1",
+      projects: 3, archived_projects: 1, missions: 500, deliverables: 42,
+    });
+    try {
+      const r = await api.counts();
+      expect(calls.length).toBe(1);
+      expect(calls[0].url).toContain("/api/v1/domain/counts");
+      // No token: it is a declared-open read, and leaking the control token into
+      // it would be a widening of where the token travels.
+      expect(String(calls[0].url)).not.toContain("token");
+      expect(calls[0].init.headers).toEqual({});
+      expect(r.ok).toBe(true);
+      expect(r.data?.missions).toBe(500);
+    } finally {
+      restore();
+    }
+  });
+
+  it("asks the bounded list reads for the DOCUMENTED ceiling, not the server default", async () => {
+    // The original defect was a client whose own bound (200) was invisible and
+    // happened to equal the server's default, so nobody could see which one bit.
+    const { calls, api, restore } = spyApi([]);
+    try {
+      await api.missions({ limit: DOMAIN_LIST_LIMIT });
+      expect(calls[0].url).toContain(`limit=${DOMAIN_LIST_LIMIT}`);
+      expect(calls[0].url).not.toContain("limit=200");
+    } finally {
+      restore();
+    }
+  });
+
+  it("surfaces a FAILED counts read as an error, never as zeros", async () => {
+    const original = globalThis.fetch;
+    globalThis.fetch = (async () => ({
+      ok: false, status: 503,
+      text: async () => JSON.stringify({ detail: "upstream down" }),
+    })) as unknown as typeof fetch;
+    try {
+      const r = await new DomainApi("http://x").counts();
+      expect(r.ok).toBe(false);
+      // `null`, never `{}`/zeros: a caller that reads zeros here would conclude
+      // the domain is empty, which is precisely the collapse being prevented.
+      expect(r.data).toBeNull();
+      expect(r.error).toContain("upstream down");
+    } finally {
+      globalThis.fetch = original;
     }
   });
 });

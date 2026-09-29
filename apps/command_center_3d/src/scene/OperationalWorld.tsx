@@ -138,10 +138,18 @@ function ProjectRing({
 export function OperationalWorldOverlay({
   world,
   hovered,
+  scopeNote,
   onGotoMissions,
 }: {
   world: DomainWorld;
   hovered: WorldMission | null;
+  /**
+   * Wave 9.3 — the plane is a projection of a BOUNDED list read, so it can show
+   * fewer missions than the domain holds. A map that silently omits nodes is
+   * worse than no map: it looks complete. The note is `null` when the
+   * projection is the whole domain.
+   */
+  scopeNote: string | null;
   onGotoMissions: (missionId: string) => void;
 }) {
   if (world.empty) {
@@ -149,23 +157,30 @@ export function OperationalWorldOverlay({
   }
   return (
     <div className="pointer-events-none absolute inset-x-0 bottom-0 z-10 flex items-end justify-between gap-3 p-4">
-      <div className="pointer-events-auto rounded-md border border-border bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
-        {hovered ? (
-          <span>
-            <span className="font-medium text-foreground">{hovered.title}</span>
-            {" · "}
-            <span className="font-mono">{hovered.status}</span>
-            {" · "}
-            <button
-              className="ml-1 text-primary underline"
-              onClick={() => onGotoMissions(hovered.missionId)}
-            >
-              open
-            </button>
-          </span>
-        ) : (
-          "Hover a mission to inspect · click to open"
-        )}
+      <div className="flex max-w-[60%] flex-col gap-2">
+        <div className="pointer-events-auto rounded-md border border-border bg-card/85 px-3 py-2 text-xs text-muted-foreground backdrop-blur">
+          {hovered ? (
+            <span>
+              <span className="font-medium text-foreground">{hovered.title}</span>
+              {" · "}
+              <span className="font-mono">{hovered.status}</span>
+              {" · "}
+              <button
+                className="ml-1 text-primary underline"
+                onClick={() => onGotoMissions(hovered.missionId)}
+              >
+                open
+              </button>
+            </span>
+          ) : (
+            "Hover a mission to inspect · click to open"
+          )}
+        </div>
+        {scopeNote ? (
+          <div className="pointer-events-auto rounded-md border border-border bg-card/85 px-3 py-2 text-[11px] text-muted-foreground backdrop-blur">
+            {scopeNote}
+          </div>
+        ) : null}
       </div>
     </div>
   );

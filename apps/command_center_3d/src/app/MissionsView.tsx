@@ -11,7 +11,7 @@ import { ListChecks, Rocket } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/Card";
-import { EmptyState, InlineError, Skeleton } from "../ui/Feedback";
+import { EmptyState, InlineError, ScopeNote, Skeleton } from "../ui/Feedback";
 import { cn } from "../ui/cn";
 import { MISSION_STATUSES, missionTone, toneVariant } from "../app/status";
 import {
@@ -28,6 +28,8 @@ export function MissionsView({
   missions,
   loading,
   error,
+  total,
+  scopeNote,
   onNewMission,
   onRefresh,
 }: {
@@ -35,6 +37,10 @@ export function MissionsView({
   missions: Mission[];
   loading: boolean;
   error: string | null;
+  /** Wave 9.3: the UNCAPPED mission count, or null when it could not be read. */
+  total: number | null;
+  /** Wave 9.3: a disclosure to render when this list is a partial view. */
+  scopeNote: string | null;
   onNewMission: () => void;
   onRefresh: () => void;
 }) {
@@ -54,8 +60,13 @@ export function MissionsView({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Missions</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {loading ? "Loading…" : `${missions.length} mission${missions.length === 1 ? "" : "s"} · state is authoritative in the core`}
+              {loading
+                ? "Loading…"
+                : scopeNote
+                  ? `${missions.length.toLocaleString()} of ${(total ?? 0).toLocaleString()} missions`
+                  : `${missions.length} mission${missions.length === 1 ? "" : "s"} · state is authoritative in the core`}
             </p>
+            <ScopeNote note={scopeNote} className="mt-2" />
           </div>
           <div className="flex gap-2">
             <Button variant="outline" size="sm" onClick={onRefresh}>

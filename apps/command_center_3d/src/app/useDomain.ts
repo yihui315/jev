@@ -15,13 +15,16 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  DOMAIN_LIST_LIMIT,
   DomainApi,
   type AttentionItem,
   type Deliverable,
+  type DomainCounts,
   type HomeSummary,
   type Mission,
   type Project,
 } from "./domainApi";
+import { classifyTruncation, type TruncationState } from "./truncation";
 
 const POLL_MS = 5000;
 
@@ -54,6 +57,23 @@ export interface DomainState {
   /** True when the most recent refresh failed but earlier data is still shown. */
   stale: boolean;
 
+  /**
+   * Wave 9.3 — uncapped domain totals, or `null` when the counts read failed.
+   *
+   * `null` is the important case: it means "we could not find out how many there
+   * are", which must never be rendered as "this is all of them". The views use
+   * `missionsTruncation` / `deliverablesTruncation` rather than reading these
+   * numbers directly, so the classification rule lives in one place.
+   */
+  counts: DomainCounts | null;
+  countsError: string | null;
+  /** Is the missions list a partial view of the domain? */
+  missionsTruncation: TruncationState;
+  /** Is the deliverables list a partial view of the domain? */
+  deliverablesTruncation: TruncationState;
+  /** The ceiling the lists above were requested with. */
+  listCeiling: number;
+
   refresh: () => Promise<void>;
   reloadProjects: () => Promise<void>;
   createProject: (name: string, rootPath: string) => Promise<Project | null>;
@@ -84,6 +104,9 @@ export function useDomain(base: string, controlToken: string): DomainState {
   const [attentionError, setAttentionError] = useState<string | null>(null);
   const [attentionLoading, setAttentionLoading] = useState(true);
 
+  const [counts, setCounts] = useState<DomainCounts | null>(null);
+  const [countsError, setCountsError] = useState<string | null>(null);
+
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<number | null>(null);
   const [stale, setStale] = useState(false);
@@ -98,12 +121,13 @@ export function useDomain(base: string, controlToken: string): DomainState {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    const [h, p, m, a, dd] = await Promise.all([
+    const [h, p, m, a, dd, ct] = await Promise.all([
       api.home(),
       api.projects(),
-      api.missions({ limit: 200 }),
+      api.missions({ limit: DOMAIN_LIST_LIMIT }),
       api.needsAttention(),
-      api.deliverables({ limit: 200 }),
+      api.deliverables({ limit: DOMAIN_LIST_LIMIT }),
+      api.counts(),
     ]);
     if (!alive.current) return;
 
@@ -152,6 +176,17 @@ export function useDomain(base: string, controlToken: string): DomainState {
       anyFailure = true;
     }
 
+    if (ct.ok && ct.data) {
+      setCounts(ct.data);
+      setCountsError(null);
+    } else {
+      // NOT setCounts(null-as-zeros): `null` already means "we could not find
+      // out", and the truncation classifier turns that into "this list may be
+      // incomplete" rather than into a comfortable "that's all of them".
+      setCountsError(ct.error ?? "domain totals unavailable");
+      anyFailure = true;
+    }
+
     setHomeLoading(false);
     setProjectsLoading(false);
     setMissionsLoading(false);
@@ -196,6 +231,20 @@ export function useDomain(base: string, controlToken: string): DomainState {
     return () => clearInterval(t);
   }, [refresh]);
 
+  // The classification is computed once, here, so no view can invent its own
+  // rule for what "partial" means.
+  const missionsTruncation = useMemo(
+    () => classifyTruncation(missions.length, counts ? counts.missions : null,
+                             DOMAIN_LIST_LIMIT),
+    [missions.length, counts],
+  );
+  const deliverablesTruncation = useMemo(
+    () => classifyTruncation(deliverables.length,
+                             counts ? counts.deliverables : null,
+                             DOMAIN_LIST_LIMIT),
+    [deliverables.length, counts],
+  );
+
   return {
     api,
     home,
@@ -216,6 +265,11 @@ export function useDomain(base: string, controlToken: string): DomainState {
     refreshing,
     lastRefreshAt,
     stale,
+    counts,
+    countsError,
+    missionsTruncation,
+    deliverablesTruncation,
+    listCeiling: DOMAIN_LIST_LIMIT,
     refresh,
     reloadProjects,
     createProject,

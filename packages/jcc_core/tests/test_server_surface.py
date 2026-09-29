@@ -108,6 +108,12 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/onboarding/state",
         # v1.3 Wave 1 Project/Mission domain
         "/api/v1/domain/home",
+        # v1.3 Wave 9.3: uncapped totals. Open for the same reason the other
+        # projections are -- four scalars, no rows, and it is what lets the UI
+        # disclose that a bounded list was truncated. Adding it moves the
+        # declared set, which is why it is a reviewed edit here and in
+        # OPEN_GET_ENDPOINTS rather than a silent widening.
+        "/api/v1/domain/counts",
         "/api/v1/domain/projects",
         "/api/v1/domain/projects/{pid}",
         "/api/v1/domain/missions",

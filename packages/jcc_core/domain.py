@@ -43,6 +43,16 @@ from pydantic import BaseModel, Field
 # ---------------------------------------------------------------------------
 
 
+#: The hard ceiling every bounded LIST read obeys. A bounded list is not a
+#: defect -- an unbounded one is (one query can pull the whole table into a
+#: response). What IS a defect is a bounded list whose bound is invisible to the
+#: caller, because then "the first 200" and "all 200 there are" render the same.
+#: ``domain_counts()`` exists so the caller can always tell the two apart, and
+#: this constant is the number ``list_missions`` / ``list_deliverables`` clamp to
+#: so the bound is one documented value instead of two silent ones.
+MAX_DOMAIN_LIST_LIMIT = 2000
+
+
 class MissionStatus(str, Enum):
     """The ten states a Mission may occupy (v1.3 order, Wave 1).
 
@@ -455,6 +465,14 @@ class DomainStore:
         self._init_db()
 
     def _conn(self) -> sqlite3.Connection:
+        """A fresh connection, WAL enforced.
+
+        Why the WAL pragma stays here even though it is a persistent property of
+        the file: see ``state_store.StateStore._conn``. Short version -- moving it
+        was tried in Wave 9.3 and REVERTED, because it saves 3.8 ms per
+        connection out of a ~186 ms domain write (profiled 2026-09-29: the cost
+        is ``Connection.close()`` at 82 ms on this host, twice per write).
+        """
         conn = sqlite3.connect(self.db_path, check_same_thread=False)
         conn.execute("PRAGMA journal_mode=WAL")
         conn.execute("PRAGMA synchronous=NORMAL")
@@ -575,6 +593,9 @@ class DomainStore:
     def list_missions(self, *, project_id: Optional[str] = None,
                       status: Optional[str] = None,
                       limit: int = 200) -> List[Mission]:
+        """A BOUNDED list. Pair it with :meth:`domain_counts` before presenting
+        it as the whole domain -- a truncated list and a complete one are
+        otherwise indistinguishable to the caller."""
         q = "SELECT * FROM missions"
         clauses, params = [], []
         if project_id:
@@ -586,7 +607,7 @@ class DomainStore:
         if clauses:
             q += " WHERE " + " AND ".join(clauses)
         q += " ORDER BY updated_at DESC LIMIT ?"
-        params.append(limit)
+        params.append(max(1, min(int(limit), MAX_DOMAIN_LIST_LIMIT)))
         with self._lock:
             conn = self._conn()
             try:
@@ -1266,6 +1287,10 @@ class DomainStore:
         This replaces the client-side fan-out (which capped at 50 missions and
         silently dropped the rest). Each row carries the mission title so the UI
         does not have to re-fetch per mission.
+
+        Bounded by :data:`MAX_DOMAIN_LIST_LIMIT`, same as ``list_missions``: the
+        bound is one documented number, and ``domain_counts()`` is how a caller
+        learns whether it was reached.
         """
         status = ArtifactStatus(status) if status is not None else None
         clauses: List[str] = []
@@ -1277,7 +1302,7 @@ class DomainStore:
             clauses.append("a.mission_id=?")
             params.append(mission_id)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-        params.append(max(1, min(int(limit), 1000)))
+        params.append(max(1, min(int(limit), MAX_DOMAIN_LIST_LIMIT)))
         sql = (
             "SELECT a.artifact_id, a.mission_id, a.run_id, a.session_id, a.kind, "
             "a.name, a.uri, a.sha256, a.bytes, a.status, a.provenance, a.created_at, "
@@ -1368,6 +1393,45 @@ class DomainStore:
                  "kind": r[3], "reason": r[4], "updated_at": r[5]}
                 for r in attention_rows
             ],
+        }
+
+    def domain_counts(self) -> Dict[str, int]:
+        """UNCAPPED totals for the bounded list reads.
+
+        WHY THIS EXISTS (measured, 2026-09-29, Wave 9.3). ``list_missions`` and
+        ``list_deliverables`` are bounded; the product client asked for 200 of
+        each and rendered whatever came back as if it were the whole domain.
+        With 500 missions in the store the Missions surface and the operational
+        3D plane both silently showed 200 of them -- no error, no hint, no
+        difference on screen from a workspace that genuinely has 200. That is
+        the same defect class the deliverables view already fixed once (its
+        docstring records "capped at 50 missions and silently dropped the rest"),
+        and it is exactly the "a silent zero is how an alert gets missed"
+        principle this product states for the attention inbox, applied to lists.
+
+        The fix is NOT to make the lists unbounded -- an unbounded read is its
+        own defect. It is to make the bound VISIBLE: this method answers "how
+        many are there really", so a caller can compare that with the number of
+        rows it received and say so out loud when they differ.
+
+        Read-only, four scalar COUNTs, no per-row work.
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                projects = conn.execute(
+                    "SELECT COUNT(*) FROM projects WHERE archived=0").fetchone()[0]
+                archived = conn.execute(
+                    "SELECT COUNT(*) FROM projects WHERE archived=1").fetchone()[0]
+                missions = conn.execute("SELECT COUNT(*) FROM missions").fetchone()[0]
+                deliverables = conn.execute("SELECT COUNT(*) FROM artifacts").fetchone()[0]
+            finally:
+                conn.close()
+        return {
+            "projects": int(projects),
+            "archived_projects": int(archived),
+            "missions": int(missions),
+            "deliverables": int(deliverables),
         }
 
     def needs_attention(self) -> List[Dict[str, Any]]:

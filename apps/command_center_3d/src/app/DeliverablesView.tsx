@@ -22,9 +22,11 @@ import { useCallback, useEffect, useState } from "react";
 import { Boxes, CheckCircle2, FileCode2, FileText, Image as ImageIcon, Package, XCircle } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
-import { EmptyState, InlineError, Skeleton } from "../ui/Feedback";
+import { EmptyState, InlineError, ScopeNote, Skeleton } from "../ui/Feedback";
 import { artifactTone, toneVariant } from "../app/status";
+import { truncationNoteFor } from "../app/truncation";
 import {
+  DOMAIN_LIST_LIMIT,
   fmtBytes,
   fmtRelative,
   type Deliverable,
@@ -49,10 +51,18 @@ const FINAL = new Set(["VERIFIED", "REJECTED", "SUPERSEDED"]);
 export function DeliverablesView({
   api,
   controlToken,
+  totalDeliverables,
   onRefresh,
 }: {
   api: DomainApi;
   controlToken: string;
+  /**
+   * Wave 9.3 — the UNCAPPED deliverable count from the domain totals read, or
+   * `null` when that read failed. This view fetches its own bounded list; the
+   * total is what tells it whether the list is the whole answer or only the
+   * newest slice of it.
+   */
+  totalDeliverables: number | null;
   onRefresh: () => void;
 }) {
   const [rows, setRows] = useState<Deliverable[] | null>(null);
@@ -65,7 +75,9 @@ export function DeliverablesView({
   const load = useCallback(async () => {
     setLoading(true);
     const r = await api.deliverables(
-      filter === "all" ? { limit: 200 } : { status: filter, limit: 200 });
+      filter === "all"
+        ? { limit: DOMAIN_LIST_LIMIT }
+        : { status: filter, limit: DOMAIN_LIST_LIMIT });
     if (r.ok && r.data) {
       setRows(r.data);
       setError(null);
@@ -97,6 +109,12 @@ export function DeliverablesView({
 
   const known = rows !== null;
   const total = rows?.length ?? 0;
+  // Only meaningful on the unfiltered view: with a status filter active,
+  // `rows.length` counts that status, not the domain.
+  const scopeNote = filter === "all"
+    ? truncationNoteFor(total, totalDeliverables, DOMAIN_LIST_LIMIT,
+                        { singular: "deliverable", plural: "deliverables" })
+    : null;
 
   return (
     <div className="h-full overflow-y-auto">
@@ -108,9 +126,12 @@ export function DeliverablesView({
               {loading && !known
                 ? "Loading…"
                 : known
-                  ? `${total} deliverable${total === 1 ? "" : "s"}${filter === "all" ? "" : ` · ${filter.toLowerCase()}`}`
+                  ? scopeNote
+                    ? `${total} of ${(totalDeliverables ?? 0)} deliverables${filter === "all" ? "" : ` · ${filter.toLowerCase()}`}`
+                    : `${total} deliverable${total === 1 ? "" : "s"}${filter === "all" ? "" : ` · ${filter.toLowerCase()}`}`
                   : "Count unavailable"}
             </p>
+            <ScopeNote note={scopeNote} className="mt-2" />
           </div>
           <div className="flex items-center gap-2">
             <div className="inline-flex overflow-hidden rounded-md border border-border">

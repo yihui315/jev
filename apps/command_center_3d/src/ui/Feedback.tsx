@@ -70,3 +70,37 @@ export function InlineError({
     </div>
   );
 }
+
+/**
+ * ScopeNote — "this list is a partial view", said out loud.
+ *
+ * Wave 9.3. The bounded list reads make a partial view inevitable at scale; what
+ * is NOT inevitable is the user not being told. Rendered only when there is
+ * something to disclose (the caller passes the note from
+ * `app/truncation.ts`, which returns `null` for the complete case), so the line
+ * stays meaningful instead of becoming furniture.
+ *
+ * Deliberately a quiet, non-alarming style: a bounded view is normal operation,
+ * not an error — and dressing it as an error would train the user to dismiss
+ * the real ones.
+ */
+export function ScopeNote({
+  note,
+  className,
+}: {
+  note: string | null;
+  className?: string;
+}) {
+  if (!note) return null;
+  return (
+    <p
+      role="status"
+      className={cn(
+        "rounded-md border border-border bg-muted/40 px-3 py-1.5 text-[11px] text-muted-foreground",
+        className,
+      )}
+    >
+      {note}
+    </p>
+  );
+}
