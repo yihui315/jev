@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSyncExternalStore } from "react";
 import { sceneStore } from "./store/SceneStore";
 import { CommandCenter3D } from "./scene/CommandCenter3D";
+import { OperationalWorld, OperationalWorldOverlay } from "./scene/OperationalWorld";
+import { buildDomainWorld, type WorldMission } from "./store/domainWorld";
 import { TableView } from "./views/TableView";
 import { GraphView } from "./views/GraphView";
 import { ConnectionsView } from "./views/ConnectionsView";
@@ -68,6 +70,14 @@ export function App() {
 
   const domain = useDomain(API_BASE, controlToken);
 
+  // Wave 6 — the operational world is a PURE projection of the domain reads the
+  // shell already holds. It writes nothing; the plane is not a source of truth.
+  const world = useMemo(
+    () => buildDomainWorld(domain.projects, domain.missions, domain.deliverables),
+    [domain.projects, domain.missions, domain.deliverables],
+  );
+  const [hoveredMission, setHoveredMission] = useState<WorldMission | null>(null);
+
   const goto = useCallback((v: ViewMode) => {
     setView(v);
     // The view lives in the store-free URL hash so a reload lands where the
@@ -78,6 +88,12 @@ export function App() {
       /* non-browser environment */
     }
   }, []);
+
+  const openMission = useCallback((missionId: string) => {
+    // The 3D plane never mutates: selecting a body just navigates to the mission.
+    void missionId;
+    goto("missions");
+  }, [goto]);
 
   // --- theme ---
   useEffect(() => {
@@ -95,8 +111,8 @@ export function App() {
     sceneStore.connectStream(API_BASE);
     if (!sceneStore.getSnapshot().webgl2Supported) {
       // Wave 8 fallback: without WebGL2 the world has no context. Fall back to
-      // the table view only when the operator is actually on the world view.
-      setView((cur) => (cur === "world" ? "table" : cur));
+      // the table view only when the operator is actually on a 3D view.
+      setView((cur) => (cur === "world" || cur === "engine-world" ? "table" : cur));
     }
     return () => sceneStore.disconnect();
   }, []);
@@ -269,6 +285,39 @@ export function App() {
         return <GraphView scene={scene} />;
       case "world":
       default:
+        // Wave 6 — the operational world (projects → missions → deliverables).
+        // With an empty domain it renders empty space plus an honest overlay;
+        // the v1.2 engine-telemetry scene stays reachable via the graph/table
+        // views and the legacy toggle below.
+        return (
+          <div className="relative h-full w-full">
+            {world.empty ? (
+              <div className="flex h-full w-full items-center justify-center bg-[#0b0f14]">
+                <div className="max-w-sm rounded-lg border border-border bg-card/80 p-5 text-center">
+                  <h3 className="text-sm font-semibold text-foreground">An empty world</h3>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    No projects yet. The 3D plane shows only what the domain says —
+                    create a project and its missions will appear here.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <OperationalWorld
+                  world={world}
+                  onSelectMission={openMission}
+                  onHoverMission={setHoveredMission}
+                />
+                <OperationalWorldOverlay
+                  world={world}
+                  hovered={hoveredMission}
+                  onGotoMissions={openMission}
+                />
+              </>
+            )}
+          </div>
+        );
+      case "engine-world":
         return <CommandCenter3D scene={scene} />;
     }
   })();

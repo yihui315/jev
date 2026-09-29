@@ -9,7 +9,9 @@ import {
   capabilityTone,
   connectionTone,
   isControlVerified,
+  missionStatusColor,
   missionTone,
+  toneColor,
   toneVariant,
 } from "./status";
 
@@ -105,5 +107,22 @@ describe("status vocabulary", () => {
 
   it("exposes the full attention taxonomy", () => {
     expect(attendanceKindsForTest().length).toBe(7);
+  });
+
+  // --- Wave 6: 3D colours follow the same honesty rule as the DOM ---
+  it("gives every tone a distinct colour and never paints unknown green", () => {
+    const tones = ["ok", "live", "warn", "danger", "info", "unknown"] as const;
+    const colours = tones.map(toneColor);
+    expect(new Set(colours).size).toBe(tones.length); // no two tones share a colour
+    expect(toneColor("unknown")).not.toBe(toneColor("ok"));
+  });
+
+  it("colours a mission by its status tone (only COMPLETED is the ok colour)", () => {
+    expect(missionStatusColor("COMPLETED")).toBe(toneColor("ok"));
+    expect(missionStatusColor("FAILED")).toBe(toneColor("danger"));
+    expect(missionStatusColor("NEEDS_ATTENTION")).toBe(toneColor("warn"));
+    // An unknown status must map to the unknown colour, never the ok colour.
+    expect(missionStatusColor("SOMETHING_NEW")).toBe(toneColor("unknown"));
+    expect(missionStatusColor("SOMETHING_NEW")).not.toBe(toneColor("ok"));
   });
 });

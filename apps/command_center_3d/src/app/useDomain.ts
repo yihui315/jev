@@ -17,6 +17,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   DomainApi,
   type AttentionItem,
+  type Deliverable,
   type HomeSummary,
   type Mission,
   type Project,
@@ -38,6 +39,10 @@ export interface DomainState {
   missions: Mission[];
   missionsError: string | null;
   missionsLoading: boolean;
+
+  /** Wave 6: deliverables feed the operational map (which missions produced). */
+  deliverables: Deliverable[];
+  deliverablesError: string | null;
 
   /** `null` = unknown (never loaded / last load failed). `[]` = genuinely none. */
   attention: AttentionItem[] | null;
@@ -72,6 +77,9 @@ export function useDomain(base: string, controlToken: string): DomainState {
   const [missionsError, setMissionsError] = useState<string | null>(null);
   const [missionsLoading, setMissionsLoading] = useState(true);
 
+  const [deliverables, setDeliverables] = useState<Deliverable[]>([]);
+  const [deliverablesError, setDeliverablesError] = useState<string | null>(null);
+
   const [attention, setAttention] = useState<AttentionItem[] | null>(null);
   const [attentionError, setAttentionError] = useState<string | null>(null);
   const [attentionLoading, setAttentionLoading] = useState(true);
@@ -90,11 +98,12 @@ export function useDomain(base: string, controlToken: string): DomainState {
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
-    const [h, p, m, a] = await Promise.all([
+    const [h, p, m, a, dd] = await Promise.all([
       api.home(),
       api.projects(),
       api.missions({ limit: 200 }),
       api.needsAttention(),
+      api.deliverables({ limit: 200 }),
     ]);
     if (!alive.current) return;
 
@@ -132,6 +141,14 @@ export function useDomain(base: string, controlToken: string): DomainState {
       // NOTE: we do NOT setAttention([]) here — a failed poll must not look
       // like an empty inbox.
       setAttentionError(a.error ?? "attention list unavailable");
+      anyFailure = true;
+    }
+
+    if (dd.ok && dd.data) {
+      setDeliverables(dd.data);
+      setDeliverablesError(null);
+    } else {
+      setDeliverablesError(dd.error ?? "deliverables unavailable");
       anyFailure = true;
     }
 
@@ -191,6 +208,8 @@ export function useDomain(base: string, controlToken: string): DomainState {
     missions,
     missionsError,
     missionsLoading,
+    deliverables,
+    deliverablesError,
     attention,
     attentionError,
     attentionLoading,

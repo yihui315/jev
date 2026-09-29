@@ -26,6 +26,7 @@ const REQUIRED_V13_VIEWS = [
   "connections",
   "deliverables",
   "world",
+  "engine-world",
   "audit",
   "diagnostics",
   "settings",
@@ -79,9 +80,13 @@ describe("navigation registry", () => {
   });
 
   it("shows the inspector rail only for session-oriented views", () => {
-    expect(showsInspectorRail("world")).toBe(true);
+    // Wave 6: `world` is now the OPERATIONAL map (projects/missions/deliverables),
+    // which is not session-oriented and owns its full width. The v1.2 engine
+    // telemetry scene moved to `engine-world`, which keeps the session rail.
+    expect(showsInspectorRail("engine-world")).toBe(true);
     expect(showsInspectorRail("graph")).toBe(true);
     expect(showsInspectorRail("table")).toBe(true);
+    expect(showsInspectorRail("world")).toBe(false);
     // Product views own their full width.
     expect(showsInspectorRail("home")).toBe(false);
     expect(showsInspectorRail("studio")).toBe(false);

@@ -206,3 +206,35 @@ export function toneVariant(tone: StatusTone): NonNullable<BadgeProps["variant"]
       return "unknown";
   }
 }
+
+/**
+ * Tone → a concrete colour for the 3D plane (Wave 6).
+ *
+ * The 3D world colours a mission body by its STATUS TONE, not by a hand-picked
+ * colour per status, so the same honesty rule applies in 3D as in the DOM:
+ * `unknown` is a dim grey and can never be mistaken for `ok` (green). Exposing
+ * the hex here keeps the 3D palette auditable in the same module as the rest of
+ * the vocabulary — a scene that picked its own colours could silently show a
+ * "healthy" green for a state nobody observed.
+ */
+export function toneColor(tone: StatusTone): string {
+  switch (tone) {
+    case "ok":
+      return "#4ade80";     // green — accepted / terminal success
+    case "live":
+      return "#38bdf8";     // bright blue — active
+    case "info":
+      return "#60a5fa";     // blue — in flight
+    case "warn":
+      return "#facc15";     // amber — a human is required
+    case "danger":
+      return "#f87171";     // red — failed / lost
+    default:
+      return "#64748b";     // slate — unknown; NEVER green
+  }
+}
+
+/** Colour a mission body by its lifecycle state (Wave 6). */
+export function missionStatusColor(status: string): string {
+  return toneColor(missionTone(status));
+}

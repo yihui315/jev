@@ -18,6 +18,7 @@ import {
   Home,
   LayoutPanelLeft,
   ListChecks,
+  Orbit,
   Plug,
   Rocket,
   ScrollText,
@@ -41,6 +42,7 @@ export type ViewMode =
   | "deliverables"
   | "studio"
   | "world"
+  | "engine-world"
   | "graph"
   | "table"
   | "connections"
@@ -114,9 +116,17 @@ export const NAV_ITEMS: readonly NavItem[] = [
   {
     id: "world",
     label: "World",
-    description: "3D operational view of projects, agents and sessions",
+    description: "3D operational map of your projects, missions and deliverables",
     group: "Control",
     icon: Globe2,
+    inSidebar: true,
+  },
+  {
+    id: "engine-world",
+    label: "Engine World",
+    description: "3D engine supervision: agents, sessions and live telemetry",
+    group: "Control",
+    icon: Orbit,
     inSidebar: true,
   },
   {
@@ -210,9 +220,11 @@ export function isLegacyView(v: ViewMode): boolean {
 /**
  * Whether the right-hand inspector rail applies to a view.
  *
- * The rail shows session/risk/directive detail, which is only meaningful for
- * the session-oriented surfaces. Product views own their full width.
+ * The rail shows session/risk/directive detail, which is only meaningful for the
+ * session-oriented surfaces. The v1.3 operational `world` (projects → missions →
+ * deliverables) is NOT session-oriented, so it owns its full width; the v1.2
+ * engine-telemetry `engine-world` keeps the rail.
  */
 export function showsInspectorRail(v: ViewMode): boolean {
-  return v === "world" || v === "graph" || v === "table";
+  return v === "engine-world" || v === "graph" || v === "table";
 }
