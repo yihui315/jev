@@ -1,13 +1,25 @@
 /**
- * DeliverablesView — artifacts produced by missions, with provenance.
+ * DeliverablesView — artifacts produced by missions, with an honest lifecycle.
  *
- * Artifacts hang off missions, so the view loads missions first and then fans
- * out to each mission's artifact list. The fan-out is bounded (the first N
- * missions) and every failure is reported per-mission rather than silently
- * dropping that mission's deliverables.
+ * Wave 2 listed artifacts client-side by fanning out over missions (capped at 50,
+ * silently dropping the rest) and had no way to *accept* anything: every artifact
+ * stayed PRODUCED forever, so "deliverable" and "raw output" were the same thing.
+ *
+ * Wave 5 fixes both. The view reads the SERVER-SIDE deliverable view (joined to
+ * mission, filterable by status) so nothing is silently capped, and it exposes the
+ * human act the product is really about:
+ *
+ *   PRODUCED  — the agent emitted it (a fact about the machine). Neutral.
+ *   VERIFIED  — a human looked and accepted it (a fact about judgement). Green.
+ *   REJECTED  — a human looked and refused it. Red.
+ *   SUPERSEDED— replaced by a later artifact. Grey.
+ *
+ * Four states stay four states: an unverified artifact is never rendered as
+ * accepted. Accept/Reject are disabled with a stated reason when there is no
+ * control token, rather than shown as a dead green button.
  */
 import { useCallback, useEffect, useState } from "react";
-import { Boxes, FileCode2, FileText, Image as ImageIcon, Package } from "lucide-react";
+import { Boxes, CheckCircle2, FileCode2, FileText, Image as ImageIcon, Package, XCircle } from "lucide-react";
 import { Button } from "../ui/Button";
 import { Badge } from "../ui/Badge";
 import { EmptyState, InlineError, Skeleton } from "../ui/Feedback";
@@ -15,12 +27,9 @@ import { artifactTone, toneVariant } from "../app/status";
 import {
   fmtBytes,
   fmtRelative,
-  type Artifact,
+  type Deliverable,
   type DomainApi,
-  type Mission,
 } from "../app/domainApi";
-
-const MAX_MISSIONS_SCANNED = 50;
 
 const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   code: FileCode2,
@@ -33,58 +42,60 @@ const KIND_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
   dataset: Package,
 };
 
-interface ArtifactRow {
-  artifact: Artifact;
-  missionTitle: string;
-}
+type StatusFilter = "all" | "PRODUCED" | "VERIFIED";
+
+const FINAL = new Set(["VERIFIED", "REJECTED", "SUPERSEDED"]);
 
 export function DeliverablesView({
   api,
-  missions,
-  missionsLoading,
-  missionsError,
+  controlToken,
   onRefresh,
 }: {
   api: DomainApi;
-  missions: Mission[];
-  missionsLoading: boolean;
-  missionsError: string | null;
+  controlToken: string;
   onRefresh: () => void;
 }) {
-  const [rows, setRows] = useState<ArtifactRow[] | null>(null);
-  const [errors, setErrors] = useState<string[]>([]);
+  const [rows, setRows] = useState<Deliverable[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [filter, setFilter] = useState<StatusFilter>("all");
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const load = useCallback(async () => {
-    if (missions.length === 0) {
-      setRows([]);
-      return;
-    }
     setLoading(true);
-    setErrors([]);
-    const scanned = missions.slice(0, MAX_MISSIONS_SCANNED);
-    const results = await Promise.all(
-      scanned.map(async (m) => ({ m, r: await api.missionArtifacts(m.mission_id) })),
-    );
-    const out: ArtifactRow[] = [];
-    const errs: string[] = [];
-    for (const { m, r } of results) {
-      if (!r.ok) {
-        errs.push(`${m.title}: ${r.error ?? "artifacts unavailable"}`);
-        continue;
-      }
-      for (const a of r.data ?? []) out.push({ artifact: a, missionTitle: m.title });
+    const r = await api.deliverables(
+      filter === "all" ? { limit: 200 } : { status: filter, limit: 200 });
+    if (r.ok && r.data) {
+      setRows(r.data);
+      setError(null);
+    } else {
+      setRows(null);
+      setError(r.error || "deliverables unavailable");
     }
-    out.sort((x, y) => y.artifact.created_at - x.artifact.created_at);
-    setRows(out);
-    setErrors(errs);
     setLoading(false);
-  }, [api, missions]);
+  }, [api, filter]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
+  async function decide(a: Deliverable, status: "VERIFIED" | "REJECTED") {
+    setBusyId(a.artifact_id);
+    setNotice(null);
+    const r = await api.verifyDeliverable(controlToken, a.artifact_id,
+      { status, decided_by: "operator" });
+    setBusyId(null);
+    if (r.ok && r.data) {
+      setNotice(`${status === "VERIFIED" ? "Accepted" : "Rejected"} “${a.name}”.`);
+      onRefresh();
+      void load();
+    } else {
+      setError(r.error || "the verdict could not be recorded");
+    }
+  }
+
+  const known = rows !== null;
   const total = rows?.length ?? 0;
 
   return (
@@ -94,49 +105,69 @@ export function DeliverablesView({
           <div>
             <h2 className="text-lg font-semibold text-foreground">Deliverables</h2>
             <p className="mt-0.5 text-xs text-muted-foreground">
-              {loading
-                ? "Scanning missions…"
-                : `${total} artifact${total === 1 ? "" : "s"} across the ${Math.min(missions.length, MAX_MISSIONS_SCANNED)} most recent missions`}
+              {loading && !known
+                ? "Loading…"
+                : known
+                  ? `${total} deliverable${total === 1 ? "" : "s"}${filter === "all" ? "" : ` · ${filter.toLowerCase()}`}`
+                  : "Count unavailable"}
             </p>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              onRefresh();
-              void load();
-            }}
-          >
-            Refresh
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="inline-flex overflow-hidden rounded-md border border-border">
+              {(["all", "PRODUCED", "VERIFIED"] as StatusFilter[]).map((f) => (
+                <button
+                  key={f}
+                  onClick={() => setFilter(f)}
+                  className={`px-3 py-1 text-xs ${filter === f
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-card text-muted-foreground hover:text-foreground"}`}
+                >
+                  {f === "all" ? "All" : f === "PRODUCED" ? "Awaiting review" : "Accepted"}
+                </button>
+              ))}
+            </div>
+            <Button variant="outline" size="sm" onClick={() => { onRefresh(); void load(); }}>
+              Refresh
+            </Button>
+          </div>
         </div>
 
-        {missionsError && <InlineError message={`Missions unavailable — ${missionsError}`} />}
-        {errors.length > 0 && (
-          <InlineError
-            message={`${errors.length} mission(s) could not be read: ${errors.slice(0, 3).join("; ")}${errors.length > 3 ? " …" : ""}`}
-          />
+        {error && <InlineError message={error} />}
+        {notice && (
+          <div className="rounded-md border border-border bg-card/60 px-3 py-2 text-xs text-muted-foreground">
+            {notice}
+          </div>
         )}
 
-        {missionsLoading || loading ? (
+        {loading && !known ? (
           <div className="space-y-2">
             <Skeleton className="h-16 w-full" />
             <Skeleton className="h-16 w-full" />
           </div>
-        ) : total === 0 && errors.length === 0 ? (
+        ) : !known ? (
           <EmptyState
             icon={Boxes}
-            title="No deliverables yet"
+            title="Deliverables unavailable"
+            detail="The domain API did not answer, so the deliverable list is UNKNOWN. It is not being shown as empty."
+            action={<Button variant="outline" size="sm" onClick={() => void load()}>Retry</Button>}
+          />
+        ) : total === 0 ? (
+          <EmptyState
+            icon={Boxes}
+            title={filter === "VERIFIED" ? "Nothing accepted yet" : "No deliverables yet"}
             detail="Artifacts appear here once a mission produces something and the artifact is registered with its provenance."
           />
         ) : (
           <div className="space-y-2">
-            {rows?.map(({ artifact: a, missionTitle }) => {
+            {rows?.map((a) => {
               const Icon = KIND_ICON[a.kind] ?? Package;
+              const isFinal = FINAL.has(a.status);
+              const noToken = !controlToken;
               return (
                 <div
                   key={a.artifact_id}
                   className="flex items-start gap-3 rounded-lg border border-border bg-card px-4 py-3"
+                  data-testid={`deliverable-${a.artifact_id}`}
                 >
                   <Icon className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
                   <div className="min-w-0 flex-1">
@@ -144,9 +175,14 @@ export function DeliverablesView({
                       <span className="truncate text-sm font-medium text-foreground">{a.name}</span>
                       <Badge variant="outline">{a.kind}</Badge>
                       <Badge variant={toneVariant(artifactTone(a.status))}>{a.status}</Badge>
+                      {a.status === "PRODUCED" && (
+                        <span className="text-[10px] text-muted-foreground">
+                          awaiting a human verdict
+                        </span>
+                      )}
                     </div>
                     <div className="mt-0.5 truncate text-[11px] text-muted-foreground">
-                      from <span className="text-foreground/80">{missionTitle}</span>
+                      from <span className="text-foreground/80">{a.mission_title || "unknown mission"}</span>
                       {a.sha256 ? (
                         <>
                           {" · "}
@@ -158,6 +194,8 @@ export function DeliverablesView({
                         " · no hash recorded"
                       )}
                       {a.bytes > 0 ? ` · ${fmtBytes(a.bytes)}` : ""}
+                      {typeof a.provenance?.verified_by === "string"
+                        ? ` · accepted by ${a.provenance.verified_by}` : ""}
                     </div>
                     {a.uri && (
                       <div className="mt-0.5 truncate font-mono text-[10px] text-muted-foreground">
@@ -165,14 +203,49 @@ export function DeliverablesView({
                       </div>
                     )}
                   </div>
-                  <span className="shrink-0 text-[10px] text-muted-foreground">
-                    {fmtRelative(a.created_at)}
-                  </span>
+                  <div className="flex shrink-0 flex-col items-end gap-2">
+                    <span className="text-[10px] text-muted-foreground">
+                      {fmtRelative(a.created_at)}
+                    </span>
+                    {!isFinal && (
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          disabled={noToken || busyId === a.artifact_id}
+                          title={noToken ? "A control token is required to record a verdict" : "Accept this deliverable"}
+                          onClick={() => void decide(a, "VERIFIED")}
+                        >
+                          <CheckCircle2 className="mr-1 h-3 w-3" /> Accept
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          disabled={noToken || busyId === a.artifact_id}
+                          title={noToken ? "A control token is required to record a verdict" : "Reject this deliverable"}
+                          onClick={() => void decide(a, "REJECTED")}
+                        >
+                          <XCircle className="mr-1 h-3 w-3" /> Reject
+                        </Button>
+                      </div>
+                    )}
+                    {!isFinal && noToken && (
+                      <span className="text-[10px] text-muted-foreground">
+                        add a control token to accept
+                      </span>
+                    )}
+                  </div>
                 </div>
               );
             })}
           </div>
         )}
+
+        <div className="flex items-center gap-2 rounded-md border border-border bg-card/50 px-3 py-2 text-[11px] text-muted-foreground">
+          <Boxes className="h-3.5 w-3.5" />
+          PRODUCED means the agent emitted it; VERIFIED means a human accepted it.
+          A verdict is recorded with who decided and is final.
+        </div>
       </div>
     </div>
   );

@@ -60,6 +60,13 @@
       "start": "v1.3-wave4-needs-attention",
       "end": "v1.3-wave4-needs-attention",
       "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 4ac96c0e.. -> new 32d2540d.., because Wave 4 adds GET /api/v1/domain/needs-attention/resolutions (open) and POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) plus the server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave4-needs-attention). Also in this window: A11 inbound surface gains the resolve POST, test_server_surface's declared-open list gains the resolutions GET, and domain.py gains the approval->mission coupling in decide_approval + two columns in needs_attention() (domain.py is NOT an A8-pinned file)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-5-DELIVERABLES",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 5 — Deliverables (server-side view, identity, human verdict)",
+      "start": "v1.3-wave5-deliverables",
+      "end": "v1.3-wave5-deliverables",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 32d2540d.. -> new 7845d2ad.., because Wave 5 adds GET /api/v1/domain/deliverables (open, filterable), GET /api/v1/domain/artifacts/{aid} (open) and POST /api/v1/domain/artifacts/{aid}/verify (token-gated, records a human verdict), and the Home response gains the honest `deliverables` object ({produced,verified,rejected,total}); OPEN_GET_ENDPOINTS 24->26. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave5-deliverables). Also in this window: A11 inbound surface gains the verify POST, test_server_surface's declared-open list gains the two Wave 5 GETs, and domain.py gains get_artifact/verify_artifact/list_deliverables/deliverable_counts + the home_summary `deliverables` split (domain.py is NOT an A8-pinned file)."
     }
   ],
 

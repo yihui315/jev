@@ -109,3 +109,69 @@ describe("attention control client contract", () => {
     }
   });
 });
+
+/**
+ * Wave 5 — a deliverable has an identity and a human verdict. The client can
+ * prove: the by-id read hits the right path, the verify POST puts the token in a
+ * header (never a URL) and names the human, and the deliverable view reads from
+ * the server-side endpoint (no client fan-out).
+ */
+describe("deliverable client contract", () => {
+  function spyApi() {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      const payload = { artifact_id: "art_1", mission_id: "m1", kind: "file",
+                        name: "out.txt", uri: "", sha256: null, bytes: 0,
+                        status: "VERIFIED", provenance: { verified_by: "alice" },
+                        created_at: 0, mission_title: "M" };
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify(payload),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, api: new DomainApi("http://x"), restore: () => { globalThis.fetch = original; } };
+  }
+
+  it("reads one deliverable by identity", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.deliverable("art_1");
+      expect(calls[0].url).toContain("/api/v1/domain/artifacts/art_1");
+      const headers = (calls[0].init.headers ?? {}) as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBeUndefined();
+    } finally {
+      restore();
+    }
+  });
+
+  it("records a verdict with the token in a header and the human named", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.verifyDeliverable("sekret", "art_1", { status: "VERIFIED", decided_by: "alice" });
+      const { url, init } = calls[0];
+      expect(url).toContain("/api/v1/domain/artifacts/art_1/verify");
+      expect(url).not.toContain("sekret");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBe("sekret");
+      expect(String(init.body)).toContain('"decided_by":"alice"');
+      expect(String(init.body)).toContain('"status":"VERIFIED"');
+    } finally {
+      restore();
+    }
+  });
+
+  it("reads the server-side deliverable view with a status filter", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.deliverables({ status: "VERIFIED" });
+      expect(calls[0].url).toContain("/api/v1/domain/deliverables");
+      expect(calls[0].url).toContain("status=VERIFIED");
+      const headers = (calls[0].init.headers ?? {}) as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBeUndefined();
+    } finally {
+      restore();
+    }
+  });
+});

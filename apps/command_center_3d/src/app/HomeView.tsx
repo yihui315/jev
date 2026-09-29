@@ -124,11 +124,18 @@ export function HomeView({
           />
           <StatCard
             icon={Boxes}
-            label="Deliverables"
-            value={s?.recent_deliverables}
+            label="Accepted deliverables"
+            value={s?.deliverables?.verified}
             loading={data.loading}
             onClick={onGotoDeliverables}
             testId="stat-deliverables"
+            hint={
+              s && s.deliverables
+                ? s.deliverables.produced > 0
+                  ? `${s.deliverables.produced} awaiting review`
+                  : "all reviewed"
+                : undefined
+            }
           />
           <StatCard
             icon={CheckCircle2}
@@ -277,6 +284,7 @@ function StatCard({
   tone,
   onClick,
   testId,
+  hint,
 }: {
   icon: LucideIcon;
   label: string;
@@ -285,6 +293,7 @@ function StatCard({
   tone?: NonNullable<React.ComponentProps<typeof Badge>["variant"]>;
   onClick: () => void;
   testId: string;
+  hint?: string;
 }) {
   const known = value !== undefined && value !== null;
   return (
@@ -321,6 +330,9 @@ function StatCard({
           </span>
         )}
       </div>
+      {hint && known ? (
+        <div className="mt-0.5 text-[10px] text-muted-foreground">{hint}</div>
+      ) : null}
     </button>
   );
 }

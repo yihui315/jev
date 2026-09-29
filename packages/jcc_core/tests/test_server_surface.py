@@ -126,6 +126,10 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         # v1.3 Wave 4: the resolution read is open (it answers "what CAN I do here"
         # for each inbox item); the resolve WRITE stays token-gated.
         "/api/v1/domain/needs-attention/resolutions",
+        # v1.3 Wave 5: the deliverable view and one-deliverable-by-id read are open
+        # (read-only projections); the verify WRITE stays token-gated.
+        "/api/v1/domain/deliverables",
+        "/api/v1/domain/artifacts/{aid}",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)

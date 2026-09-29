@@ -1137,6 +1137,141 @@ class DomainStore:
                         provenance=json.loads(r[10]) if r[10] else {},
                         created_at=r[11] or 0.0)
 
+    # -- deliverables (Wave 5) ---------------------------------------------
+    #
+    # A "deliverable" is an artifact a human can accept. PRODUCED means the agent
+    # emitted it (a fact about the machine); VERIFIED means a human looked at it
+    # and said yes (a fact about judgement). These are different claims and the
+    # system must never render one as the other -- so acceptance is an explicit,
+    # recorded, human-gated act and never inferred from "the mission completed".
+
+    _ARTIFACT_COLS = ("artifact_id, mission_id, run_id, session_id, kind, name, "
+                      "uri, sha256, bytes, status, provenance, created_at")
+
+    def get_artifact(self, artifact_id: str) -> Optional[Artifact]:
+        """One deliverable by identity. ``None`` if unknown (never a fabricated row)."""
+        with self._lock:
+            conn = self._conn()
+            try:
+                r = conn.execute(
+                    "SELECT %s FROM artifacts WHERE artifact_id=?"
+                    % self._ARTIFACT_COLS, (artifact_id,)).fetchone()
+            finally:
+                conn.close()
+        return None if r is None else self._row_artifact(r)
+
+    def verify_artifact(self, artifact_id: str, status: ArtifactStatus, *,
+                        decided_by: str, note: str = "") -> Artifact:
+        """Record a human verdict on a deliverable.
+
+        Only ``VERIFIED`` / ``REJECTED`` are accepted; a verdict is final and an
+        already-final artifact cannot be re-decided (same rule as Wave 4's
+        approvals). The verdict is stored in the artifact's own ``provenance`` --
+        it is a fact about *this* artifact, and ``provenance`` is the agreed place
+        for per-artifact evidence, so no new column is justified.
+        """
+        status = ArtifactStatus(status)
+        if status == ArtifactStatus.PRODUCED:
+            raise ValueError("a verdict cannot be PRODUCED; choose VERIFIED or REJECTED")
+        if status not in (ArtifactStatus.VERIFIED, ArtifactStatus.REJECTED):
+            raise ValueError("only VERIFIED or REJECTED are verdicts, not %s"
+                             % status.value)
+        with self._lock:
+            conn = self._conn()
+            try:
+                r = conn.execute(
+                    "SELECT %s FROM artifacts WHERE artifact_id=?"
+                    % self._ARTIFACT_COLS, (artifact_id,)).fetchone()
+                if r is None:
+                    raise ValueError("unknown artifact %r" % artifact_id)
+                current = ArtifactStatus(r[9] or ArtifactStatus.PRODUCED.value)
+                if current in (ArtifactStatus.VERIFIED, ArtifactStatus.REJECTED,
+                               ArtifactStatus.SUPERSEDED):
+                    raise ValueError("artifact %r is already %s; a verdict is final"
+                                     % (artifact_id, current.value))
+                prov = json.loads(r[10]) if r[10] else {}
+                prov["verified_by"] = decided_by
+                prov["verified_at"] = _now()
+                prov["verify_note"] = note
+                conn.execute(
+                    "UPDATE artifacts SET status=?, provenance=? WHERE artifact_id=?",
+                    (status.value, json.dumps(prov, sort_keys=True), artifact_id))
+                conn.commit()
+                row = conn.execute(
+                    "SELECT %s FROM artifacts WHERE artifact_id=?"
+                    % self._ARTIFACT_COLS, (artifact_id,)).fetchone()
+            finally:
+                conn.close()
+        return self._row_artifact(row)
+
+    def list_deliverables(self, *, status: Optional[ArtifactStatus] = None,
+                          mission_id: Optional[str] = None,
+                          limit: int = 200) -> List[Dict[str, Any]]:
+        """Server-side deliverable view: artifacts joined to their mission title.
+
+        This replaces the client-side fan-out (which capped at 50 missions and
+        silently dropped the rest). Each row carries the mission title so the UI
+        does not have to re-fetch per mission.
+        """
+        status = ArtifactStatus(status) if status is not None else None
+        clauses: List[str] = []
+        params: List[Any] = []
+        if status is not None:
+            clauses.append("a.status=?")
+            params.append(status.value)
+        if mission_id:
+            clauses.append("a.mission_id=?")
+            params.append(mission_id)
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        params.append(max(1, min(int(limit), 1000)))
+        sql = (
+            "SELECT a.artifact_id, a.mission_id, a.run_id, a.session_id, a.kind, "
+            "a.name, a.uri, a.sha256, a.bytes, a.status, a.provenance, a.created_at, "
+            "m.title FROM artifacts a LEFT JOIN missions m ON a.mission_id=m.mission_id"
+            + where + " ORDER BY a.created_at DESC LIMIT ?")
+        with self._lock:
+            conn = self._conn()
+            try:
+                rows = conn.execute(sql, params).fetchall()
+            finally:
+                conn.close()
+        out: List[Dict[str, Any]] = []
+        for r in rows:
+            a = self._row_artifact(r)
+            out.append({**a.model_dump(mode="json"),
+                        "mission_title": r[12] or ""})
+        return out
+
+    def deliverable_counts(self) -> Dict[str, int]:
+        """produced / verified / rejected / total.
+
+        ``produced`` counts everything that was emitted but not yet accepted
+        (PRODUCED *and* REJECTED -- a rejected artifact is still "produced but not
+        accepted"), and ``verified`` is the number the product headline uses,
+        because it is the one the system must not inflate.
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                rows = conn.execute(
+                    "SELECT status, COUNT(*) FROM artifacts GROUP BY status"
+                ).fetchall()
+            finally:
+                conn.close()
+        by_status = {str(r[0] or ArtifactStatus.PRODUCED.value): int(r[1])
+                     for r in rows}
+        verified = by_status.get(ArtifactStatus.VERIFIED.value, 0)
+        rejected = by_status.get(ArtifactStatus.REJECTED.value, 0)
+        produced_only = by_status.get(ArtifactStatus.PRODUCED.value, 0)
+        superseded = by_status.get(ArtifactStatus.SUPERSEDED.value, 0)
+        total = sum(by_status.values())
+        return {
+            "produced": produced_only + rejected + superseded,
+            "verified": verified,
+            "rejected": rejected,
+            "total": total,
+        }
+
     # -- aggregate views (Home / Needs Attention) --------------------------
 
     def home_summary(self) -> Dict[str, Any]:
@@ -1169,6 +1304,11 @@ class DomainStore:
             "needs_attention": needs,
             "completed_missions": completed,
             "recent_deliverables": recent_deliverables,
+            # Wave 5: the scalar above counts every artifact regardless of verdict,
+            # so it cannot distinguish accepted from rejected. This object does,
+            # and `verified` is the honest headline: PRODUCED means the agent
+            # emitted it, VERIFIED means a human accepted it.
+            "deliverables": self.deliverable_counts(),
             "attention_items": [
                 {"mission_id": r[0], "title": r[1], "project_id": r[2],
                  "kind": r[3], "reason": r[4], "updated_at": r[5]}

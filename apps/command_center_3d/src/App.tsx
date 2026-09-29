@@ -228,9 +228,7 @@ export function App() {
         return (
           <DeliverablesView
             api={domain.api}
-            missions={domain.missions}
-            missionsLoading={domain.missionsLoading}
-            missionsError={domain.missionsError}
+            controlToken={controlToken}
             onRefresh={() => void domain.refresh()}
           />
         );

@@ -81,6 +81,9 @@ OPEN_GET_ENDPOINTS = (
     "/api/v1/domain/missions/{mid}/workload",
     # v1.3 Wave 4 — attention control (read-only resolution of each inbox item)
     "/api/v1/domain/needs-attention/resolutions",
+    # v1.3 Wave 5 — deliverables (server-side view + one deliverable by identity)
+    "/api/v1/domain/deliverables",
+    "/api/v1/domain/artifacts/{aid}",
 )
 
 #: Server-side truth for which agents a Mission may actually be launched
@@ -187,7 +190,7 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     # domain module is ADDITIVE: its tables are created beside the v1.2 ones and
     # nothing existing is altered.
     from .domain import (
-        ApprovalState, ArtifactKind, AttentionKind, CapabilityKind,
+        ApprovalState, ArtifactKind, ArtifactStatus, AttentionKind, CapabilityKind,
         DomainStore, MissionStatus,
     )
     domain = DomainStore(config.state_store_db_path)
@@ -443,6 +446,11 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             "needs_attention": summary["needs_attention"],
             "completed_missions": summary["completed_missions"],
             "recent_deliverables": summary["recent_deliverables"],
+            # Wave 5: an honest split. `recent_deliverables` counts every artifact
+            # regardless of verdict; this object separates what an agent emitted
+            # (produced) from what a human accepted (verified), so the Home card
+            # cannot pass a rejected artifact off as an accepted deliverable.
+            "deliverables": summary["deliverables"],
             "attention_items": summary["attention_items"],
             # honest constants: the UI must never invent these
             "actuation_enabled": engine.actuator.enabled,
@@ -497,6 +505,33 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         if not domain.get_mission(mid):
             raise HTTPException(status_code=404, detail="mission not found")
         return [a.model_dump(mode="json") for a in domain.list_artifacts(mission_id=mid)]
+
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 5 — Deliverables (server-side view + human verdict)
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/domain/deliverables")
+    def domain_list_deliverables(status: Optional[str] = None,
+                                 mission_id: Optional[str] = None,
+                                 limit: int = 200):
+        """The server-side deliverable view (artifacts joined to mission title).
+
+        An unknown ``status`` is a 422, never silently ignored -- a filter that
+        quietly drops its own filter is how a UI shows the wrong pile.
+        """
+        st = None
+        if status:
+            try:
+                st = ArtifactStatus(str(status).upper())
+            except ValueError:
+                raise HTTPException(status_code=422, detail="unknown status %r" % status)
+        return domain.list_deliverables(status=st, mission_id=mission_id, limit=limit)
+
+    @app.get("/api/v1/domain/artifacts/{aid}")
+    def domain_get_artifact(aid: str):
+        a = domain.get_artifact(aid)
+        if a is None:
+            raise HTTPException(status_code=404, detail="artifact not found")
+        return a.model_dump(mode="json")
 
     @app.get("/api/v1/domain/connections")
     def domain_list_connections():
@@ -589,6 +624,31 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
                 run_id=body.get("run_id"), session_id=body.get("session_id"),
                 provenance=body.get("provenance") or {},
             )
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return a.model_dump(mode="json")
+
+    @app.post("/api/v1/domain/artifacts/{aid}/verify")
+    def domain_verify_artifact(aid: str, body: dict,
+                               _token: bool = Depends(require_control_token)):
+        """Record a human verdict on a deliverable (Wave 5).
+
+        Only VERIFIED / REJECTED are accepted; a verdict is final. This is a
+        record of judgement, never an effect on an agent, so it does not need the
+        preview-first treatment that agent-affecting controls get -- but it is
+        still token-gated, and `decided_by` is required so the record names a
+        human.
+        """
+        decided_by = str(body.get("decided_by") or "").strip()
+        if not decided_by:
+            raise HTTPException(status_code=422, detail="decided_by is required")
+        try:
+            status = ArtifactStatus(str(body.get("status") or "").upper())
+        except ValueError:
+            raise HTTPException(status_code=422, detail="status must be VERIFIED or REJECTED")
+        try:
+            a = domain.verify_artifact(aid, status, decided_by=decided_by,
+                                       note=str(body.get("note") or ""))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
         return a.model_dump(mode="json")

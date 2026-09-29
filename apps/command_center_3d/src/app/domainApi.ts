@@ -295,9 +295,24 @@ export interface HomeSummary {
   needs_attention: number;
   completed_missions: number;
   recent_deliverables: number;
+  /** Wave 5 — honest split. `verified` is the headline; `produced` is everything
+   * the agent emitted but a human has not yet accepted (incl. rejected). */
+  deliverables: DeliverableCounts;
   attention_items: AttentionItem[];
   actuation_enabled: boolean;
   localhost_only: boolean;
+}
+
+export interface DeliverableCounts {
+  produced: number;
+  verified: number;
+  rejected: number;
+  total: number;
+}
+
+/** Wave 5 — a deliverable row from the server-side view (artifact + mission title). */
+export interface Deliverable extends Artifact {
+  mission_title: string;
 }
 
 /** One row of `mission_events`, as returned by GET …/missions/{id}/timeline. */
@@ -368,6 +383,23 @@ export class DomainApi {
   missionArtifacts(mid: string): Promise<ApiResult<Artifact[]>> {
     return request<Artifact[]>(
       this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/artifacts`);
+  }
+  /** Wave 5: the server-side deliverable view (no client fan-out; carries the
+   * mission title and supports a status filter). */
+  deliverables(filter: { status?: string; missionId?: string; limit?: number } = {}):
+    Promise<ApiResult<Deliverable[]>> {
+    const p = new URLSearchParams();
+    if (filter.status) p.set("status", filter.status);
+    if (filter.missionId) p.set("mission_id", filter.missionId);
+    if (filter.limit != null) p.set("limit", String(filter.limit));
+    const q = p.toString();
+    return request<Deliverable[]>(
+      this.base, "GET", `/api/v1/domain/deliverables${q ? "?" + q : ""}`);
+  }
+  /** Wave 5: one deliverable by identity. */
+  deliverable(aid: string): Promise<ApiResult<Artifact>> {
+    return request<Artifact>(
+      this.base, "GET", `/api/v1/domain/artifacts/${encodeURIComponent(aid)}`);
   }
   connections(): Promise<ApiResult<DomainConnection[]>> {
     return request<DomainConnection[]>(this.base, "GET", "/api/v1/domain/connections");
@@ -461,6 +493,14 @@ export class DomainApi {
   addArtifact(token: string, mid: string, body: Record<string, unknown>) {
     return request<Artifact>(
       this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/artifacts`,
+      { body, token });
+  }
+  /** Wave 5: record a human verdict on a deliverable. `status` must be VERIFIED
+   * or REJECTED, and `decided_by` must name the human. A verdict is final. */
+  verifyDeliverable(token: string, aid: string,
+                    body: { status: "VERIFIED" | "REJECTED"; decided_by: string; note?: string }) {
+    return request<Artifact>(
+      this.base, "POST", `/api/v1/domain/artifacts/${encodeURIComponent(aid)}/verify`,
       { body, token });
   }
   upsertConnection(token: string, body: Record<string, unknown>) {
