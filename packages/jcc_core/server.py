@@ -206,6 +206,21 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     runtime = MissionRuntime(domain, engine)
     app.state.mission_runtime = runtime
 
+    # v1.3 Wave 9.2 — the mission launch CONTROL PLANE. This is the one place a
+    # human's authenticated "Start Mission" becomes a real process. It holds the
+    # signed-directive signer and the HostLauncher, and it is reachable ONLY
+    # through the two token-gated POST routes below -- no engine directive can
+    # reach it, so AUTONOMOUS_ACTUATION stays False.
+    from .launch_control import LaunchController, default_measure_path
+    _runtime_dir = Path(config.state_store_db_path).parent
+    launch_ctl = LaunchController(
+        domain, runtime,
+        measure_path=default_measure_path(config.state_store_db_path),
+        journal_path=_runtime_dir / "launch_journal.ndjson",
+        policy_version="p3.0.0",
+    )
+    app.state.launch_controller = launch_ctl
+
     # -- v1.3 Wave 4 helpers: attention control ------------------------- #
     def _actuation_enabled() -> bool:
         """The REAL actuation flag, read from the engine's actuator.
@@ -805,6 +820,12 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         return {
             "schema": "jcc/v1.3-launch-probe/1",
             "launchable_agents": list(LAUNCHABLE_AGENTS_SERVER),
+            # v1.3 Wave 9.2 — the ATTACH/observe answer above, plus the START
+            # answer below. They are different questions and are never merged:
+            # "is there a live session I could attach to" vs "can this host
+            # actually START a workload". The second is a MEASUREMENT and reports
+            # UNKNOWN when it has not been measured.
+            "native_launch": launch_ctl.capability("workbuddy"),
             "workbuddy": {
                 "ok": cap["ok"],
                 "reason": cap.get("reason"),
@@ -887,6 +908,68 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             return runtime.workload(mid)
         except MissionRuntimeError as exc:
             raise HTTPException(status_code=404, detail=exc.detail)
+
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 9.2 — MISSION LAUNCH CONTROL PLANE
+    #
+    # Wave 9.1 built a HostLauncher that can verify a signed directive and start
+    # a real workload; NOTHING called it, so the product's central promise ended
+    # at a database row. These two routes are that call, and they are
+    # PREVIEW-FIRST:
+    #
+    #   launch-request -> resolve Mission+Project, bind a LaunchIntent, mint the
+    #                     single-use signed directive, and answer "would this be
+    #                     accepted?" WITHOUT spawning anything and WITHOUT
+    #                     spending the nonce. Safe to call on every render.
+    #   launch-commit  -> the identical nine checks (this time spending the
+    #                     nonce), then spawn, then report the child's OWN
+    #                     classification. A mission only reaches RUNNING when the
+    #                     child produced a real session AND a real model turn.
+    #
+    # Both are token-gated. Neither can actuate: the capability honoured is
+    # USER_INITIATED_MISSION_LAUNCH -- a different name from anything the
+    # autonomous controller uses -- and jcc_core.launch_control holds no
+    # actuator, so AUTONOMOUS_ACTUATION stays False.
+    #
+    # No request-body value reaches a command besides `model`, which is matched
+    # against a narrow token allowlist. Notably the project root is NOT taken
+    # from the body: it is the project's own root, so a caller cannot aim a
+    # launch at an arbitrary directory.
+    # ------------------------------------------------------------------ #
+    @app.post("/api/v1/domain/missions/{mid}/launch-request")
+    def domain_launch_request(mid: str, body: dict,
+                              _token: bool = Depends(require_control_token)):
+        """Preview a real launch. Spawns nothing; the nonce is NOT consumed."""
+        from .launch_control import LaunchControlError
+
+        try:
+            return launch_ctl.request(mid, commit=False,
+                                      model=(body or {}).get("model") or "auto")
+        except LaunchControlError as exc:
+            code = 404 if exc.code == "MISSION_NOT_FOUND" else 409
+            raise HTTPException(status_code=code,
+                                detail={"code": exc.code, "detail": exc.detail})
+
+    @app.post("/api/v1/domain/missions/{mid}/launch-commit")
+    def domain_launch_commit(mid: str, body: dict,
+                             _token: bool = Depends(require_control_token)):
+        """Commit a launch: same checks, nonce spent, a real process starts.
+
+        Returns HTTP 200 with the structured outcome even when the launch is
+        REFUSED or when the child could not authenticate -- those are facts about
+        the host, not server errors, and the caller must render them. Only a
+        programming error (unknown mission, missing project root, model token
+        refused) is a 4xx.
+        """
+        from .launch_control import LaunchControlError
+
+        try:
+            return launch_ctl.request(mid, commit=True,
+                                      model=(body or {}).get("model") or "auto")
+        except LaunchControlError as exc:
+            code = 404 if exc.code == "MISSION_NOT_FOUND" else 409
+            raise HTTPException(status_code=code,
+                                detail={"code": exc.code, "detail": exc.detail})
 
     # ------------------------------------------------------------------ #
     # v1.3 Wave 4 — NEEDS ATTENTION control

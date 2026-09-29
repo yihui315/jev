@@ -111,6 +111,103 @@ describe("attention control client contract", () => {
 });
 
 /**
+ * Wave 9.2 — the START path's client contract.
+ *
+ * The client may not re-derive anything the server already decided. In
+ * particular `would_accept` is composed server-side from the nine checks AND the
+ * command buildability; a client that recomputed it (or that treated "the
+ * request succeeded" as "the launch was accepted") would be the second source of
+ * truth this whole surface exists to avoid. These tests pin the two calls to
+ * their paths, keep the token in a header, and prove the fields are passed
+ * through verbatim.
+ */
+describe("launch control client contract", () => {
+  function spyApi(payload: Record<string, unknown>) {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify(payload),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, api: new DomainApi("http://x"), restore: () => { globalThis.fetch = original; } };
+  }
+
+  const PREVIEW = {
+    schema: "jcc/v1.3-launch-request/1",
+    mission_id: "m1", project_id: "p1", committed: false,
+    capability: "USER_INITIATED_MISSION_LAUNCH",
+    capability_version: "sha256:anchor", policy_version: "p3.0.0",
+    directive: { directive_id: "d1", signed: true, ttl_s: 120 },
+    preview: {
+      schema: "jcc/v1.3-launch-preview/1", launchable: true, problems: [],
+      argv: ["node", "cli.js", "-p", "say hi"], argv_goal_slot: 3,
+      project_root_bound: true, args_hash: "sha256:x",
+      shell: false, actuation: false, note: "preview only",
+    },
+    checks_ok: true, command_buildable: true,
+    would_accept: false, would_reason: "COMMAND_NOT_BUILDABLE:PROJECT_ROOT_MISSING",
+    steps: [{ step: "LAUNCH_REQUESTED", ok: true, detail: "template=t" }],
+    actuation: false, elapsed_s: 0.01,
+  };
+
+  it("posts the preview to launch-request with the token in a header", async () => {
+    const { calls, api, restore } = spyApi(PREVIEW);
+    try {
+      await api.launchRequest("m1", "sekret");
+      expect(calls.length).toBe(1);
+      expect(calls[0].url).toContain("/api/v1/domain/missions/m1/launch-request");
+      expect(calls[0].url).not.toContain("sekret");
+      const headers = calls[0].init.headers as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBe("sekret");
+    } finally {
+      restore();
+    }
+  });
+
+  it("posts the commit to launch-commit and nothing else", async () => {
+    const { calls, api, restore } = spyApi({ ...PREVIEW, committed: true });
+    try {
+      await api.launchCommit("m1", "sekret");
+      expect(calls.length).toBe(1);
+      expect(calls[0].url).toContain("/api/v1/domain/missions/m1/launch-commit");
+    } finally {
+      restore();
+    }
+  });
+
+  it("passes would_accept through unchanged and never upgrades it", async () => {
+    const { api, restore } = spyApi(PREVIEW);
+    try {
+      const r = await api.launchRequest("m1", "sekret");
+      // The server said NO; the client must not disagree.
+      expect(r.data?.would_accept).toBe(false);
+      expect(r.data?.would_reason).toContain("COMMAND_NOT_BUILDABLE");
+      expect(r.data?.checks_ok).toBe(true);
+      expect(r.data?.command_buildable).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it("keeps the goal in one argv slot on the preview it renders", async () => {
+    const { api, restore } = spyApi(PREVIEW);
+    try {
+      const r = await api.launchRequest("m1", "sekret");
+      const argv = r.data?.preview.argv ?? [];
+      expect(argv[argv.length - 1]).toBe("say hi");
+      expect(argv.filter((a) => a === "say hi").length).toBe(1);
+      expect(r.data?.preview.shell).toBe(false);
+      expect(r.data?.preview.actuation).toBe(false);
+    } finally {
+      restore();
+    }
+  });
+});
+
+/**
  * Wave 5 — a deliverable has an identity and a human verdict. The client can
  * prove: the by-id read hits the right path, the verify POST puts the token in a
  * header (never a URL) and names the human, and the deliverable view reads from

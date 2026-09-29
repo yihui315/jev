@@ -292,6 +292,15 @@ export interface LaunchLiveness {
 export interface LaunchProbe {
   schema: string;
   launchable_agents: string[];
+  /**
+   * Wave 9.2 — a DIFFERENT question from the rest of this payload.
+   *
+   * `workbuddy` above answers "is there a live session I could ATTACH to".
+   * `native_launch` answers "can this host actually START a workload". They are
+   * separate readings and are never merged; the second is a measurement and
+   * reports UNKNOWN when it has not been taken.
+   */
+  native_launch: LaunchCapability;
   workbuddy: {
     ok: boolean;
     reason?: string | null;
@@ -304,6 +313,96 @@ export interface LaunchProbe {
     source?: LaunchResult["capture_source"];
   };
   actuation: false;
+}
+
+/** Wave 9.2 — what this host can ACTUALLY do with a launch. Measured, not asserted. */
+export interface LaunchCapability {
+  schema: string;
+  capability: string;
+  agent: string;
+  template_id: string | null;
+  capability_version: string;
+  spawn_ready: boolean;
+  spawn_problem: string | null;
+  resolved_head_len: number;
+  signing_available: boolean;
+  /** UNKNOWN is never green: an unmeasured capability is not a success. */
+  executability: "LOCAL_SPAWN_READY" | "HOST_ACTIVATION_PENDING" | "UNKNOWN";
+  end_to_end_verified: boolean;
+  last_measured: {
+    classification: string | null;
+    session_discovered?: boolean;
+    auth_error?: string | null;
+    event_types?: string[];
+    measured_at?: number;
+    template_id?: string;
+    args_hash?: string | null;
+  } | null;
+  autonomous_actuation: false;
+  note: string;
+}
+
+/**
+ * Wave 9.2 — the launch control plane's answer, for BOTH the preview call and
+ * the commit call.
+ *
+ * `would_accept` is the ONE field the UI reads to decide whether Start Mission
+ * is enabled, and it is composed server-side from the nine checks AND the
+ * command buildability. `would_reason` names whichever half failed, so the UI
+ * never has to explain a refusal it inferred itself.
+ */
+export interface LaunchRequestResult {
+  schema: string;
+  mission_id: string;
+  project_id: string;
+  committed: boolean;
+  capability: string;
+  capability_version: string;
+  policy_version: string;
+  directive: Record<string, unknown>;
+  preview: {
+    schema: string;
+    launchable: boolean;
+    problems: Array<{ code: string; detail: string }>;
+    argv: string[];
+    argv_goal_slot: number | null;
+    project_root_bound: boolean;
+    args_hash: string | null;
+    shell: false;
+    actuation: false;
+    note: string;
+  };
+  checks_ok: boolean;
+  command_buildable: boolean;
+  preview_problems: string[];
+  would_accept: boolean;
+  would_reason: string;
+  steps: LaunchStep[];
+  actuation: false;
+  elapsed_s: number;
+  note?: string;
+  // --- commit-only fields ---
+  spawned?: boolean;
+  pid?: number | null;
+  classification?: "REFUSED" | "AUTH_REQUIRED" | "LAUNCHED" | "STARTED_NO_TELEMETRY";
+  reason?: string | null;
+  stream?: {
+    event_count: number;
+    event_types: string[];
+    unparseable_lines: number;
+    auth_error: string | null;
+    exited: boolean;
+    exit_code: number | null;
+    stdout_file: string | null;
+    job_object: string;
+  };
+  aep?: {
+    session_discovered: boolean;
+    session_id: string | null;
+    ingested: boolean;
+    classification: string | null;
+    error?: string;
+  };
 }
 
 export interface MissionWorkload {
@@ -474,6 +573,34 @@ export class DomainApi {
   missionWorkload(mid: string): Promise<ApiResult<MissionWorkload>> {
     return request<MissionWorkload>(
       this.base, "GET", `/api/v1/domain/missions/${encodeURIComponent(mid)}/workload`);
+  }
+  /**
+   * Wave 9.2 — PREVIEW a real launch.
+   *
+   * Spawns nothing and does NOT spend the single-use directive nonce, so it is
+   * safe to call on render and again immediately before committing. The server
+   * composes `would_accept` from the nine checks AND the command buildability;
+   * this client never re-derives that answer.
+   */
+  launchRequest(mid: string, token: string, body: { model?: string } = {}) {
+    return request<LaunchRequestResult>(
+      this.base, "POST",
+      `/api/v1/domain/missions/${encodeURIComponent(mid)}/launch-request`,
+      { body, token });
+  }
+  /**
+   * Wave 9.2 — COMMIT a launch. The only call in this client that starts a
+   * process on the host.
+   *
+   * `classification` in the response is the child's OWN verdict, so a run that
+   * started and then failed to authenticate comes back as `AUTH_REQUIRED` and
+   * must be rendered as a host-activation blocker -- never as a running mission.
+   */
+  launchCommit(mid: string, token: string, body: { model?: string } = {}) {
+    return request<LaunchRequestResult>(
+      this.base, "POST",
+      `/api/v1/domain/missions/${encodeURIComponent(mid)}/launch-commit`,
+      { body, token });
   }
 
   // --- writes (token-gated) ---

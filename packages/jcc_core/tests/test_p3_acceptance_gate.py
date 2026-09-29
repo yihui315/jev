@@ -247,6 +247,22 @@ A8_FROZEN_AT = (
     "recognise, so test_actuator_execute_has_no_call_site_in_the_product_tree false-failed on 11\n"
     "``c.execute`` lines. Renamed the receiver to ``conn`` (17 site edits, no behaviour change); the\n"
     "tripwire now reads zero non-DB ``.execute`` call sites, which is what the invariant claims.\n"
+    "RE-BASELINED for the v1.3 WAVE 9.2 MISSION LAUNCH CONTROL PLANE (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 09f9955ca759… -> new dbb661bbe0e3…\n"
+    "    Wave 9.1 delivered a HostLauncher that can verify a signed directive and start a real\n"
+    "    workload; NOTHING CALLED IT, so the product's promise (type a goal, pick an agent, press\n"
+    "    Start Mission, watch it work) still ended at a database row. This moves the server onto\n"
+    "    jcc_core.launch_control.LaunchController and adds the two token-gated routes that are that\n"
+    "    call: launch-request (PREVIEW-ONLY: spawns nothing, does NOT consume the single-use nonce)\n"
+    "    and launch-commit (the only route in the product that spawns a process). The existing open\n"
+    "    GET /api/v1/domain/launch/probe gained a `native_launch` capability reading, which keeps\n"
+    "    'is there a session I could ATTACH to' and 'can this host actually START one' as two\n"
+    "    separately-answered questions. NO new GET route was added, so OPEN_GET_ENDPOINTS stays 27\n"
+    "    and only the A11 POST exact set changed (reviewed edit to test_A11_no_new_inbound_surface).\n"
+    "    NON-ACTUATION IS UNCHANGED: launch_control holds no actuator, and the capability it honours\n"
+    "    (USER_INITIATED_MISSION_LAUNCH) is a different name from anything the autonomous controller\n"
+    "    uses -- engine directives cannot reach it. See docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -265,8 +281,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27.
-        "09f9955ca759edb2a6a86198dd7fcb3b0616ba04cad4f76832ad5bd6845b450f",  # old: 7845d2ad00261eb8f1ca76e887048cad3671b5ad7ac25d8d1e9f9c1f71af89d3 (v1.3 Wave 5 deliverables)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27.
+        "dbb661bbe0e32f1bc2984677a71cef7c2f48df30bfc533d42ff1b5ee4fe21e18",  # old: 09f9955ca759edb2a6a86198dd7fcb3b0616ba04cad4f76832ad5bd6845b450f (v1.3 Wave 3/4/5/7 launch+attention+deliverables+verify routes)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
@@ -702,6 +718,16 @@ def test_A11_no_new_inbound_surface(live):
         # v1.3 Wave 7 connection verification: run a REAL probe and record what it
         # observed. Token-gated; the probe only READS host state (no dispatch).
         "/api/v1/domain/connections/{cid}/verify",
+        # v1.3 Wave 9.2 mission launch control plane: the ONE inbound surface that
+        # can start a real process. Token-gated, and it honours a capability
+        # (USER_INITIATED_MISSION_LAUNCH) that is deliberately a different name
+        # from anything the autonomous controller uses; jcc_core.launch_control
+        # holds no actuator, so this is not an actuation path.
+        #   * launch-request is PREVIEW-ONLY: nothing is spawned and the
+        #     single-use nonce is not consumed.
+        #   * launch-commit is the only route in the product that spawns.
+        "/api/v1/domain/missions/{mid}/launch-request",
+        "/api/v1/domain/missions/{mid}/launch-commit",
     }
     assert post_paths == expected, {
         "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),

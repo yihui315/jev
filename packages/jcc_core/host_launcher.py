@@ -67,6 +67,7 @@ from .signing import (
     REASON_CAPABILITY_DENIED,
     REASON_OK,
     REASON_POLICY_MISMATCH,
+    REASON_REPLAY,
     REASON_SESSION_MISMATCH,
     SIGNING_FORM_V2,
     DirectiveSigner,
@@ -522,6 +523,27 @@ class HostLauncher:
         #: open for as long as this launcher lives -- that is what makes the
         #: kill-on-close guarantee mean "when the launcher exits", not "now".
         self._job_guards: List[Any] = []
+        #: Live Popen handles, one per spawned child, so a caller can WAIT for a
+        #: child and learn its real exit code. Without the handle the code is
+        #: unobtainable, and reporting 0 would be a guess dressed as a fact.
+        self._procs: List[Any] = []
+
+    def wait(self, pid: int, *, timeout_s: float = DEFAULT_COLLECT_TIMEOUT_S
+             ) -> Tuple[bool, Optional[int]]:
+        """Wait up to ``timeout_s`` for the child ``pid``. Returns ``(exited, code)``.
+
+        ``(False, None)`` means the deadline passed and the child is STILL
+        RUNNING -- the product does not kill a long mission, it stops reading.
+        The caller must report that as "still running", never as "finished".
+        """
+        for proc in list(self._procs):
+            if proc.pid != pid:
+                continue
+            try:
+                return True, proc.wait(timeout=timeout_s)
+            except subprocess.TimeoutExpired:
+                return False, None
+        return False, None
 
     def stop_all(self) -> int:
         """Close every job guard, terminating the workloads they own.
@@ -541,7 +563,8 @@ class HostLauncher:
 
     # -- verification -------------------------------------------------------- #
 
-    def verify(self, intent: LaunchIntent, directive: Any) -> Tuple[bool, str]:
+    def verify(self, intent: LaunchIntent, directive: Any, *,
+               consume: bool = True) -> Tuple[bool, str]:
         """Run the nine mandated checks in order. Returns ``(ok, reason)``.
 
         Reuses :func:`jcc_core.signing.verify_directive` for checks 1-4 so the
@@ -553,14 +576,39 @@ class HostLauncher:
         of truth for one fact, and the one it reads is whichever the caller
         chose. ``now`` is supplied explicitly rather than defaulted inside the
         kernel so a test can pin time without patching the clock.
+
+        ``consume`` selects whether check 4 SPENDS the nonce. It defaults to
+        True -- the only mode that may be followed by a spawn. ``consume=False``
+        answers "would this be accepted?" WITHOUT burning the one-shot token,
+        which is what a preview shown before a human clicks Start Mission needs.
+        Both modes run the SAME nine checks in the SAME order; only the replay
+        cache is withheld, so a preview can never disagree with the commit about
+        anything except the nonce itself. It is deliberately NOT a separate
+        implementation of checks 5-9: a second copy could drift, and the drift
+        would be invisible precisely because the preview is the thing the human
+        reads.
         """
         # 1-4: signed present / signature / ttl / replay. verify_directive owns
         # the replay cache too, so the nonce is consumed there -- one owner.
         ok, reason = verify_directive(
             directive, self.signer.key, now=time.time(),
-            replay=self.replay, form=SIGNING_FORM_V2)
+            replay=self.replay if consume else None, form=SIGNING_FORM_V2)
         if not ok:
             return False, reason
+
+        # Check 4 in PEEK mode. verify_directive's check 4 both TESTS and SPENDS,
+        # so it cannot be handed the cache when the caller does not want to spend;
+        # asking the same cache directly is the same question without the side
+        # effect, and it returns the same frozen reason code. This is not a second
+        # implementation of the check -- it is the only way to ask it without
+        # answering it destructively -- and WITHOUT it a preview would report
+        # "accepted" for an already-spent token, then the commit would fail with
+        # REPLAY. A preview that lies about the single thing it exists to predict
+        # is worse than no preview.
+        if not consume:
+            nonce = str(getattr(directive, "nonce", "") or "")
+            if nonce and self.replay.seen(nonce):
+                return False, REASON_REPLAY
 
         # 5: mission binding. The directive must name THIS mission.
         bound = str(getattr(directive, "session_id", "") or "")
@@ -590,6 +638,16 @@ class HostLauncher:
             return False, REASON_APPROVAL_MISSING
 
         return True, REASON_OK
+
+    def dry_verify(self, intent: LaunchIntent, directive: Any) -> Tuple[bool, str]:
+        """``verify(..., consume=False)`` -- named so a caller cannot confuse it.
+
+        A launch directive is single-use. The preview endpoint must be able to
+        tell a human "this WILL be accepted" without spending the token, or the
+        preview would consume the very thing the commit needs and the product
+        would be unable to start the mission it just approved.
+        """
+        return self.verify(intent, directive, consume=False)
 
     # -- preview ------------------------------------------------------------- #
 
@@ -799,6 +857,9 @@ class HostLauncher:
             ofh.close()
             efh.close()
         owned = guard.assign(proc)
+        # Keep the handle before returning: it is the ONLY way to learn the exit
+        # code later, and it is also what keeps ``wait()`` honest.
+        self._procs.append(proc)
         if owned:
             # Keep the job handle alive on the instance: closing it early would
             # kill the child immediately, which is the opposite of owning it.

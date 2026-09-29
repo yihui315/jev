@@ -44,7 +44,13 @@ import {
   validateMissionForm,
   type MissionFormValues,
 } from "../app/missionForm";
-import type { DomainApi, LaunchProbe, Mission, Project } from "../app/domainApi";
+import type {
+  DomainApi,
+  LaunchProbe,
+  LaunchRequestResult,
+  Mission,
+  Project,
+} from "../app/domainApi";
 
 export interface StudioProps {
   api: DomainApi;
@@ -68,6 +74,12 @@ export function MissionStudio(props: StudioProps) {
     { step: string; ok: boolean; detail: string }[]
   >([]);
   const [newProjectOpen, setNewProjectOpen] = useState(false);
+  // Wave 9.2 — the START path's own state, kept separate from the Wave-3 attach
+  // path above so the two are never rendered as each other.
+  const [startPreview, setStartPreview] = useState<LaunchRequestResult | null>(null);
+  const [startResult, setStartResult] = useState<LaunchRequestResult | null>(null);
+  const [starting, setStarting] = useState(false);
+
   // Wave 3 — the real launch probe. Refreshed when the launch preview opens so
   // the dialog shows whether a live agent session actually exists right now,
   // rather than a promise that the launch will work.
@@ -77,6 +89,14 @@ export function MissionStudio(props: StudioProps) {
     const r = await props.api.launchProbe();
     setProbe(r.ok && r.data ? r.data : null);
   }, [props.api]);
+
+  useEffect(() => {
+    // The START panel renders a MEASURED capability, so the probe must load
+    // BEFORE the operator can press anything -- not only once the Wave-3 launch
+    // dialog opens. Loading it lazily would show "no capability" as if it were
+    // "no capability exists", which is the UNKNOWN-rendered-as-fact defect.
+    void refreshProbe();
+  }, [refreshProbe]);
 
   useEffect(() => {
     if (launchPreview) void refreshProbe();
@@ -172,6 +192,59 @@ export function MissionStudio(props: StudioProps) {
   const launchBlockedReason = launchable
     ? null
     : `Launch for "${v.agent}" is not enabled in this build (Wave 3 wires real agent launch). The mission will be created as DRAFT only.`;
+
+  /**
+   * Wave 9.2 — START MISSION.
+   *
+   * The Wave-3 "Launch…" path above ATTACHES to a WorkBuddy session that is
+   * already running. This one makes a process exist. They answer different
+   * questions and neither is presented as the other.
+   *
+   * The two calls are deliberately separate: `reviewStart` is the server's
+   * preview (it spawns nothing and does not spend the single-use directive
+   * nonce), and `commitStart` is the only client action that starts work. The
+   * button that commits is only reachable from the preview dialog, so the
+   * operator always sees the exact argv and the server's own `would_accept`
+   * before anything runs.
+   */
+  const nativeCap = probe?.native_launch ?? null;
+
+  async function reviewStart(m: Mission) {
+    setServerError(null);
+    setStarting(true);
+    const r = await props.api.launchRequest(m.mission_id, props.controlToken);
+    setStarting(false);
+    if (!r.ok || !r.data) {
+      setServerError(r.error ?? "launch preview was refused");
+      return;
+    }
+    setStartResult(null);
+    setStartPreview(r.data);
+  }
+
+  async function commitStart(m: Mission) {
+    setStarting(true);
+    const r = await props.api.launchCommit(m.mission_id, props.controlToken);
+    setStarting(false);
+    setStartPreview(null);
+    if (!r.ok || !r.data) {
+      setServerError(r.error ?? "launch was refused");
+      return;
+    }
+    setStartResult(r.data);
+    // The capability is a MEASUREMENT, so a completed attempt changes it: a run
+    // that came back AUTH_REQUIRED must flip it to HOST_ACTIVATION_PENDING
+    // immediately, not on the next page load.
+    void refreshProbe();
+    const fresh = await props.api.mission(m.mission_id);
+    if (fresh.ok && fresh.data) {
+      setResult(fresh.data);
+      props.onCreated(fresh.data);
+    }
+    // A commit that spawned but could not authenticate is NOT a failure of the
+    // request -- it is a fact about the host, and it is rendered in the result
+    // panel rather than as an error toast that hides the classification.
+  }
 
   return (
     <div className="h-full overflow-y-auto">
@@ -456,10 +529,161 @@ export function MissionStudio(props: StudioProps) {
                   ))}
                 </div>
               )}
+
+              {/* ---- Wave 9.2: START a real workload on this host ---- */}
+              {!launchBlockedReason && result && (
+                <div className="space-y-2 rounded-md border border-border p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex items-center gap-2 text-xs font-medium text-foreground">
+                      <Rocket className="h-3.5 w-3.5" />
+                      Start Mission
+                      <span className="font-normal text-muted-foreground">
+                        — starts a real workload
+                      </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => void reviewStart(result)}
+                      disabled={!props.controlToken || starting}
+                    >
+                      Start Mission…
+                    </Button>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Not the same as “Launch…” above: that one ATTACHES to a session
+                    that is already running, and it starts nothing. This one asks the
+                    host to START one, under a directive that is signed, single-use,
+                    short-lived and bound to this mission and project root.
+                  </p>
+                  {nativeCap && (
+                    <div className="flex flex-wrap items-center gap-2 text-[11px]">
+                      <Badge
+                        variant={
+                          nativeCap.executability === "LOCAL_SPAWN_READY"
+                            ? "ok"
+                            : nativeCap.executability === "HOST_ACTIVATION_PENDING"
+                              ? "warn"
+                              : "unknown"
+                        }
+                      >
+                        {nativeCap.executability}
+                      </Badge>
+                      <span className="text-muted-foreground">
+                        {nativeCap.end_to_end_verified
+                          ? "a real run has completed end-to-end on this host"
+                          : nativeCap.executability === "HOST_ACTIVATION_PENDING"
+                            ? "the host can spawn, but the agent has not authenticated"
+                            : "no launch has completed end-to-end here yet"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* ---- Wave 9.2: what the START actually did ---- */}
+              {startResult && (
+                <div className="space-y-2 rounded-md border border-border bg-background/50 p-3">
+                  <div className="flex flex-wrap items-center gap-2 text-xs">
+                    <span className="font-medium text-foreground">Start Mission result</span>
+                    <Badge variant={startResult.classification === "LAUNCHED" ? "ok" : "warn"}>
+                      {startResult.classification ?? "unknown"}
+                    </Badge>
+                    {typeof startResult.pid === "number" && (
+                      <span className="font-mono text-muted-foreground">pid {startResult.pid}</span>
+                    )}
+                  </div>
+                  {startResult.classification === "AUTH_REQUIRED" && (
+                    <p className="text-[11px] text-status-warn">
+                      A process started, but the agent refused to authenticate — so no
+                      work was performed and the mission was NOT advanced to RUNNING.
+                      {startResult.stream?.auth_error
+                        ? ` Reason: ${startResult.stream.auth_error}.`
+                        : ""}{" "}
+                      An approval has been recorded on this mission.
+                    </p>
+                  )}
+                  {startResult.aep && (
+                    <p className="text-[11px] text-muted-foreground">
+                      session{" "}
+                      {startResult.aep.session_discovered
+                        ? startResult.aep.session_id
+                        : "not observed"}
+                      {" · "}
+                      AEP ingest {startResult.aep.ingested ? "yes" : "no"}
+                      {startResult.stream
+                        ? ` · ${startResult.stream.event_count} stream event(s)`
+                        : ""}
+                    </p>
+                  )}
+                  <div className="rounded-md border border-border bg-background/60 p-2 font-mono text-[11px]">
+                    {startResult.steps.map((s, i) => (
+                      <div key={i} className={s.ok ? "text-status-ok" : "text-status-danger"}>
+                        {s.ok ? "✓" : "✗"} {s.step} — {s.detail}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         )}
       </div>
+
+      {/* ---- Wave 9.2 — Start Mission preview (computed by the server) ---- */}
+      <Dialog open={startPreview !== null} onOpenChange={(o) => !o && setStartPreview(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Start Mission</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-2 text-xs">
+            <p className="text-muted-foreground">
+              This starts a real workload on this host. The argv below is exactly what
+              the server will execute: the goal occupies one slot and is never
+              interpreted as a command, and there is no shell involved.
+            </p>
+            <pre className="max-h-32 overflow-auto rounded-md border border-border bg-background/50 p-2 font-mono text-[11px]">
+              {startPreview?.preview.argv.join(" ") ?? ""}
+            </pre>
+            <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
+              <KV label="Would be accepted" value={String(startPreview?.would_accept)} />
+              <KV label="Reason" value={startPreview?.would_reason ?? ""} mono />
+              <KV label="Shell" value={String(startPreview?.preview.shell)} />
+              <KV label="Actuation" value={String(startPreview?.preview.actuation)} />
+              <KV label="Capability" value={startPreview?.capability ?? ""} mono />
+              <KV
+                label="Directive TTL"
+                value={`${String(startPreview?.directive?.["ttl_s"] ?? "?")}s`}
+                mono
+              />
+            </div>
+            {(startPreview?.preview.problems ?? []).length > 0 && (
+              <div className="rounded-md border border-status-danger/40 bg-status-danger/10 p-2">
+                {(startPreview?.preview.problems ?? []).map((p) => (
+                  <div key={p.code} className="font-mono text-[11px] text-status-danger">
+                    {p.code}: {p.detail}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+          <DialogFooter>
+            <Button variant="ghost" size="sm" onClick={() => setStartPreview(null)}>
+              Cancel
+            </Button>
+            <Button
+              size="sm"
+              disabled={!startPreview?.would_accept || starting}
+              onClick={() => {
+                if (startPreview && result) void commitStart(result);
+              }}
+            >
+              <Rocket className="h-3.5 w-3.5" />
+              {starting ? "Starting…" : "Start Mission"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ---- Launch preview dialog ---- */}
       <Dialog open={launchPreview !== null} onOpenChange={(o) => !o && setLaunchPreview(null)}>
