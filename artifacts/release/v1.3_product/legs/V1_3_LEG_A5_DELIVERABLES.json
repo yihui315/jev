@@ -1,0 +1,53 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "packages/jcc_core/tests/test_deliverables_v1_3.py",
+    "tests/e2e/test_deliverables_v1_3.py",
+    "-q",
+    "--no-header",
+    "--color=no",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "26 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+  "dimension": "W5 deliverable lifecycle",
+  "duration_s": 26.84,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING",
+    "TEMP",
+    "TMP"
+  ],
+  "evidence": {
+    "counts": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 26,
+      "skipped": 0
+    },
+    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\a5_deliverables-20260929-212641",
+    "min_passed": 1,
+    "problems": [],
+    "targets": [
+      "packages/jcc_core/tests/test_deliverables_v1_3.py",
+      "tests/e2e/test_deliverables_v1_3.py"
+    ]
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "pytest",
+  "leg_id": "A5_DELIVERABLES",
+  "measured_at_utc": "2026-09-29T13:27:08Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:26:41Z",
+  "stderr_tail": "",
+  "stdout_bytes": 100,
+  "stdout_sha256": "4026da555c63f3bdf3343592d5711c518f0f1f1849f3fe3667e723a83fdc3d4c",
+  "stdout_tail": "..........................                                               [100%]\n26 passed in 24.98s",
+  "verdict": "PASS"
+}

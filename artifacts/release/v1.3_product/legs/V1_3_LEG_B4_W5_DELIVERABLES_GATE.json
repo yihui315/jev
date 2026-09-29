@@ -1,0 +1,50 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "F:\\jev\\tools\\v1_3_wave5_deliverables_gate.py"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "child=PASS artifact=PASS 17/17",
+  "dimension": "W5 deliverables gate",
+  "duration_s": 3.92,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "claim": {
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave5_gate_20260929-215036.json",
+      "failed": null,
+      "passed": 17,
+      "shape": "kv",
+      "total": 17,
+      "verdict": "PASS"
+    },
+    "cross_check": {
+      "agrees": true,
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave5_gate_20260929-215036.json",
+      "artifact_failures": 0,
+      "artifact_passed": 17,
+      "artifact_total": 17,
+      "artifact_verdict": "PASS",
+      "claim": "PASS",
+      "problems": [],
+      "stale": false
+    },
+    "min_total": 1
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "gate",
+  "leg_id": "B4_W5_DELIVERABLES_GATE",
+  "measured_at_utc": "2026-09-29T13:50:37Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:50:33Z",
+  "stderr_tail": "",
+  "stdout_bytes": 119,
+  "stdout_sha256": "78c6d3369aad15c48ada8773c0cb39ede005621d235bd94cfc26723a50ce13c7",
+  "stdout_tail": "gate WAVE5_DELIVERABLES verdict=PASS passed=17/17\nwrote F:\\jev\\.workbuddy\\scratch\\v1_3_wave5_gate_20260929-215036.json",
+  "verdict": "PASS"
+}

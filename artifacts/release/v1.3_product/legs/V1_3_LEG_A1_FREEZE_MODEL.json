@@ -1,0 +1,51 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "tools/tests/test_release_manifest_v1_3.py",
+    "-q",
+    "--no-header",
+    "--color=no",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "19 passed / 0 failed / 0 errors / 0 skipped (floor 19)",
+  "dimension": "W0 release model certifies a freeze, not HEAD",
+  "duration_s": 160.35,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING",
+    "TEMP",
+    "TMP"
+  ],
+  "evidence": {
+    "counts": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 19,
+      "skipped": 0
+    },
+    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\a1_freeze_model-20260929-212128",
+    "min_passed": 19,
+    "problems": [],
+    "targets": [
+      "tools/tests/test_release_manifest_v1_3.py"
+    ]
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "pytest",
+  "leg_id": "A1_FREEZE_MODEL",
+  "measured_at_utc": "2026-09-29T13:24:09Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:21:28Z",
+  "stderr_tail": "",
+  "stdout_bytes": 430,
+  "stdout_sha256": "939a0e814766dd9677a711b0e0a54a9a32f6b0cc9df392fc0f071f9358bc3504",
+  "stdout_tail": "...................                                                      [100%][jcc-infra] NOT writing CONTINUATION_INFRA_TEST.json: this run is a SUBSET of the suite (invocation args ['tools/tests/test_release_manifest_v1_3.py'] do not name the whole directory). The artifact states that the whole suite passed, and a subset run cannot support that sentence -- the file on disk is left untouched.\n\n19 passed in 159.05s (0:02:39)",
+  "verdict": "PASS"
+}

@@ -1,0 +1,33 @@
+{
+  "decision": "GO",
+  "dimension": "Protected GREEN 4778",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "pid=7588 http=200 untouched",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_D1_GREEN_PROTECTION.json",
+      "evidence_sha256": "5321834be17becd694ef4ee49ef0cfdd774fad83bdb7500c4b97759726781c07",
+      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "leg_id": "D1_GREEN_PROTECTION",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "D1_GREEN_PROTECTION"
+  ],
+  "leg_id": "GREEN_PROTECTION",
+  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
+  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "ff96c82276e960ba49130856b62d7c2788b6e1ca526565bb1d1afd312ff9037d",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T13:53:17Z"
+}

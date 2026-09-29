@@ -1,0 +1,50 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "F:\\jev\\tools\\v1_3_wave8_runtime_gate.py"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "child=PASS artifact=PASS 54/54",
+  "dimension": "W8 durable runtime gate",
+  "duration_s": 99.65,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "claim": {
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave8_gate_20260929-215234.json",
+      "failed": null,
+      "passed": 54,
+      "shape": "kv",
+      "total": 54,
+      "verdict": "PASS"
+    },
+    "cross_check": {
+      "agrees": true,
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave8_gate_20260929-215234.json",
+      "artifact_failures": 0,
+      "artifact_passed": 54,
+      "artifact_total": 54,
+      "artifact_verdict": "PASS",
+      "claim": "PASS",
+      "problems": [],
+      "stale": false
+    },
+    "min_total": 54
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "gate",
+  "leg_id": "B7_W8_RUNTIME_GATE",
+  "measured_at_utc": "2026-09-29T13:52:36Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:50:56Z",
+  "stderr_tail": "",
+  "stdout_bytes": 122,
+  "stdout_sha256": "e8352189474999d6397659dd62678a8e9ffd4c32fe2b45c03436be2b0475929f",
+  "stdout_tail": "gate WAVE8_DURABLE_RUNTIME verdict=PASS passed=54/54\nwrote F:\\jev\\.workbuddy\\scratch\\v1_3_wave8_gate_20260929-215234.json",
+  "verdict": "PASS"
+}

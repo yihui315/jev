@@ -1,0 +1,50 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "F:\\jev\\tools\\v1_3_wave4_attention_gate.py"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "child=PASS artifact=PASS 19/19",
+  "dimension": "W4 attention gate",
+  "duration_s": 9.78,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "claim": {
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave4_gate_20260929-215032.json",
+      "failed": [],
+      "passed": 19,
+      "shape": "json",
+      "total": 19,
+      "verdict": "PASS"
+    },
+    "cross_check": {
+      "agrees": true,
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave4_gate_20260929-215032.json",
+      "artifact_failures": 0,
+      "artifact_passed": 19,
+      "artifact_total": 19,
+      "artifact_verdict": "PASS",
+      "claim": "PASS",
+      "problems": [],
+      "stale": false
+    },
+    "min_total": 1
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "gate",
+  "leg_id": "B3_W4_ATTENTION_GATE",
+  "measured_at_utc": "2026-09-29T13:50:33Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:50:23Z",
+  "stderr_tail": "",
+  "stdout_bytes": 143,
+  "stdout_sha256": "2d13e6030e54b1b6beb998ab1fc754d2cd23d4264ce9bb9e6844068fb1e73cec",
+  "stdout_tail": "{\"verdict\": \"PASS\", \"passed\": 19, \"total\": 19, \"failed\": [], \"evidence\": \"F:\\\\jev\\\\.workbuddy\\\\scratch\\\\v1_3_wave4_gate_20260929-215032.json\"}",
+  "verdict": "PASS"
+}

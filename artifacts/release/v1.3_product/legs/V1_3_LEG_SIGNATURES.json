@@ -1,0 +1,114 @@
+{
+  "gate_project_complete": true,
+  "gate_run_id": "20260929-212111",
+  "generated_at": "2026-09-29T13:53:17Z",
+  "legs": {
+    "ARCH": {
+      "decision": "GO",
+      "evidence_sha256": "4346ac36143cae5bee46dc1ab557d5d61c0b70313cbdd83eaeba149a525f0840",
+      "gate_legs": [
+        "E1_FROZEN_TREE",
+        "E2_GATE_INPUTS_TRACKED",
+        "E3_A8_PINS_VS_HEAD_BLOBS"
+      ],
+      "signature": "c331f5ee838c63a5b88ceb394a2824bd16a64afb14a49e2c0f1f09e2b8b54fb4"
+    },
+    "CONTRACT": {
+      "decision": "GO",
+      "evidence_sha256": "704e15a4aa70fc9e4de7c4325c7afd7c541258ea233888a982984b5d0cc12a98",
+      "gate_legs": [
+        "A1_FREEZE_MODEL",
+        "A2_DOMAIN",
+        "A3_MISSION",
+        "A4_ATTENTION",
+        "A5_DELIVERABLES",
+        "A6_CONNECTIONS",
+        "A7_INVARIANTS"
+      ],
+      "signature": "777b53be22394267cd21caeed7142c6bae545c4bef0709c229794eae50aaf36c"
+    },
+    "GREEN_PROTECTION": {
+      "decision": "GO",
+      "evidence_sha256": "ef0d64ee92194bd933197f1ec0fe9d62de523670ecf75cd7f7baddf37fe4c59b",
+      "gate_legs": [
+        "D1_GREEN_PROTECTION"
+      ],
+      "signature": "ff96c82276e960ba49130856b62d7c2788b6e1ca526565bb1d1afd312ff9037d"
+    },
+    "REGRESSION": {
+      "decision": "GO",
+      "evidence_sha256": "ad559d7a00d8b8ae43a351b11f0c99d4a3ffc4673568373be0adc6f4aa99a1ab",
+      "gate_legs": [
+        "C1_CORE_E2E",
+        "C2_TOOLS_TESTS",
+        "C3a_TYPECHECK",
+        "C3b_VITEST",
+        "C3c_BUILD"
+      ],
+      "signature": "dac1c5f78a794136c7b8cf0df9fef3928bde5b9fe1988d1941da140cea85bbc7"
+    },
+    "RELEASE_HYGIENE": {
+      "decision": "GO",
+      "evidence_sha256": "ff4e8bb5c6663f996de4feefa2918055005dcf5e60d2680f89730a91767ebaca",
+      "gate_legs": [
+        "E1_FROZEN_TREE",
+        "E2_GATE_INPUTS_TRACKED",
+        "E3_A8_PINS_VS_HEAD_BLOBS",
+        "E4_NO_LISTENERS_LEFT_BEHIND"
+      ],
+      "signature": "54d9fc31e70e46968c09e380a49a874a30553c6de3aa788c41d5e0832e467294"
+    },
+    "RUNTIME": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_sha256": "2329d5ee3d9b7fb4994efb9b76c3d26cd35826167fb734fbdc1c91c45d6a6e58",
+      "gate_legs": [
+        "B7_W8_RUNTIME_GATE",
+        "D2_PRODUCT_CONFIG_INERT"
+      ],
+      "signature": "e32f4d6158602d9a8ebb5eac8dc75d211e18c6ec60dd3cda0e02c691a055f66d"
+    },
+    "SECURITY": {
+      "decision": "GO",
+      "evidence_sha256": "69b45745ace9acbf4cc812684967e9ae2fb622a97c21d0068b5b1b90fa3cb54a",
+      "gate_legs": [
+        "A8_SECURITY_GATE"
+      ],
+      "signature": "c7c9772ead27e09c3ced4ff94246f5d43e1212b4301947b3bf7cf8e4c296ca82"
+    },
+    "SELF_FALSIFICATION": {
+      "decision": "GO",
+      "evidence_sha256": "fc13adb940695fcd8a36d52457d82d713a48792de47cf3b032cdb659f4cf0452",
+      "gate_legs": [
+        "F1_INSTRUMENTS_ARE_FALSIFIABLE"
+      ],
+      "signature": "649175cde13b89612ad0b62419c589f3b88286365fce4c17c85fbda2b0e74c31"
+    },
+    "SERVING_PATH": {
+      "decision": "GO",
+      "evidence_sha256": "5915a9ceab569cd2828ea9630f9155ab5f06e5a7715a40caf87ec8414e387cd8",
+      "gate_legs": [
+        "D3_UI_IS_NOT_STDLIB"
+      ],
+      "signature": "4179283791fa6069765b78a5ce322b5d5077d43fef0102693ce15954b3442b8e"
+    },
+    "WAVE_GATES": {
+      "decision": "GO",
+      "evidence_sha256": "0b265bc0836f52636ec47069d956369f51b82182686d8fd0d06031dc27203510",
+      "gate_legs": [
+        "B1_W2_PRODUCT_UI",
+        "B2_W3_MISSION_GATE",
+        "B3_W4_ATTENTION_GATE",
+        "B4_W5_DELIVERABLES_GATE",
+        "B5_W6_WORLD_GATE",
+        "B6_W7_CONNECTION_GATE",
+        "B7_W8_RUNTIME_GATE"
+      ],
+      "signature": "eebbcbc667e473d0926b4aa5bc3dbf9e6a4a2acb5dbb1db0ba5416ae6f4712a3"
+    }
+  },
+  "note": "Every signature is freshly computed from this gate run's own evidence; none reuse the v1.0.1 (f8ac95d), v1.1 (5ab5e20) or v1.2 (ddca208) signatures.",
+  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "release": "JCC v1.3 Product Edition (local)",
+  "schema": "jcc/v1.3-leg-signatures/1",
+  "signer": "Orion (JCC v1.3 final product gate)"
+}

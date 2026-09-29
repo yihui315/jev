@@ -1,0 +1,51 @@
+{
+  "decision": "GO",
+  "dimension": "Architecture / Product Freeze Governance",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "product_dirty=0 metadata_dirty=0 untracked=3",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E1_FROZEN_TREE.json",
+      "evidence_sha256": "226f2938bb2901f6a6ca86ae3f09d0f70d080c82958668c74ea1dbf4bb873d4e",
+      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "leg_id": "E1_FROZEN_TREE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "29 inputs, 0 missing",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E2_GATE_INPUTS_TRACKED.json",
+      "evidence_sha256": "7cbb1f1dd47670a14a5077176bbd47c67931f48c410f2992bcbd35f3128a893c",
+      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "leg_id": "E2_GATE_INPUTS_TRACKED",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "12/12 pins match the HEAD blob",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E3_A8_PINS_VS_HEAD_BLOBS.json",
+      "evidence_sha256": "e3d2881f585f3536141c4154a6155c56bb96a2b982a223b010699b2ef4fb460d",
+      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "leg_id": "E3_A8_PINS_VS_HEAD_BLOBS",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "E1_FROZEN_TREE",
+    "E2_GATE_INPUTS_TRACKED",
+    "E3_A8_PINS_VS_HEAD_BLOBS"
+  ],
+  "leg_id": "ARCH",
+  "notes": "All 3 gate legs PASS at this head (c3060f7d42e3).",
+  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "c331f5ee838c63a5b88ceb394a2824bd16a64afb14a49e2c0f1f09e2b8b54fb4",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T13:53:17Z"
+}

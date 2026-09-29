@@ -1,0 +1,50 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "F:\\jev\\tools\\v1_3_wave2_ui_gate.py"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "child=PASS artifact=PASS 30/30",
+  "dimension": "W2 product UI renders REAL persisted state",
+  "duration_s": 32.94,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "claim": {
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260929-214927.json",
+      "failed": null,
+      "passed": 30,
+      "shape": "passline",
+      "total": 30,
+      "verdict": "PASS"
+    },
+    "cross_check": {
+      "agrees": true,
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260929-214927.json",
+      "artifact_failures": 0,
+      "artifact_passed": 30,
+      "artifact_total": 30,
+      "artifact_verdict": "PASS",
+      "claim": "PASS",
+      "problems": [],
+      "stale": false
+    },
+    "min_total": 1
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "gate",
+  "leg_id": "B1_W2_PRODUCT_UI",
+  "measured_at_utc": "2026-09-29T13:50:00Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:49:27Z",
+  "stderr_tail": "F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa",
+  "stdout_bytes": 1836,
+  "stdout_sha256": "35df5d879bf406fdb5f6626ad48cb37a00603a16908ecd0a98d34a3deb8de9e8",
+  "stdout_tail": "  [PASS] BOOT_SCHEMA: domain home schema\n  [PASS] API_CREATE_PROJECT: project created\n  [PASS] API_CREATE_MISSION: mission created as DRAFT\n  [PASS] API_TOKEN_FAIL_CLOSED: write without token refused\n  [PASS] CHROME: real Chrome channel\n  [PASS] SHELL_SIDEBAR: sidebar\n  [PASS] SHELL_TOPBAR: top bar\n  [PASS] HOME_DEFAULT: Home lands first\n  [PASS] HOME_COUNTERS: 5/5 counters\n  [PASS] HOME_CTA: New Mission CTA\n  [PASS] LIVE_COUNTER_NONZERO: active-project counter reflects the API\n  [PASS] LIVE_REAL_DATA: API-created project renders on the Projects surface\n  [PASS] LIVE_REAL_MISSION: API-created mission renders with its DRAFT state\n  [PASS] LIVE_MISSION_STATE: mission shows its real state\n  [PASS] NAV_ALL: 13/13 surfaces\n  [PASS] STUDIO_FORM: 8/8 fields\n  [PASS] STUDIO_PROJECT_OPTION: API-created project is selectable\n  [PASS] PALETTE_CTRLK: Ctrl+K palette\n  [PASS] THEME_ATTR: theme attribute set\n  [PASS] A11Y_LANDMARKS: nav/header/main landmarks\n  [PASS] RESPONSIVE_MOBILE: navigation present at 420px\n  [PASS] NO_CONSOLE_ERRORS: 0 console errors\n  [PASS] PORTS_RELEASED_AFTER_TEARDOWN: the gate leaves no product listener behind\n\nPASS 30/30 -> F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260929-214927.json",
+  "verdict": "PASS"
+}

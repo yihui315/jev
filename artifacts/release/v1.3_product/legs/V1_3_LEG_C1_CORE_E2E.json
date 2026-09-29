@@ -1,0 +1,53 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "packages/jcc_core/tests",
+    "tests/e2e",
+    "-q",
+    "--no-header",
+    "--color=no",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "786 passed / 0 failed / 0 errors / 0 skipped (floor 786)",
+  "dimension": "full core + e2e regression (the recorded 786)",
+  "duration_s": 507.38,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING",
+    "TEMP",
+    "TMP"
+  ],
+  "evidence": {
+    "counts": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 786,
+      "skipped": 0
+    },
+    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\c1_core_e2e-20260929-213026",
+    "min_passed": 786,
+    "problems": [],
+    "targets": [
+      "packages/jcc_core/tests",
+      "tests/e2e"
+    ]
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "pytest",
+  "leg_id": "C1_CORE_E2E",
+  "measured_at_utc": "2026-09-29T13:38:53Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:30:26Z",
+  "stderr_tail": "",
+  "stdout_bytes": 1670,
+  "stdout_sha256": "77a3a15b35e1c6e208463815d06ec829b978b395a85ce67302cffa0ba8e1a0d0",
+  "stdout_tail": "........................................................................ [  9%]\n........................................................................ [ 18%]\n........................................................................ [ 27%]\n........................................................................ [ 36%]\n........................................................................ [ 45%]\n........................................................................ [ 54%]\n........................................................................ [ 64%]\n........................................................................ [ 73%]\n........................................................................ [ 82%]\n........................................................................ [ 91%]\n..................................................................       [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\npackages/jcc_core/tests/test_acceptance_harness.py::test_acceptance_harness\n  F:\\jev\\.venv\\Lib\\site-packages\\websockets\\exceptions.py:137: DeprecationWarning: ConnectionClosed.code is deprecated; use Protocol.close_code or ConnectionClosed.rcvd.code\n    warnings.warn(  # deprecated in 13.1 - 2024-09-21\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n786 passed, 2 warnings in 505.37s (0:08:25)",
+  "verdict": "PASS"
+}

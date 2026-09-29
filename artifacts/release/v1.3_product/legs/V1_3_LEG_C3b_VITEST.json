@@ -1,0 +1,37 @@
+{
+  "command": [
+    "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-3\\npm.CMD",
+    "run",
+    "test"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "exit=0 ; tests_passed=1, tests_passed_max=76",
+  "dimension": "frontend vitest run -- the recorded 71",
+  "duration_s": 8.52,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "ansi_stripped": true,
+    "expect": {
+      "tests_passed": 1,
+      "tests_passed_max": 76
+    },
+    "problems": []
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "frontend",
+  "leg_id": "C3b_VITEST",
+  "measured_at_utc": "2026-09-29T13:49:18Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:49:10Z",
+  "stderr_tail": "",
+  "stdout_bytes": 1446,
+  "stdout_sha256": "acc2f373a7730212d5bdff6534cee33f948a3154bf1710ea99044db5ac469aa6",
+  "stdout_tail": "\n> command_center_3d@1.2.0 test\n> vitest run\n\n\n\u001b[1m\u001b[7m\u001b[36m RUN \u001b[39m\u001b[27m\u001b[22m \u001b[36mv2.1.9 \u001b[39m\u001b[90mF:/jev/apps/command_center_3d\u001b[39m\n\n \u001b[32m✓\u001b[39m src/app/domainApi.test.ts \u001b[2m(\u001b[22m\u001b[2m14 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 28\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/app/status.test.ts \u001b[2m(\u001b[22m\u001b[2m17 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/store/domainWorld.test.ts \u001b[2m(\u001b[22m\u001b[2m8 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/store/sceneMap.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 6\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/app/missionForm.test.ts \u001b[2m(\u001b[22m\u001b[2m11 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/app/navigation.test.ts \u001b[2m(\u001b[22m\u001b[2m8 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 7\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/lib/apiBase.test.ts \u001b[2m(\u001b[22m\u001b[2m5 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 4\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/store/capability.test.ts \u001b[2m(\u001b[22m\u001b[2m4 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/lib/shadowView.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 3\u001b[2mms\u001b[22m\u001b[39m\n \u001b[32m✓\u001b[39m src/lib/webgl.test.ts \u001b[2m(\u001b[22m\u001b[2m3 tests\u001b[22m\u001b[2m)\u001b[22m\u001b[90m 3\u001b[2mms\u001b[22m\u001b[39m\n\n\u001b[2m Test Files \u001b[22m \u001b[1m\u001b[32m10 passed\u001b[39m\u001b[22m\u001b[90m (10)\u001b[39m\n\u001b[2m      Tests \u001b[22m \u001b[1m\u001b[32m76 passed\u001b[39m\u001b[22m\u001b[90m (76)\u001b[39m\n\u001b[2m   Start at \u001b[22m 21:49:12\n\u001b[2m   Duration \u001b[22m 5.36s\u001b[2m (transform 142ms, setup 0ms, collect 420ms, tests 73ms, environment 2ms, prepare 1.64s)\u001b[22m\n",
+  "verdict": "PASS"
+}

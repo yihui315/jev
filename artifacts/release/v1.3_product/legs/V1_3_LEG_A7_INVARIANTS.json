@@ -1,0 +1,53 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "packages/jcc_core/tests/test_p3_acceptance_gate.py",
+    "packages/jcc_core/tests/test_server_surface.py",
+    "-q",
+    "--no-header",
+    "--color=no",
+    "-p",
+    "no:cacheprovider"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "55 passed / 0 failed / 0 errors / 0 skipped (floor 55)",
+  "dimension": "A8 pins + A11 inbound surface",
+  "duration_s": 140.29,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING",
+    "TEMP",
+    "TMP"
+  ],
+  "evidence": {
+    "counts": {
+      "errors": 0,
+      "failed": 0,
+      "passed": 55,
+      "skipped": 0
+    },
+    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\a7_invariants-20260929-212758",
+    "min_passed": 55,
+    "problems": [],
+    "targets": [
+      "packages/jcc_core/tests/test_p3_acceptance_gate.py",
+      "packages/jcc_core/tests/test_server_surface.py"
+    ]
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "pytest",
+  "leg_id": "A7_INVARIANTS",
+  "measured_at_utc": "2026-09-29T13:30:18Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:27:58Z",
+  "stderr_tail": "",
+  "stdout_bytes": 563,
+  "stdout_sha256": "53c6045770818c5db1989f05a3f76c9c626ed121dd3f40c366174f05c3101000",
+  "stdout_tail": ".......................................................                  [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n55 passed, 1 warning in 138.92s (0:02:18)",
+  "verdict": "PASS"
+}

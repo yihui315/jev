@@ -1,0 +1,29 @@
+{
+  "command": [
+    "git log -1 --format=%H -- <freeze doc>"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "recorded=c3060f7d42e3 head=c3060f7d42e3 bytes=8947",
+  "dimension": "the freeze document is introduced by the commit under measurement",
+  "duration_s": 0.43,
+  "env_keys": [],
+  "evidence": {
+    "bytes": 8947,
+    "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+    "problems": [],
+    "recorded_introducing_commit": "c3060f7d42e3f2492e721bf1d68ae92bc6313311"
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "builtin",
+  "leg_id": "E5_FREEZE_ANCHOR_RESOLVES",
+  "measured_at_utc": "2026-09-29T13:52:47Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:52:47Z",
+  "stderr_tail": "",
+  "stdout_bytes": 95,
+  "stdout_sha256": "3c32f5ff6dfa9db9d0e6b6fd5a5abca094a7c9f5b48dbedc0bc98e09dc4fc32d",
+  "stdout_tail": "recorded=c3060f7d42e3f2492e721bf1d68ae92bc6313311 head=c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "verdict": "PASS"
+}

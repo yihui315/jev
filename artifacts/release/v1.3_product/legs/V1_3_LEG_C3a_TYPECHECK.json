@@ -1,0 +1,36 @@
+{
+  "command": [
+    "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-3\\npm.CMD",
+    "run",
+    "typecheck"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "exit=0 ; tsc_ran=1",
+  "dimension": "frontend tsc --noEmit -- a clean compile",
+  "duration_s": 6.55,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "ansi_stripped": false,
+    "expect": {
+      "tsc_ran": 1
+    },
+    "problems": []
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "frontend",
+  "leg_id": "C3a_TYPECHECK",
+  "measured_at_utc": "2026-09-29T13:49:10Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:49:03Z",
+  "stderr_tail": "",
+  "stdout_bytes": 53,
+  "stdout_sha256": "5c698639a5943f0abee45f1d27ec83b733aa89f4a67a52cd71904df3fe453ed2",
+  "stdout_tail": "\n> command_center_3d@1.2.0 typecheck\n> tsc --noEmit\n",
+  "verdict": "PASS"
+}

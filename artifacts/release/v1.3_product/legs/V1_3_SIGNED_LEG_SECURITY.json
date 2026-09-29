@@ -1,0 +1,33 @@
+{
+  "decision": "GO",
+  "dimension": "Security Gate re-run live",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "{'verdict': 'GO', 'high': 0, 'medium': 0, 'low': 0, 'info': 0, 'ran': 9, 'check_count': 9} GO, non-vacuous",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A8_SECURITY_GATE.json",
+      "evidence_sha256": "105059432059ae85c283ce23f41553bc66d5a27035722131761e93bd772f2384",
+      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "leg_id": "A8_SECURITY_GATE",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "A8_SECURITY_GATE"
+  ],
+  "leg_id": "SECURITY",
+  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
+  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "c7c9772ead27e09c3ced4ff94246f5d43e1212b4301947b3bf7cf8e4c296ca82",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T13:53:17Z"
+}

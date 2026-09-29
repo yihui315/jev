@@ -1,0 +1,33 @@
+{
+  "command": [
+    "git status --porcelain"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "product_dirty=0 metadata_dirty=0 untracked=3",
+  "dimension": "no tracked product file is modified when the gate starts",
+  "duration_s": 0.32,
+  "env_keys": [],
+  "evidence": {
+    "metadata_dirty": [],
+    "problems": [],
+    "product_dirty": [],
+    "untracked": [
+      "artifacts/release/v1.3_product/FINAL_GATE_V1_3_RESULT.json",
+      "artifacts/release/v1.3_product/FINAL_GATE_V1_3_RESULT.sha256",
+      "artifacts/release/v1.3_product/legs/"
+    ]
+  },
+  "exit_code": 0,
+  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "kind": "builtin",
+  "leg_id": "E1_FROZEN_TREE",
+  "measured_at_utc": "2026-09-29T13:52:40Z",
+  "run_id": "20260929-212111",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T13:52:39Z",
+  "stderr_tail": "",
+  "stdout_bytes": 166,
+  "stdout_sha256": "39ad59d24142e7e1ed8db67c96d25296f5b3920e5f71713a31f46f2341a3036b",
+  "stdout_tail": "?? artifacts/release/v1.3_product/FINAL_GATE_V1_3_RESULT.json\n?? artifacts/release/v1.3_product/FINAL_GATE_V1_3_RESULT.sha256\n?? artifacts/release/v1.3_product/legs/",
+  "verdict": "PASS"
+}
