@@ -1,21 +1,29 @@
 {
   "gate_project_complete": true,
-  "gate_run_id": "20260929-212111",
-  "generated_at": "2026-09-29T13:53:17Z",
+  "gate_run_id": "20260930-071747",
+  "generated_at": "2026-09-29T23:20:22Z",
   "legs": {
     "ARCH": {
       "decision": "GO",
-      "evidence_sha256": "4346ac36143cae5bee46dc1ab557d5d61c0b70313cbdd83eaeba149a525f0840",
+      "evidence_sha256": "048fe49a33210f3758bb602447f281256ebae3f970d3f81140a008f05aacaec0",
       "gate_legs": [
         "E1_FROZEN_TREE",
         "E2_GATE_INPUTS_TRACKED",
         "E3_A8_PINS_VS_HEAD_BLOBS"
       ],
-      "signature": "c331f5ee838c63a5b88ceb394a2824bd16a64afb14a49e2c0f1f09e2b8b54fb4"
+      "signature": "37fef8674740a1d6054394c9473c9c455634dcb207e7c0728fb47e72d9df1d23"
+    },
+    "BROWSER_PERF": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_sha256": "b439ef459dcec4e32666d75c8a234c9a0b504f6619bec6a74f27ff088c535a4b",
+      "gate_legs": [
+        "B8_W10_BROWSER_PERF"
+      ],
+      "signature": "35134931c408149ca7003274b989d98618a35b4fafc19e6c895770b990c43d25"
     },
     "CONTRACT": {
       "decision": "GO",
-      "evidence_sha256": "704e15a4aa70fc9e4de7c4325c7afd7c541258ea233888a982984b5d0cc12a98",
+      "evidence_sha256": "28e04b7e1cd5c3f2104e1996dbd1aba9a8d4106aa8ed22d998cfd7d950174080",
       "gate_legs": [
         "A1_FREEZE_MODEL",
         "A2_DOMAIN",
@@ -25,19 +33,19 @@
         "A6_CONNECTIONS",
         "A7_INVARIANTS"
       ],
-      "signature": "777b53be22394267cd21caeed7142c6bae545c4bef0709c229794eae50aaf36c"
+      "signature": "fc9651e5c2eaa082c46b731195fef7665bd7276687099fdd254e93bcda8f9afb"
     },
     "GREEN_PROTECTION": {
       "decision": "GO",
-      "evidence_sha256": "ef0d64ee92194bd933197f1ec0fe9d62de523670ecf75cd7f7baddf37fe4c59b",
+      "evidence_sha256": "28d9ece6c36d4f5262561d2b9bc6b3f1b7a342fdac2febc2f87970bbe5511c4f",
       "gate_legs": [
         "D1_GREEN_PROTECTION"
       ],
-      "signature": "ff96c82276e960ba49130856b62d7c2788b6e1ca526565bb1d1afd312ff9037d"
+      "signature": "83d4e719ff63eceac800560a09c72a53fa82e064a2a9d8615ca4ce821a4f1941"
     },
     "REGRESSION": {
       "decision": "GO",
-      "evidence_sha256": "ad559d7a00d8b8ae43a351b11f0c99d4a3ffc4673568373be0adc6f4aa99a1ab",
+      "evidence_sha256": "1e670e7103510c471c92b4e5e2fae74284ed8bf650cf2f4eace4b2c809b0a233",
       "gate_legs": [
         "C1_CORE_E2E",
         "C2_TOOLS_TESTS",
@@ -45,55 +53,55 @@
         "C3b_VITEST",
         "C3c_BUILD"
       ],
-      "signature": "dac1c5f78a794136c7b8cf0df9fef3928bde5b9fe1988d1941da140cea85bbc7"
+      "signature": "566dd40b80afbefac11a14a0a9fb1e4cb921209e07efa7034e66746f498b3d19"
     },
     "RELEASE_HYGIENE": {
       "decision": "GO",
-      "evidence_sha256": "ff4e8bb5c6663f996de4feefa2918055005dcf5e60d2680f89730a91767ebaca",
+      "evidence_sha256": "9d590e76a9feb93b3bfa53a41625ebc6b29c614357cb8817bd7908b6273e826a",
       "gate_legs": [
         "E1_FROZEN_TREE",
         "E2_GATE_INPUTS_TRACKED",
         "E3_A8_PINS_VS_HEAD_BLOBS",
         "E4_NO_LISTENERS_LEFT_BEHIND"
       ],
-      "signature": "54d9fc31e70e46968c09e380a49a874a30553c6de3aa788c41d5e0832e467294"
+      "signature": "d33554cf993fcb80abe2e6ebffd998d4a45a072fc01deea2b0b6da964e048f16"
     },
     "RUNTIME": {
       "decision": "GO_WITH_PENDING",
-      "evidence_sha256": "2329d5ee3d9b7fb4994efb9b76c3d26cd35826167fb734fbdc1c91c45d6a6e58",
+      "evidence_sha256": "90af6406252d95b0ada8ece67ac0d177d31bf71806f69a546f3804708bd8ff7e",
       "gate_legs": [
         "B7_W8_RUNTIME_GATE",
         "D2_PRODUCT_CONFIG_INERT"
       ],
-      "signature": "e32f4d6158602d9a8ebb5eac8dc75d211e18c6ec60dd3cda0e02c691a055f66d"
+      "signature": "ef93196bcff080563ac50e71b64a0c96194e0b87cf6107ab98e1286c2f687990"
     },
     "SECURITY": {
       "decision": "GO",
-      "evidence_sha256": "69b45745ace9acbf4cc812684967e9ae2fb622a97c21d0068b5b1b90fa3cb54a",
+      "evidence_sha256": "44ed6fb202b0348f55963afc89cc940a2dbf583fc3e380c54988567c2fe069db",
       "gate_legs": [
         "A8_SECURITY_GATE"
       ],
-      "signature": "c7c9772ead27e09c3ced4ff94246f5d43e1212b4301947b3bf7cf8e4c296ca82"
+      "signature": "004e2f85eca0120b1432caada3de5ef82bd328914662e9c2d88a8defdcd6411b"
     },
     "SELF_FALSIFICATION": {
       "decision": "GO",
-      "evidence_sha256": "fc13adb940695fcd8a36d52457d82d713a48792de47cf3b032cdb659f4cf0452",
+      "evidence_sha256": "6cc8554edfee7f4663937b6a3de55086e8bf2f00b7b6ce059ce87f9cc918f4af",
       "gate_legs": [
         "F1_INSTRUMENTS_ARE_FALSIFIABLE"
       ],
-      "signature": "649175cde13b89612ad0b62419c589f3b88286365fce4c17c85fbda2b0e74c31"
+      "signature": "d736793926b57b924280e3a9c131a50e18887e9933e9ae920b5f3f0dab7eebc6"
     },
     "SERVING_PATH": {
       "decision": "GO",
-      "evidence_sha256": "5915a9ceab569cd2828ea9630f9155ab5f06e5a7715a40caf87ec8414e387cd8",
+      "evidence_sha256": "96c08417a3e0736f00a536d12fdfc33cc5d1455a9bf7283dbff2cb51b8857c96",
       "gate_legs": [
         "D3_UI_IS_NOT_STDLIB"
       ],
-      "signature": "4179283791fa6069765b78a5ce322b5d5077d43fef0102693ce15954b3442b8e"
+      "signature": "71c9383bf92167f60a3f6177085a18311545383e4bcd4d0bf084898108582ff8"
     },
     "WAVE_GATES": {
       "decision": "GO",
-      "evidence_sha256": "0b265bc0836f52636ec47069d956369f51b82182686d8fd0d06031dc27203510",
+      "evidence_sha256": "43fb39935d89813300e66157635313d82d74e4ff7343469cce5cd84470282cc0",
       "gate_legs": [
         "B1_W2_PRODUCT_UI",
         "B2_W3_MISSION_GATE",
@@ -103,11 +111,11 @@
         "B6_W7_CONNECTION_GATE",
         "B7_W8_RUNTIME_GATE"
       ],
-      "signature": "eebbcbc667e473d0926b4aa5bc3dbf9e6a4a2acb5dbb1db0ba5416ae6f4712a3"
+      "signature": "d1d1572ff4d78026d0421596b062724d8d600d1848c216489d68eefc3e921ef3"
     }
   },
   "note": "Every signature is freshly computed from this gate run's own evidence; none reuse the v1.0.1 (f8ac95d), v1.1 (5ab5e20) or v1.2 (ddca208) signatures.",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "release": "JCC v1.3 Product Edition (local)",
   "schema": "jcc/v1.3-leg-signatures/1",
   "signer": "Orion (JCC v1.3 final product gate)"

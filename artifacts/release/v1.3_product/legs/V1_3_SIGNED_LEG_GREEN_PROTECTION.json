@@ -8,10 +8,10 @@
   },
   "gate_legs": [
     {
-      "detail": "pid=7588 http=200 untouched",
+      "detail": "pid=7028 http=200 untouched",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_D1_GREEN_PROTECTION.json",
-      "evidence_sha256": "5321834be17becd694ef4ee49ef0cfdd774fad83bdb7500c4b97759726781c07",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "363b8270090c1c1629a9e2f682a03932416f5c5ca37918fdb79584f84cdd4a35",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "D1_GREEN_PROTECTION",
       "verdict": "PASS"
     }
@@ -22,12 +22,12 @@
     "D1_GREEN_PROTECTION"
   ],
   "leg_id": "GREEN_PROTECTION",
-  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "notes": "All 1 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "project_complete_at_signing": true,
   "reuses_earlier_signature": false,
   "schema": "jcc/v1.3-leg/1",
-  "signature": "ff96c82276e960ba49130856b62d7c2788b6e1ca526565bb1d1afd312ff9037d",
+  "signature": "83d4e719ff63eceac800560a09c72a53fa82e064a2a9d8615ca4ce821a4f1941",
   "signer": "Orion (JCC v1.3 final product gate)",
-  "timestamp_utc": "2026-09-29T13:53:17Z"
+  "timestamp_utc": "2026-09-29T23:20:22Z"
 }

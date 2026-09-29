@@ -10,8 +10,8 @@
     {
       "detail": "positives=4 banned=0 ",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_D3_UI_IS_NOT_STDLIB.json",
-      "evidence_sha256": "cfa52ef4f689470499ad8e514e64d62771608983d3b9dc86eaf8de70f7ee44c7",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "0358aa0ca5d10942551845659d45359dbb2cda250f244d81d4788821224fd608",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "D3_UI_IS_NOT_STDLIB",
       "verdict": "PASS"
     }
@@ -22,12 +22,12 @@
     "D3_UI_IS_NOT_STDLIB"
   ],
   "leg_id": "SERVING_PATH",
-  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "notes": "All 1 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "project_complete_at_signing": true,
   "reuses_earlier_signature": false,
   "schema": "jcc/v1.3-leg/1",
-  "signature": "4179283791fa6069765b78a5ce322b5d5077d43fef0102693ce15954b3442b8e",
+  "signature": "71c9383bf92167f60a3f6177085a18311545383e4bcd4d0bf084898108582ff8",
   "signer": "Orion (JCC v1.3 final product gate)",
-  "timestamp_utc": "2026-09-29T13:53:17Z"
+  "timestamp_utc": "2026-09-29T23:20:22Z"
 }

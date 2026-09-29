@@ -5,7 +5,7 @@
   "cwd": "F:\\jev",
   "detail": "{\"4779\": 0, \"4780\": 0, \"4781\": 0, \"4782\": 0}",
   "dimension": "no v1.3 product listener is left running by the gate",
-  "duration_s": 0.78,
+  "duration_s": 0.67,
   "env_keys": [],
   "evidence": {
     "ports": {
@@ -17,13 +17,13 @@
     "problems": []
   },
   "exit_code": 0,
-  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "kind": "builtin",
   "leg_id": "E4_NO_LISTENERS_LEFT_BEHIND",
-  "measured_at_utc": "2026-09-29T13:52:48Z",
-  "run_id": "20260929-212111",
+  "measured_at_utc": "2026-09-29T23:18:01Z",
+  "run_id": "20260930-071747",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T13:52:48Z",
+  "started_utc": "2026-09-29T23:18:00Z",
   "stderr_tail": "",
   "stdout_bytes": 44,
   "stdout_sha256": "66e787484049d08956131711cd1b08f5e2f4a7c7e9c3998964c36265161c3bf7",

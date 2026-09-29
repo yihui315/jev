@@ -1,20 +1,20 @@
 {
-  "evidence_head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "evidence_head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "file_count": 20,
   "files": [
     {
-      "bytes": 1103779,
+      "bytes": 1240424,
       "hash_convention": "dir_fingerprint",
       "owner": "core-platform",
       "path": "packages/jcc_core",
-      "sha256": "a908508f1fc3347d8844bb0115350105425d2b9fe75ad54267329f63f80029bf"
+      "sha256": "befadcc7b7432dfc5dfa43ac777b2a117f79a6d6c45b2def6c1659823fc16658"
     },
     {
-      "bytes": 507678,
+      "bytes": 543608,
       "hash_convention": "dir_fingerprint",
       "owner": "core-platform",
       "path": "apps/command_center_3d",
-      "sha256": "333d034c100a1aa88b8ef4e713cba8bfc77ae04aa8bbf96690fce93cbb78a0b7"
+      "sha256": "6abcc7df22da465add7b6c88d338bf846353c17213071480f11fa6b37cb2769b"
     },
     {
       "bytes": 14475,
@@ -45,18 +45,18 @@
       "sha256": "f6e9406ca7f6b1820eaf1e250baac47fcb63dd61931ced7bb622b10f508ab6f4"
     },
     {
-      "bytes": 13267,
+      "bytes": 13981,
       "hash_convention": "git_blob",
       "owner": "lead",
       "path": "tools/emit_v1_3_legs.py",
-      "sha256": "116fed03e83b64253d996319cec36bd3f3449fedc73126354eabcf901b02881b"
+      "sha256": "57b97c289bb5af17728018eaaf7fe8cd15e6b1c566b3686de325967e51613491"
     },
     {
-      "bytes": 66620,
+      "bytes": 71262,
       "hash_convention": "git_blob",
       "owner": "lead",
       "path": "tools/final_gate_run_v1_3.py",
-      "sha256": "4eb8835af3f450a0f8dabfe20873ca71672972f810658238d2ae438bb2bc80fa"
+      "sha256": "88a351954a6ad9662135c6d243fc327f122327df98fef2160d66007f0205f1f7"
     },
     {
       "bytes": 65001,
@@ -122,18 +122,18 @@
       "sha256": "a7d3dddd86dbc1ab2551b24f74440d5f452a8209760152be8b217f1f54f1e0a8"
     },
     {
-      "bytes": 102423,
+      "bytes": 118062,
       "hash_convention": "dir_fingerprint",
       "owner": "qa",
       "path": "tests/e2e",
-      "sha256": "4a882646f40b78588882d82460437fdcf761f1f9f7f084cc28cf7abe9ed3ce5c"
+      "sha256": "3b24c6450f3ae91b44d7e219eba4e3944f2e16ecb84d2f91eacebf44252ddad8"
     },
     {
-      "bytes": 8947,
+      "bytes": 14885,
       "hash_convention": "git_blob",
       "owner": "protocol-architect",
       "path": "docs/v1_3/FINAL_PRODUCT_FREEZE.md",
-      "sha256": "8e8eb57fd596dbeebb9cb44a669c866ab1ba6697f7989ab1321fa3893d5a2240"
+      "sha256": "207803938134d73b2688b696aee556f4f4bcfccbb0463dba50cdcbe7e2a3f42e"
     },
     {
       "bytes": 10350,
@@ -149,13 +149,14 @@
     "final_release": false,
     "pending_host_activation": [
       "Unregister the two stray Scheduled Tasks created during the measured incident recorded in docs/v1_3/WAVE_8_DURABLE_RUNTIME.md section 6: JCC-v1.3-API and JCC-v1.3-PROBE (schtasks.exe is blacklisted in the agent sandbox and Windows' own unregister path goes through the same blind CIM provider, so this cannot be done from here).",
-      "Run scripts\\jcc-v1.3-register-tasks.ps1 -Apply from an ELEVATED PowerShell on the host to create the durable JCC-v1.3-API / JCC-v1.3-VisualUI tasks, then `scripts\\jcc-v1.3.ps1 -Action mark` to adopt them."
+      "Run scripts\\jcc-v1.3-register-tasks.ps1 -Apply from an ELEVATED PowerShell on the host to create the durable JCC-v1.3-API / JCC-v1.3-VisualUI tasks, then `scripts\\jcc-v1.3.ps1 -Action mark` to adopt them.",
+      "Authenticate the WorkBuddy CLI for the account the JCC API runs under, so a launcher-spawned non-interactive process can obtain credentials. Until it is done the launch read-back classifies the run as AUTH_REQUIRED, the mission is NOT walked to RUNNING by design, and the capability reads HOST_ACTIVATION_PENDING (see docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md section 8)."
     ],
     "present": true,
     "project_complete": true,
     "release_readiness": "RELEASE_READY_PENDING_HOST_ACTIVATION"
   },
-  "generated_at": "2026-09-29T13:54:10.936743+00:00",
+  "generated_at": "2026-09-29T23:21:10.270985+00:00",
   "generated_by": "tools/emit_v1_3_release_manifest.py",
   "generated_by_sha256": "f6e9406ca7f6b1820eaf1e250baac47fcb63dd61931ced7bb622b10f508ab6f4",
   "hash_convention": "sha256(git cat-file blob <PRODUCT_FREEZE_SHA>:<path>) for tracked files; sha256(content fingerprint over tracked files) for directories",
@@ -173,7 +174,7 @@
     "evals/**",
     "tests/**"
   ],
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "release": "JCC v1.3 Product Edition (local)",
   "release_metadata_allow": [
     "artifacts/release/**",

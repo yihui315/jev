@@ -10,16 +10,16 @@
     {
       "detail": "child=PASS artifact=PASS 54/54",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B7_W8_RUNTIME_GATE.json",
-      "evidence_sha256": "3be89233e4f97ff7925a2cb233d1bf6413c8a69653ca8e11ac805a3796f025de",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "fea2a476d387dd0e10f3a4f39f1640ced4861c1ce0a3207a5846f75124c7d73e",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "B7_W8_RUNTIME_GATE",
       "verdict": "PASS"
     },
     {
       "detail": "boot=OK actuation=False localhost_only=True ",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_D2_PRODUCT_CONFIG_INERT.json",
-      "evidence_sha256": "b0ef33d11902de6b722f815844a8bc1109c101a69fff6990ea35073d437a749f",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "a4bef993b70e7338492d057fe8a548fbe7d45a91b13aceb26eef22265139133d",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "D2_PRODUCT_CONFIG_INERT",
       "verdict": "PASS"
     }
@@ -32,11 +32,11 @@
   ],
   "leg_id": "RUNTIME",
   "notes": "All 2 gate legs PASS at this head. A HOST action remains: Durable Task Scheduler registration is a HOST action: run scripts\\jcc-v1.3-register-tasks.ps1 -Apply elevated, then `scripts\\jcc-v1.3.ps1 -Action mark`.",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "project_complete_at_signing": true,
   "reuses_earlier_signature": false,
   "schema": "jcc/v1.3-leg/1",
-  "signature": "e32f4d6158602d9a8ebb5eac8dc75d211e18c6ec60dd3cda0e02c691a055f66d",
+  "signature": "ef93196bcff080563ac50e71b64a0c96194e0b87cf6107ab98e1286c2f687990",
   "signer": "Orion (JCC v1.3 final product gate)",
-  "timestamp_utc": "2026-09-29T13:53:17Z"
+  "timestamp_utc": "2026-09-29T23:20:22Z"
 }

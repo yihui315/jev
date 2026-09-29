@@ -10,8 +10,8 @@
     {
       "detail": "7/7 falsifiers behaved",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_F1_INSTRUMENTS_ARE_FALSIFIABLE.json",
-      "evidence_sha256": "4fecb1324b46c630939956b698d5ba51a8a3a51a6fab0bcd67d27aa366a08de9",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "bed017b13736929dabcbaf6b734d52e8b5a1f152ab9f6fcad42aaa0f31f5f6bf",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "F1_INSTRUMENTS_ARE_FALSIFIABLE",
       "verdict": "PASS"
     }
@@ -22,12 +22,12 @@
     "F1_INSTRUMENTS_ARE_FALSIFIABLE"
   ],
   "leg_id": "SELF_FALSIFICATION",
-  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "notes": "All 1 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "project_complete_at_signing": true,
   "reuses_earlier_signature": false,
   "schema": "jcc/v1.3-leg/1",
-  "signature": "649175cde13b89612ad0b62419c589f3b88286365fce4c17c85fbda2b0e74c31",
+  "signature": "d736793926b57b924280e3a9c131a50e18887e9933e9ae920b5f3f0dab7eebc6",
   "signer": "Orion (JCC v1.3 final product gate)",
-  "timestamp_utc": "2026-09-29T13:53:17Z"
+  "timestamp_utc": "2026-09-29T23:20:22Z"
 }

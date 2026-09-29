@@ -10,8 +10,8 @@
     {
       "detail": "{'verdict': 'GO', 'high': 0, 'medium': 0, 'low': 0, 'info': 0, 'ran': 9, 'check_count': 9} GO, non-vacuous",
       "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A8_SECURITY_GATE.json",
-      "evidence_sha256": "105059432059ae85c283ce23f41553bc66d5a27035722131761e93bd772f2384",
-      "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+      "evidence_sha256": "d9c0e515cda760cb00aa9323d31a1c4c65c7ab0d8e72a0da795aa2c6f0edda7e",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
       "leg_id": "A8_SECURITY_GATE",
       "verdict": "PASS"
     }
@@ -22,12 +22,12 @@
     "A8_SECURITY_GATE"
   ],
   "leg_id": "SECURITY",
-  "notes": "All 1 gate legs PASS at this head (c3060f7d42e3).",
-  "product_freeze_sha": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "notes": "All 1 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "project_complete_at_signing": true,
   "reuses_earlier_signature": false,
   "schema": "jcc/v1.3-leg/1",
-  "signature": "c7c9772ead27e09c3ced4ff94246f5d43e1212b4301947b3bf7cf8e4c296ca82",
+  "signature": "004e2f85eca0120b1432caada3de5ef82bd328914662e9c2d88a8defdcd6411b",
   "signer": "Orion (JCC v1.3 final product gate)",
-  "timestamp_utc": "2026-09-29T13:53:17Z"
+  "timestamp_utc": "2026-09-29T23:20:22Z"
 }

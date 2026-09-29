@@ -7,7 +7,7 @@
   "cwd": "F:\\jev",
   "detail": "{'verdict': 'GO', 'high': 0, 'medium': 0, 'low': 0, 'info': 0, 'ran': 9, 'check_count': 9} GO, non-vacuous",
   "dimension": "the security artifact still matches a LIVE run of every check",
-  "duration_s": 7.81,
+  "duration_s": 8.37,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -26,16 +26,16 @@
     "problems": []
   },
   "exit_code": 0,
-  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "kind": "builtin",
   "leg_id": "A8_SECURITY_GATE",
-  "measured_at_utc": "2026-09-29T13:30:26Z",
-  "run_id": "20260929-212111",
+  "measured_at_utc": "2026-09-29T22:48:33Z",
+  "run_id": "20260930-064032",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T13:30:18Z",
+  "started_utc": "2026-09-29T22:48:24Z",
   "stderr_tail": "F:\\jev\\packages\\jcc_core\\connections.py:731: RuntimeWarning: coroutine '_adapter_probe' was never awaited\n  ap_report = {\"adapter_status\": \"UNKNOWN\", \"version\": None}\nRuntimeWarning: Enable tracemalloc to get the object allocation traceback\nERROR:    Traceback (most recent call last):\n  File \"F:\\jev\\.venv\\Lib\\site-packages\\starlette\\routing.py\", line 661, in lifespan\n    await receive()\n  File \"F:\\jev\\.venv\\Lib\\site-packages\\uvicorn\\lifespan\\on.py\", line 137, in receive\n    return await self.receive_queue.get()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\asyncio\\queues.py\", line 186, in get\n    await getter\nasyncio.exceptions.CancelledError\n\nERROR:    Traceback (most recent call last):\n  File \"F:\\jev\\.venv\\Lib\\site-packages\\starlette\\routing.py\", line 661, in lifespan\n    await receive()\n  File \"F:\\jev\\.venv\\Lib\\site-packages\\uvicorn\\lifespan\\on.py\", line 137, in receive\n    return await self.receive_queue.get()\n           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\asyncio\\queues.py\", line 186, in get\n    await getter\nasyncio.exceptions.CancelledError\n\nDENIED actuation action=PAUSE directive=s04-d1 reason=actuation_disabled\nDENIED actuation action=PAUSE directive=s04-d1 reason=real_actuation_not_implemented",
   "stdout_bytes": 956,
-  "stdout_sha256": "bc140de4265f1ec1277bc769d29b84f4bdfe242e917a7de129ae3a7d8e171ccb",
-  "stdout_tail": "§21 v1.1 security gate -- protected service on port 4778\n[S-01] auth fail-closed on every mutating route  ran=True ok=True high=0 (3.87s)\n[S-02] planted secrets absent from every persisted sink  ran=True ok=True high=0 (1.10s)\n[S-03] loopback-only bind and no undeclared open route  ran=True ok=True high=0 (1.19s)\n[S-04] v1.1 modules add no write and no egress  ran=True ok=True high=0 (0.02s)\n[S-05] the UI reads no token and posts only the probe  ran=True ok=True high=0 (0.05s)\n[S-06] v1.1 modules import only stdlib and project roots  ran=True ok=True high=0 (0.01s)\n[S-07] no single condition can enable actuation  ran=True ok=True high=0 (0.00s)\n[S-07c] no enforcement path consumes effective_level  ran=True ok=True high=0 (0.19s)\n[S-08] the protected service and runtime DB are untouched  ran=True ok=True high=0 (0.00s)\n\nverdict=GO  high=0 medium=0 low=0 info=0  ran=9/9\n[check] OK: the committed artifact matches (sha 3fcb3f9f66d6eb5969083929)",
+  "stdout_sha256": "29cd70f7d66f94e1b0c9a279a69e8969cfff39babb9801427093d80587f4ee0e",
+  "stdout_tail": "§21 v1.1 security gate -- protected service on port 4778\n[S-01] auth fail-closed on every mutating route  ran=True ok=True high=0 (3.48s)\n[S-02] planted secrets absent from every persisted sink  ran=True ok=True high=0 (0.76s)\n[S-03] loopback-only bind and no undeclared open route  ran=True ok=True high=0 (1.01s)\n[S-04] v1.1 modules add no write and no egress  ran=True ok=True high=0 (0.02s)\n[S-05] the UI reads no token and posts only the probe  ran=True ok=True high=0 (0.10s)\n[S-06] v1.1 modules import only stdlib and project roots  ran=True ok=True high=0 (0.01s)\n[S-07] no single condition can enable actuation  ran=True ok=True high=0 (0.00s)\n[S-07c] no enforcement path consumes effective_level  ran=True ok=True high=0 (1.74s)\n[S-08] the protected service and runtime DB are untouched  ran=True ok=True high=0 (0.00s)\n\nverdict=GO  high=0 medium=0 low=0 info=0  ran=9/9\n[check] OK: the committed artifact matches (sha 63e46dcd461ba78d59c71072)",
   "verdict": "PASS"
 }

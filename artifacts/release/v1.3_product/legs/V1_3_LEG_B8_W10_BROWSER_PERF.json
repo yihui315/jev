@@ -1,0 +1,50 @@
+{
+  "command": [
+    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "F:\\jev\\tools\\v1_3_wave10_browser_perf.py"
+  ],
+  "cwd": "F:\\jev",
+  "detail": "child=PASS artifact=PASS 26/26",
+  "dimension": "W10 real-browser operational-plane performance",
+  "duration_s": 261.67,
+  "env_keys": [
+    "CODEBUDDY_SAFE_DELETE_ENABLED",
+    "PYTHONDONTWRITEBYTECODE",
+    "PYTHONIOENCODING"
+  ],
+  "evidence": {
+    "claim": {
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave10_browser_perf_20260930-070924.json",
+      "failed": [],
+      "passed": 26,
+      "shape": "json",
+      "total": 26,
+      "verdict": "PASS"
+    },
+    "cross_check": {
+      "agrees": true,
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave10_browser_perf_20260930-070924.json",
+      "artifact_failures": 0,
+      "artifact_passed": 26,
+      "artifact_total": 26,
+      "artifact_verdict": "PASS",
+      "claim": "PASS",
+      "problems": [],
+      "stale": false
+    },
+    "min_total": 26
+  },
+  "exit_code": 0,
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "kind": "gate",
+  "leg_id": "B8_W10_BROWSER_PERF",
+  "measured_at_utc": "2026-09-29T23:13:45Z",
+  "run_id": "20260930-064032",
+  "schema": "jcc/v1.3-final-leg/1",
+  "started_utc": "2026-09-29T23:09:23Z",
+  "stderr_tail": "Task was destroyed but it is pending!\ntask: <Task pending name='Task-176' coro=<Queue.get() running at C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\asyncio\\queues.py:186> wait_for=<Future pending cb=[Task.task_wakeup()]>>\nTask was destroyed but it is pending!\ntask: <Task pending name='Task-545' coro=<Queue.get() running at C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\asyncio\\queues.py:186> wait_for=<Future pending cb=[Task.task_wakeup()]>>\nTask was destroyed but it is pending!\ntask: <Task pending name='Task-1251' coro=<Queue.get() running at C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\asyncio\\queues.py:186> wait_for=<Future pending cb=[Task.task_wakeup()]>>",
+  "stdout_bytes": 4344,
+  "stdout_sha256": "dcd4e1158232030a8586031790af7e428c059304f2585b38a2a1c45761621087",
+  "stdout_tail": "  [PASS] SEEDED_GROUND_TRUTH_500: the DOMAIN holds 500 missions (read back through /counts)\n  [PASS] WORLD_MOUNTED_AT_500: the operational canvas mounted (not the empty-world branch) and issued draw calls\n  [PASS] FRAME_TIME_FINITE_AT_500: the loop is live and no frame took a catastrophic time\n    ... 600/1000 missions seeded, 136 s elapsed, 1.36 s/mission\n    ... 700/1000 missions seeded, 152 s elapsed, 0.76 s/mission\n    ... 800/1000 missions seeded, 170 s elapsed, 0.57 s/mission\n    ... 900/1000 missions seeded, 188 s elapsed, 0.47 s/mission\n    ... 1000/1000 missions seeded, 207 s elapsed, 0.41 s/mission\n  [seed] 1000 missions in the domain (206.5 s cumulative, 0.21 s/mission average)\n  [PASS] SEEDED_GROUND_TRUTH_1000: the DOMAIN holds 1000 missions (read back through /counts)\n  [PASS] WORLD_MOUNTED_AT_1000: the operational canvas mounted (not the empty-world branch) and issued draw calls\n  [PASS] FRAME_TIME_FINITE_AT_1000: the loop is live and no frame took a catastrophic time\n  [PASS] VIEW_SWEEP_NO_UNCAUGHT_ERRORS: every product surface opened in the same real-Chrome session with no uncaught or console error\n  [PASS] BROWSER_MEASUREMENT_COMPLETED: measured the plane at every requested node count\n  [PASS] DRAWS_SCALE_WITH_THE_DOMAIN: adding 950 missions produced >= 90% of that many draw calls\n  [PASS] PORTS_RELEASED_AFTER_TEARDOWN: the gate leaves no product listener behind\n\ngate WAVE10_REAL_BROWSER_PERF verdict=PASS passed=26/26\n  n=50    median=33.30 ms p95=33.40 ms fps=36.2 draws/frame=71.4 (expected 71)\n  n=200   median=66.70 ms p95=83.40 ms fps=14.1 draws/frame=222.7 (expected 221)\n  n=500   median=166.60 ms p95=166.80 ms fps=6.2 draws/frame=530.1 (expected 521)\n  n=1000  median=300.10 ms p95=333.30 ms fps=3.2 draws/frame=1053.9 (expected 1021)\n  slope: {\"nodes_smallest\": 50, \"nodes_largest\": 1000, \"draws_smallest\": 71.39, \"draws_largest\": 1053.94, \"draws_per_added_mission\": 1.0343, \"min_visibility_fraction\": 0.9, \"monotonic\": true, \"expected_draws_largest\": 1021, \"observed_over_expected_largest\": 1.0323}\n{\"verdict\": \"PASS\", \"passed\": 26, \"total\": 26, \"evidence\": \"F:\\\\jev\\\\.workbuddy\\\\scratch\\\\v1_3_wave10_browser_perf_20260930-070924.json\"}\nwrote F:\\jev\\.workbuddy\\scratch\\v1_3_wave10_browser_perf_20260930-070924.json",
+  "verdict": "PASS"
+}

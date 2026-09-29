@@ -1,0 +1,33 @@
+{
+  "decision": "GO_WITH_PENDING",
+  "dimension": "Real-browser operational-plane performance",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "child=PASS artifact=PASS 26/26",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B8_W10_BROWSER_PERF.json",
+      "evidence_sha256": "d02b8db44b213196694fe903cf7a31fe485886487269769709e0f5e5558744a2",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B8_W10_BROWSER_PERF",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "B8_W10_BROWSER_PERF"
+  ],
+  "leg_id": "BROWSER_PERF",
+  "notes": "All 1 gate legs PASS at this head. A HOST action remains: Measured headless, so the frame times are a software rasterizer's (see `renderer` in the gate evidence); no hardware FPS and no target FPS are claimed.",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "35134931c408149ca7003274b989d98618a35b4fafc19e6c895770b990c43d25",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:22Z"
+}

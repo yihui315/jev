@@ -14,7 +14,7 @@
   "cwd": "F:\\jev",
   "detail": "23 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
   "dimension": "W3 first real WorkBuddy mission",
-  "duration_s": 60.96,
+  "duration_s": 57.31,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -29,7 +29,7 @@
       "passed": 23,
       "skipped": 0
     },
-    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\a3_mission-20260929-212459",
+    "fresh_temp": "C:\\Windows\\TEMP\\jev-w9\\a3_mission-20260930-064347",
     "min_passed": 1,
     "problems": [],
     "targets": [
@@ -38,16 +38,16 @@
     ]
   },
   "exit_code": 0,
-  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "kind": "pytest",
   "leg_id": "A3_MISSION",
-  "measured_at_utc": "2026-09-29T13:26:00Z",
-  "run_id": "20260929-212111",
+  "measured_at_utc": "2026-09-29T22:44:45Z",
+  "run_id": "20260930-064032",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T13:24:59Z",
+  "started_utc": "2026-09-29T22:43:47Z",
   "stderr_tail": "",
   "stdout_bytes": 100,
-  "stdout_sha256": "9557243c8f42f69d500ee58a038dd73140066da0c32d2def3626b97213fd5836",
-  "stdout_tail": ".......................                                                  [100%]\n23 passed in 59.03s",
+  "stdout_sha256": "42b1df69e8401567464532cc90e3d2f47d2648e6e6c2adb78704fdbd3b158292",
+  "stdout_tail": ".......................                                                  [100%]\n23 passed in 55.46s",
   "verdict": "PASS"
 }

@@ -6,7 +6,7 @@
   "cwd": "F:\\jev",
   "detail": "child=PASS artifact=PASS 20/20",
   "dimension": "W7 connection verification gate",
-  "duration_s": 8.0,
+  "duration_s": 6.87,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -14,7 +14,7 @@
   ],
   "evidence": {
     "claim": {
-      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260929-215056.json",
+      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260930-070755.json",
       "failed": null,
       "passed": 20,
       "shape": "kv",
@@ -23,7 +23,7 @@
     },
     "cross_check": {
       "agrees": true,
-      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260929-215056.json",
+      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260930-070755.json",
       "artifact_failures": 0,
       "artifact_passed": 20,
       "artifact_total": 20,
@@ -35,16 +35,16 @@
     "min_total": 20
   },
   "exit_code": 0,
-  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "kind": "gate",
   "leg_id": "B6_W7_CONNECTION_GATE",
-  "measured_at_utc": "2026-09-29T13:50:56Z",
-  "run_id": "20260929-212111",
+  "measured_at_utc": "2026-09-29T23:07:55Z",
+  "run_id": "20260930-064032",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T13:50:48Z",
+  "started_utc": "2026-09-29T23:07:49Z",
   "stderr_tail": "",
   "stdout_bytes": 130,
-  "stdout_sha256": "62456a19237099750c101d2cac755571aa55788272ee9b97adca89318ffb9233",
-  "stdout_tail": "gate WAVE7_CONNECTION_VERIFICATION verdict=PASS passed=20/20\nwrote F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260929-215056.json",
+  "stdout_sha256": "e9fca31751ce894b4586c28535b979a8b52b3fcce741c97229d061b36fa0d0c1",
+  "stdout_tail": "gate WAVE7_CONNECTION_VERIFICATION verdict=PASS passed=20/20\nwrote F:\\jev\\.workbuddy\\scratch\\v1_3_wave7_gate_20260930-070755.json",
   "verdict": "PASS"
 }

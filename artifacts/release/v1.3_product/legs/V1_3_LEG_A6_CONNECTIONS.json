@@ -14,7 +14,7 @@
   "cwd": "F:\\jev",
   "detail": "43 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
   "dimension": "W7 capability is measured, not asserted",
-  "duration_s": 49.6,
+  "duration_s": 46.52,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -29,7 +29,7 @@
       "passed": 43,
       "skipped": 0
     },
-    "fresh_temp": "C:\\Users\\ADMINI~1\\AppData\\Local\\Temp\\jev-w9\\a6_connections-20260929-212708",
+    "fresh_temp": "C:\\Windows\\TEMP\\jev-w9\\a6_connections-20260930-064548",
     "min_passed": 1,
     "problems": [],
     "targets": [
@@ -38,16 +38,16 @@
     ]
   },
   "exit_code": 0,
-  "head": "c3060f7d42e3f2492e721bf1d68ae92bc6313311",
+  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
   "kind": "pytest",
   "leg_id": "A6_CONNECTIONS",
-  "measured_at_utc": "2026-09-29T13:27:58Z",
-  "run_id": "20260929-212111",
+  "measured_at_utc": "2026-09-29T22:46:34Z",
+  "run_id": "20260930-064032",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T13:27:08Z",
+  "started_utc": "2026-09-29T22:45:48Z",
   "stderr_tail": "",
   "stdout_bytes": 552,
-  "stdout_sha256": "497574804288bebaa59b9ac53778200d60289763dd7d04a598e03c03b1aa5b14",
-  "stdout_tail": "...........................................                              [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n43 passed, 1 warning in 47.67s",
+  "stdout_sha256": "0ef0432822fae342d428f075c90af62415cb05eba39831a66ca78f867ab31271",
+  "stdout_tail": "...........................................                              [100%]\n============================== warnings summary ===============================\n.venv\\Lib\\site-packages\\fastapi\\testclient.py:1\n  F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n    from starlette.testclient import TestClient as TestClient  # noqa\n\n-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html\n43 passed, 1 warning in 44.69s",
   "verdict": "PASS"
 }
