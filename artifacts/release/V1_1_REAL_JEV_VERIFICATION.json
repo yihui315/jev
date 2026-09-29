@@ -73,7 +73,6 @@
     },
     "file_presence": {
       ".env": {
-        "bytes": 794,
         "is_file": true,
         "state": "PRESENT"
       },
@@ -81,12 +80,10 @@
         "state": "ABSENT"
       },
       "C:/Users/Administrator/.claude/settings.json": {
-        "bytes": 142,
         "is_file": true,
         "state": "PRESENT"
       },
       "C:/Users/Administrator/.codex/config.toml": {
-        "bytes": 5806,
         "is_file": true,
         "state": "PRESENT"
       },
@@ -94,7 +91,6 @@
         "state": "ABSENT"
       },
       "C:/Users/Administrator/.hermes/config.yaml": {
-        "bytes": 161,
         "is_file": true,
         "state": "PRESENT"
       },
@@ -105,7 +101,6 @@
         "state": "ABSENT"
       },
       "C:/Users/Administrator/.workbuddy/settings.json": {
-        "bytes": 37601,
         "is_file": true,
         "state": "PRESENT"
       },
@@ -116,14 +111,13 @@
         "state": "ABSENT"
       },
       "config/.env.example": {
-        "bytes": 794,
         "is_file": true,
         "state": "PRESENT"
       }
     },
     "git_tracked_secret_scan": {
       "state": "CLEAN",
-      "tracked_file_count": 387
+      "tracked_file_count": 590
     },
     "note": "Presence only. No credential value is read, stored or published. Length buckets are coarse by construction.",
     "real_provider_api_key_env": "JEV_API_KEY",
@@ -175,7 +169,7 @@
     ],
     "note": "These are NOT known. No default was invented for any of them, and https://api.typesafe.ai was NOT expanded into a guessed path."
   },
-  "generated_at": "2026-09-27T05:25:56.252171+00:00",
+  "generated_at": "2026-09-29T13:10:52.927427+00:00",
   "generated_by": "tools/v1_1_emit_real_jev_verification.py",
   "generated_by_host": "win32",
   "provider": {
@@ -486,8 +480,8 @@
       "interface_field_critical_unverified:idempotency_semantics"
     ]
   },
-  "repo_branch": "feature/jcc-v1.1-activation",
-  "repo_head": "d1971c4025441024c3b8ca82abee6ade64a7d275",
+  "repo_branch": "feature/jcc-v1.2-visual-command-center",
+  "repo_head": "ff3fa69d76d8b6ef5b70a92473ce90cf48b21d94",
   "schema": "jcc-v1.1-real-jev-verification/1",
   "smoke": {
     "allowed_by_section_7E": false,

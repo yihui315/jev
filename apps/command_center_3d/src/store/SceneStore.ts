@@ -25,6 +25,7 @@ import {
   type ViewMode,
 } from "./sceneMap";
 import { CONTROL_ENDPOINT } from "./capability";
+import { DEFAULT_API_BASE } from "../lib/apiBase";
 
 const EVENT_TYPES = [
   "session.created",
@@ -46,7 +47,7 @@ export class SceneStore {
   private listeners = new Set<Listener>();
   private es: EventSource | null = null;
   private pollTimer: ReturnType<typeof setInterval> | null = null;
-  private apiBase = "http://127.0.0.1:4779";
+  private apiBase = DEFAULT_API_BASE;
 
   /** getSnapshot must return a stable reference between renders (useSyncExternalStore). */
   getSnapshot = (): SceneState => this.state;

@@ -1,5 +1,5 @@
 {
-  "check_count": 228,
+  "check_count": 248,
   "checks": [
     {
       "detail": "passed",
@@ -741,6 +741,120 @@
     },
     {
       "detail": "passed",
+      "name": "test_t1_tag_checkout_clean_without_reemit",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t1_tag_checkout_clean_without_reemit",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t2_product_change_after_freeze_fails",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t2_product_change_after_freeze_fails_with_tag",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails_with_tag",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t3_freeze_not_ancestor_fails",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t3_freeze_not_ancestor_fails",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t4_accepts_sha256",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t4_accepts_sha256",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t4_rejects_git_sha1_in_sha256_field",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t4_rejects_git_sha1_in_sha256_field",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t5_evidence_only_commits_stay_clean",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t5_evidence_only_commits_stay_clean",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_glob_double_star",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_glob_double_star",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[docs/release/NOTES.md-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/release/NOTES.md-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[packages/jcc_core/server.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[packages/jcc_core/server.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[some/unknown/path.txt-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[some/unknown/path.txt-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[tests/e2e/test_x.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tests/e2e/test_x.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t7_check_does_not_write_manifest",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t7_check_does_not_write_manifest",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_dry_run_tick_writes_a_boot_beacon",
       "node_id": "tools/tests/test_stable_runtime_evidence.py::test_dry_run_tick_writes_a_boot_beacon",
       "ok": true
@@ -971,6 +1085,12 @@
       "detail": "passed",
       "name": "test_the_document_and_the_json_quote_the_same_card_digest",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_document_and_the_json_quote_the_same_card_digest",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_file_presence_block_is_a_claim_not_a_host_measurement",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_file_presence_block_is_a_claim_not_a_host_measurement",
       "ok": true
     },
     {
@@ -1495,6 +1615,25 @@
     "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
     "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_document_under_artifacts_denies_the_registration",
     "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+    "tools/tests/test_release_manifest_v1_3.py::test_t1_tag_checkout_clean_without_reemit",
+    "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails",
+    "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails_with_tag",
+    "tools/tests/test_release_manifest_v1_3.py::test_t3_freeze_not_ancestor_fails",
+    "tools/tests/test_release_manifest_v1_3.py::test_t4_accepts_sha256",
+    "tools/tests/test_release_manifest_v1_3.py::test_t4_rejects_git_sha1_in_sha256_field",
+    "tools/tests/test_release_manifest_v1_3.py::test_t5_evidence_only_commits_stay_clean",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_glob_double_star",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/release/NOTES.md-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[packages/jcc_core/server.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[some/unknown/path.txt-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tests/e2e/test_x.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t7_check_does_not_write_manifest",
     "tools/tests/test_stable_runtime_evidence.py::test_dry_run_tick_writes_a_boot_beacon",
     "tools/tests/test_stable_runtime_evidence.py::test_live_durable_log_is_still_append_openable",
     "tools/tests/test_stable_runtime_evidence.py::test_registered_task_actions_contain_no_redirection",
@@ -1534,6 +1673,7 @@
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_document_and_the_json_quote_the_same_card_digest",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_file_presence_block_is_a_claim_not_a_host_measurement",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_json_cannot_disagree_with_the_interface_card",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_real_jev_verdict_is_a_lawful_state",
     "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
@@ -1603,7 +1743,7 @@
   ],
   "ok": true,
   "passed": true,
-  "passed_count": 228,
+  "passed_count": 248,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -1614,5 +1754,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "PASS",
-  "verdict": "228/228 infrastructure test(s) passed"
+  "verdict": "248/248 infrastructure test(s) passed"
 }

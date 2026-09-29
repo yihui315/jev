@@ -25,6 +25,14 @@ accident. There is a self-check in ``assert_no_secret_escaped()`` that scans the
 finished report for the live values of every credential variable it knows about
 -- a leak would have to survive that too.
 
+For FILES it reports PRESENCE and KIND only (``state`` / ``is_file``) -- never a
+size. A size is a volatile measurement of the operator's machine, not a claim
+about this project's interface; publishing one made the committed verification
+record "stale" the moment an unrelated local file changed (measured 2026-09-29:
+``~/.codex/config.toml`` 5806 -> 5870 bytes). See ``file_presence()`` for the
+full account. This matches the treatment of env values above, where only a
+COARSE LENGTH BUCKET is published and never an exact length.
+
 Usage
 -----
     F:/jev/.venv/Scripts/python.exe tools/v1_1_local_credential_discovery.py
@@ -124,12 +132,34 @@ def env_presence() -> Dict[str, Any]:
 
 
 def file_presence() -> Dict[str, Any]:
+    """PRESENCE and KIND only -- never a size.
+
+    THE DEFECT THIS SHAPE PREVENTS (measured 2026-09-29 by the v1.3 final gate's
+    ``C2_TOOLS_TESTS`` leg). This function used to publish ``bytes``, the EXACT
+    size of files that live OUTSIDE this repository. ``~/.codex/config.toml`` grew
+    from 5806 to 5870 bytes when the operator edited their own Codex config, and
+    ``tools/v1_1_emit_real_jev_verification.py --check`` -- which compares a fresh
+    generation against the committed record -- then reported it STALE. Five tests
+    failed, the leg dropped to 242/247 against a floor of 247, and the whole C2
+    regression was red for a reason that has nothing to do with the product.
+
+    That check is what makes this record trustworthy, so a FALSE stale is
+    expensive: it teaches the operator to ignore the check, which is the failure
+    mode the emitter's own ``VOLATILE_KEYS`` docstring already names -- "a key
+    belongs there when it is PROVENANCE, not when it is a CLAIM". A file's byte
+    count on this host is provenance by that rule, and it is the same rule this
+    module already applies to env values, where only a coarse LENGTH BUCKET
+    leaves the process and never an exact length.
+
+    Removing the key is deliberately stronger than teaching the comparison to
+    ignore it: the record stops carrying a fingerprint of the operator's home
+    directory at all, so there is nothing left to drift.
+    """
     out: Dict[str, Any] = {}
     for cand in _CRED_FILE_CANDIDATES:
         p = Path(cand) if Path(cand).is_absolute() else (REPO / cand)
         if p.exists():
-            out[cand] = {"state": "PRESENT", "is_file": p.is_file(),
-                         "bytes": (p.stat().st_size if p.is_file() else None)}
+            out[cand] = {"state": "PRESENT", "is_file": p.is_file()}
         else:
             out[cand] = {"state": "ABSENT"}
     return out

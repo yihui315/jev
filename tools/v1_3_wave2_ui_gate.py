@@ -1,28 +1,61 @@
 #!/usr/bin/env python3
 """Wave 2 — Product UI gate for the v1.3 Product Edition.
 
-Boots the REAL v1.3 ASGI app (the same ``create_app`` production binds) on an
-ephemeral loopback port with a TEMPORARY state store, serves the built bundle,
-and drives it with REAL Chrome via Playwright.
+THE GATE'S QUESTION
+-------------------
+"Does the SHIPPED product shell render the user's REAL persisted state — with the
+product config, the product ports, and the product's own static server?"
 
-Why a real server and not a mock: the whole point of Wave 2 is that the product
-surfaces read REAL persisted state. A mocked `/api/v1/domain/home` would prove
-nothing about the wiring, so this gate creates a real project + mission through
-the token-gated API and then asserts the browser renders exactly that state.
+THE DEFECT THIS GATE ITSELF HAD (found by the W9 final gate, 2026-09-29)
+-----------------------------------------------------------------------
+The first version of this gate booted the API on an EPHEMERAL port and served
+``dist/`` with a bespoke ``http.server`` reverse proxy that swallowed ``/api/*``
+and forwarded it to that port. Its docstring justified the proxy with "what the
+real product does when the durable runtime serves UI + API from one port".
 
-Checks (each is a real HTTP or DOM fact, cross-checked against the API):
-  * BOOT        — the v1.3 app answers /api/v1/domain/home (schema v1.3).
-  * SHELL       — sidebar, top bar, Home default view, 5 counters, CTA.
-  * NAV         — every product surface is reachable and renders its heading.
-  * LIVE HONESTY— a fabricated state is never shown: an empty workspace renders
-                  explicit empty states, not fake counts.
-  * REAL DATA   — after creating a project+mission via the API, Home's Active
-                  Projects / Missions counts and the Missions list show them.
-  * STUDIO      — the Mission Studio form exposes Goal/Project/Agent/Working
-                  Directory/Context/Permissions/Budget and gates on the token.
+That premise is false. The shipped topology is TWO processes: the API on
+127.0.0.1:4779 and the SPA on 127.0.0.1:4780 served by
+``apps/command_center_3d/serve_visual.py`` — a static ASGI server that serves
+``/health``, ``/api/health`` and the bundle, and does **not** proxy ``/api/v1/*``.
+The SPA therefore talks to the API CROSS-ORIGIN, which is why
+``server.cors_origins`` allowlists 4780/4781.
+
+So the gate was measuring a configuration the product does not ship, and it only
+passed while ``dist/`` happened to have been built with
+``VITE_API_BASE=same-origin`` — a non-default build. Once the bundle was rebuilt
+with the default (an absolute ``http://127.0.0.1:4779``), every browser request
+bypassed the gate's proxy and hit a port where nothing was listening: the gate
+reported 18/23 with ``ERR_CONNECTION_REFUSED`` and live-data checks failing.
+
+The fix is not to rebuild the artifact into the shape the harness wants. The gate
+now reproduces the SHIPPED topology exactly:
+
+  * it loads ``config/jcc-v1.3.yaml`` (the product config) and asserts the
+    declared ports, rather than constructing a synthetic ``Config``;
+  * it boots the API on its declared port and refuses to run at all if a listener
+    already holds either product port (never adopt a process it did not start);
+  * it serves ``dist/`` with the product's OWN server module, so the serving path
+    is measured rather than reimplemented;
+  * it drives REAL Chrome at the real UI origin, so the cross-origin requests and
+    the CORS allowlist are exercised end to end;
+  * it asserts every port is released again before returning.
+
+Checks (each is a real HTTP, DOM or OS fact, cross-checked against the API):
+  * CONFIG      — the product config is the one under measurement; the UI origin
+                  is in the API's CORS allowlist; the product ports are free.
+  * BOOT        — the API answers /api/v1/domain/home (schema v1.3) and the
+                  shipped SPA server answers /health as ``uvicorn-asgi``.
+  * CORS        — a real preflight from the UI origin is allowed.
+  * SHELL/NAV   — sidebar, top bar, Home default view, 5 counters, CTA, and every
+                  product surface reachable.
+  * LIVE HONESTY— an empty workspace renders explicit empty states, not fake counts.
+  * REAL DATA   — after creating a project+mission through the API, Home's counters
+                  and the Projects/Missions surfaces show exactly that state.
+  * STUDIO      — the Mission Studio form exposes its fields and offers the
+                  API-created project.
   * PALETTE     — Ctrl+K opens the command palette.
-  * A11Y        — landmarks + no uncaught console errors.
-  * FALLBACK    — the WebGL-unavailable branch still renders a usable table view.
+  * A11Y        — landmarks, responsive baseline, no uncaught console errors.
+  * TEARDOWN    — no product listener is left behind.
 
 Run:  F:/jev/.venv/Scripts/python.exe tools/v1_3_wave2_ui_gate.py
 Exit: 0 = PASS, 1 = FAIL (a real gate, not a green-washer).
@@ -31,7 +64,7 @@ from __future__ import annotations
 
 import json
 import os
-import socket
+import subprocess
 import sys
 import tempfile
 import threading
@@ -66,10 +99,8 @@ def check(name: str, cond: bool, value: Any = None, note: str = "") -> bool:
     return bool(cond)
 
 
-def free_port() -> int:
-    with socket.socket() as s:
-        s.bind(("127.0.0.1", 0))
-        return int(s.getsockname()[1])
+# REMOVED: free_port(). The gate no longer picks ephemeral ports: measuring the
+# product means measuring the ports the product declares.
 
 
 class _NoProxy(urllib.request.ProxyHandler):
@@ -103,37 +134,120 @@ def http(method: str, url: str, body: Optional[dict] = None, token: Optional[str
             return e.code, raw
 
 
+PRODUCT_CONFIG = ROOT / "config" / "jcc-v1.3.yaml"
+PRODUCT_UI_PORT = 4780
+
+
+def port_owner(port: int) -> int:
+    """The pid LISTENING on ``port``, or 0. Read from the OS, never guessed."""
+    try:
+        out = subprocess.run(["netstat", "-ano"], capture_output=True, text=True,
+                             timeout=30, errors="backslashreplace").stdout
+    except Exception:  # noqa: BLE001
+        return 0
+    pid = 0
+    for line in out.splitlines():
+        parts = line.split()
+        if len(parts) < 5 or parts[0].upper() != "TCP":
+            continue
+        if not parts[1].endswith(":%d" % port):
+            continue
+        if parts[3].upper() != "LISTENING":
+            continue
+        try:
+            pid = int(parts[4])
+        except ValueError:
+            continue
+    return pid
+
+
+def cors_preflight(url: str, origin: str) -> dict:
+    """A REAL preflight from the SPA's origin -- the write path the UI uses."""
+    req = urllib.request.Request(url, method="OPTIONS")
+    req.add_header("Origin", origin)
+    req.add_header("Access-Control-Request-Method", "POST")
+    req.add_header("Access-Control-Request-Headers", "x-jcc-token,content-type")
+    try:
+        r = OPENER.open(req, timeout=12)
+        allow = r.headers.get("access-control-allow-origin")
+        return {"ok": r.status in (200, 204) and allow in (origin, "*"),
+                "status": r.status, "allow_origin": allow}
+    except urllib.error.HTTPError as e:
+        return {"ok": False, "status": e.code,
+                "allow_origin": (e.headers or {}).get("access-control-allow-origin")}
+    except Exception as exc:  # noqa: BLE001
+        return {"ok": False, "error": "%s: %s" % (type(exc).__name__, exc)}
+
+
+def _load_shipped_ui_server():
+    """Import the product's OWN serving module by path (it is not a package)."""
+    import importlib.util
+    path = ROOT / "apps" / "command_center_3d" / "serve_visual.py"
+    spec = importlib.util.spec_from_file_location("jcc_shipped_serve_visual", str(path))
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def main() -> int:
     if not (DIST / "index.html").is_file():
         print(f"FAIL: no built bundle at {DIST} — run `vite build` first")
         return 1
 
+    import uvicorn
     from fastapi.testclient import TestClient  # noqa: F401  (import check)
     from jcc_core.actuator import Actuator
-    from jcc_core.config import Config, ServerConfig
+    from jcc_core.config import ConfigError, load_config
     from jcc_core.core import CoreEngine
     from jcc_core.providers import build_provider
     from jcc_core.server import create_app
     from jcc_core.state_store import StateStore
 
+    try:
+        cfg = load_config(str(PRODUCT_CONFIG))
+    except ConfigError as exc:
+        print("FAIL: the product config did not load: %s" % exc)
+        return 1
+
+    api_port = cfg.server.port
+    ui_port = PRODUCT_UI_PORT
+    api_base = f"http://127.0.0.1:{api_port}"
+    ui_base = f"http://127.0.0.1:{ui_port}"
+
+    check("PRODUCT_CONFIG_IS_THE_SHIPPED_ONE",
+          cfg.server.host == "127.0.0.1" and api_port == 4779 and ui_port == 4780,
+          {"host": cfg.server.host, "api_port": api_port, "ui_port": ui_port},
+          "measuring config/jcc-v1.3.yaml, not a synthetic Config")
+    check("UI_ORIGIN_IS_IN_THE_CORS_ALLOWLIST", ui_base in cfg.server.cors_origins,
+          cfg.server.cors_origins,
+          "the SPA origin is allowed by the API's explicit CORS list")
+
+    # FAIL-CLOSED PRECONDITION -- never adopt a listener this gate did not start.
+    occupied = {p: port_owner(p) for p in (api_port, ui_port)}
+    busy = {p: v for p, v in occupied.items() if v}
+    check("PRECONDITION_PRODUCT_PORTS_FREE", not busy, occupied,
+          "4779+4780 free, so what this gate observes is its own"
+          if not busy else
+          "a listener already holds a product port: %s — stop the product first "
+          "(scripts/jcc-v1.3.ps1 -Action down)" % busy)
+    if busy:
+        _finish()
+        return 1
+
     tmpdir = Path(tempfile.mkdtemp(prefix="jcc_w2_gate_"))
-    db = tmpdir / "wave2.db"
-    os.environ[CONTROL_TOKEN_ENV] = CONTROL_TOKEN
+    cfg.state_store_db_path = str(tmpdir / "wave2.db")
+    os.environ[cfg.control_token_env] = CONTROL_TOKEN
 
-    api_port = free_port()
-
-    cfg = Config(server=ServerConfig(), state_store_db_path=str(db))
-    store = StateStore(str(db))
+    store = StateStore(cfg.state_store_db_path)
     engine = CoreEngine(store, build_provider(cfg), Actuator(enabled=False), cfg)
     app = create_app(engine, cfg)
 
-    import uvicorn
-    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=api_port, log_level="warning"))
-    t = threading.Thread(target=server.run, daemon=True)
-    t.start()
+    servers = []
+    api_server = uvicorn.Server(
+        uvicorn.Config(app, host="127.0.0.1", port=api_port, log_level="warning"))
+    threading.Thread(target=api_server.run, daemon=True).start()
+    servers.append(api_server)
 
-    # wait for readiness
-    api_base = f"http://127.0.0.1:{api_port}"
     ready = False
     for _ in range(80):
         try:
@@ -145,8 +259,37 @@ def main() -> int:
             pass
         time.sleep(0.25)
     if not check("BOOT", ready, api_base, "v1.3 app answered /api/v1/domain/home"):
+        _teardown(servers, api_port, ui_port)
         _finish()
         return 1
+
+    # ---- the SHIPPED static server, on the SHIPPED UI port ----
+    ui_server_mod = _load_shipped_ui_server()
+    ui_app = ui_server_mod.build_app(str(DIST), ui_port)
+    ui_server = uvicorn.Server(
+        uvicorn.Config(ui_app, host="127.0.0.1", port=ui_port, log_level="warning"))
+    threading.Thread(target=ui_server.run, daemon=True).start()
+    servers.append(ui_server)
+
+    ui_ready = False
+    ui_health: Any = None
+    for _ in range(60):
+        st, ui_health = http("GET", ui_base + "/health", timeout=2.0)
+        if st == 200 and isinstance(ui_health, dict):
+            ui_ready = True
+            break
+        time.sleep(0.25)
+    check("UI_BOOT", ui_ready, ui_health, "the shipped SPA server answered /health")
+    check("UI_SERVED_BY_THE_SHIPPED_ASGI_SERVER",
+          isinstance(ui_health, dict) and ui_health.get("runtime") == "uvicorn-asgi"
+          and ui_health.get("port") == ui_port,
+          ui_health if isinstance(ui_health, dict) else ui_health,
+          "apps/command_center_3d/serve_visual.py under uvicorn, not http.server")
+
+    # a REAL preflight: this is the cross-origin write the SPA actually performs
+    pf = cors_preflight(api_base + "/api/v1/domain/projects", ui_base)
+    check("CORS_PREFLIGHT_FOR_THE_UI_ORIGIN", pf.get("ok"), pf,
+          "the API allows the SPA's cross-origin write")
 
     st, home = http("GET", f"{api_base}/api/v1/domain/home")
     check("BOOT_SCHEMA", st == 200 and isinstance(home, dict)
@@ -155,7 +298,7 @@ def main() -> int:
 
     # ---- create REAL state through the API ----
     st, proj = http("POST", f"{api_base}/api/v1/domain/projects",
-                    {"name": "Wave2 Gate Project", "root_path": r"F:\jev"}, CONTROL_TOKEN)
+                    {"name": "Wave2 Gate Project", "root_path": r"F://jev"}, CONTROL_TOKEN)
     check("API_CREATE_PROJECT", st == 200 and isinstance(proj, dict) and proj.get("project_id"),
           proj.get("project_id") if isinstance(proj, dict) else proj, "project created")
 
@@ -171,91 +314,35 @@ def main() -> int:
     st, _b = http("POST", f"{api_base}/api/v1/domain/projects", {"name": "should-fail"})
     check("API_TOKEN_FAIL_CLOSED", st in (401, 403), st, "write without token refused")
 
-    # drive the browser against THIS server
-    ui_port = free_port()
-    ui_base = f"http://127.0.0.1:{ui_port}"
-    _serve_dist(ui_port, api_base)
-
     ok = _browser_checks(ui_base, api_base)
+
+    released = _teardown(servers, api_port, ui_port)
+    check("PORTS_RELEASED_AFTER_TEARDOWN", not any(released.values()), released,
+          "the gate leaves no product listener behind")
+
     _finish()
     return 0 if (ok and not failures) else 1
 
 
-def _serve_dist(port: int, api_base: str) -> None:
-    """Serve the built bundle and reverse-proxy /api/* to the live v1.3 server.
-
-    Proxying keeps the browser same-origin, which is what the real product does
-    when the durable runtime serves UI + API from one port (Wave 8).
-    """
-    import http.server
-    from functools import partial
-
-    root = DIST.resolve()
-
-    class Handler(http.server.SimpleHTTPRequestHandler):
-        def do_GET(self):  # noqa: N802
-            if self.path.startswith("/api/"):
-                return self._proxy("GET")
-            target = (root / self.path.lstrip("/").split("?")[0]).resolve()
-            if not str(target).startswith(str(root)) or not target.is_file():
-                self.path = "/index.html"
-            return super().do_GET()
-
-        def do_POST(self):  # noqa: N802
-            if self.path.startswith("/api/"):
-                return self._proxy("POST")
-            self.send_error(405)
-
-        def _proxy(self, method: str) -> None:
-            length = int(self.headers.get("Content-Length") or 0)
-            body = self.rfile.read(length) if length else None
-            req = urllib.request.Request(api_base + self.path, data=body, method=method)
-            if self.headers.get("Content-Type"):
-                req.add_header("Content-Type", self.headers["Content-Type"])
-            if self.headers.get("X-JCC-Token"):
-                req.add_header("X-JCC-Token", self.headers["X-JCC-Token"])
-            if self.headers.get("Accept"):
-                req.add_header("Accept", self.headers["Accept"])
-            try:
-                r = OPENER.open(req, timeout=20)
-                payload = r.read()
-                self.send_response(r.status)
-                ctype = r.headers.get("Content-Type", "application/json")
-                self.send_header("Content-Type", ctype)
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-            except urllib.error.HTTPError as e:
-                payload = e.read()
-                self.send_response(e.code)
-                self.send_header("Content-Type", "application/json")
-                self.send_header("Content-Length", str(len(payload)))
-                self.end_headers()
-                self.wfile.write(payload)
-            except Exception as exc:  # pragma: no cover
-                # A browser cancelling an in-flight request (navigation, React
-                # unmount, StrictMode double-mount) closes the socket. That is
-                # not an error to surface, and writing to a dead socket raises
-                # ConnectionAbortedError — swallow it rather than crashing the
-                # gate on the browser's own teardown.
-                if isinstance(exc, (ConnectionError, BrokenPipeError, OSError)):
-                    return
-                msg = json.dumps({"error": str(exc)}).encode()
-                try:
-                    self.send_response(502)
-                    self.send_header("Content-Type", "application/json")
-                    self.send_header("Content-Length", str(len(msg)))
-                    self.end_headers()
-                    self.wfile.write(msg)
-                except OSError:
-                    return
-
-        def log_message(self, fmt, *args):
+def _teardown(servers, api_port: int, ui_port: int) -> dict:
+    """Ask every server to stop, then READ the OS to see whether it did."""
+    for s in servers:
+        try:
+            s.should_exit = True
+        except Exception:  # noqa: BLE001
             pass
+    deadline = time.time() + 20
+    while time.time() < deadline and (port_owner(api_port) or port_owner(ui_port)):
+        time.sleep(0.25)
+    return {p: port_owner(p) for p in (api_port, ui_port)}
 
-    srv = http.server.ThreadingHTTPServer(
-        ("127.0.0.1", port), partial(Handler, directory=str(root)))
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+# REMOVED: _serve_dist(). It served dist/ behind a bespoke http.server that
+# reverse-proxied /api/* to an ephemeral API port, which made the gate same-origin
+# and hid the shipped topology. The gate now serves the bundle with the product's
+# own `serve_visual.py` and lets the browser make the real cross-origin calls --
+# see the module docstring. Do not reintroduce a proxy here: a harness that
+# rewrites the request path cannot see a mis-built bundle.
 
 
 def _browser_checks(ui_base: str, api_base: str) -> bool:
@@ -388,6 +475,9 @@ def _browser_checks(ui_base: str, api_base: str) -> bool:
 def _finish() -> None:
     doc = {
         "gate": "WAVE2_PRODUCT_UI",
+        "topology": ("shipped: API on config/jcc-v1.3.yaml server.port, SPA on 4780 "
+                     "served by apps/command_center_3d/serve_visual.py, cross-origin "
+                     "with the API's CORS allowlist"),
         "verdict": "PASS" if not failures else "FAIL",
         "passed": sum(1 for s in steps if s["ok"]),
         "total": len(steps),

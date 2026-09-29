@@ -2,13 +2,12 @@ import { useEffect, useState, useCallback } from "react";
 import { AgentCard } from "../components/AgentCard";
 import { JevProviderCard } from "../components/JevProviderCard";
 import { OnboardingWizard } from "../components/OnboardingWizard";
+import { envApiBase, resolveApiBase } from "../lib/apiBase";
 
 // The connection centre reads through the same API base as the shell. It is
 // passed in via props from App so there is exactly ONE base in the product;
 // the module-level fallback exists only for a standalone import in tests.
-const FALLBACK_API_BASE: string =
-  (import.meta as unknown as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE ||
-  "http://127.0.0.1:4779";
+const FALLBACK_API_BASE: string = resolveApiBase(envApiBase());
 
 // Read-only API base used when an unauthenticated GET suffices.
 async function httpGet(path: string, base: string = FALLBACK_API_BASE):

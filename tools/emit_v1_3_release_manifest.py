@@ -36,7 +36,12 @@ REPO = Path(__file__).resolve().parents[1]
 ART = REPO / "artifacts" / "release" / "v1.3_product"
 OUT = ART / "V1_3_RELEASE_MANIFEST.json"
 SIDECAR = ART / "V1_3_RELEASE_MANIFEST.sha256"
-GATE_RESULT = REPO / "artifacts" / "acceptance" / "final_gate_v1_3_result.json"
+# The release DECISION CARRIER. v1.2 kept its counterpart under
+# artifacts/acceptance/, which .gitignore excludes -- so the file the release
+# rested on did not travel with the repository and a clone could not verify it.
+# The v1.3 gate result and legs live under artifacts/release/**, which is
+# tracked, and this path is deliberately the tracked one.
+GATE_RESULT = ART / "FINAL_GATE_V1_3_RESULT.json"
 GENERATED_BY = "tools/emit_v1_3_release_manifest.py"
 RELEASE = "JCC v1.3 Product Edition (local)"
 
@@ -47,8 +52,32 @@ FILES: List[Dict[str, str]] = [
     {"path": "packages/jcc_core", "owner": "core-platform", "dir": "true"},
     {"path": "apps/command_center_3d", "owner": "core-platform", "dir": "true"},
     {"path": "config", "owner": "core-platform", "dir": "true"},
+    # The operator-facing PowerShell control plane (start/stop/restart/status/
+    # doctor/repair/mark) is part of the PRODUCT, not tooling. It was missing
+    # from the v1.2 manifest, which certified a product whose runtime wrapper
+    # was outside the certification -- added in v1.3.
+    {"path": "scripts", "owner": "sre", "dir": "true"},
+    # --- the gates themselves (an untracked gate is an unreproducible verdict) ---
     {"path": "tools/jcc_release_manifest.py", "owner": "lead"},
     {"path": "tools/emit_v1_3_release_manifest.py", "owner": "lead"},
+    {"path": "tools/emit_v1_3_legs.py", "owner": "lead"},
+    {"path": "tools/final_gate_run_v1_3.py", "owner": "lead"},
+    {"path": "tools/v1_1_security_gate.py", "owner": "security"},
+    {"path": "tools/v1_3_ui_runtime_audit.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave2_ui_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave3_mission_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave4_attention_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave5_deliverables_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave6_world_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave7_connection_gate.py", "owner": "lead"},
+    {"path": "tools/v1_3_wave8_runtime_gate.py", "owner": "lead"},
+    {"path": "tests/e2e", "owner": "qa", "dir": "true"},
+    # --- v1.3 documentation ---
+    # Only the FREEZE DOCUMENT is certified, and only because it is introduced by
+    # the freeze commit itself and never edited afterwards (asserted by the final
+    # gate's E5 leg). The rest of docs/v1_3/ keeps evolving in release-metadata
+    # commits, so certifying the whole directory would certify a moving target.
+    {"path": "docs/v1_3/FINAL_PRODUCT_FREEZE.md", "owner": "protocol-architect"},
     # --- v1.2 baseline carried forward ---
     {"path": "docs/v1_2/FINAL_PRODUCT_FREEZE.md", "owner": "protocol-architect"},
 ]

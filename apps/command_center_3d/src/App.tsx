@@ -28,6 +28,7 @@ import { useDomain } from "./app/useDomain";
 import { CommandPalette, type CommandItemSpec } from "./ui/CommandPalette";
 import { TooltipProvider } from "./ui/Tooltip";
 import { Badge } from "./ui/Badge";
+import { envApiBase, resolveApiBase } from "./lib/apiBase";
 import {
   NAV_ITEMS,
   coerceView,
@@ -36,17 +37,10 @@ import {
   type ViewMode,
 } from "./app/navigation";
 
-// Read-only API base. Defaults to the v1.2/v1.3 control plane (4779). Override
-// with VITE_API_BASE. Never points at the protected GREEN instance (4778).
-//
-// `VITE_API_BASE=same-origin` (or an empty string) collapses to "" so the
-// bundle issues relative requests. That is how the product runs when the
-// durable runtime serves UI and API from ONE port (Wave 8), and it is what the
-// Wave 2 gate relies on — the browser must talk to the gate's own origin.
-const RAW_API_BASE: string =
-  (import.meta as unknown as { env?: { VITE_API_BASE?: string } }).env?.VITE_API_BASE ?? "";
-const API_BASE: string =
-  RAW_API_BASE === "same-origin" ? "" : RAW_API_BASE || "http://127.0.0.1:4779";
+// Read-only API base. The definition lives in ONE place -- see lib/apiBase.ts
+// for the shipped topology and why a second definition is a defect, not a
+// convenience. Never points at the protected GREEN instance (4778).
+const API_BASE: string = resolveApiBase(envApiBase());
 
 const THEME_KEY = "jcc.theme";
 

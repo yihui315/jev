@@ -256,3 +256,43 @@ def test_the_unverified_critical_fields_are_named_individually(report):
     assert report["do_not_guess"]["fields"], (
         "the explicit do-not-guess list must not be empty"
     )
+
+
+def test_the_file_presence_block_is_a_claim_not_a_host_measurement(report):
+    """THE DEFECT THIS PINS (measured 2026-09-29 by the v1.3 final gate's C2 leg).
+
+    ``credential_evidence.file_presence`` used to publish ``bytes`` -- the EXACT
+    size of files that live OUTSIDE this repository (``~/.codex/config.toml``,
+    ``~/.workbuddy/settings.json``, ...). Nothing in the interface depends on
+    those sizes, but they drift whenever the operator edits an unrelated local
+    file: measured here, ``~/.codex/config.toml`` went 5806 -> 5870 bytes, which
+    made ``--check`` report this record STALE and turned the whole ``tools/tests``
+    regression red -- 242/247 against a floor of 247 -- for a reason that had
+    nothing to do with the product. ``--check`` is what makes this record
+    trustworthy, so a false STALE is expensive: it teaches the operator to ignore
+    the check.
+
+    The record must publish what it KNOWS (the file is there, and whether it is a
+    file), not a fingerprint of the machine it was generated on.
+    """
+    files = report["credential_evidence"]["file_presence"]
+
+    # NON-VACUITY: the candidate list is a literal of 13 paths, so a block that
+    # walked nothing would satisfy the loop below trivially. Assert the walk
+    # happened before asserting anything about what it found.
+    assert len(files) >= 10, (
+        "file_presence lists only %d candidate(s); this probe would be vacuous"
+        % len(files)
+    )
+
+    for cand, entry in files.items():
+        assert entry.get("state") in ("PRESENT", "ABSENT"), (cand, entry)
+        if entry["state"] == "ABSENT":
+            continue
+        extra = sorted(set(entry) - {"state", "is_file"})
+        assert not extra, (
+            "%s publishes %r; file_presence must stay a presence claim "
+            "(state/is_file). A size is a measurement of THIS host at generation "
+            "time, so it drifts for reasons unrelated to the interface and makes "
+            "--check fail on a record that is not actually wrong." % (cand, extra)
+        )

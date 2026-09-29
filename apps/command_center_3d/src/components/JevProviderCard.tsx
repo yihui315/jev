@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { envApiBase, resolveApiBase } from "../lib/apiBase";
 
 export interface JevProviderCardProps {
   snap: any;
@@ -33,7 +34,7 @@ export function JevProviderCard(props: JevProviderCardProps) {
     void (async () => {
       const ctrlToken = controlToken;
       try {
-        const r = await fetch(((import.meta as any).env?.VITE_API_BASE || "http://127.0.0.1:4779") + "/api/connections/jev/validate", {
+        const r = await fetch(resolveApiBase(envApiBase()) + "/api/connections/jev/validate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
@@ -64,7 +65,7 @@ export function JevProviderCard(props: JevProviderCardProps) {
     void (async () => {
       const ctrlToken = controlToken;
       try {
-        const r = await fetch(((import.meta as any).env?.VITE_API_BASE || "http://127.0.0.1:4779") + "/api/connections/jev/activate", {
+        const r = await fetch(resolveApiBase(envApiBase()) + "/api/connections/jev/activate", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
