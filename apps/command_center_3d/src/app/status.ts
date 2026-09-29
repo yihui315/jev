@@ -160,6 +160,41 @@ export function isControlVerified(kind: string): boolean {
   return kind === "CONTROL_VERIFIED";
 }
 
+/**
+ * Capability PROVENANCE (Wave 7) — how a capability got here.
+ *
+ * `MEASURED` means a probe observed it and recorded an `evidence_ref` that can be
+ * re-checked. `ASSERTED` means a human typed it. The two are never the same
+ * claim, so they are never the same chip: an ASSERTED capability is drawn
+ * neutral even if its kind would otherwise deserve a colour.
+ */
+export const CAPABILITY_PROVENANCES = ["MEASURED", "ASSERTED"] as const;
+export type CapabilityProvenance = (typeof CAPABILITY_PROVENANCES)[number];
+
+export function provenanceTone(provenance: string): StatusTone {
+  return provenance === "MEASURED" ? "info" : "unknown";
+}
+
+export function provenanceLabel(provenance: string): string {
+  return provenance === "MEASURED" ? "measured" : "asserted";
+}
+
+/**
+ * The tone for a capability CHIP, which depends on BOTH the kind and how it was
+ * established (Wave 7).
+ *
+ * The hard rule this encodes: a chip is never green without MEASURED provenance.
+ * An asserted `CONTROL_VERIFIED` — the one kind that gates effectful action —
+ * is therefore drawn neutral, never as an accepted control path. Every other
+ * kind keeps its own tone (none of which is green today).
+ */
+export function capabilityChipTone(kind: string, provenance: string): StatusTone {
+  if (kind === "CONTROL_VERIFIED") {
+    return provenance === "MEASURED" ? "ok" : "unknown";
+  }
+  return capabilityTone(kind);
+}
+
 /** Artifact status vocabulary (mirrors `jcc_core.domain.ArtifactStatus`). */
 const ARTIFACT_TONE: Record<string, StatusTone> = {
   PRODUCED: "info",

@@ -149,6 +149,12 @@ export interface DomainCapability {
   evidence_ref: string | null;
   measured_at: number | null;
   created_at: number;
+  /**
+   * Wave 7 — how this capability was established. `MEASURED` (a probe observed
+   * it; `evidence_ref` present) vs `ASSERTED` (a human recorded it). Returned by
+   * the server on the Wave 7 routes; optional here so older payloads still type.
+   */
+  provenance?: "MEASURED" | "ASSERTED";
 }
 
 export interface DomainConnection {
@@ -177,6 +183,31 @@ export interface AttentionItem {
   kind: string | null;
   reason: string | null;
   updated_at: number;
+}
+
+/**
+ * Wave 7 — what a verification probe OBSERVED.
+ *
+ * `kind` is an observation, never a caller input, and v1.3 keeps actuation off,
+ * so it can never be `CONTROL_VERIFIED`. `reason` explains an `UNKNOWN`.
+ */
+export interface ProbeObservation {
+  kind: string;
+  detail: string;
+  evidence: Record<string, unknown>;
+  evidence_ref: string | null;
+  reason: string | null;
+  measured_at: number;
+}
+
+/** Wave 7 — the server's answer to `POST /connections/{cid}/verify`. */
+export interface ConnectionVerification {
+  connection_id: string;
+  agent: string;
+  observed: ProbeObservation;
+  health: string;
+  control_verified: boolean;
+  capabilities: DomainCapability[];
 }
 
 /**
@@ -404,6 +435,14 @@ export class DomainApi {
   connections(): Promise<ApiResult<DomainConnection[]>> {
     return request<DomainConnection[]>(this.base, "GET", "/api/v1/domain/connections");
   }
+  /**
+   * Wave 7: one domain connection with its capabilities and, for each, HOW it was
+   * established (`provenance`: MEASURED vs ASSERTED). Open read.
+   */
+  connection(cid: string): Promise<ApiResult<DomainConnection>> {
+    return request<DomainConnection>(
+      this.base, "GET", `/api/v1/domain/connections/${encodeURIComponent(cid)}`);
+  }
   needsAttention(): Promise<ApiResult<AttentionItem[]>> {
     return request<AttentionItem[]>(this.base, "GET", "/api/v1/domain/needs-attention");
   }
@@ -511,6 +550,19 @@ export class DomainApi {
     return request<DomainCapability>(
       this.base, "POST",
       `/api/v1/domain/connections/${encodeURIComponent(cid)}/capability`, { body, token });
+  }
+  /**
+   * Wave 7 — VERIFY a connection by running a REAL read-only probe server-side.
+   *
+   * The body selects *which* probe runs; it can never state the outcome. Any
+   * `kind` sent here is ignored by the server — the recorded capability is what
+   * the probe OBSERVED. In v1.3 that ceiling is `ADAPTER_CONTRACT_LIVE`, because
+   * actuation is off and no control path is exercised.
+   */
+  verifyConnection(token: string, cid: string, body: { probe?: string } = {}) {
+    return request<ConnectionVerification>(
+      this.base, "POST",
+      `/api/v1/domain/connections/${encodeURIComponent(cid)}/verify`, { body, token });
   }
   createApproval(token: string, mid: string, body: Record<string, unknown>) {
     return request<ApprovalRecord>(

@@ -231,9 +231,23 @@ def test_connection_and_capability_endpoints(api_server):
     st, lst = _get(api_server, "/api/v1/domain/connections")
     assert lst[0]["control_verified"] is False  # telemetry is NOT control
 
+    # v1.3 Wave 7 hardening: CONTROL_VERIFIED gates effectful action, so it can no
+    # longer be satisfied by a BARE assertion. The same body that used to open the
+    # gate now 422s, and the gate must still be shut.
     st, cap = _post(api_server, "/api/v1/domain/connections/%s/capability" % cid,
                     {"kind": "CONTROL_VERIFIED", "detail": "exercised pause"}, TOK)
+    assert st == 422, cap
+    assert "evidence_ref" in str(cap)
+    st, lst = _get(api_server, "/api/v1/domain/connections")
+    assert lst[0]["control_verified"] is False  # a refused assertion opens nothing
+
+    # ...and the route is still ALIVE: a CITED assertion is honoured, so the
+    # refusal above is a narrowing of what counts as proof, not a dead endpoint.
+    st, cap = _post(api_server, "/api/v1/domain/connections/%s/capability" % cid,
+                    {"kind": "CONTROL_VERIFIED", "detail": "exercised pause",
+                     "evidence_ref": "sha256:" + "a" * 64}, TOK)
     assert st == 200, cap
+    assert cap["provenance"] == "MEASURED"
     st, lst = _get(api_server, "/api/v1/domain/connections")
     assert lst[0]["control_verified"] is True
 

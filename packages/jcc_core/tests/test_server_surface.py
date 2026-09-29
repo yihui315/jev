@@ -130,6 +130,10 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         # (read-only projections); the verify WRITE stays token-gated.
         "/api/v1/domain/deliverables",
         "/api/v1/domain/artifacts/{aid}",
+        # v1.3 Wave 7: one connection with per-capability provenance is open (it
+        # answers "why does JCC believe this works?"); the verify WRITE -- which
+        # runs a real probe -- stays token-gated.
+        "/api/v1/domain/connections/{cid}",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)

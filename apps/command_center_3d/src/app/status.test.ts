@@ -7,10 +7,13 @@ import {
   artifactTone,
   approvalTone,
   capabilityTone,
+  capabilityChipTone,
   connectionTone,
   isControlVerified,
   missionStatusColor,
   missionTone,
+  provenanceLabel,
+  provenanceTone,
   toneColor,
   toneVariant,
 } from "./status";
@@ -124,5 +127,37 @@ describe("status vocabulary", () => {
     // An unknown status must map to the unknown colour, never the ok colour.
     expect(missionStatusColor("SOMETHING_NEW")).toBe(toneColor("unknown"));
     expect(missionStatusColor("SOMETHING_NEW")).not.toBe(toneColor("ok"));
+  });
+
+  // --- Wave 7: a chip is never green without MEASURED provenance ---
+  it("tones provenance, and only MEASURED is distinguishable from unknown", () => {
+    expect(provenanceTone("MEASURED")).toBe("info");
+    expect(provenanceTone("ASSERTED")).toBe("unknown");
+    expect(provenanceTone("WHATEVER")).toBe("unknown");
+  });
+
+  it("labels provenance for the chip", () => {
+    expect(provenanceLabel("MEASURED")).toBe("measured");
+    expect(provenanceLabel("ASSERTED")).toBe("asserted");
+    expect(provenanceLabel("WHATEVER")).toBe("asserted");
+  });
+
+  it("never paints an ASSERTED control-verified capability green", () => {
+    // The one kind that gates effectful action is green ONLY when measured.
+    expect(capabilityChipTone("CONTROL_VERIFIED", "MEASURED")).toBe("ok");
+    expect(capabilityChipTone("CONTROL_VERIFIED", "ASSERTED")).toBe("unknown");
+    expect(capabilityChipTone("CONTROL_VERIFIED", "ASSERTED")).not.toBe("ok");
+    expect(capabilityChipTone("CONTROL_VERIFIED", "WHATEVER")).not.toBe("ok");
+  });
+
+  it("keeps the ordinary capability tones for the non-control kinds", () => {
+    // ADAPTER_CONTRACT_LIVE is a real observation, but it is NOT control.
+    expect(capabilityChipTone("ADAPTER_CONTRACT_LIVE", "MEASURED")).toBe("info");
+    expect(capabilityChipTone("ADAPTER_CONTRACT_LIVE", "MEASURED")).not.toBe("ok");
+    expect(capabilityChipTone("TELEMETRY_ONLY", "MEASURED")).toBe("info");
+    expect(capabilityChipTone("UNKNOWN", "MEASURED")).toBe("unknown");
+    expect(capabilityChipTone("UNAVAILABLE", "MEASURED")).toBe("danger");
+    // an unknown kind under any provenance falls back to unknown
+    expect(capabilityChipTone("SOMETHING_NEW", "MEASURED")).toBe("unknown");
   });
 });

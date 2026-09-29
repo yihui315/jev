@@ -22,6 +22,7 @@ import { ProjectsView } from "./app/ProjectsView";
 import { MissionsView } from "./app/MissionsView";
 import { DeliverablesView } from "./app/DeliverablesView";
 import { NeedsAttentionView } from "./app/NeedsAttentionView";
+import { ConnectionVerificationView } from "./app/ConnectionVerificationView";
 import { AuditView, DiagnosticsView, SettingsView } from "./app/SystemViews";
 import { useDomain } from "./app/useDomain";
 import { CommandPalette, type CommandItemSpec } from "./ui/CommandPalette";
@@ -262,8 +263,26 @@ export function App() {
           />
         );
       case "connections":
+        // Wave 7 — two surfaces, two questions, one view:
+        //   top: the v1.3 DOMAIN view (measured capability + provenance + a real
+        //        read-only verification probe);
+        //   bottom: the legacy v1.2.1 AI CONNECTION CENTER (the per-agent report,
+        //        kept intact for its own `/api/connections` contract).
+        // Neither is removed, and neither is presented as the other.
         return (
-          <ConnectionsView scene={scene} apiBase={API_BASE} controlToken={controlToken || null} />
+          <div className="flex h-full min-h-0 flex-col">
+            <div className="min-h-0 shrink-0 overflow-y-auto border-b border-border"
+                 style={{ maxHeight: "58%" }}>
+              <ConnectionVerificationView
+                api={domain.api}
+                controlToken={controlToken}
+                onRefresh={() => void domain.refresh()}
+              />
+            </div>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <ConnectionsView scene={scene} apiBase={API_BASE} controlToken={controlToken || null} />
+            </div>
+          </div>
         );
       case "audit":
         return <AuditView base={API_BASE} />;

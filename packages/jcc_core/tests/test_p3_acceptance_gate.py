@@ -265,8 +265,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24.
-        "7845d2ad00261eb8f1ca76e887048cad3671b5ad7ac25d8d1e9f9c1f71af89d3",  # old: 32d2540da2fc5d8378c994be4f0c259169ad6da3a807e3efda6b3c1954f381bd (v1.3 Wave 4 attention control)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27.
+        "09f9955ca759edb2a6a86198dd7fcb3b0616ba04cad4f76832ad5bd6845b450f",  # old: 7845d2ad00261eb8f1ca76e887048cad3671b5ad7ac25d8d1e9f9c1f71af89d3 (v1.3 Wave 5 deliverables)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
@@ -699,6 +699,9 @@ def test_A11_no_new_inbound_surface(live):
         # v1.3 Wave 5 deliverables: record a human verdict on an artifact.
         # Token-gated; it writes a status + who decided, never an agent effect.
         "/api/v1/domain/artifacts/{aid}/verify",
+        # v1.3 Wave 7 connection verification: run a REAL probe and record what it
+        # observed. Token-gated; the probe only READS host state (no dispatch).
+        "/api/v1/domain/connections/{cid}/verify",
     }
     assert post_paths == expected, {
         "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),

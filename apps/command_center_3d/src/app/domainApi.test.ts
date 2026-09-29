@@ -175,3 +175,70 @@ describe("deliverable client contract", () => {
     }
   });
 });
+
+/**
+ * Wave 7 — a capability is MEASURED, not asserted. The client can prove:
+ * the by-id read is token-free, the verify POST carries the token in a header
+ * (never a URL) and CANNOT state the outcome — the client never puts a `kind`
+ * on the wire, because the outcome belongs to the probe.
+ */
+describe("connection verification client contract", () => {
+  function spyApi() {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      const payload = {
+        connection_id: "con_1", agent: "claude",
+        observed: { kind: "TELEMETRY_ONLY", detail: "seen", evidence: {},
+                    evidence_ref: "sha256:" + "a".repeat(64), reason: null,
+                    measured_at: 0 },
+        health: "DEGRADED", control_verified: false, capabilities: [],
+      };
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify(payload),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, api: new DomainApi("http://x"), restore: () => { globalThis.fetch = original; } };
+  }
+
+  it("reads one connection (with provenance) with no token", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.connection("con_1");
+      expect(calls[0].url).toContain("/api/v1/domain/connections/con_1");
+      const headers = (calls[0].init.headers ?? {}) as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBeUndefined();
+    } finally {
+      restore();
+    }
+  });
+
+  it("runs verification with the token in a header", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      const r = await api.verifyConnection("sekret", "con_1", { probe: "auto" });
+      const { url, init } = calls[0];
+      expect(url).toContain("/api/v1/domain/connections/con_1/verify");
+      expect(url).not.toContain("sekret");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBe("sekret");
+      expect(r.ok).toBe(true);
+    } finally {
+      restore();
+    }
+  });
+
+  it("never sends a capability kind on the verify wire (the caller cannot state the outcome)", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.verifyConnection("t", "con_1");
+      const body = String(calls[0].init.body ?? "");
+      expect(body).not.toContain("kind");
+      expect(body).not.toContain("CONTROL_VERIFIED");
+    } finally {
+      restore();
+    }
+  });
+});

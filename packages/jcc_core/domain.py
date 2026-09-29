@@ -131,6 +131,24 @@ class CapabilityKind(str, Enum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+#: The connection ``health`` a MEASURED capability implies (Wave 7). Kept here so
+#: the domain does not import the probe module (which imports this one). Note that
+#: ADAPTER_CONTRACT_LIVE -> CONNECTED is a claim about SEEING the agent, a strictly
+#: weaker claim than CONTROL_VERIFIED; the two axes are reported separately and
+#: must never be merged into one green light.
+CAPABILITY_HEALTH: Dict[CapabilityKind, str] = {
+    CapabilityKind.CONTROL_VERIFIED: "CONNECTED",
+    CapabilityKind.ADAPTER_CONTRACT_LIVE: "CONNECTED",
+    CapabilityKind.TELEMETRY_ONLY: "DEGRADED",
+    CapabilityKind.UNAVAILABLE: "UNAVAILABLE",
+    CapabilityKind.UNKNOWN: "UNKNOWN",
+}
+
+
+def health_for_capability(kind: CapabilityKind) -> str:
+    return CAPABILITY_HEALTH.get(CapabilityKind(kind), "UNKNOWN")
+
+
 class ArtifactKind(str, Enum):
     FILE = "file"
     DOCUMENT = "document"
@@ -933,6 +951,42 @@ class DomainStore:
         if cap is None:
             return False
         return CapabilityKind(cap.kind) == CapabilityKind.CONTROL_VERIFIED
+
+    @staticmethod
+    def capability_provenance(cap: Capability) -> str:
+        """Was a capability MEASURED by a probe or ASSERTED by a human?
+
+        A capability carrying evidence (``evidence_ref``) was observed by a probe
+        and can be re-checked. One without is a bare assertion -- and the UI must
+        never present the two as the same thing. This is the Wave 7 distinction:
+        ``is_control_verified`` answers "is the claim present?", this answers
+        "how did it get here?".
+        """
+        return "MEASURED" if cap.evidence_ref else "ASSERTED"
+
+    def record_probe(self, connection_id: str, result: Any) -> Connection:
+        """Record what a probe OBSERVED on this connection (Wave 7).
+
+        The capability written here comes from ``result`` (the probe), never from
+        a caller-supplied value. Also moves the connection's ``health`` to the
+        honest reading for the observed capability.
+        """
+        if self.get_connection(connection_id) is None:
+            raise ValueError("unknown connection %r" % connection_id)
+        kind = CapabilityKind(result.kind)
+        self.set_capability(
+            connection_id, kind, detail=str(getattr(result, "detail", "") or ""),
+            evidence_ref=getattr(result, "evidence_ref", None),
+            measured_at=float(getattr(result, "measured_at", _now()) or _now()),
+        )
+        self.set_connection_health(
+            connection_id, health_for_capability(kind),
+            detail={"probe": getattr(result, "evidence", {}) or {},
+                    "reason": getattr(result, "reason", None)},
+        )
+        conn = self.get_connection(connection_id)
+        assert conn is not None  # we just checked it exists
+        return conn
 
     # -- approvals ----------------------------------------------------------
 

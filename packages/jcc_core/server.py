@@ -84,6 +84,8 @@ OPEN_GET_ENDPOINTS = (
     # v1.3 Wave 5 — deliverables (server-side view + one deliverable by identity)
     "/api/v1/domain/deliverables",
     "/api/v1/domain/artifacts/{aid}",
+    # v1.3 Wave 7 — connection verification (one connection with provenance)
+    "/api/v1/domain/connections/{cid}",
 )
 
 #: Server-side truth for which agents a Mission may actually be launched
@@ -671,6 +673,25 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             raise HTTPException(status_code=422, detail=str(exc))
         return c.model_dump(mode="json")
 
+    @app.get("/api/v1/domain/connections/{cid}")
+    def domain_get_connection(cid: str):
+        """One connection with its capabilities and HOW each was established.
+
+        `provenance` is "MEASURED" (a probe observed it; evidence_ref present) or
+        "ASSERTED" (a human recorded it). The UI must not draw the two the same.
+        """
+        c = domain.get_connection(cid)
+        if c is None:
+            raise HTTPException(status_code=404, detail="connection not found")
+        d = c.model_dump(mode="json")
+        d["control_verified"] = domain.is_control_verified(cid)
+        d["capabilities"] = [
+            {**cap.model_dump(mode="json"),
+             "provenance": domain.capability_provenance(cap)}
+            for cap in domain.list_capabilities(cid)
+        ]
+        return d
+
     @app.post("/api/v1/domain/connections/{cid}/capability")
     def domain_set_capability(cid: str, body: dict,
                               _token: bool = Depends(require_control_token)):
@@ -679,13 +700,58 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             raise HTTPException(status_code=422, detail="kind is required")
         if not domain.get_connection(cid):
             raise HTTPException(status_code=404, detail="connection not found")
+        # Wave 7 hardening: CONTROL_VERIFIED gates effectful action, so it must
+        # be backed by evidence. A bare assertion is refused with a pointer to the
+        # probe route; it is never silently downgraded or silently accepted.
+        if str(kind).upper() == "CONTROL_VERIFIED" and not body.get("evidence_ref"):
+            raise HTTPException(
+                status_code=422,
+                detail=("CONTROL_VERIFIED requires an evidence_ref: it gates "
+                        "effectful action and must cite the control path that was "
+                        "exercised. To measure a connection, use "
+                        "POST /api/v1/domain/connections/{cid}/verify."))
         try:
             cap = domain.set_capability(
                 cid, CapabilityKind(kind), detail=str(body.get("detail") or ""),
                 evidence_ref=body.get("evidence_ref"))
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
-        return cap.model_dump(mode="json")
+        return {**cap.model_dump(mode="json"),
+                "provenance": domain.capability_provenance(cap)}
+
+    @app.post("/api/v1/domain/connections/{cid}/verify")
+    def domain_verify_connection(cid: str, body: dict,
+                                 _token: bool = Depends(require_control_token)):
+        """Run a REAL probe for this connection and record what it OBSERVED.
+
+        The body may select which probe runs; it can NEVER state the outcome. Any
+        ``kind`` in the body is ignored -- the recorded capability is whatever the
+        probe measured (`capability_probe.probe_connection`). A probe can at most
+        claim ADAPTER_CONTRACT_LIVE in this build, because actuation is disabled
+        and no control path is exercised.
+        """
+        c = domain.get_connection(cid)
+        if c is None:
+            raise HTTPException(status_code=404, detail="connection not found")
+        from .capability_probe import probe_connection
+        result = probe_connection(str(c.agent), domain=domain, engine=engine)
+        try:
+            updated = domain.record_probe(cid, result)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        caps = domain.list_capabilities(cid)
+        return {
+            "connection_id": cid,
+            "agent": c.agent,
+            "observed": result.to_dict(),
+            "health": updated.health,
+            "control_verified": domain.is_control_verified(cid),
+            "capabilities": [
+                {**cap.model_dump(mode="json"),
+                 "provenance": domain.capability_provenance(cap)}
+                for cap in caps
+            ],
+        }
 
     @app.post("/api/v1/domain/missions/{mid}/approvals")
     def domain_create_approval(mid: str, body: dict,

@@ -67,6 +67,13 @@
       "start": "v1.3-wave5-deliverables",
       "end": "v1.3-wave5-deliverables",
       "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 32d2540d.. -> new 7845d2ad.., because Wave 5 adds GET /api/v1/domain/deliverables (open, filterable), GET /api/v1/domain/artifacts/{aid} (open) and POST /api/v1/domain/artifacts/{aid}/verify (token-gated, records a human verdict), and the Home response gains the honest `deliverables` object ({produced,verified,rejected,total}); OPEN_GET_ENDPOINTS 24->26. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave5-deliverables). Also in this window: A11 inbound surface gains the verify POST, test_server_surface's declared-open list gains the two Wave 5 GETs, and domain.py gains get_artifact/verify_artifact/list_deliverables/deliverable_counts + the home_summary `deliverables` split (domain.py is NOT an A8-pinned file)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-7-CONNECTION",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 7 — Agent Connection Verification (MEASURED, not asserted)",
+      "start": "v1.3-wave7-connection-verification",
+      "end": "v1.3-wave7-connection-verification",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 7845d2ad.. -> new 09f9955c.., because Wave 7 makes connection capability a MEASURED fact: it adds GET /api/v1/domain/connections/{cid} (open; returns the connection, its capabilities, and a per-capability `provenance` of MEASURED vs ASSERTED) and POST /api/v1/domain/connections/{cid}/verify (token-gated; runs a REAL read-only probe via capability_probe.probe_connection and records only what it OBSERVED -- the body cannot state the outcome), and HARDENS POST /api/v1/domain/connections/{cid}/capability so a bare CONTROL_VERIFIED with no evidence_ref is refused with 422 (it still accepts a cited one); OPEN_GET_ENDPOINTS 26->27. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave7-connection-verification). Also in this window: A11 inbound surface gains the verify POST, test_server_surface's declared-open list gains the Wave 7 GET, a new module packages/jcc_core/capability_probe.py is added (not A8-pinned), and domain.py gains capability_provenance/record_probe + CAPABILITY_HEALTH/health_for_capability (domain.py is NOT an A8-pinned file)."
     }
   ],
 

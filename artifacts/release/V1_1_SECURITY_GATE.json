@@ -20,6 +20,7 @@
           "/api/v1/domain/artifacts/{aid}/verify",
           "/api/v1/domain/connections",
           "/api/v1/domain/connections/{cid}/capability",
+          "/api/v1/domain/connections/{cid}/verify",
           "/api/v1/domain/missions/{mid}/approvals",
           "/api/v1/domain/approvals/{aid}/decide",
           "/api/v1/domain/missions/{mid}/launch",
@@ -92,6 +93,13 @@
             "method": "POST",
             "no_token": 403,
             "route": "/api/v1/domain/connections/{cid}/capability",
+            "wrong_token": 403
+          },
+          {
+            "correct_token": 404,
+            "method": "POST",
+            "no_token": 403,
+            "route": "/api/v1/domain/connections/{cid}/verify",
             "wrong_token": 403
           },
           {
@@ -208,14 +216,14 @@
           }
         ],
         "routes_reaching_2xx_with_correct_token": 13,
-        "routes_total": 24
+        "routes_total": 25
       },
       "findings": [],
       "non_vacuity_note": "the correct token must open the gate, otherwise 'refused without a token' proves nothing",
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 3.243,
+      "seconds": 3.756,
       "title": "auth fail-closed on every mutating route"
     },
     {
@@ -265,7 +273,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.82,
+      "seconds": 1.102,
       "title": "planted secrets absent from every persisted sink"
     },
     {
@@ -290,6 +298,7 @@
           "/api/sessions/{sid}",
           "/api/v1/domain/artifacts/{aid}",
           "/api/v1/domain/connections",
+          "/api/v1/domain/connections/{cid}",
           "/api/v1/domain/deliverables",
           "/api/v1/domain/home",
           "/api/v1/domain/launch/probe",
@@ -320,6 +329,7 @@
           "/api/sessions/{sid}",
           "/api/v1/domain/artifacts/{aid}",
           "/api/v1/domain/connections",
+          "/api/v1/domain/connections/{cid}",
           "/api/v1/domain/deliverables",
           "/api/v1/domain/home",
           "/api/v1/domain/launch/probe",
@@ -348,7 +358,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 1.009,
+      "seconds": 0.632,
       "title": "loopback-only bind and no undeclared open route"
     },
     {
@@ -389,7 +399,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.019,
+      "seconds": 0.02,
       "title": "v1.1 modules add no write and no egress"
     },
     {
@@ -430,7 +440,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.055,
+      "seconds": 0.056,
       "title": "the UI reads no token and posts only the probe"
     },
     {
@@ -485,7 +495,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.013,
+      "seconds": 0.014,
       "title": "v1.1 modules import only stdlib and project roots"
     },
     {
@@ -539,7 +549,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.004,
+      "seconds": 0.005,
       "title": "no single condition can enable actuation"
     },
     {
@@ -566,7 +576,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.184,
+      "seconds": 0.193,
       "title": "no enforcement path consumes effective_level"
     },
     {
@@ -601,7 +611,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.002,
+      "seconds": 0.003,
       "title": "the protected service and runtime DB are untouched"
     }
   ],
@@ -613,13 +623,13 @@
     "LOW": 0,
     "MEDIUM": 0
   },
-  "generated_at": "2026-09-29T08:24:57+0800",
+  "generated_at": "2026-09-29T11:18:57+0800",
   "non_vacuity_gaps": [],
   "repo_branch": "feature/jcc-v1.2-visual-command-center",
-  "repo_head": "6a46d1f363905d219ff8cc9c2cd3da9084798d4c",
+  "repo_head": "b2782e9a2b36d728ce71854c48983c32e7696a2c",
   "reproducibility": {
     "deterministic": true,
-    "normalized_sha256": "5a5ef85c0666efb434dcebea2bbd0ad5e2be1ba441899a37ec42c4b8962a7735",
+    "normalized_sha256": "3fcb3f9f66d6eb5969083929ccfe56638a08bc22d163b3102502dba39a177f8a",
     "volatile_keys_stripped": [
       "after",
       "before",
