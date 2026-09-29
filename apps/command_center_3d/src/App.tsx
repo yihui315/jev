@@ -215,6 +215,8 @@ export function App() {
       case "needs-attention":
         return (
           <NeedsAttentionView
+            api={domain.api}
+            controlToken={controlToken}
             items={domain.attention}
             loading={domain.attentionLoading}
             error={domain.attentionError}

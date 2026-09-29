@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { fmtBytes, fmtRelative, fmtTime } from "./domainApi";
+import { DomainApi, fmtBytes, fmtRelative, fmtTime } from "./domainApi";
 
 /**
  * Formatters are shared by every domain view, so a regression here misreports
@@ -46,5 +46,66 @@ describe("formatters", () => {
     expect(fmtBytes(512)).toBe("512 B");
     expect(fmtBytes(2048)).toBe("2.0 KB");
     expect(fmtBytes(5 * 1024 * 1024)).toBe("5.0 MB");
+  });
+});
+
+/**
+ * Wave 4 — the control surface is PREVIEW-FIRST. The one property a client can
+ * prove on its own is that the resolve call sends the exact body it is given and
+ * puts the token in a header (never a URL). The dry_run default lives on the
+ * server; the client must not silently upgrade a preview into an apply.
+ */
+describe("attention control client contract", () => {
+  function spyApi() {
+    const calls: Array<{ url: string; init: RequestInit }> = [];
+    const original = globalThis.fetch;
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+      calls.push({ url: String(url), init: init ?? {} });
+      const payload = { ok: true, mission_id: "m1", action: "verify",
+                        dry_run: true, applied: false };
+      return {
+        ok: true, status: 200,
+        text: async () => JSON.stringify(payload),
+      } as unknown as Response;
+    }) as unknown as typeof fetch;
+    return { calls, api: new DomainApi("http://x"), restore: () => { globalThis.fetch = original; } };
+  }
+
+  it("posts the preview to the resolve endpoint with the token in a header", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.resolveAttention("sekret", "m1", { action: "verify", dry_run: true });
+      expect(calls.length).toBe(1);
+      const { url, init } = calls[0];
+      expect(url).toContain("/api/v1/domain/needs-attention/m1/resolve");
+      expect(url).not.toContain("sekret");
+      const headers = init.headers as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBe("sekret");
+      expect(String(init.body)).toContain('"dry_run":true');
+    } finally {
+      restore();
+    }
+  });
+
+  it("does not turn a preview into an apply", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.resolveAttention("t", "m1", { action: "verify", dry_run: true });
+      expect(String(calls[0].init.body)).not.toContain('"dry_run":false');
+    } finally {
+      restore();
+    }
+  });
+
+  it("reads resolutions from the open GET endpoint with no token", async () => {
+    const { calls, api, restore } = spyApi();
+    try {
+      await api.attentionResolutions();
+      expect(calls[0].url).toContain("/api/v1/domain/needs-attention/resolutions");
+      const headers = (calls[0].init.headers ?? {}) as Record<string, string>;
+      expect(headers["X-JCC-Token"]).toBeUndefined();
+    } finally {
+      restore();
+    }
   });
 });

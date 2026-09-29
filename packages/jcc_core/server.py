@@ -79,6 +79,8 @@ OPEN_GET_ENDPOINTS = (
     # v1.3 Wave 3 — mission launch bridge (read-only discovery + workload)
     "/api/v1/domain/launch/probe",
     "/api/v1/domain/missions/{mid}/workload",
+    # v1.3 Wave 4 — attention control (read-only resolution of each inbox item)
+    "/api/v1/domain/needs-attention/resolutions",
 )
 
 #: Server-side truth for which agents a Mission may actually be launched
@@ -198,6 +200,76 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     from .mission_runtime import MissionRuntime
     runtime = MissionRuntime(domain, engine)
     app.state.mission_runtime = runtime
+
+    # -- v1.3 Wave 4 helpers: attention control ------------------------- #
+    def _actuation_enabled() -> bool:
+        """The REAL actuation flag, read from the engine's actuator.
+
+        In v1.3 this is always False. It is read (not hard-coded) so that the
+        attention resolver reports BLOCKED/ACTUATION_DISABLED for high-risk
+        actions only while that is actually true -- if actuation were ever
+        enabled, the resolver would stop claiming it is disabled.
+        """
+        return bool(getattr(engine.actuator, "enabled", False))
+
+    def _live_session_ids() -> set:
+        """Session ids whose host-side liveness is LIVE (three-state).
+
+        Imported lazily and defensively: if the host probe cannot run, the set is
+        empty, which makes a resume action BLOCKED/NO_LIVE_SESSION rather than
+        EXECUTABLE. "Could not check" must never become "safe to resume".
+        """
+        try:
+            from .workbuddy_launch import list_sessions, liveness
+            return {str(s.get("session_id")) for s in list_sessions()
+                    if liveness(s) == "live" and s.get("session_id")}
+        except Exception:  # noqa: BLE001
+            return set()
+
+    def _attention_plan(domain_store, item: dict, action: str) -> list:
+        """The exact changes a resolution WOULD make (preview). Pure read."""
+        from .attention_control import (ACTION_DECIDE_APPROVAL, ACTION_RESUME,
+                                        ACTION_VERIFY, ACTION_ACKNOWLEDGE_DELIVERABLE)
+        mid = str(item.get("mission_id"))
+        plan = []
+        if action == ACTION_DECIDE_APPROVAL:
+            pend = [a.approval_id for a in domain_store.list_approvals(
+                mission_id=mid, state="PENDING")]
+            plan.append({"target": "approval", "ids": pend,
+                         "change": "set state=APPROVED, decided_by=<caller>"})
+            plan.append({"target": "mission", "id": mid,
+                         "change": "if no other pending approval: "
+                                   "NEEDS_ATTENTION -> RUNNING"})
+        elif action in (ACTION_VERIFY, ACTION_ACKNOWLEDGE_DELIVERABLE):
+            plan.append({"target": "mission", "id": mid,
+                         "change": "NEEDS_ATTENTION -> RUNNING (human check done)"})
+        elif action == ACTION_RESUME:
+            plan.append({"target": "mission", "id": mid,
+                         "change": "NEEDS_ATTENTION -> RUNNING (re-enters work)"})
+        return plan
+
+    def _apply_attention(domain_store, mid: str, action: str, body: dict):
+        """Apply a resolution. The mission-state move goes through the state
+        machine (never a raw UPDATE), so an illegal move is refused here too."""
+        from .attention_control import (ACTION_DECIDE_APPROVAL, ACTION_RESUME,
+                                        ACTION_VERIFY, ACTION_ACKNOWLEDGE_DELIVERABLE)
+        if action == ACTION_DECIDE_APPROVAL:
+            to_state = str(body.get("state") or "APPROVED").strip().upper()
+            pend = domain_store.list_approvals(mission_id=mid, state="PENDING")
+            if not pend:
+                raise ValueError("no PENDING approval for mission %r" % mid)
+            decided_by = str(body.get("decided_by") or "operator")
+            a = domain_store.decide_approval(
+                pend[0].approval_id, ApprovalState(to_state), decided_by=decided_by)
+            after = domain_store.get_mission(mid)
+            return True, {"approval_id": a.approval_id, "state": a.state.value,
+                          "mission_status": after.status.value}
+        if action in (ACTION_VERIFY, ACTION_ACKNOWLEDGE_DELIVERABLE, ACTION_RESUME):
+            to = str(body.get("to_status") or MissionStatus.RUNNING.value)
+            m = domain_store.transition_mission(
+                mid, MissionStatus(to), reason="attention resolved: %s" % action)
+            return True, {"mission_status": m.status.value}
+        raise ValueError("action %r cannot be applied" % action)
 
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
@@ -689,6 +761,106 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             return runtime.workload(mid)
         except MissionRuntimeError as exc:
             raise HTTPException(status_code=404, detail=exc.detail)
+
+    # ------------------------------------------------------------------ #
+    # v1.3 Wave 4 — NEEDS ATTENTION control
+    #
+    # The inbox becomes a control surface, but PREVIEW-FIRST: a resolution
+    # request defaults to ``dry_run=True`` and mutates nothing. Preview and apply
+    # share one code path, so the preview cannot disagree with the effect (the
+    # Wave-4 falsifier: a dry_run request leaves the domain DB byte-identical).
+    #
+    # POLICY PERMITTED and CURRENTLY EXECUTABLE are computed separately by
+    # ``attention_control.resolve_attention`` and are NEVER merged into one flag.
+    # ------------------------------------------------------------------ #
+    @app.get("/api/v1/domain/needs-attention/resolutions")
+    def domain_attention_resolutions():
+        """Open, read-only: the inbox with a per-item control resolution.
+
+        The resolution answers two DIFFERENT questions without conflating them:
+        is the action allowed by policy, and does it actually work right now on
+        this host. An unknown prerequisite is reported as UNKNOWN, never green.
+        """
+        from .attention_control import gather_context, resolve_attention
+
+        items = domain.needs_attention()
+        live = _live_session_ids()
+        ctx = gather_context(domain, actuation_enabled=_actuation_enabled(),
+                             live_session_ids=live)
+        return {
+            "schema": "jcc/v1.3-attention-resolutions/1",
+            "actuation_enabled": _actuation_enabled(),
+            "items": [r.model_dump(mode="json") for r in resolve_attention(items, ctx)],
+        }
+
+    @app.post("/api/v1/domain/needs-attention/{mid}/resolve")
+    def domain_resolve_attention(mid: str, body: dict,
+                                 _token: bool = Depends(require_control_token)):
+        """Token-gated: PREVIEW (default) or APPLY a control action.
+
+        Body: ``{action, dry_run?, decided_by?, to_status?}``.
+        ``dry_run`` defaults to True. A preview returns the plan and mutates
+        nothing. An apply performs the action and returns what it did.
+        """
+        from .attention_control import (ACTION_DECIDE_APPROVAL, ACTION_RESUME,
+                                        ACTION_VERIFY, ACTION_ACKNOWLEDGE_DELIVERABLE,
+                                        ACTION_RECONNECT, Executability,
+                                        gather_context, resolve_item)
+
+        action = str(body.get("action") or "").strip()
+        if action not in (ACTION_DECIDE_APPROVAL, ACTION_RESUME, ACTION_VERIFY,
+                          ACTION_ACKNOWLEDGE_DELIVERABLE, ACTION_RECONNECT):
+            raise HTTPException(status_code=422, detail="unknown action %r" % action)
+        dry_run = bool(body.get("dry_run", True))
+
+        items = domain.needs_attention()
+        item = next((i for i in items if i.get("mission_id") == mid), None)
+        if item is None:
+            # Not in attention: report it as such rather than 404-ing into a
+            # generic error, so the UI can say "already resolved".
+            return {"ok": False, "mission_id": mid, "action": action,
+                    "dry_run": dry_run, "applied": False,
+                    "detail": "mission is not in NEEDS_ATTENTION",
+                    "blocked_reason": "NOT_IN_ATTENTION"}
+
+        ctx = gather_context(domain, actuation_enabled=_actuation_enabled(),
+                             live_session_ids=_live_session_ids())
+        res = resolve_item(item, ctx)
+        chosen = next((a for a in res.actions if a.action == action), None)
+        if chosen is None:
+            return {"ok": False, "mission_id": mid, "action": action,
+                    "dry_run": dry_run, "applied": False,
+                    "detail": "action is not proposed for this item"}
+
+        permitted = chosen.policy_permitted
+        executable = chosen.executability is Executability.EXECUTABLE
+
+        if not permitted or not executable:
+            return {"ok": False, "mission_id": mid, "action": action,
+                    "dry_run": dry_run, "applied": False,
+                    "policy_permitted": permitted,
+                    "executability": chosen.executability.value,
+                    "blocked_reason": (chosen.blocked_reason.value
+                                       if chosen.blocked_reason else None),
+                    "detail": chosen.detail}
+
+        if dry_run:
+            return {"ok": True, "mission_id": mid, "action": action,
+                    "dry_run": True, "applied": False,
+                    "policy_permitted": True,
+                    "executability": "EXECUTABLE",
+                    "plan": _attention_plan(domain, item, action),
+                    "detail": chosen.detail}
+
+        # -- apply -------------------------------------------------------- #
+        try:
+            applied, note = _apply_attention(domain, mid, action, body)
+        except ValueError as exc:
+            raise HTTPException(status_code=422, detail=str(exc))
+        return {"ok": True, "mission_id": mid, "action": action,
+                "dry_run": False, "applied": applied,
+                "policy_permitted": True, "executability": "EXECUTABLE",
+                "result": note}
 
 
     @app.post("/api/assess")

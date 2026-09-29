@@ -179,6 +179,51 @@ export interface AttentionItem {
   updated_at: number;
 }
 
+/**
+ * Wave 4 — a control action proposed for one inbox item.
+ *
+ * `policy_permitted` and `executability` answer DIFFERENT questions and are never
+ * merged: an action can be allowed by policy yet not work on this host right now.
+ * `executability === "UNKNOWN"` means the prerequisite could not be determined --
+ * the UI renders it neutral, never green.
+ */
+export interface AttentionAction {
+  action: string;
+  label: string;
+  risk: "low" | "high";
+  policy_permitted: boolean;
+  executability: "EXECUTABLE" | "BLOCKED" | "UNKNOWN";
+  blocked_reason: string | null;
+  detail: string;
+}
+
+export interface AttentionResolution {
+  mission_id: string;
+  kind: string | null;
+  actions: AttentionAction[];
+}
+
+export interface AttentionResolutionsDoc {
+  schema: string;
+  actuation_enabled: boolean;
+  items: AttentionResolution[];
+}
+
+/** Wave 4 — the server's answer to a preview or an apply. */
+export interface ResolveResult {
+  ok: boolean;
+  mission_id: string;
+  action: string;
+  dry_run: boolean;
+  applied: boolean;
+  policy_permitted?: boolean;
+  executability?: string;
+  blocked_reason?: string | null;
+  detail?: string;
+  plan?: Array<{ target: string; id?: string; ids?: string[]; change: string }>;
+  result?: Record<string, unknown>;
+}
+
 /** Wave 3 — one launch step's outcome (the server names the step it died on). */
 export interface LaunchStep {
   step: string;
@@ -329,6 +374,26 @@ export class DomainApi {
   }
   needsAttention(): Promise<ApiResult<AttentionItem[]>> {
     return request<AttentionItem[]>(this.base, "GET", "/api/v1/domain/needs-attention");
+  }
+  /** Wave 4: the inbox with a per-item control resolution (policy vs executable). */
+  attentionResolutions(): Promise<ApiResult<AttentionResolutionsDoc>> {
+    return request<AttentionResolutionsDoc>(
+      this.base, "GET", "/api/v1/domain/needs-attention/resolutions");
+  }
+  /**
+   * Wave 4 — PREVIEW-FIRST resolve. `dry_run` defaults to true and the server
+   * mutates nothing; the caller must send `dry_run:false` to apply. Preview and
+   * apply share one server code path, so the preview cannot disagree with the
+   * effect.
+   */
+  resolveAttention(
+    token: string,
+    mid: string,
+    body: { action: string; dry_run?: boolean; state?: string; decided_by?: string; to_status?: string },
+  ): Promise<ApiResult<ResolveResult>> {
+    return request<ResolveResult>(
+      this.base, "POST", `/api/v1/domain/needs-attention/${encodeURIComponent(mid)}/resolve`,
+      { body, token });
   }
   /** Wave 3: is there a live WorkBuddy this host can actually launch against? */
   launchProbe(): Promise<ApiResult<LaunchProbe>> {

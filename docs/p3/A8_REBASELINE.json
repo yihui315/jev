@@ -53,6 +53,13 @@
       "start": "v1.3-wave3-live-mission",
       "end": "v1.3-wave3-live-mission",
       "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old f4c01f35.. -> new 4ac96c0e.., because Wave 3 wires MissionRuntime (app.state.mission_runtime) and adds GET /api/v1/domain/launch/probe (open), POST /api/v1/domain/missions/{mid}/launch (token-gated), GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave3-live-mission). Also in this window: A11 inbound surface gains the launch POST, and test_server_surface's declared-open list gains the two Wave 3 GETs -- both reviewed edits, no unreviewed route."
+    },
+    {
+      "id": "V1.3-FREEZE-W-4-ATTENTION",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 4 — Needs Attention + Control (preview-first control surface)",
+      "start": "v1.3-wave4-needs-attention",
+      "end": "v1.3-wave4-needs-attention",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 4ac96c0e.. -> new 32d2540d.., because Wave 4 adds GET /api/v1/domain/needs-attention/resolutions (open) and POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) plus the server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave4-needs-attention). Also in this window: A11 inbound surface gains the resolve POST, test_server_surface's declared-open list gains the resolutions GET, and domain.py gains the approval->mission coupling in decide_approval + two columns in needs_attention() (domain.py is NOT an A8-pinned file)."
     }
   ],
 

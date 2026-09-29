@@ -265,8 +265,8 @@ _BASELINE_HASHES = {
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23.
-        "4ac96c0e1c0655f1ade74466a24f6a446d2dff47ed9929aa0e9f5d212c6bcf85",  # old: f4c01f351907d1cf97391e6fe25a0970c972ab3401d1dad5527724a68505100e (v1.3 Wave 1 domain surface)
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24.
+        "32d2540da2fc5d8378c994be4f0c259169ad6da3a807e3efda6b3c1954f381bd",  # old: 4ac96c0e1c0655f1ade74466a24f6a446d2dff47ed9929aa0e9f5d212c6bcf85 (v1.3 Wave 3 launch bridge)
     "packages/jcc_core/config.py":
         "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/sentinel.py":
@@ -692,6 +692,10 @@ def test_A11_no_new_inbound_surface(live):
         # cannot actuate; it only walks the Mission state machine and ingests a
         # real adapter-normalized event.
         "/api/v1/domain/missions/{mid}/launch",
+        # v1.3 Wave 4 attention control: the preview-first resolve. Token-gated,
+        # and it only moves a mission through the state machine / decides an
+        # approval -- it never reaches an actuator.
+        "/api/v1/domain/needs-attention/{mid}/resolve",
     }
     assert post_paths == expected, {
         "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),

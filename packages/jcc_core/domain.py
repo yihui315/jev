@@ -963,22 +963,69 @@ class DomainStore:
 
     def decide_approval(self, approval_id: str, state: ApprovalState, *,
                         decided_by: str) -> Approval:
+        """Record a final decision on an approval, and couple it to the mission.
+
+        Wave 4 coupling rule (deliberately narrow; see
+        ``docs/v1_3/WAVE_4_ATTENTION_CONTROL.md`` §4):
+
+          * On an APPROVE, the mission returns from NEEDS_ATTENTION to RUNNING
+            **iff no OTHER approval on that mission is still PENDING**. We do not
+            guess about live sessions here: an approval is a human saying "yes,
+            go", and the resume itself is a separate, preview-first action. Coupling
+            the decision to the resume would make a "yes" silently start work.
+          * On a REJECT the mission stays NEEDS_ATTENTION. A rejection is not a
+            resolution; the operator must choose what to do next, visibly.
+
+        The decision and the coupling happen under one lock so the "any other
+        pending?" check cannot race a concurrent create_approval.
+        """
         state = ApprovalState(state)
         if state == ApprovalState.PENDING:
             raise ValueError("a decision cannot be PENDING")
         with self._lock:
             conn = self._conn()
             try:
-                r = conn.execute("SELECT state FROM approvals WHERE approval_id=?",
-                                 (approval_id,)).fetchone()
+                r = conn.execute("SELECT state, mission_id FROM approvals "
+                                 "WHERE approval_id=?", (approval_id,)).fetchone()
                 if r is None:
                     raise ValueError("unknown approval %r" % approval_id)
                 if ApprovalState(r[0]) != ApprovalState.PENDING:
                     raise ValueError("approval %r is already %s; a decision is "
                                      "final" % (approval_id, r[0]))
+                mission_id = r[1]
                 conn.execute("UPDATE approvals SET state=?, decided_by=?, decided_at=? "
                              "WHERE approval_id=?",
                              (state.value, decided_by, _now(), approval_id))
+
+                if state == ApprovalState.APPROVED:
+                    others = conn.execute(
+                        "SELECT COUNT(*) FROM approvals WHERE mission_id=? AND "
+                        "state=? AND approval_id<>?",
+                        (mission_id, ApprovalState.PENDING.value, approval_id),
+                    ).fetchone()[0]
+                    if not others:
+                        mrow = conn.execute(
+                            "SELECT status, attention_kind, attention_reason "
+                            "FROM missions WHERE mission_id=?",
+                            (mission_id,)).fetchone()
+                        # Only an approval-gated mission is released by this rule.
+                        if (mrow is not None
+                                and MissionStatus(mrow[0])
+                                == MissionStatus.NEEDS_ATTENTION
+                                and mrow[1] == AttentionKind.APPROVAL_REQUIRED.value):
+                            now = _now()
+                            conn.execute(
+                                "UPDATE missions SET status=?, updated_at=?, "
+                                "attention_kind=NULL, attention_reason=NULL "
+                                "WHERE mission_id=?",
+                                (MissionStatus.RUNNING.value, now, mission_id))
+                            conn.execute(
+                                "INSERT INTO mission_events (mission_id, timestamp, "
+                                "from_status, to_status, reason) VALUES (?,?,?,?,?)",
+                                (mission_id, now, MissionStatus.NEEDS_ATTENTION.value,
+                                 MissionStatus.RUNNING.value,
+                                 "approval %s approved; no other pending approval"
+                                 % approval_id))
                 conn.commit()
             finally:
                 conn.close()
@@ -1135,10 +1182,11 @@ class DomainStore:
             try:
                 rows = conn.execute(
                     "SELECT mission_id, title, project_id, attention_kind, "
-                    "attention_reason, updated_at FROM missions "
+                    "attention_reason, updated_at, agent, connection_ref FROM missions "
                     "WHERE status='NEEDS_ATTENTION' ORDER BY updated_at DESC"
                 ).fetchall()
             finally:
                 conn.close()
         return [{"mission_id": r[0], "title": r[1], "project_id": r[2],
-                 "kind": r[3], "reason": r[4], "updated_at": r[5]} for r in rows]
+                 "kind": r[3], "reason": r[4], "updated_at": r[5],
+                 "agent": r[6], "connection_ref": r[7]} for r in rows]
