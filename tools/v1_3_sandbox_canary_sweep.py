@@ -164,6 +164,46 @@ def git_tracked(root: str, rel: str) -> bool:
     return rc == 0
 
 
+def tracked_paths(root: str):
+    """All tracked paths in one call, instead of one subprocess per candidate.
+
+    Semantics are unchanged (membership against what git reports); this only
+    removes ~640 process spawns per sweep, which is what made a 641-file sweep
+    take many minutes. Returns None if git fails, so the caller can refuse rather
+    than silently treat every file as untracked.
+    """
+    rc, out, _ = run_git(["-C", root, "ls-files"])
+    if rc != 0:
+        return None
+    return set(line.strip() for line in out.splitlines() if line.strip())
+
+
+def unexpected_root_entries(root: str, canary_names) -> list:
+    """Untracked entries in the root that are NOT canaries.
+
+    Without this, "the root is clean" is unfalsifiable: the canary count can
+    reach zero while other stray files sit right beside them. Anything untracked
+    and not a canary is reported, so a human has to account for it.
+    """
+    rc, out, _ = run_git(["-C", root, "status", "--porcelain"])
+    if rc != 0:
+        return ["<git status failed>"]
+    known = set(canary_names)
+    bad = []
+    for line in out.splitlines():
+        if not line.startswith("?? "):
+            continue
+        name = line[3:].strip()
+        if name.startswith('"') and name.endswith('"'):
+            name = name[1:-1]
+        if name.endswith("/"):
+            name = name[:-1]
+        if name in known:
+            continue
+        bad.append(name)
+    return sorted(bad)
+
+
 def _plant(directory: str, name: str, body: bytes):
     p = os.path.join(directory, name)
     with open(p, "wb") as fh:
@@ -254,11 +294,28 @@ def main() -> int:
     })
 
     # Nothing tracked may be selected -- checked against git, not against a list.
-    tracked_hits = [c["name"] for c in found if git_tracked(args.root, c["name"])]
+    tracked = tracked_paths(args.root)
+    legs.append({
+        "id": "TRACKED_SET_IS_NON_EMPTY",
+        "ok": bool(tracked),
+        "detail": ("git ls-files reported %d paths; an empty set would make every "
+                   "refusal below vacuously true"
+                   % (len(tracked) if tracked else 0)),
+    })
+    tracked_hits = [c["name"] for c in found if tracked and c["name"] in tracked]
     legs.append({
         "id": "NOTHING_GIT_TRACKS_IS_SELECTED",
         "ok": not tracked_hits,
         "detail": "tracked paths that matched the signature: %r" % (tracked_hits,),
+    })
+
+    # Scanning order matters: this refuses to call the root clean just because
+    # the canary count reached zero. Stray non-canary files are named explicitly.
+    unexpected = unexpected_root_entries(args.root, [c["name"] for c in found])
+    legs.append({
+        "id": "NO_UNEXPECTED_UNTRACKED_FILES_IN_ROOT",
+        "ok": not unexpected,
+        "detail": "untracked, not canaries: %r" % (unexpected[:20],),
     })
 
     # Destination must really be ignored, or the "clean" claim is a relocation of
@@ -281,7 +338,7 @@ def main() -> int:
         for c in attempted:
             src = os.path.join(args.root, c["name"])
             dst = os.path.join(dest, c["name"])
-            if git_tracked(args.root, c["name"]):
+            if tracked and c["name"] in tracked:
                 failed.append({"name": c["name"], "why": "tracked"})
                 continue
             try:
@@ -352,6 +409,7 @@ def main() -> int:
         "moved": len(moved),
         "remaining": remaining,
         "bounded": bounded,
+        "unexpected_files": unexpected,
         "failed": failed,
         "legs": legs,
         "verdict": "%s %d/%d" % ("PASS" if passed == len(legs) else "FAIL", passed, len(legs)),
