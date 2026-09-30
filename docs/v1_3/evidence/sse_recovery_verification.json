@@ -1,0 +1,74 @@
+{
+  "schema": "jcc/v1.3-sse-recovery/1",
+  "measured_at_local": "2026-09-30T14:15:41+08:00",
+  "head_at_measurement": "e969100",
+  "claimed": "STEP 12 -- CONNECTED -> connection lost -> RECONNECTING -> polling fallback -> stream recovered -> LIVE, with the old poll timer stopped",
+  "verdict": "PASS 11/11",
+  "raw_artifact": ".workbuddy/scratch/sse_recovery_probe2_20260930-141541.json",
+  "harness": ".workbuddy/scratch/sse_recovery_probe.py",
+
+  "topology_actually_used": {
+    "spa": "apps/command_center_3d/serve_visual.py under uvicorn/ASGI on 127.0.0.1:4780, imported and started by the probe",
+    "api": "the SHIPPED default http://127.0.0.1:4779 -- the real API process owned by the product's registered task JCC-v1.3-API, answering in 0.01 s, NOT started by the probe",
+    "browser": "bundled chromium (chrome-headless-shell build 1234), headless, PERSISTENT profile",
+    "browser_limitation": "installed-Chrome automation is BLOCKED on this host, so this is the bundled chromium and NOT branded Chrome. The probe drives a real browser; the renderer used here is not separately claimed."
+  },
+
+  "outage_mechanism": "the SSE route is aborted BEFORE the connection is established (page.route installed, then page.reload), so the SPA's EventSource genuinely fails. This is a real outage, created at establishment rather than by severing an already-open stream.",
+
+  "instrument_history_THREE_CORRECTIONS": [
+    {
+      "attempt": 1,
+      "mechanism": "page.route(abort) installed AFTER the SPA had reached LIVE",
+      "result": "FAIL 6/9 -- reported 'UI reads LIVE during the outage'",
+      "why_it_was_wrong": "an EventSource is a long-lived connection; a route installed later does not affect the stream that is already open, so NO OUTAGE EVER OCCURRED. The UI reading LIVE was correct behaviour. This was an instrument defect and is not a product finding."
+    },
+    {
+      "attempt": 2,
+      "mechanism": "CDP Network.emulateNetworkConditions(offline=True) on the live page",
+      "result": "FAIL 7/11 -- the probe's own non-vacuity guard fired: 'EventSource error events 0 -> 0'",
+      "why_it_was_wrong": "CDP offline emulation does not sever an established EventSource either. The guard is what stopped this attempt from being reported as a product failure."
+    },
+    {
+      "attempt": 3,
+      "mechanism": "page.route(abort) installed BEFORE the page loads, then page.reload",
+      "result": "FAIL 10/11 -- a real outage, correctly observed, with F2 still failing",
+      "why_it_was_wrong": "the poller counter watched /api/sessions, but SceneStore.load() fetches /api/v1/scene first and only falls through to the /api/sessions bridge if that fails. The counter was watching the wrong URL."
+    },
+    {
+      "attempt": 4,
+      "mechanism": "attempt 3 with the counter corrected to /api/v1/scene",
+      "result": "PASS 11/11"
+    }
+  ],
+  "lesson": "Three of four attempts failed because of the instrument, not the product. The one guard that caught it -- 'the outage must be visible in the instrumentation, or F1 is vacuous' -- is the reason none of them was reported as a product defect.",
+
+  "measurements": {
+    "1_CONNECTED_SPA_REACHES_LIVE_FROM_THE_REAL_STREAM": {"ok": true, "transport": "LIVE"},
+    "1b_POLLER_IS_SILENT_WHILE_LIVE": {"ok": true, "network_fetches_in_12s": 0},
+    "2_OUTAGE_WAS_ACTUALLY_CREATED": {"ok": true, "method": "route installed before reload"},
+    "2b_THE_STREAM_REPORTED_AN_ERROR_SO_F1_IS_NOT_VACUOUS": {
+      "ok": true, "eventsource_open_before": 1, "eventsource_error_before": 0,
+      "eventsource_error_during": 6, "transport": "RECONNECTING"
+    },
+    "F1_UI_NEVER_READS_LIVE_DURING_THE_OUTAGE": {"ok": true, "samples": 32, "live_samples": 0},
+    "2c_TRANSPORT_SHOWS_RECONNECTING_DURING_THE_OUTAGE": {"ok": true, "transport": "RECONNECTING"},
+    "F2_POLLING_FALLBACK_CARRIES_DATA_DURING_THE_OUTAGE": {"ok": true, "network_fetches_in_12s": 2},
+    "3_STREAM_RECOVERED_TO_LIVE": {"ok": true, "transport": "LIVE", "seconds_to_recover": 15.02},
+    "F3_OLD_POLL_TIMER_STOPPED_AFTER_RECOVERY": {"ok": true, "network_fetches_in_15s": 0}
+  },
+
+  "the_three_falsifiers_all_hold": {
+    "F1_no_LIVE_during_outage": "32/32 samples showed RECONNECTING or CONNECTING; zero showed LIVE",
+    "F2_fallback_carries_data": "2 SceneStore.load calls in 12 s while the stream was down (the 5 s interval, as designed)",
+    "F3_poller_stops_after_recovery": "0 SceneStore.load calls in the 15 s after recovery -- three full 5 s intervals with no leak"
+  },
+
+  "transport_timeline_sample": ["CONNECTING", "RECONNECTING", "RECONNECTING", "RECONNECTING", "RECONNECTING", "RECONNECTING", "RECONNECTING", "RECONNECTING"],
+
+  "what_is_not_claimed": [
+    "The outage was created at stream ESTABLISHMENT (route installed before reload), not by severing an established stream; CDP offline emulation was measured not to sever one and is not claimed to work.",
+    "The browser is bundled chromium build 1234, not installed Chrome.",
+    "No FPS or hardware-performance claim is made here."
+  ]
+}

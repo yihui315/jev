@@ -25,6 +25,8 @@ PASS is inherited.
 | 6 | Gate instrument fixes | aggregate **PASS 8/8**; selftest **PASS 7/7** | §7 |
 | 7 | Hardware renderer identity | **HARDWARE** — ANGLE/NVIDIA RTX 2080 Ti/D3D11 | `host_browser_renderer.json` |
 | 15 | Durable runtime, **API half** | **VERIFIED** through the product's own ownership contract | §4 |
+| 12 | SSE recovery, **real browser** | **PASS 11/11** | `evidence/sse_recovery_verification.json` |
+| 14 | Real-browser E2E on bundled chromium | **executed** (SPA loaded, stream live, domain read) | same file |
 
 ## The sandbox boundary, characterised rather than assumed
 
@@ -61,10 +63,18 @@ And the consequence that decides the browser gates:
   5 pre-boot checks and then failed `API_BOOT` (verdict **FAIL 5/6**, 193.4 s).
   It refused to print frame times rather than manufacture them.
   **No FPS number is claimed for this head.**
-* **Real-browser SSE recovery** — needs the SPA driving a working API; blocked
-  by the same fact. The client state machine is separately covered by
-  `SceneStore.test.ts`, whose comments name the two STEP 5 defects by name
-  (recovery leaked the 5 s poller; `startPolling` overwrote `RECONNECTING`).
+* **Real-browser SSE recovery (STEP 12) — initially reported as blocked, then
+  actually measured and passed.** It turned out not to need a sandboxed API at
+  all: the UI server does no database work, so the product's own
+  `serve_visual.py` serves 4780 fine from here, and the SPA's shipped API base is
+  the absolute `http://127.0.0.1:4779`, i.e. the **host-owned** API. With the
+  bundled chromium driving the real bundle the full sequence was observed:
+  `CONNECTED → outage → RECONNECTING → polling fallback → recovered → LIVE`,
+  with **0 of 32 samples showing LIVE during the outage**, **2 poll calls in
+  12 s** while down, and **0 poll calls in the 15 s after recovery** — the old
+  5 s timer really stopped. See `evidence/sse_recovery_verification.json`, which
+  also records that **three of the four probe versions failed because of the
+  instrument, not the product**.
 * **The fresh-WAL full gate** — unchanged.
 
 ## Still not re-certified against the current head
