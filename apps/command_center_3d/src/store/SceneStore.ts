@@ -223,7 +223,14 @@ export class SceneStore {
     try {
       const es = new EventSource(`${base}/api/v1/events/stream`);
       this.es = es;
-      es.onopen = () => this.set({ connection: "LIVE" });
+      es.onopen = () => {
+        // The stream is authoritative again, so the degraded poller must stop.
+        // Measured defect (STEP 5): recovering left the 5 s interval running for
+        // the rest of the session, so a page that had blinked once kept issuing
+        // duplicate `load()` traffic forever while showing "LIVE".
+        this.stopPolling();
+        this.set({ connection: "LIVE" });
+      };
       for (const type of EVENT_TYPES) {
         es.addEventListener(type, (ev: Event) => {
           try {
@@ -236,23 +243,37 @@ export class SceneStore {
         });
       }
       es.onerror = () => {
-        // EventSource retries with backoff on its own; if it cannot recover we
-        // switch to polling so the world never freezes on OFFLINE.
+        // EventSource retries with backoff on its own. Until it does, the world
+        // is NOT live and the operator must be able to SEE that: RECONNECTING
+        // stays on screen while the poller keeps data flowing underneath.
+        //
+        // Measured defect (STEP 5): `startPolling` used to set POLLING itself,
+        // overwriting RECONNECTING in the same tick -- so the state the UI is
+        // supposed to show during an outage was unreachable, and a dropped
+        // stream was indistinguishable from "polling was configured".
         this.set({ connection: "RECONNECTING" });
         this.startPolling(base);
       };
     } catch {
-      this.set({ connection: "OFFLINE" });
+      // No EventSource AT ALL (constructor threw). This is the one case where
+      // polls are the only transport, so this -- and only this -- is POLLING.
       this.startPolling(base);
+      this.set({ connection: "POLLING" });
     }
   }
 
   private startPolling(base: string): void {
     if (this.pollTimer !== null) return;
-    this.set({ connection: "POLLING" });
     this.pollTimer = setInterval(() => {
       void this.load(base);
     }, 5000);
+  }
+
+  private stopPolling(): void {
+    if (this.pollTimer !== null) {
+      clearInterval(this.pollTimer);
+      this.pollTimer = null;
+    }
   }
 
   disconnect(): void {
@@ -260,10 +281,7 @@ export class SceneStore {
       this.es.close();
       this.es = null;
     }
-    if (this.pollTimer !== null) {
-      clearInterval(this.pollTimer);
-      this.pollTimer = null;
-    }
+    this.stopPolling();
     this.set({ connection: "OFFLINE" });
   }
 

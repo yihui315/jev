@@ -6,7 +6,8 @@
   "description": "JEV COMMAND CENTER v1.2 — Visual Command Center (3D AI Agent Command Center). Single source of truth: SceneStore.",
   "scripts": {
     "dev": "vite --host 127.0.0.1 --port 4781",
-    "build": "vite build",
+    "prebuild": "node scripts/prepare-dist.mjs",
+    "build": "node scripts/build.mjs",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "preview": "vite preview --host 127.0.0.1 --port 4781"

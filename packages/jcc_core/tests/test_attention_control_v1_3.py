@@ -231,3 +231,116 @@ def test_resolve_attention_over_a_real_inbox_is_consistent(store):
     assert res[0].mission_id == m.mission_id
     # With a real pending approval, the decision action is executable.
     assert res[0].any_executable
+
+
+# --------------------------------------------------------------------------- #
+# D. The inbox reads TWO sources (measured defect, 2026-09-30)
+# --------------------------------------------------------------------------- #
+def _draft_mission_with_a_host_activation_approval(store):
+    """Exactly the shape a real ``launch-commit`` leaves behind.
+
+    The launch path deliberately does NOT move the mission to NEEDS_ATTENTION
+    (that state is only reachable from RUNNING and this mission never legally
+    reached it), so the mission stays DRAFT and the blocker lives ONLY in
+    ``approvals``. Measured on this host 2026-09-30: the row was written and
+    ``GET /domain/needs-attention`` returned ``[]``.
+    """
+    p = store.create_project("P")
+    m = store.create_mission(p.project_id, "M")          # stays DRAFT
+    a = store.create_approval(m.mission_id, "LAUNCH_HOST_ACTIVATION",
+                              reason="the launch process produced no model turn")
+    return m, a
+
+
+def test_an_approval_only_blocker_is_not_invisible(store):
+    """Falsifier: a PENDING approval that no inbox surface can see.
+
+    This is the whole reason the inbox reads ``approvals``: a blocker that is
+    recorded but not listed is a blocker the operator cannot answer.
+    """
+    m, a = _draft_mission_with_a_host_activation_approval(store)
+    items = store.needs_attention()
+    rows = [i for i in items if i["mission_id"] == m.mission_id]
+    assert len(rows) == 1, "the approval-backed blocker must appear exactly once"
+    assert rows[0]["source"] == "PENDING_APPROVAL"
+    assert rows[0]["approval_id"] == a.approval_id
+    assert rows[0]["kind"] == "LAUNCH_HOST_ACTIVATION"
+    assert rows[0]["reason"] == "the launch process produced no model turn"
+
+
+def test_an_approval_only_blocker_resolves_to_an_executable_decision(store):
+    """Visible is not enough -- it must be answerable.
+
+    Falsifier: the row appears but proposes no action, so the operator sees a
+    blocker they still cannot clear.
+    """
+    m, a = _draft_mission_with_a_host_activation_approval(store)
+    ctx = gather_context(store, actuation_enabled=False)
+    res = {r.mission_id: r for r in resolve_attention(store.needs_attention(), ctx)}
+    assert m.mission_id in res
+    assert res[m.mission_id].any_executable
+    assert [x.action for x in res[m.mission_id].actions] == ["decide_approval"]
+
+
+def test_the_launch_activation_kind_is_the_one_launch_control_writes():
+    """Drift guard for the literal in the policy table.
+
+    ``attention_control`` must not import ``launch_control`` (that would pull
+    host I/O into a module whose testability depends on having none), so the
+    kind is spelled as a literal there. An undetectable duplicate would be a
+    silent drift, so the equality is asserted here instead.
+    """
+    from jcc_core.attention_control import _KIND_ACTION
+    from jcc_core.launch_control import APPROVAL_HOST_ACTIVATION
+    assert APPROVAL_HOST_ACTIVATION in _KIND_ACTION
+
+
+def test_the_inbox_lists_a_mission_at_most_once(store):
+    """The consumer contract: one row per ``mission_id``.
+
+    ``HomeView`` renders ``key={it.mission_id}`` and ``NeedsAttentionView``
+    indexes resolutions in a ``Map`` keyed by ``mission_id``, so a second row
+    for the same mission is a duplicate React key and a silently dropped
+    resolution. Falsifier: append-both-sources produced exactly that.
+    """
+    m, a1, a2 = _mission_in_attention_with_approval(store, extra_pending=True)
+    items = store.needs_attention()
+    ids = [i["mission_id"] for i in items]
+    assert ids == [m.mission_id], "one row per mission, never two"
+    assert items[0]["source"] == "MISSION_STATUS+PENDING_APPROVAL"
+    # The reported approval must be the one a decide action would actually act
+    # on, or the UI would show one thing and decide another. ``_apply_attention``
+    # takes ``list_approvals(mission_id=.., state="PENDING")[0]``, so that is the
+    # definition -- compared to it rather than to a hard-coded id, because both
+    # approvals can share a ``created_at`` tick and the order would then be
+    # arbitrary.
+    head = store.list_approvals(mission_id=m.mission_id, state="PENDING")[0]
+    assert items[0]["approval_id"] == head.approval_id
+    assert {a1.approval_id, a2.approval_id} == {
+        a.approval_id for a in store.list_approvals(mission_id=m.mission_id)}
+
+
+def test_home_summary_and_the_inbox_cannot_disagree(store):
+    """Falsifier: Home counts a different inbox than the inbox endpoint lists.
+
+    Home's "needing attention" number is the first thing the operator reads, so
+    it must be the length of the same list. A draft mission holding a PENDING
+    approval used to be counted by neither.
+    """
+    m, a = _draft_mission_with_a_host_activation_approval(store)
+    summary = store.home_summary()
+    inbox = store.needs_attention()
+    assert summary["needs_attention"] == len(inbox) == 1
+    assert [i["mission_id"] for i in summary["attention_items"]] == [m.mission_id]
+
+
+def test_approving_the_host_activation_clears_the_inbox_without_lying(store):
+    """A decision on an approval-backed row resolves it, and starts NO work.
+
+    The mission stays DRAFT: a human acknowledging a host blocker is not a
+    launch, and recording it as one would be the same lie by a different route.
+    """
+    m, a = _draft_mission_with_a_host_activation_approval(store)
+    store.decide_approval(a.approval_id, ApprovalState.APPROVED, decided_by="op")
+    assert store.needs_attention() == []
+    assert store.get_mission(m.mission_id).status is MissionStatus.DRAFT

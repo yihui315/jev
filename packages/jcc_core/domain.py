@@ -1354,7 +1354,19 @@ class DomainStore:
     # -- aggregate views (Home / Needs Attention) --------------------------
 
     def home_summary(self) -> Dict[str, Any]:
-        """The five Home counters + the Needs Attention list, from persisted state."""
+        """The five Home counters + the Needs Attention list, from persisted state.
+
+        ``needs_attention`` and ``attention_items`` are derived from the SAME
+        ``_inbox_items`` call that backs ``GET /domain/needs-attention``, so the
+        Home card and the inbox can never disagree. They did before: a mission
+        holding a PENDING approval but NOT in ``NEEDS_ATTENTION`` (the launch
+        path) was absent from both, and Home's "needing attention" counter is
+        the first number the operator reads.
+
+        The list is built on the connection already held here rather than by
+        calling ``needs_attention()``: ``self._lock`` is a plain
+        ``threading.Lock``, so re-entering it would deadlock.
+        """
         with self._lock:
             conn = self._conn()
             try:
@@ -1363,24 +1375,17 @@ class DomainStore:
                 running = conn.execute(
                     "SELECT COUNT(*) FROM missions WHERE status IN "
                     "('STARTING','RUNNING','VERIFYING')").fetchone()[0]
-                needs = conn.execute(
-                    "SELECT COUNT(*) FROM missions WHERE status='NEEDS_ATTENTION'"
-                ).fetchone()[0]
                 completed = conn.execute(
                     "SELECT COUNT(*) FROM missions WHERE status='COMPLETED'").fetchone()[0]
                 recent_deliverables = conn.execute(
                     "SELECT COUNT(*) FROM artifacts").fetchone()[0]
-                attention_rows = conn.execute(
-                    "SELECT mission_id, title, project_id, attention_kind, "
-                    "attention_reason, updated_at FROM missions "
-                    "WHERE status='NEEDS_ATTENTION' ORDER BY updated_at DESC LIMIT 20"
-                ).fetchall()
+                inbox = self._inbox_items(conn)
             finally:
                 conn.close()
         return {
             "active_projects": active_projects,
             "running_missions": running,
-            "needs_attention": needs,
+            "needs_attention": len(inbox),
             "completed_missions": completed,
             "recent_deliverables": recent_deliverables,
             # Wave 5: the scalar above counts every artifact regardless of verdict,
@@ -1388,11 +1393,7 @@ class DomainStore:
             # and `verified` is the honest headline: PRODUCED means the agent
             # emitted it, VERIFIED means a human accepted it.
             "deliverables": self.deliverable_counts(),
-            "attention_items": [
-                {"mission_id": r[0], "title": r[1], "project_id": r[2],
-                 "kind": r[3], "reason": r[4], "updated_at": r[5]}
-                for r in attention_rows
-            ],
+            "attention_items": inbox[:20],
         }
 
     def domain_counts(self) -> Dict[str, int]:
@@ -1434,17 +1435,98 @@ class DomainStore:
             "deliverables": int(deliverables),
         }
 
+    def _inbox_items(self, conn) -> List[Dict[str, Any]]:
+        """The operator's inbox, built from an ALREADY-OPEN connection.
+
+        TWO sources, and BOTH must be read:
+
+          * a mission whose STATUS is ``NEEDS_ATTENTION`` (the domain lifecycle),
+          * a mission with a **PENDING human approval**.
+
+        Reading only the first was a measured defect. 2026-09-30, on this host:
+        a real ``launch-commit`` spawned a WorkBuddy workload that produced no
+        model turn, and the control plane correctly raised
+        ``LAUNCH_HOST_ACTIVATION`` -- the row WAS written to ``approvals`` with
+        ``state='PENDING'`` -- and the inbox still returned ``[]``. The reason is
+        that the launch path deliberately does NOT walk the mission to
+        ``NEEDS_ATTENTION`` (a mission that never legally reached RUNNING must
+        not be forced into a state only reachable from RUNNING), and the inbox
+        query keyed off the mission's status alone. The operator's single stated
+        surface for human tasks therefore showed NOTHING while a real blocker sat
+        in the database with its reason recorded.
+
+        The rule is ONE ROW PER MISSION -- an approval is merged INTO its
+        mission's row, never appended beside it. That is not a style choice; it
+        is the contract every consumer already assumes:
+
+          * ``HomeView`` renders ``key={it.mission_id}``,
+          * ``NeedsAttentionView`` indexes resolutions in a ``Map`` keyed by
+            ``mission_id`` and renders one card per ``mission_id``,
+          * ``Server._apply_attention`` decides ``list_approvals(mission_id=..)``
+            -- the decision surface is the MISSION, not the approval row.
+
+        Appending instead would have produced two React children with the same
+        key and a silently dropped resolution. So: a status row is the base, and
+        a pending approval ATTACHES to it (``approval_id``); when no status row
+        exists the approval supplies the row itself, which is what makes a
+        launch-path blocker visible at all.
+
+        ``source`` records which combination produced the row so a consumer never
+        has to infer it. ``approval_id`` is the NEWEST pending approval for the
+        mission -- the same one ``_apply_attention`` would act on -- and is
+        ``None`` exactly when the mission is in the inbox for a status reason
+        only.
+        """
+        rows = conn.execute(
+            "SELECT mission_id, title, project_id, attention_kind, "
+            "attention_reason, updated_at, agent, connection_ref FROM missions "
+            "WHERE status='NEEDS_ATTENTION' ORDER BY updated_at DESC"
+        ).fetchall()
+        pending = conn.execute(
+            "SELECT a.approval_id, a.mission_id, a.kind, a.reason, "
+            "a.created_at, m.title, m.project_id, m.agent, m.connection_ref "
+            "FROM approvals a JOIN missions m ON m.mission_id = a.mission_id "
+            "WHERE a.state='PENDING' ORDER BY a.created_at DESC"
+        ).fetchall()
+
+        items: List[Dict[str, Any]] = []
+        by_mission: Dict[str, Dict[str, Any]] = {}
+        for r in rows:
+            it: Dict[str, Any] = {
+                "mission_id": r[0], "title": r[1], "project_id": r[2],
+                "kind": r[3], "reason": r[4], "updated_at": r[5],
+                "agent": r[6], "connection_ref": r[7],
+                "approval_id": None, "source": "MISSION_STATUS",
+            }
+            items.append(it)
+            by_mission[str(r[0])] = it
+
+        # ``pending`` is newest-first, so the FIRST hit for a mission is the one
+        # a decide action would act on; later (older) ones must not overwrite it.
+        for a in pending:
+            cur = by_mission.get(str(a[1]))
+            if cur is None:
+                cur = {
+                    "mission_id": a[1], "title": a[5], "project_id": a[6],
+                    "kind": a[2], "reason": a[3], "updated_at": a[4],
+                    "agent": a[7], "connection_ref": a[8],
+                    "approval_id": a[0], "source": "PENDING_APPROVAL",
+                }
+                items.append(cur)
+                by_mission[str(a[1])] = cur
+            else:
+                if cur["approval_id"] is None:
+                    cur["approval_id"] = a[0]
+                cur["source"] = "MISSION_STATUS+PENDING_APPROVAL"
+
+        items.sort(key=lambda i: float(i.get("updated_at") or 0.0), reverse=True)
+        return items
+
     def needs_attention(self) -> List[Dict[str, Any]]:
+        """The operator's inbox. See :meth:`_inbox_items` for the merge rule."""
         with self._lock:
             conn = self._conn()
             try:
-                rows = conn.execute(
-                    "SELECT mission_id, title, project_id, attention_kind, "
-                    "attention_reason, updated_at, agent, connection_ref FROM missions "
-                    "WHERE status='NEEDS_ATTENTION' ORDER BY updated_at DESC"
-                ).fetchall()
+                return self._inbox_items(conn)
             finally:
                 conn.close()
-        return [{"mission_id": r[0], "title": r[1], "project_id": r[2],
-                 "kind": r[3], "reason": r[4], "updated_at": r[5],
-                 "agent": r[6], "connection_ref": r[7]} for r in rows]

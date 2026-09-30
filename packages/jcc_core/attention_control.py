@@ -77,6 +77,14 @@ RISK_HIGH = "high"
 #: absent from here yields NO proposed action (never a default).
 _KIND_ACTION: Dict[str, tuple[str, str, str]] = {
     "APPROVAL_REQUIRED": (ACTION_DECIDE_APPROVAL, "Decide approval", RISK_LOW),
+    # A launch whose workload spawned but never produced a model turn. The kind
+    # is the approval's own kind (see ``launch_control.APPROVAL_HOST_ACTIVATION``)
+    # and it reaches this table only because the inbox now surfaces
+    # approval-backed rows. Spelled as a literal on purpose: this module must
+    # stay free of imports that pull in host I/O, so the coupling is asserted by
+    # a test instead -- an undetectable duplicate would be a silent drift.
+    "LAUNCH_HOST_ACTIVATION": (ACTION_DECIDE_APPROVAL, "Decide approval",
+                               RISK_LOW),
     "AGENT_STUCK": (ACTION_RESUME, "Resume run", RISK_HIGH),
     "POLICY_ESCALATION": (ACTION_RESUME, "Resume run", RISK_HIGH),
     "BUDGET_WARNING": (ACTION_RESUME, "Resume run", RISK_HIGH),
