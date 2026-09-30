@@ -1296,6 +1296,27 @@ def expected_leg_ids() -> List[str]:
     return ids
 
 
+def _leg_proved_something(rec: Dict[str, Any]) -> bool:
+    """Did this leg actually execute and record anything?
+
+    A PASS with no executed work is not a measurement -- it is the shape an
+    instrument takes when it is wired up but never ran. Measured before this
+    existed: a record with verdict PASS, duration 0 and empty evidence aggregated
+    to ``project_complete=true``.
+    """
+    ev = rec.get("evidence")
+    if isinstance(ev, dict):
+        checks = ev.get("checks")
+        if isinstance(checks, dict) and checks:
+            return True
+        for v in ev.values():
+            if v not in (None, "", [], {}, 0):
+                return True
+    elif ev:
+        return True
+    return bool(rec.get("duration_s"))
+
+
 def aggregate(merged: List[Dict[str, Any]], green0: Dict[str, Any],
               green1: Dict[str, Any], run_id: str, head: str,
               ran_now: List[str], total_duration_s: float) -> Dict[str, Any]:
@@ -1304,8 +1325,22 @@ def aggregate(merged: List[Dict[str, Any]], green0: Dict[str, Any],
 
     blockers: List[str] = []
     for r in merged:
-        if r.get("verdict") == "FAIL":
+        v = r.get("verdict")
+        if v == "FAIL":
             blockers.append(r.get("leg_id"))
+        elif v != "PASS":
+            # THE HOLE THIS CLOSES: only the literal string "FAIL" used to create
+            # a blocker, so a leg that never produced a verdict -- or produced
+            # "ERROR"/"SKIP" -- was counted in legs_total, excluded from
+            # legs_passed, and still left project_complete=true. A crashed
+            # instrument must never be able to publish a green release.
+            blockers.append("%s=NOT_A_VERDICT(%r)" % (r.get("leg_id"), v))
+
+    # A PASS with nothing executed establishes nothing.
+    unproven = sorted(k for k, r in by_id.items()
+                      if r.get("verdict") == "PASS" and not _leg_proved_something(r))
+    if unproven:
+        blockers.append("PASS_WITHOUT_EXECUTED_WORK: %s" % unproven)
 
     # COMPLETENESS -- a partial run cannot claim a release.
     absent = sorted(set(expected) - set(by_id))
