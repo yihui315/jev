@@ -151,3 +151,47 @@ complete. `GIT_STATUS` is therefore reported as
 
 This is **not** worked around by a raw rename: circumventing the guard is exactly
 what the project forbids, and the residue is untracked, unsigned, and inert.
+
+## 10. STEP 7 — hardware renderer: now MEASURED, and it passes
+
+Read from the browser's own renderer string (never inferred from the spec sheet):
+
+| field | value |
+|---|---|
+| `UNMASKED_RENDERER_WEBGL` | `ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0, D3D11)` |
+| `UNMASKED_VENDOR_WEBGL` | `Google Inc. (NVIDIA)` |
+| WebGL2 | `true` |
+| browser | `HeadlessChrome/151.0.7922.34` (Chromium build 1234) |
+| classification | **HARDWARE** — positively identified as an accelerated *and* discrete adapter; no software-rasterizer token present |
+| how | Playwright → real Chromium 1234, persistent profile, headless, `--use-angle=d3d11 --enable-gpu --ignore-gpu-blocklist` |
+| evidence | `docs/v1_3/evidence/host_browser_renderer.json` |
+
+This **reverses** the earlier reading on this machine (`ANGLE (Microsoft,
+Microsoft Basic Render Driver ...)`). The NVIDIA driver is back —
+`nvidia-smi` reports both `NVIDIA GeForce RTX 2080 Ti`, driver `610.88` — and a
+real Chromium now lands on the discrete adapter instead of a software rasterizer.
+
+Two limits, stated so the claim is not read as broader than it is:
+
+* The string comes from **Chromium** (Playwright's bundled real Chromium 1234),
+  **not** from the installed Chrome. Driving
+  `C:\Program Files\Google\Chrome\Application\chrome.exe` under automation did
+  not start on this host (180 s launch timeout in new-headless, then
+  `TargetClosedError` in plain headless). The bundled `chromium_headless_shell`
+  also had to be located by path, because this venv's Playwright expects build
+  **1243** while only **1208/1234** are downloaded.
+* This is a **renderer** measurement. It answers STEP 7 — which adapter does a
+  real browser choose — and says nothing about product frame rates. **STEP 8
+  remains blocked** (§5): the 50/200/500/1000-node run needs the product's World
+  populated through the API, which needs a fresh database.
+
+## 11. Single remaining blocker
+
+**The host refuses file deletion to every process the agent spawns**, therefore
+SQLite cannot commit a fresh database, therefore no database-dependent leg of the
+release gate can run on `cb56658` — and the gate's own pre-flight also refuses to
+run while 30 foreign-head (`9bfcc8d61e41`) leg records cannot be removed.
+
+Everything else that could be measured at the new freeze was measured and is
+green. Nothing was deleted, relaxed, or fabricated to make the rest look done.
+

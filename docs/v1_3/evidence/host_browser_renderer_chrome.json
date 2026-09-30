@@ -1,0 +1,48 @@
+{
+  "stamp": "20260930T125426",
+  "chrome": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "exists": true,
+  "variants": {
+    "chrome_new_headless": {
+      "args": [
+        "--headless=new",
+        "--use-angle=d3d11",
+        "--enable-gpu",
+        "--ignore-gpu-blocklist",
+        "--enable-unsafe-swiftshader",
+        "--disable-gpu-sandbox"
+      ],
+      "headless": false,
+      "ok": false,
+      "error": "TimeoutError: BrowserType.launch_persistent_context: Timeout 180000ms exceeded.\nCall log:\n  - <launching> C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back"
+    },
+    "chrome_plain_headless": {
+      "args": [
+        "--use-angle=d3d11",
+        "--enable-gpu",
+        "--ignore-gpu-blocklist",
+        "--enable-unsafe-swiftshader",
+        "--disable-gpu-sandbox"
+      ],
+      "headless": true,
+      "ok": false,
+      "error": "TargetClosedError: BrowserType.launch_persistent_context: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-"
+    }
+  },
+  "summary": {
+    "chrome_new_headless": {
+      "ok": false,
+      "renderer": "",
+      "webgl2": null,
+      "class": "UNKNOWN",
+      "error": "TimeoutError: BrowserType.launch_persistent_context: Timeout 180000ms exceeded.\nCall log:\n  - <launching> C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe --disable-field-trial-config --disable-b"
+    },
+    "chrome_plain_headless": {
+      "ok": false,
+      "renderer": "",
+      "webgl2": null,
+      "class": "UNKNOWN",
+      "error": "TargetClosedError: BrowserType.launch_persistent_context: Target page, context or browser has been closed\nBrowser logs:\n\n<launching> C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe --disable-fie"
+    }
+  }
+}
