@@ -229,7 +229,15 @@ def main() -> int:
     ap.add_argument("--apply", action="store_true", help="move matches (default: report only)")
     ap.add_argument("--root", default=REPO_ROOT)
     ap.add_argument("--dest", default=None)
+    ap.add_argument("--limit", type=int, default=0,
+                    help="move at most N files this invocation (0 = unbounded). The "
+                         "host kills a process that performs too many deletions in "
+                         "one turn, so a large backlog must be swept in bounded "
+                         "batches; each batch then reports the remaining count "
+                         "instead of claiming a clean root.")
     args = ap.parse_args()
+    if args.limit < 0:
+        ap.error("--limit must be >= 0")
 
     started = time.time()
     stamp = time.strftime("%Y%m%d-%H%M%S")
@@ -265,9 +273,12 @@ def main() -> int:
     })
 
     moved, failed = [], []
+    remaining = None
+    bounded = bool(args.limit) and len(found) > args.limit
+    attempted = found[:args.limit] if args.limit else found
     if args.apply:
         manifest = []
-        for c in found:
+        for c in attempted:
             src = os.path.join(args.root, c["name"])
             dst = os.path.join(dest, c["name"])
             if git_tracked(args.root, c["name"]):
@@ -285,6 +296,8 @@ def main() -> int:
                 "tool": "v1_3_sandbox_canary_sweep",
                 "moved_at": time.strftime("%Y-%m-%dT%H:%M:%S"),
                 "count": len(moved),
+                "bounded": bounded,
+                "limit": args.limit or None,
                 "signature": {"name_regex": NAME_RE.pattern, "size": len(CANARY_BYTES),
                               "content_hex": CANARY_BYTES.hex()},
                 "entries": manifest,
@@ -292,15 +305,29 @@ def main() -> int:
         legs.append({
             "id": "EVERY_SELECTED_FILE_MOVED_OR_EXPLAINED",
             "ok": not failed,
-            "detail": "moved=%d failed=%r" % (len(moved), failed),
+            "detail": "attempted=%d moved=%d failed=%r" % (len(attempted), len(moved), failed),
         })
 
         after, err2 = select(args.root)
-        legs.append({
-            "id": "ROOT_IS_FREE_OF_CANARIES_AFTER",
-            "ok": err2 is None and not after,
-            "detail": "remaining after sweep: %d" % len(after),
-        })
+        remaining = len(after) if err2 is None else -1
+        if bounded:
+            # A bounded batch must prove it moved exactly what it said it would,
+            # and that the residue fell by exactly that much. Claiming a clean
+            # root here would be a lie, so it is not asserted at all.
+            legs.append({
+                "id": "BOUNDED_BATCH_MOVED_EXACTLY_ITS_QUOTA_AND_ADVANCED_THE_BACKLOG",
+                "ok": (not failed and len(moved) == len(attempted)
+                       and remaining >= 0 and remaining == len(found) - len(moved)
+                       and remaining < len(found)),
+                "detail": ("limit=%d found=%d attempted=%d moved=%d remaining=%d"
+                           % (args.limit, len(found), len(attempted), len(moved), remaining)),
+            })
+        else:
+            legs.append({
+                "id": "ROOT_IS_FREE_OF_CANARIES_AFTER",
+                "ok": err2 is None and not after,
+                "detail": "remaining after sweep: %d" % remaining,
+            })
 
         # Last act: read the ground truth the sweep just affected.  Note this must
         # come after the move, and nothing may start a fresh interpreter between
@@ -323,6 +350,8 @@ def main() -> int:
                       "content_hex": CANARY_BYTES.hex()},
         "found": len(found),
         "moved": len(moved),
+        "remaining": remaining,
+        "bounded": bounded,
         "failed": failed,
         "legs": legs,
         "verdict": "%s %d/%d" % ("PASS" if passed == len(legs) else "FAIL", passed, len(legs)),

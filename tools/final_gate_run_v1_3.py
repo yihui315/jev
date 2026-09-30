@@ -1395,22 +1395,48 @@ def load_legs_from_disk() -> List[Dict[str, Any]]:
     return out
 
 
+class ForeignLegsCannotBeDropped(RuntimeError):
+    """A leg measured at another HEAD survived the sweep.
+
+    Refusing here is the point. ``load_legs_from_disk`` merges every leg record
+    it finds, so one leg from a different commit that survives this sweep would
+    let that commit's PASS endorse this one -- precisely what the head filter
+    exists to prevent, and what "never carry an old HEAD's PASS forward" forbids.
+    A mixed-head verdict is worse than no verdict, so we stop.
+    """
+
+
 def reset_legs(head: str) -> int:
     """Drop leg records measured at another HEAD -- they are not this release.
 
     Deliberately refuses to delete records from the CURRENT head: on a repair
     re-run the legs that already passed at this head stay valid, which is the
     only reason a 45-minute gate can be repaired without re-paying for all of it.
+
+    A foreign-head record we FAIL to remove is not a cleanup nuisance, it is a
+    correctness hazard, so this raises instead of continuing with a stale leg on
+    disk. (Measured: a host that denies ``unlink`` would otherwise leave another
+    commit's PASS in the aggregate.)
     """
     dropped = 0
+    stuck: List[str] = []
     for p in sorted(LEGS_DIR.glob("V1_3_LEG_*.json")):
         try:
             rec = json.loads(p.read_text(encoding="utf-8"))
         except (OSError, ValueError):
             rec = {}
         if rec.get("head") != head:
-            p.unlink()
+            try:
+                p.unlink()
+            except OSError as exc:
+                stuck.append("%s -- %s" % (p.name, exc))
+                continue
             dropped += 1
+    if stuck:
+        raise ForeignLegsCannotBeDropped(
+            "%d leg record(s) measured at another HEAD could not be removed, so "
+            "this run cannot be kept free of foreign-head results: %s"
+            % (len(stuck), "; ".join(stuck)))
     return dropped
 
 
@@ -1421,13 +1447,25 @@ def selftest() -> int:
     """Group F alone -- the falsifiers that prove this gate can fail."""
     led = Ledger("selftest")
     group_f(led)
+    # The F1 record IS the evidence that the falsifiers behaved. Deleting it
+    # destroys the measurement this function exists to publish, and an unguarded
+    # unlink turns a passing 7/7 into a traceback on any host that denies
+    # deletion (measured on this one). Best-effort, and say so when it fails.
+    kept: List[str] = []
     for p in LEGS_DIR.glob("V1_3_LEG_F1_*.json"):
-        p.unlink()
+        try:
+            p.unlink()
+        except OSError:
+            kept.append(p.name)
     bad = [l for l in led.legs if l["verdict"] != "PASS"]
     print("SELFTEST %s (%d falsifiers)" % ("PASS" if not bad else "FAIL",
                                            len(led.legs[0]["evidence"]["checks"])))
     for l in bad:
         print("  %s: %s" % (l["leg_id"], l["detail"]))
+    if kept:
+        print("  note: %d F1 record(s) left on disk -- this host refused to "
+              "delete them (%s). The result above is unaffected."
+              % (len(kept), ", ".join(kept)))
     return 0 if not bad else 1
 
 
@@ -1453,7 +1491,13 @@ def main(argv: Optional[List[str]] = None) -> int:
     head = git("rev-parse", "HEAD").strip()
     ART.mkdir(parents=True, exist_ok=True)
     LEGS_DIR.mkdir(parents=True, exist_ok=True)
-    dropped = reset_legs(head)
+    try:
+        dropped = reset_legs(head)
+    except ForeignLegsCannotBeDropped as exc:
+        # Fail closed and say why: publishing a mixed-head verdict is the one
+        # outcome a release gate must never produce.
+        print("REFUSING TO RUN: %s" % exc, flush=True)
+        return 2
     ledger = Ledger(run_id)
     LOG.write_text("", encoding="utf-8", newline="\n")
     ledger.log("JCC v1.3 FINAL PRODUCT GATES  run=%s  head=%s" % (run_id, head[:12]))

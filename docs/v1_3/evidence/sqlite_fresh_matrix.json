@@ -1,0 +1,427 @@
+{
+  "stamp": "20260930T122650",
+  "dir": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650",
+  "sqlite_lib": "3.53.1",
+  "cases": {
+    "wal_default": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\wal_default\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=WAL"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=WAL",
+          "OK"
+        ],
+        [
+          "readback",
+          "wal"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "wal_memory_temp_store": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\wal_memory_temp_store\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=WAL",
+        "PRAGMA temp_store=MEMORY"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=WAL",
+          "OK"
+        ],
+        [
+          "PRAGMA temp_store=MEMORY",
+          "OK"
+        ],
+        [
+          "readback",
+          "wal"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "wal_sync_off": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\wal_sync_off\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=WAL",
+        "PRAGMA synchronous=OFF"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=WAL",
+          "OK"
+        ],
+        [
+          "PRAGMA synchronous=OFF",
+          "OK"
+        ],
+        [
+          "readback",
+          "wal"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "wal_memory_temp_sync_off": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\wal_memory_temp_sync_off\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=WAL",
+        "PRAGMA temp_store=MEMORY",
+        "PRAGMA synchronous=OFF"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=WAL",
+          "OK"
+        ],
+        [
+          "PRAGMA temp_store=MEMORY",
+          "OK"
+        ],
+        [
+          "PRAGMA synchronous=OFF",
+          "OK"
+        ],
+        [
+          "readback",
+          "wal"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "wal_exclusive_locking": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\wal_exclusive_locking\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=WAL",
+        "PRAGMA locking_mode=EXCLUSIVE"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=WAL",
+          "OK"
+        ],
+        [
+          "PRAGMA locking_mode=EXCLUSIVE",
+          "OK"
+        ],
+        [
+          "readback",
+          "wal"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "delete_default": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\delete_default\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=DELETE"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=DELETE",
+          "OK"
+        ],
+        [
+          "readback",
+          "delete"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "delete_memory_temp": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\delete_memory_temp\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=DELETE",
+        "PRAGMA temp_store=MEMORY"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=DELETE",
+          "OK"
+        ],
+        [
+          "PRAGMA temp_store=MEMORY",
+          "OK"
+        ],
+        [
+          "readback",
+          "delete"
+        ],
+        [
+          "create_table",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "insert",
+          "OperationalError: disk I/O error"
+        ],
+        [
+          "commit",
+          "OperationalError: cannot commit - no transaction is active"
+        ],
+        [
+          "insert2",
+          "OperationalError: no such table: t"
+        ],
+        [
+          "commit2",
+          "OperationalError: cannot commit - no transaction is active"
+        ]
+      ],
+      "rows_before_close": "OperationalError",
+      "close": "OK",
+      "verdict": "OperationalError: no such table: t",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "truncate_default": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\truncate_default\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=TRUNCATE"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=TRUNCATE",
+          "OK"
+        ],
+        [
+          "readback",
+          "truncate"
+        ],
+        [
+          "create_table",
+          "OK"
+        ],
+        [
+          "insert",
+          "OK"
+        ],
+        [
+          "commit",
+          "OK"
+        ],
+        [
+          "insert2",
+          "OK"
+        ],
+        [
+          "commit2",
+          "OK"
+        ]
+      ],
+      "rows_before_close": 2,
+      "close": "OK",
+      "reopen_rows": 2,
+      "reopen_mode": "delete",
+      "verdict": "OK",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    },
+    "persist_default": {
+      "db": "F:\\jev\\.workbuddy\\scratch\\_sqlmat\\20260930T122650\\persist_default\\x.db",
+      "pragmas": [
+        "PRAGMA journal_mode=PERSIST"
+      ],
+      "steps": [
+        [
+          "PRAGMA journal_mode=PERSIST",
+          "OK"
+        ],
+        [
+          "readback",
+          "persist"
+        ],
+        [
+          "create_table",
+          "OK"
+        ],
+        [
+          "insert",
+          "OK"
+        ],
+        [
+          "commit",
+          "OK"
+        ],
+        [
+          "insert2",
+          "OK"
+        ],
+        [
+          "commit2",
+          "OK"
+        ]
+      ],
+      "rows_before_close": 2,
+      "close": "OK",
+      "reopen_rows": 2,
+      "reopen_mode": "delete",
+      "verdict": "OK",
+      "sidecars_left": [
+        "x.db-journal"
+      ]
+    }
+  },
+  "cmd_shell_delete_for_python": {
+    "existed_before": true,
+    "rc": 0,
+    "gone_after": true,
+    "usable_as_a_python_level_deleter": true,
+    "rd_rc": 0,
+    "rd_removed_tree": false
+  }
+}

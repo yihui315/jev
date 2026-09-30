@@ -1,0 +1,23 @@
+{
+  "A": {
+    "pid": 17496,
+    "ppid": 18812,
+    "exe": "C:\\Program Files\\Python312\\python.exe",
+    "parent_image": "python.exe",
+    "tempdir": "RAISED FileNotFoundError",
+    "unlink": "RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_escape\\\\20260930T122904\\\\A\\\\u.txt'",
+    "sqlite_wal": {
+      "verdict": "RAISED OperationalError: disk I/O error"
+    }
+  },
+  "C": {
+    "pid": 10236,
+    "ppid": 21212,
+    "exe": "C:\\Program Files\\Python312\\python.exe",
+    "tempdir": "RAISED FileNotFoundError",
+    "unlink": "RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_escape\\\\20260930T122904\\\\C\\\\u.txt'",
+    "sqlite_wal": {
+      "verdict": "RAISED OperationalError: disk I/O error"
+    }
+  }
+}

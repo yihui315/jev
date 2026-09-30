@@ -1,0 +1,93 @@
+{
+  "stamp": "20260930T122016",
+  "python": "F:\\jev\\.venv\\Scripts\\python.exe",
+  "tempdir": "F:\\jev\\.workbuddy\\scratch\\host_temp",
+  "locations": {
+    "scratch": {
+      "dir": "F:\\jev\\.workbuddy\\scratch\\_delprobe\\20260930T122016\\scratch",
+      "os_unlink": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delprobe\\\\20260930T122016\\\\scratch\\\\_jcc_del_probe_20260930T122016_a.txt'",
+      "after_unlink_exists": true,
+      "os_remove": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delprobe\\\\20260930T122016\\\\scratch\\\\_jcc_del_probe_20260930T122016_b.txt'",
+      "after_remove_exists": true,
+      "rmtree": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delprobe\\\\20260930T122016\\\\scratch\\\\_jcc_del_probe_20260930T122016_dir\\\\x.txt'",
+      "after_rmtree_exists": true
+    },
+    "cwd": {
+      "dir": "F:\\jev",
+      "os_unlink": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\_jcc_del_probe_20260930T122016_a.txt'",
+      "after_unlink_exists": true,
+      "os_remove": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\_jcc_del_probe_20260930T122016_b.txt'",
+      "after_remove_exists": true,
+      "rmtree": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\_jcc_del_probe_20260930T122016_dir\\\\x.txt'",
+      "after_rmtree_exists": true
+    },
+    "host_temp": {
+      "dir": "F:\\jev\\.workbuddy\\scratch\\host_temp",
+      "os_unlink": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\_jcc_del_probe_20260930T122016_a.txt'",
+      "after_unlink_exists": true,
+      "os_remove": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\_jcc_del_probe_20260930T122016_b.txt'",
+      "after_remove_exists": true,
+      "rmtree": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\_jcc_del_probe_20260930T122016_dir\\\\x.txt'",
+      "after_rmtree_exists": true
+    },
+    "windows_temp": {
+      "dir": "C:\\Windows\\Temp",
+      "os_unlink": "PermissionError: [WinError 5] 拒绝访问。: 'C:\\\\Windows\\\\Temp\\\\_jcc_del_probe_20260930T122016_a.txt'",
+      "after_unlink_exists": true,
+      "os_remove": "PermissionError: [WinError 5] 拒绝访问。: 'C:\\\\Windows\\\\Temp\\\\_jcc_del_probe_20260930T122016_b.txt'",
+      "after_remove_exists": true,
+      "rmtree": "PermissionError: [WinError 5] 拒绝访问。: 'C:\\\\Windows\\\\Temp\\\\_jcc_del_probe_20260930T122016_dir\\\\x.txt'",
+      "after_rmtree_exists": true
+    }
+  },
+  "sqlite": {
+    "delete": {
+      "journal_mode_readback": "delete",
+      "verdict": "OperationalError: disk I/O error",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    },
+    "wal": {
+      "journal_mode_readback": "wal",
+      "verdict": "OperationalError: disk I/O error",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    },
+    "truncate": {
+      "journal_mode_readback": "truncate",
+      "insert_commit": "OK",
+      "rows": 1,
+      "reopen_rows": 1,
+      "verdict": "OK",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    },
+    "persist": {
+      "journal_mode_readback": "persist",
+      "insert_commit": "OK",
+      "rows": 1,
+      "reopen_rows": 1,
+      "verdict": "OK",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    },
+    "memory": {
+      "journal_mode_readback": "memory",
+      "insert_commit": "OK",
+      "rows": 1,
+      "reopen_rows": 1,
+      "verdict": "OK",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    },
+    "off": {
+      "journal_mode_readback": "off",
+      "insert_commit": "OK",
+      "rows": 1,
+      "reopen_rows": 1,
+      "verdict": "OK",
+      "db_exists_after": true,
+      "wal_sidecar_left": false
+    }
+  }
+}

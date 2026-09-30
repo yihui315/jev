@@ -1,0 +1,36 @@
+{
+  "stamp": "20260930T122506",
+  "dir": "F:\\jev\\.workbuddy\\scratch\\_handle\\20260930T122506",
+  "routes": {
+    "disposition_ex_posix": {
+      "call": "SetFileInformationByHandle(Ex) failed: WinError 5: 拒绝访问。",
+      "raised": null,
+      "deleted": false
+    },
+    "disposition_ex_posix_ignore_readonly": {
+      "call": "SetFileInformationByHandle(Ex) failed: WinError 5: 拒绝访问。",
+      "raised": null,
+      "deleted": false
+    },
+    "disposition_plain_handle": {
+      "call": "SetFileInformationByHandle(plain) failed: WinError 5: 拒绝访问。",
+      "raised": null,
+      "deleted": false
+    },
+    "baseline_path_api": {
+      "call": null,
+      "raised": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_handle\\\\20260930T122506\\\\base.txt'",
+      "deleted": false
+    }
+  },
+  "sqlite_already_wal": {
+    "persist_copy_then_wal": {
+      "verdict": "OperationalError: disk I/O error"
+    }
+  },
+  "live_db_candidate": null,
+  "summary": {
+    "handle_based_delete_works": false,
+    "path_based_delete_still_denied": true
+  }
+}
