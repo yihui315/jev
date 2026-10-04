@@ -28,7 +28,7 @@ import time
 from datetime import datetime, timezone
 from pathlib import Path
 
-ROOT = Path(r"F:\jev")
+ROOT = Path(__file__).resolve().parents[1]
 ART = ROOT / "artifacts" / "release" / "v1.2_visual"
 GREEN_PORT, API_PORT, UI_PORT = 4778, 4779, 4780
 CHROME = r"C:\Program Files\Google\Chrome\Application\chrome.exe"

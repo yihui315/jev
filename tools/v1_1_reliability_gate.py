@@ -76,7 +76,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import yaml
 
-ROOT = Path(r"F:\jev")
+ROOT = Path(__file__).resolve().parents[1]
 PKGS = ROOT / "packages"
 BLUE_DIR = ROOT / "runtime" / "v1.1" / "reliability"
 ARCHIVE = BLUE_DIR / "archive"

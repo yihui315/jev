@@ -12,11 +12,20 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any, Dict, List
 
 import yaml
 
-DEFAULT_CONFIG_PATH = "F:/jev/config/jcc.yaml"
+#: Repository root, derived from this file's location rather than hardcoded.
+#: ``config.py`` lives at ``<repo>/packages/jcc_core/config.py``, so three
+#: ``parents`` steps up is the repo root. Hardcoding an absolute drive path made
+#: the whole control plane unloadable the moment the checkout moved, which is a
+#: relocation bug, not a configuration choice.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+DEFAULT_CONFIG_PATH = str(REPO_ROOT / "config" / "jcc.yaml")
+DEFAULT_DB_PATH = str(REPO_ROOT / "runtime" / "jcc" / "jcc.db")
 
 
 class ConfigError(RuntimeError):
@@ -26,6 +35,26 @@ class ConfigError(RuntimeError):
     built-in defaults would run the control plane on a policy the operator never
     chose -- a silent downgrade, and exactly the class of defect D-30 forbids.
     """
+
+
+def _resolve_db_path(raw: str) -> str:
+    """Resolve a configured ``state_store.db_path`` against the repo root.
+
+    A RELATIVE path is anchored to :data:`REPO_ROOT` so the database lands in the
+    same place no matter what the process CWD happens to be -- the old absolute
+    path was correct only while the checkout stayed on one drive.
+
+    An ABSOLUTE path is honoured verbatim (with ``/`` normalised for Windows),
+    because an operator who names an absolute location means it, and silently
+    re-anchoring it would be a downgrade of their intent.
+    """
+    text = str(raw).strip()
+    if not text:
+        return DEFAULT_DB_PATH
+    candidate = Path(text)
+    if candidate.is_absolute():
+        return str(candidate)
+    return str((REPO_ROOT / candidate).resolve())
 
 
 @dataclass
@@ -81,7 +110,7 @@ class Config:
     server: ServerConfig = field(default_factory=ServerConfig)
     control_token_env: str = "JCC_CONTROL_TOKEN"
     jev: JevConfig = field(default_factory=JevConfig)
-    state_store_db_path: str = "F:/jev/runtime/jcc/jcc.db"
+    state_store_db_path: str = DEFAULT_DB_PATH
     actuation: ActuationConfig = field(default_factory=ActuationConfig)
     policy: PolicyConfig = field(default_factory=PolicyConfig)
     agents: Dict[str, Any] = field(default_factory=dict)
@@ -145,8 +174,9 @@ def load_config(path: "str | None" = None) -> Config:
     db_path = (
         os.environ.get("JCC_DB_PATH")
         or (data.get("state_store") or {}).get("db_path")
-        or "F:/jev/runtime/jcc/jcc.db"
+        or DEFAULT_DB_PATH
     )
+    db_path = _resolve_db_path(db_path)
 
     act = data.get("actuation") or {}
     actuation = ActuationConfig(**act)          # type: ignore[arg-type]

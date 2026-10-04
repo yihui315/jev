@@ -15,7 +15,7 @@ import time
 import urllib.request
 from pathlib import Path
 
-REPO = Path(r"F:\jev")
+REPO = Path(__file__).resolve().parents[1]
 SCRATCH = REPO / ".workbuddy" / "scratch"
 SCRATCH.mkdir(parents=True, exist_ok=True)
 UI = "http://127.0.0.1:4780"

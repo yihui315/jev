@@ -67,7 +67,9 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 # agree on which tree they are talking about -- a watchdog rooted at A that
 # starts a controller rooted at B is two systems, not one.
 
-ROOT = os.environ.get("JCC_ROOT") or r"F:\jev"
+ROOT = os.environ.get("JCC_ROOT") or str(
+    Path(__file__).resolve().parents[1]
+)
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 
 #: The state file is overridable so the selftest can exercise the state machine

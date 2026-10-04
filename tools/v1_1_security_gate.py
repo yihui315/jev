@@ -57,7 +57,7 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
-ROOT = Path(r"F:\jev")
+ROOT = Path(__file__).resolve().parents[1]
 PKGS = ROOT / "packages"
 APPS = ROOT / "apps"
 FIXTURES = ROOT / "fixtures"

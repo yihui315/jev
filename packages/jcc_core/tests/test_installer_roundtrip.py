@@ -22,7 +22,7 @@ from pathlib import Path
 
 import pytest
 
-ROOT = Path(r"F:\jev")
+ROOT = Path(__file__).resolve().parents[3]
 INTEGRATIONS = ROOT / "integrations"
 
 

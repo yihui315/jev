@@ -286,8 +286,8 @@ A8_FROZEN_AT = (
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
-    "config/jcc.yaml":
-        "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+    "config/jcc.yaml":  # A8 re-baseline (2026-10-04, repo-relocation): state_store.db_path F:/jev/runtime/jcc/jcc.db -> runtime/jcc/jcc.db (relative to the repo root, resolved by jcc_core.config._resolve_db_path). Same database, same WAL contract, same port -- only the anchor moved. # old: 4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0
+        "6525ea860984899e8125df1611f748d99338719f502c303f59f25492d55d5198",
     "packages/jcc_core/core.py":  # A8 re-baseline (§21 S-02c, 2026-09-27): ingest chokepoint now applies the key-name redaction pass (ADR-0007 D-1). # RE-BASELINED v1.2 (Wave 7): record_source gate + CoreEngine.shadow_summary() (live-only shadow).
         "8a5141bc931296ac5f495da116e45f1b8bb9fb4fab5ae6ac99a887aca9a7106b",  # old: 93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae (v1.2 Wave 7 record_source/shadow_summary)
     "packages/jcc_core/actuator.py":
@@ -302,8 +302,8 @@ _BASELINE_HASHES = {
         "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
     "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27. # RE-BASELINED v1.3 (Wave 9.3): GET /api/v1/domain/counts (open, uncapped totals) so a BOUNDED list read can be compared against the real domain size; OPEN_GET_ENDPOINTS 27->28.
         "61a55d1d49027e61d995b13a3ea0b95b924061c9624872c2c9336dea9853c7dd",  # old: dbb661bbe0e32f1bc2984677a71cef7c2f48df30bfc533d42ff1b5ee4fe21e18 (v1.3 Wave 9.2 launch control plane)
-    "packages/jcc_core/config.py":
-        "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
+    "packages/jcc_core/config.py":  # A8 re-baseline (2026-10-04, repo-relocation): the absolute F:/jev literals for DEFAULT_CONFIG_PATH / state_store_db_path are replaced by REPO_ROOT derived from __file__, plus a _resolve_db_path() that anchors a relative db_path to the repo root. Behaviour is unchanged for an absolute path (honoured verbatim) and for a relative one (now repo-anchored instead of CWD-anchored). # old: af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f
+        "ae749b5bb74951af4e0072e15ed1bbaf33d12294a8a11efe68588a78d546e4be",
     "packages/supervisor/sentinel.py":
         "21d8f5fa8a984ed741f97eaa3aac25fb3d18bc3c4b424fae36ec0e5d3486237f",
     "packages/supervisor/shadow_store.py":

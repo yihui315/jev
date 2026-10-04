@@ -25,7 +25,7 @@ import sys
 import time
 from pathlib import Path
 
-ROOT = Path(r"F:\jev")
+ROOT = Path(__file__).resolve().parents[1]
 GATE_PATH = ROOT / "tools" / "final_gate_run_v1_3.py"
 OUT = ROOT / ".workbuddy" / "scratch" / "v1_3_aggregate_falsifiers.json"
 

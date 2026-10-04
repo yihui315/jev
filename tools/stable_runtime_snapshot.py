@@ -54,7 +54,7 @@ import tempfile
 import urllib.request
 from datetime import datetime, timezone
 
-DEFAULT_ROOT = r"F:\jev"
+DEFAULT_ROOT = str(Path(__file__).resolve().parents[1])
 SCHEMA = "jcc.stable-runtime-snapshot/1"
 
 # The health fields the frozen (v1.0.1) server.py is known to return.  These are

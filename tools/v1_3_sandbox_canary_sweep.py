@@ -85,7 +85,7 @@ try:  # keep GBK consoles from dying on an odd path
 except Exception:  # pragma: no cover
     pass
 
-REPO_ROOT = r"F:\jev"
+REPO_ROOT = str(Path(__file__).resolve().parents[1])
 SCRATCH = os.path.join(REPO_ROOT, ".workbuddy", "scratch")
 DEST_ROOT = os.path.join(SCRATCH, "sandbox_canaries")
 

@@ -35,10 +35,10 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(r"F:\jev")
+REPO = Path(__file__).resolve().parents[1]
 ART = REPO / "artifacts" / "release" / "v1.2_visual"
 LEGS = ART / "legs"
-PY = r"F:\jev\.venv\Scripts\python.exe"
+PY = str(REPO / ".venv" / "Scripts" / "python.exe")
 
 # v1.2 freeze + release pins (explicitly NOT v1.0.1 f8ac95d / v1.1).
 FREEZE_SHA = "ddca208"

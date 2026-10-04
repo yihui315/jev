@@ -33,7 +33,11 @@ control:
   token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
 
 state_store:
-  db_path: F:/jev/runtime/jcc-v1.3/jcc.db   # gitignored; isolated from GREEN and v1.2
+  # RELATIVE to the repository root. The absolute form this line used to carry
+  # (F:/jev/...) became a load failure the moment the checkout moved drives; a
+  # relative path travels with the repo. jcc_core.config resolves it against
+  # REPO_ROOT, which is derived from __file__.
+  db_path: runtime/jcc-v1.3/jcc.db   # gitignored; isolated from GREEN and v1.2
 
 jev:
   provider: mock            # mock | disabled | real

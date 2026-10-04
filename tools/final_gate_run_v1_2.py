@@ -43,10 +43,10 @@ import tempfile
 from datetime import datetime, timezone
 from pathlib import Path
 
-REPO = Path(r"F:\jev")
+REPO = Path(__file__).resolve().parents[1]
 ART = REPO / "artifacts" / "release" / "v1.2_visual"
 GATE_OUT = REPO / "artifacts" / "acceptance" / "final_gate_v1_2_result.json"
-PY = r"F:\jev\.venv\Scripts\python.exe"
+PY = str(REPO / ".venv" / "Scripts" / "python.exe")
 
 # Verdicts that count as a HARD pass for each proof (anything else blocks).
 PROOF_OK = {

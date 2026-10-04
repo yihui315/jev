@@ -21,7 +21,7 @@ import os
 import sys
 from datetime import datetime, timezone, timedelta
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[1])
 DEFAULT_EVIDENCE = os.path.join(ROOT, r"artifacts\acceptance\win_scripts\E07_FINAL_EVIDENCE.json")
 DEFAULT_OUT = os.path.join(ROOT, r"artifacts\acceptance\final_sre_go.json")
 ARCH_LEG = os.path.join(ROOT, r"artifacts\acceptance\final_architecture_go.json")
