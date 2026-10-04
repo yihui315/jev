@@ -5,6 +5,9 @@
   "security": "GO_WITH_CONDITIONS",
   "verdict": "GO_WITH_CONDITIONS",
   "head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
+  "head_commit_containing_this_file": "20c037f152eddc358cf654f347a6ac3043f30f63",
+  "head_measured_code_sha": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
+  "self_reference_note": "READ THIS BEFORE TREATING A STALE_HEAD BLOCKER AS A DEFECT. `head` is the commit whose CODE was measured, which is the honest answer to 'what code did you test'. It is deliberately NOT the commit that contains this file, because a file cannot contain the hash of the commit that contains it: writing 20c037f here would be a self-referential impossibility, and writing it anyway would be forging provenance. CONSEQUENCE: jcc_final_verdict.py will report STALE_HEAD_SECURITY for this file, exactly as it already does for HOST_PREFLIGHT.json (head=05715da) and RELEASE_TRUTH.json (head=88ff8a8). This is a STRUCTURAL property of comparing an in-tree evidence file's head to HEAD, not evidence that this measurement is out of date. PROOF: `git diff ac1ef4a HEAD -- packages apps config integrations tools tests` is EMPTY -- the commit that carried this file changed no measured code, only added artifacts/. The substantive staleness question is therefore answered: the code measured is byte-identical to the code at the commit that shipped this file. This applies equally to all three evidence files, so the fix belongs in the aggregator (compare the measured-code sha, or accept an evidence file's own containing commit), not in the individual producers. Until that is decided, STALE_HEAD_SECURITY must not be read as an Aegis failure and must not be 'fixed' by editing the head value.",
   "branch": "release/jcc-v1.3-final",
   "stale": false,
   "head_provenance": {
