@@ -609,8 +609,30 @@ def _free_port() -> int:
 
 
 def _rmtree(path: Path) -> None:
+    """Best-effort temp cleanup that CANNOT stall the suite.
+
+    Under this host's safe-delete shim a blocking recursive rmtree retries and
+    eventually hangs for minutes (measured: the sibling release_truth selftest
+    spent 22 minutes of wall clock inside _safe_rmdir, with every case already
+    decided). The temp dirs live under the OS temp root and nothing reads them
+    afterwards, so the removal is done on a daemon thread and is not awaited: a
+    slow unlink must never change or delay a verdict.
+    """
     import shutil
-    shutil.rmtree(path, ignore_errors=True)
+    import threading
+
+    def _worker() -> None:
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except Exception:  # noqa: BLE001 -- cleanup must never raise
+            pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    try:
+        t.join(timeout=float(os.environ.get("JCC_CR002_CLEANUP_TIMEOUT", "2.0")))
+    except Exception:  # noqa: BLE001
+        pass
 
 
 def main() -> int:

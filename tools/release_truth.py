@@ -865,6 +865,40 @@ def _eval_in_fixture(fx: _Fixture, freeze: Optional[str] = None
     }
 
 
+def _rmtree(path: Path) -> None:
+    import shutil as _sh  # local: only the selftest needs it
+    _sh.rmtree(path, ignore_errors=True)
+
+
+def _discard_tree(path: Path) -> None:
+    """Drop a temp tree without blocking the caller's verdict on it.
+
+    Runs the removal in a daemon thread and gives it a short grace period. If it
+    has not finished, we walk away and leave it: the directory is in the OS temp
+    root, outside the repository, and no later step reads it.
+
+    Under this host's safe-delete shim a recursive rmtree of a git fixture tree
+    retries and eventually stalls for minutes -- measured 22 min wall clock, all
+    of it inside ``_safe_rmdir``, with the cases already decided. A verification
+    tool must not be held hostage by its own temp-dir disposal, so the verdict is
+    computed and printed first and the unlink is merely not awaited.
+    """
+    import threading
+
+    def _worker() -> None:
+        try:
+            shutil.rmtree(path, ignore_errors=True)
+        except Exception:  # noqa: BLE001 -- cleanup must never raise
+            pass
+
+    t = threading.Thread(target=_worker, daemon=True)
+    t.start()
+    try:
+        t.join(timeout=float(os.environ.get("JCC_SELFTEST_CLEANUP_TIMEOUT", "2.0")))
+    except Exception:  # noqa: BLE001
+        pass
+
+
 def selftest() -> int:
     base = Path(tempfile.mkdtemp(prefix="jcc_release_truth_selftest_"))
     results: List[Dict[str, Any]] = []
@@ -1112,7 +1146,14 @@ def selftest() -> int:
                       % (real_wrong, len(unreviewed), budget, unreviewed[:5]),
         })
     finally:
-        shutil.rmtree(base, ignore_errors=True)
+        # Best-effort cleanup, and DELIBERATELY not awaited. Under this host's
+        # safe-delete shim a recursive rmtree of a git fixture tree retries and
+        # eventually stalls for MINUTES, which made this selftest look like a
+        # hang (measured: 22 min wall clock, all of it in _safe_rmdir, with the
+        # fixtures already created and the cases already decided). A verification
+        # tool must not be held hostage by its own temp-dir disposal, and the
+        # temp dirs live under the OS temp root, so leaving one behind is inert.
+        _discard_tree(base)
 
     passed = sum(1 for r in results if r["ok"])
     for r in results:
