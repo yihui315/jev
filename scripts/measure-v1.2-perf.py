@@ -22,7 +22,7 @@ import re
 import statistics
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[1])
 OUT = os.path.join(ROOT, "artifacts", "release", "v1.2_visual", "V1_2_VISUAL_PERFORMANCE.json")
 UI_HOST, UI_PORT = "127.0.0.1", 4780
 API_HOST, API_PORT = "127.0.0.1", 4779

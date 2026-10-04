@@ -239,7 +239,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 4.595,
+      "seconds": 8.504,
       "title": "auth fail-closed on every mutating route"
     },
     {
@@ -289,7 +289,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 1.219,
+      "seconds": 4.924,
       "title": "planted secrets absent from every persisted sink"
     },
     {
@@ -369,14 +369,14 @@
         "neither_get_nor_mutating": [
           "/ws"
         ],
-        "protected_port_open_during_run": true
+        "protected_port_open_during_run": false
       },
       "findings": [],
       "non_vacuity_note": "requires at least one real GET route and a reachable loopback endpoint; two empty sets would compare equal",
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 1.249,
+      "seconds": 2.985,
       "title": "loopback-only bind and no undeclared open route"
     },
     {
@@ -417,7 +417,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.023,
+      "seconds": 0.024,
       "title": "v1.1 modules add no write and no egress"
     },
     {
@@ -458,7 +458,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.065,
+      "seconds": 0.053,
       "title": "the UI reads no token and posts only the probe"
     },
     {
@@ -513,7 +513,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.017,
+      "seconds": 0.014,
       "title": "v1.1 modules import only stdlib and project roots"
     },
     {
@@ -594,7 +594,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.27,
+      "seconds": 0.153,
       "title": "no enforcement path consumes effective_level"
     },
     {
@@ -608,20 +608,20 @@
       "error": null,
       "evidence": {
         "after": {
-          "protected_port_open": true,
-          "runtime_db_sha256": "0a644062b4b5032d52c883b59a3f874333f28deb9d0cc12d14280b26af62ab53",
-          "runtime_db_size": 57344,
+          "protected_port_open": false,
+          "runtime_db_sha256": "1573fa379f05425a66e846f6161eef2ca6b7feba3f9fcd2c8ccc27edc39a895d",
+          "runtime_db_size": 159744,
           "shm_present": false,
           "wal_present": false
         },
         "before": {
-          "protected_port_open": true,
-          "runtime_db_sha256": "0a644062b4b5032d52c883b59a3f874333f28deb9d0cc12d14280b26af62ab53",
-          "runtime_db_size": 57344,
+          "protected_port_open": false,
+          "runtime_db_sha256": "1573fa379f05425a66e846f6161eef2ca6b7feba3f9fcd2c8ccc27edc39a895d",
+          "runtime_db_size": 159744,
           "shm_present": false,
           "wal_present": false
         },
-        "protected_db": "F:\\jev\\runtime\\jcc\\jcc.db",
+        "protected_db": "D:\\jev\\runtime\\jcc\\jcc.db",
         "protected_port": 4778
       },
       "findings": [],
@@ -629,7 +629,7 @@
       "non_vacuous": true,
       "ok": true,
       "ran": true,
-      "seconds": 0.002,
+      "seconds": 0.508,
       "title": "the protected service and runtime DB are untouched"
     }
   ],
@@ -641,13 +641,13 @@
     "LOW": 0,
     "MEDIUM": 0
   },
-  "generated_at": "2026-09-30T00:15:29+0800",
+  "generated_at": "2026-10-04T11:40:11+0800",
   "non_vacuity_gaps": [],
   "repo_branch": "release/jcc-v1.3-final",
-  "repo_head": "05d4907da6067b81e50e6e1f5dccda8fe8c90cc5",
+  "repo_head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "reproducibility": {
     "deterministic": true,
-    "normalized_sha256": "63e46dcd461ba78d59c710722acb06e7e2d46d26a19003e520d8d04f5d39dbc3",
+    "normalized_sha256": "3a7400c87f41067d330ea53b9e6b9419055c3d41a88680c03b70ea9a0f0b4a35",
     "volatile_keys_stripped": [
       "after",
       "before",

@@ -20,7 +20,7 @@ import os
 import subprocess
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 SCR = os.path.join(ROOT, ".workbuddy", "scratch")

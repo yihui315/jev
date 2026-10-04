@@ -54,7 +54,7 @@ import sys
 import tempfile
 from typing import Any, Dict, List, Tuple
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 REL = os.path.join(ROOT, "artifacts", "release")
 MANIFEST = os.path.join(REL, "final-manifest.json")

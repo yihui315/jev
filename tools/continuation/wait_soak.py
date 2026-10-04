@@ -12,7 +12,7 @@ import os
 import sys
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 DONE = os.path.join(ROOT, ".workbuddy", "scratch", "soak", "DONE")
 RES = os.path.join(ACC, "JCC_SOAK_RESULT.json")

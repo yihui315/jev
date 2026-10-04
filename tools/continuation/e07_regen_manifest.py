@@ -6,7 +6,7 @@ If any frozen script byte differs from the PHASE 0 record -> report MOVED and ex
 """
 import subprocess, os, hashlib, io, json, datetime, sys
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 FROZEN = ["scripts/acceptance.ps1", "scripts/bootstrap.ps1", "scripts/doctor.ps1",
           "scripts/lib/JccCommon.ps1", "scripts/restart.ps1", "scripts/start.ps1",
           "scripts/status.ps1", "scripts/stop.ps1"]

@@ -40,7 +40,7 @@ import io, json, os, subprocess, sys, time, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import replica                                              # noqa: E402
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 # Line-buffer stdout. When a parent captures this script through a pipe, an
 # abrupt death loses whatever was still sitting in the block buffer, which is
 # exactly how the first in-driver run lost the tail of its own output.

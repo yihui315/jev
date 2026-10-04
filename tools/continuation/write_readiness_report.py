@@ -11,7 +11,7 @@ import json
 import os
 import subprocess
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 REL = os.path.join(ROOT, "artifacts", "release")
 WS = os.path.join(ROOT, ".workbuddy", "scratch", "continuation")

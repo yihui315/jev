@@ -20,7 +20,7 @@ import os
 import sys
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 
 
 def external_job_check(pid):

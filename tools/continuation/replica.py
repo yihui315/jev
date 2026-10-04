@@ -36,7 +36,7 @@ import shutil
 import subprocess
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 
 #: The stub controller. It speaks the lock handshake the watchdog checks for --

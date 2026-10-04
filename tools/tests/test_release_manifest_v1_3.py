@@ -29,7 +29,7 @@ from pathlib import Path
 
 import pytest
 
-REPO = Path(r"F:\jev")
+REPO = Path(__file__).resolve().parents[2]
 
 
 def _load_engine():

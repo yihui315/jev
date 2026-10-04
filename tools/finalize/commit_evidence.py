@@ -54,7 +54,7 @@ import os
 import subprocess
 import sys
 
-DEFAULT_ROOT = os.environ.get("JCC_ROOT") or r"F:\jev"
+DEFAULT_ROOT = os.environ.get("JCC_ROOT")
 
 #: The same set the gate uses to decide what "release evidence" means. Kept as a
 #: literal here on purpose: if this tool imported it from the gate, a loosening of

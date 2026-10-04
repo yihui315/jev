@@ -35,7 +35,7 @@ import sys
 import tempfile
 from typing import Any, Dict, List
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 STATE = os.path.join(ROOT, ".workbuddy", "jcc_execution_state.json")
 
 
