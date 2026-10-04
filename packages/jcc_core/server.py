@@ -329,6 +329,38 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             return True, {"mission_status": m.status.value}
         raise ValueError("action %r cannot be applied" % action)
 
+    def _control_token_configured() -> bool:
+        """True when a control token is present in the environment (P3/CR-H5).
+
+        SECURITY REASONING, since this is on an OPEN GET. ``/api/health`` is
+        deliberately unauthenticated (see ``OPEN_GET_ENDPOINTS``), so anything
+        added here is readable by anyone who can reach the port -- and the port
+        is loopback-only, so "anyone" means a local process or an operator.
+
+        Reporting WHETHER a token exists adds no attack surface:
+
+        * the only thing crossing the wire is a boolean -- the token value is
+          never read into the response, not even to compute it;
+        * the gate it describes is already fail-closed. An absent token yields
+          401 on every mutating route (measured: 27 routes), so an attacker
+          learns nothing they could not learn by simply POSTing and getting 401.
+          The field only distinguishes 401-because-unconfigured from
+          403-because-wrong, both of which are already observable outcomes;
+        * the name of the environment variable is not a secret. It is declared
+          in the shipped config (``control.token_env``), so "is it configured"
+          is derivable by anyone who can read the config -- which is the same
+          audience that can already read the value.
+
+        The one thing that WOULD be new and harmful is the value itself, so this
+        returns a bool computed with ``bool()`` and nothing else. A companion
+        test asserts the token string never appears anywhere in the body.
+        """
+        # NOTE: `config.control_token_env`, NOT `config.control.token_env` --
+        # `Config` is a flat dataclass; `control:` is only the YAML key and is
+        # flattened at load time. The dotted form raises AttributeError, i.e. a
+        # 500 on an open GET: a field meant to report health would break health.
+        return bool(os.environ.get(config.control_token_env))
+
     async def require_control_token(
         x_jcc_token: Optional[str] = Header(None, alias="X-JCC-Token"),
         authorization: Optional[str] = Header(None),
@@ -343,7 +375,16 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         presented = x_jcc_token
         if authorization and authorization.lower().startswith("bearer "):
             presented = authorization.split(" ", 1)[1]
-        if not presented or not hmac.compare_digest(presented, expected):
+        # P4 / CR-H6: compare on BYTES. `hmac.compare_digest` raises TypeError on
+        # a str holding non-ASCII code points, so a token like "中文令牌" escaped
+        # the 403 and became an unhandled exception (a 500) -- an
+        # availability/robustness defect, NOT a confidentiality or integrity one,
+        # because the request is refused either way. Encoding both sides removes
+        # the exception path instead of catching it, and compare_digest on bytes
+        # is still constant-time. The empty-value checks above are untouched: an
+        # absent token is still 401 and a wrong one is still 403.
+        if not presented or not hmac.compare_digest(
+                presented.encode("utf-8"), expected.encode("utf-8")):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Invalid or missing control token",
@@ -384,6 +425,17 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             "policy_version": config.policy.version,
             "localhost_only": True,
             "wal": engine.store.is_wal,
+            # ---- P3 / CR-H5: is a control token even CONFIGURED? ---------- #
+            # Every mutating route is fail-closed (401/403) with no token, and
+            # that is CORRECT behaviour -- but it leaves an operator unable to
+            # tell "deliberately locked" from "I thought I set the token and it
+            # never took". Nothing else reported it, so the silent
+            # misconfiguration was invisible. This reports the BOOLEAN only.
+            #
+            # The token itself is never read into the response, only its
+            # presence -- see `_control_token_configured` above, which is the
+            # only place the environment is read for this purpose.
+            "control_token_configured": _control_token_configured(),
             # Declared, machine-readable read-only surface (P4 #77.1). The
             # anti-drift test asserts this equals the routes FastAPI actually
             # serves -- a route added here without a declaration FAILS the suite,
@@ -1490,7 +1542,19 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         expected = os.environ.get(config.control_token_env)
         offered = ws.scope.get("subprotocols") or []
         token = offered[0] if offered else None
-        if not expected or not token or not hmac.compare_digest(token, expected):
+        # P4 / CR-H6, second call site -- fixed in the SAME commit as
+        # `require_control_token` because it is the same defect, and fixing one
+        # while leaving the other is inconsistent hardening that is harder to
+        # reason about than not fixing either. Same nature: a non-ASCII
+        # subprotocol token raised TypeError here too, and because it escaped
+        # BEFORE `ws.close(code=4401)` the socket was neither accepted nor
+        # cleanly closed -- an aborted handshake rather than an HTTP 403.
+        #
+        # The `not expected or not token` short-circuit is preserved EXACTLY:
+        # an unconfigured token must still be a refusal, and a missing token must
+        # not be encoded at all. Only the comparison is encoded.
+        if not expected or not token or not hmac.compare_digest(
+                token.encode("utf-8"), expected.encode("utf-8")):
             # Reject unauthenticated sockets cleanly (close code 4401).
             try:
                 await ws.accept()
