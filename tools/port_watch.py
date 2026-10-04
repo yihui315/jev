@@ -99,6 +99,24 @@ MARKER_NAMES = ("JCC-marker", "jcc.ownership.json")
 SEV_PRODUCT = "PRODUCT"
 SEV_DIAG = "SANDBOX_DIAG"
 
+#: Cross-reference ONLY -- these are NOT observed by this tool, and the two
+#: lists are deliberately different.
+#:
+#: ``tools/final_gate_run_v1_3.py`` declares ``PRODUCT_PORTS = (4779, 4780,
+#: 4781, 4782)`` and uses it in leg E4 ``NO_LISTENERS_LEFT_BEHIND``. That is a
+#: HYGIENE question: "did the gate leave a listener of its own behind?". This
+#: watcher answers a SECURITY question: "was GREEN's protected port held by
+#: anything that is not GREEN?".
+#:
+#: Widening this watcher to 4781/4782 to match the gate would weaken the signal
+#: rather than strengthen it: 4781 is the `npm run dev` UI ("never a production
+#: surface") and 4782 is smoke/diagnostic only, so a developer's dev server
+#: would make `green_untouched` false for a reason that has nothing to do with
+#: GREEN. The two lists are a semantic division of labour, NOT an inconsistency,
+#: and the set difference is recorded here so a reader can see it without
+#: re-deriving it.
+GATE_PRODUCT_PORTS = (4779, 4780, 4781, 4782)
+
 #: A netstat LISTEN row: proto, local, foreign, state, pid. The local address is
 #: ``127.0.0.1:4778`` on this contract, but a wildcard bind must be caught too,
 #: hence the port is compared numerically rather than by string equality.
@@ -434,6 +452,15 @@ def _build_report(*, out_path, duration, interval, samples, t_start, t_end,
         ),
         "green_port": GREEN_PORT,
         "ports_watched": list(WATCH_PORTS),
+        # Cross-reference, not an observation: see GATE_PRODUCT_PORTS above.
+        "product_ports_per_release_gate": list(GATE_PRODUCT_PORTS),
+        "port_scope_note": (
+            "ports_watched is the SECURITY set (GREEN protected port + product "
+            "API/UI). product_ports_per_release_gate is the release gate's "
+            "HYGIENE set, which additionally covers 4781 (dev UI) and 4782 "
+            "(smoke/diagnostic). The difference is intentional: a dev server on "
+            "4781 must not be able to falsify green_untouched."
+        ),
         "per_port": per_port,
         "green_port_violations": green_violations,
         "violation_count": len(green_violations),
