@@ -406,48 +406,42 @@ function Get-JccPythonVersion {
 }
 
 function Get-JccPort {
+    <#
+        Read `server.port` for the GREEN (4778) instance.
+
+        CR-002 REGRESSION, found by independent verification 2026-10-04 and fixed
+        here. This function used to call `load_config()` with NO JCC_CONFIG set,
+        which made it depend on `jcc_core.config.DEFAULT_CONFIG_PATH`. That
+        default was `config/jcc.yaml` (GREEN, 4778) until CR-002 changed it to the
+        v1.3 product config -- so this function now returned 4779 while GREEN
+        actually binds 4778.
+
+        The consequence was not cosmetic. `start.ps1:59` builds its health URL
+        from this value and then exports `JCC_CONFIG=config\jcc.yaml` at :142, so
+        the child bound 4778 while the launcher polled 4779 for 90 s and exited 4.
+        Measured during the incident: GREEN answered 200 on 4778, yet
+        `Test-JccOwnership -Port 4778` returned Ok=False with
+        "PID file (0) and ownership marker service pid (...) disagree" and no
+        `jcc.pid` at all -- the launcher could not confirm the instance it had
+        just started. `status.ps1`, `stop.ps1`, `restart.ps1`, `doctor.ps1` and
+        `ensure-stable-runtime.ps1` resolve the port the same way, so a watchdog
+        would have supervised the WRONG PORT and could have concluded GREEN was
+        down (and restarted it) while it was in fact healthy.
+
+        THE FIX: read the GREEN config EXPLICITLY, exactly as
+        `Get-JccConfigPort` already does. A GREEN tool must never learn GREEN's
+        port by accident -- the whole point of the CR-002 default change is that
+        the default is no longer GREEN's, so anything that needs GREEN's port has
+        to name GREEN's config.
+    #>
     param([string]$Root, [string]$Python)
 
-    # Preferred: ask the configuration itself (packages/jcc_core/config.py).
-    if ($Python) {
-        $code = @'
-import sys, os
-sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
-from jcc_core.config import load_config
-print(load_config().server.port)
-'@
-        $cur = $null
-        try { $cur = (Get-Location).Path } catch { $cur = $null }
-        try {
-            Set-Location -LiteralPath $Root -ErrorAction Stop
-            $out = & $Python '-c' $code 2>$null
-            $v = ([string]$out).Trim()
-            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
-        } catch {
-            # fall through to the YAML fallback below
-        } finally {
-            if ($cur) {
-                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
-            }
-        }
-    }
+    if (-not $Root) { $Root = Get-JccRepoRoot }
 
-    # Fallback: read server.port out of config/jcc.yaml, server section only.
-    $cfg = Join-Path $Root 'config\jcc.yaml'
-    if (Test-Path -LiteralPath $cfg) {
-        $inServer = $false
-        foreach ($line in Get-Content -LiteralPath $cfg) {
-            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
-                $key = $Matches[1]
-                $inServer = ($key -eq 'server')
-                continue
-            }
-            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
-                return [int]$Matches[1]
-            }
-        }
-    }
-
+    # GREEN's port, from GREEN's config file. Never from the default.
+    $resolved = Get-JccConfigPort -Root $Root -ConfigFile 'jcc.yaml' `
+                                -Python $Python -FallbackPort 4778
+    if ($resolved -gt 0) { return $resolved }
     return 4778
 }
 
