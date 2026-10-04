@@ -251,9 +251,45 @@ EVIDENCE_DIRS: Tuple[str, ...] = (
     "artifacts/acceptance", "docs/release",
 )
 
-#: Evidence *files* that sit at the repo root or in a docs tree.
+#: META: not product BYTES, but not evidence either -- repository mechanics whose
+#: bytes change what a checkout contains, so they must never be waved through as
+#: "just documentation". Adjudicated as its own class by the release owner.
+#:
+#: THE CLASSIFICATION IS NOT THE SAME AS THE FREEZE BEHAVIOUR, and conflating the
+#: two would be the bug here. `.gitignore` and `.gitattributes` carry no runtime
+#: byte, so calling them "product code" would be false; but a change to
+#: `.gitignore` can ADD OR REMOVE tracked product files, which moves the product
+#: surface without touching a single product byte. So `classify()` labels them
+#: META while :func:`is_product` still counts them as product for drift purposes
+#: (see `META_COUNTS_AS_PRODUCT_FOR_FREEZE`). The label answers "what is this";
+#: the freeze rule answers "does changing it move the product".
+META_FILES: Tuple[str, ...] = (".gitattributes", ".gitignore")
+
+#: META is a distinct LABEL, never a drift exemption. Deliberate, and the reason
+#: is in the META_FILES comment: `.gitignore` edits change WHICH product files
+#: exist. If META were exempt, editing .gitignore to un-ignore a product
+#: directory would let product bytes change without moving the freeze -- the exact
+#: "back door" the release owner named when adjudicating this rule.
+META_COUNTS_AS_PRODUCT_FOR_FREEZE = True
+
+#: PRODUCT despite living under ``artifacts/``. Adjudicated explicitly, and the
+#: reason is the whole point: this is EXECUTABLE GATE CODE. A change to it changes
+#: what the freeze gate itself accepts, so classifying it as evidence would mean
+#: "you may rewrite the referee without moving the freeze". It must NEVER be
+#: evidence, and it is listed here so that intent is explicit rather than
+#: accidental (a future reader adding `artifacts/**` to EVIDENCE_DIRS would
+#: otherwise silently un-pin the gate).
+GATE_CODE_PATHS: Tuple[str, ...] = ("artifacts/security/freeze_check.py",)
+
+#: ADRs are the architecture's own record and are adjudicated PRODUCT: they are
+#: the contract the product is built against, not run evidence.
+PRODUCT_DOC_DIRS: Tuple[str, ...] = ("docs/ADR",)
+
+#: Named delivery checklists are evidence: they record what was handed over.
+#: Matched on basename anywhere, since a checklist is a file, not a subtree.
 EVIDENCE_FILES: Tuple[str, ...] = (
     "final_delivery.md", "runbook.md", "rollback.md",
+    "final_activation_checklist.md",
 )
 
 
@@ -311,20 +347,40 @@ def classify(path: str) -> Tuple[str, str]:
     if base.lower().endswith(SCHEMA_SUFFIXES):
         return "PRODUCT", "PRODUCT_SCHEMA_SUFFIX:%s" % base
 
+    # Gate code that lives under artifacts/ is PRODUCT, and this check is
+    # deliberately placed ABOVE the evidence rules so no future broad
+    # `artifacts/**` evidence rule can silently un-pin the freeze gate.
+    for gate in GATE_CODE_PATHS:
+        if p == gate or _glob_match(gate, p):
+            return "PRODUCT", "PRODUCT_GATE_CODE:%s" % gate
+
+    for pd in PRODUCT_DOC_DIRS:
+        if _glob_match(pd, p) or _glob_match(pd + "/**", p):
+            return "PRODUCT", "PRODUCT_DOC_DIR:%s/**" % pd
+
+    # ---- META: labelled, but still counted as product for the freeze. ----
+    if base in META_FILES and not dirs:
+        return "META", "META_REPO_MECHANICS:%s" % base
+
     # ---- EVIDENCE rules. Only reachable when no PRODUCT rule matched. ----
     for ev in EVIDENCE_DIRS:
         if _glob_match(ev, p) or _glob_match(ev + "/**", p):
             return "EVIDENCE", "EVIDENCE_DIR:%s/**" % ev
     low = _base(p).lower()
-    if low in EVIDENCE_FILES and dirs and dirs[0] == "docs":
-        return "EVIDENCE", "EVIDENCE_FILE:docs/%s" % _base(p)
+    if low in EVIDENCE_FILES:
+        return "EVIDENCE", "EVIDENCE_FILE:%s" % _base(p)
 
     # ---- UNKNOWN => PRODUCT. Fail closed. ----
     return "PRODUCT", "UNKNOWN_FAIL_CLOSED"
 
 
 def is_product(path: str) -> bool:
-    return classify(path)[0] == "PRODUCT"
+    """True when a change to ``path`` must move the product freeze.
+
+    META counts here. See :data:`META_COUNTS_AS_PRODUCT_FOR_FREEZE` for why the
+    label and the drift rule deliberately differ.
+    """
+    return classify(path)[0] in ("PRODUCT", "META")
 
 
 # --------------------------------------------------------------------------- #
@@ -376,12 +432,20 @@ def changed_paths(base: str, head: str, cwd: Optional[Path] = None) -> List[str]
 
 def product_changes_between(base: str, head: str, cwd: Optional[Path] = None
                             ) -> List[Dict[str, Any]]:
-    """Every PRODUCT path changed in base..head, with the commits that moved it."""
+    """Every path changed in base..head THAT MUST MOVE THE FREEZE.
+
+    The filter is :func:`is_product`, NOT the ``classify()`` label. Those two
+    differ for META on purpose, and using the label here was a real bug this
+    suite caught: a META path (``.gitignore``) came back as "no drift", so a
+    commit that changed WHICH product files are tracked would have left the
+    freeze where it was -- the exact hole META is documented as guarding. One
+    predicate decides drift everywhere; the label only describes what the path is.
+    """
     out: List[Dict[str, Any]] = []
     for path in changed_paths(base, head, cwd=cwd):
-        kind, rule = classify(path)
-        if kind != "PRODUCT":
+        if not is_product(path):
             continue
+        kind, rule = classify(path)
         rc, log = git_try("log", "--format=%H", "-1", "%s..%s" % (base, head),
                           "--", path, cwd=cwd)
         out.append({
@@ -410,7 +474,9 @@ def worktree_state(cwd: Optional[Path] = None
             entry = entry.split(" -> ", 1)[1]
         dirty.append(_norm(entry.strip().strip('"')))
     dirty = sorted(set(p for p in dirty if p))
-    prod = [p for p in dirty if classify(p)[0] == "PRODUCT"]
+    # Same predicate as the drift check, for the same reason: a dirty META path
+    # is as freeze-relevant as a dirty product path.
+    prod = [p for p in dirty if is_product(p)]
     evid = [p for p in dirty if classify(p)[0] == "EVIDENCE"]
     return ("CLEAN" if not dirty else "DIRTY"), dirty, prod, evid
 
@@ -615,7 +681,12 @@ def build_truth(freeze_arg: Optional[str] = None,
             "product_segments": list(PRODUCT_SEGMENTS),
             "manifest_names": list(MANIFEST_NAMES),
             "build_config_names": list(BUILD_CONFIG_NAMES),
+            "product_doc_dirs": list(PRODUCT_DOC_DIRS),
+            "gate_code_paths": list(GATE_CODE_PATHS),
+            "meta_files": list(META_FILES),
+            "meta_counts_as_product_for_freeze": META_COUNTS_AS_PRODUCT_FOR_FREEZE,
             "evidence_dirs": list(EVIDENCE_DIRS),
+            "evidence_files": list(EVIDENCE_FILES),
             "unknown": "PRODUCT (fail-closed)",
         },
     }
@@ -939,6 +1010,68 @@ def selftest() -> int:
                       % (problems, st["worktree"], st["dirty_product_paths"]),
         })
 
+        # --- adjudicated classifications must be EXPLICIT, not accidental -----
+        # The release owner adjudicated these four after the classifier was
+        # shown hitting its fail-closed branch on them. Each gets a named rule
+        # so the outcome is intentional. The two that are PRODUCT are the
+        # important half: admitting them as evidence would have "fixed" the
+        # selftest by weakening fail-closed, which is the trap.
+        adjudicated = {
+            # file/class: the class the release owner ruled
+            "artifacts/security/freeze_check.py": "PRODUCT",
+            "docs/ADR/ADR-0001-root-and-legacy-boundary.md": "PRODUCT",
+            "docs/ADR/ADR-0002-four-plane-architecture.md": "PRODUCT",
+            "FINAL_ACTIVATION_CHECKLIST.md": "EVIDENCE",
+            ".gitattributes": "META",
+            ".gitignore": "META",
+        }
+        wrong_class = [(p, classify(p)[0], want)
+                       for p, want in adjudicated.items()
+                       if classify(p)[0] != want]
+        # Non-vacuity: gate code must NOT be evidence, and ADR must not be
+        # evidence. If someone ever adds a broad `artifacts/**` evidence rule,
+        # this is the assertion that catches the referee being rewritten.
+        gate_not_evidence = (classify("artifacts/security/freeze_check.py")[0]
+                             != "EVIDENCE")
+        adr_not_evidence = (classify("docs/ADR/ADR-0002-four-plane-architecture.md")[0]
+                            != "EVIDENCE")
+        results.append({
+            "id": "ADJUDICATED_PATHS_ARE_EXPLICITLY_CLASSIFIED",
+            "ok": not wrong_class and gate_not_evidence and adr_not_evidence,
+            "detail": "misclassified=%r gate_code_is_evidence=%s "
+                      "adr_is_evidence=%s"
+                      % (wrong_class, not gate_not_evidence, not adr_not_evidence),
+        })
+
+        # --- META is a LABEL, never a drift exemption ----------------------
+        # .gitignore carries no runtime byte, so calling it "product code" would
+        # be false -- but editing it can add or remove tracked product files,
+        # which moves the product surface without touching a product byte. So it
+        # is labelled META and STILL counts as product for the freeze. If META
+        # were exempt, un-ignoring a product directory would change product
+        # bytes without moving the freeze.
+        meta_drift_ok = (classify(".gitignore")[0] == "META"
+                         and is_product(".gitignore")
+                         and is_product(".gitattributes"))
+        fx = _Fixture(base / "meta_moves_freeze")
+        fx.dir.mkdir(parents=True)
+        fx.git("init", "--quiet", "-b", "main", ".")
+        fx.commit_paths(["packages/jcc_core/app.py"], "product: initial")
+        freeze = fx.head
+        fx.write(".gitignore", "runtime/\n")
+        fx.commit(".gitignore: ignore runtime (no product bytes change)")
+        meta_problems, meta_state = _eval_in_fixture(fx, freeze)
+        results.append({
+            "id": "META_PATH_STILL_MOVES_THE_FREEZE",
+            "ok": meta_drift_ok and bool(meta_problems)
+                  and any(d["path"] == ".gitignore" for d in meta_state["drift"]),
+            "detail": "is_product(.gitignore)=%s drift_detected=%r problems=%r "
+                      "(labelled META, but a .gitignore edit can change WHICH "
+                      "product files exist, so it must move the freeze)"
+                      % (is_product(".gitignore"),
+                         [d["path"] for d in meta_state["drift"]], meta_problems),
+        })
+
         # --- the real repository must classify its own paths sanely ---------
         real_evidence = ["docs/v1_3/FINAL_DELIVERY.md",
                          "artifacts/release/v1.3_final/RELEASE_TRUTH.json",
@@ -953,18 +1086,30 @@ def selftest() -> int:
                        if classify(p)[0] != "EVIDENCE"]
                       + [(p, classify(p)[0]) for p in real_product
                          if classify(p)[0] != "PRODUCT"])
-        # No tracked file in THIS repo may land on the fail-closed branch; if
-        # one does, the rules and the repository disagree and a real evidence
-        # commit would be misread as product drift.
+        # Every tracked file must be classified BY A NAMED RULE. A path with no
+        # rule is not wrong -- fail-closed makes it PRODUCT, which is the safe
+        # answer -- but it is an UNREVIEWED one, and the point of this case is
+        # that the set of such paths stays small, explicit, and visible instead
+        # of growing silently as the tree grows.
+        #
+        # NOTE this does NOT assert "nothing hits the fail-closed branch". That
+        # would be the wrong bar twice over: it would push toward adding broad
+        # evidence rules (weakening fail-closed, the trap the release owner named
+        # when adjudicating this), and it would be red for the ~20 reviewed
+        # ``docs/{p3,p4,v1.1,v1.2}`` files that are correctly PRODUCT because
+        # no rule names them. The adjudicated names above are the reviewed set.
         tracked = git("ls-files").splitlines()
-        fallback_paths = [p for p in tracked
-                          if classify(p)[1] == "UNKNOWN_FAIL_CLOSED"]
+        unreviewed = [p for p in tracked
+                      if classify(p)[1] == "UNKNOWN_FAIL_CLOSED"]
+        # Budget, not perfection: this fails only if the unreviewed set grows
+        # well past the reviewed docs/ residue, which is what "a new unclassified
+        # top-level directory appeared" looks like.
+        budget = 30
         results.append({
-            "id": "CLASSIFIER_MATCHES_THIS_REPOSITORYS_OWN_TRACKED_FILES",
-            "ok": not real_wrong and not fallback_paths,
-            "detail": "misclassified=%r  tracked_paths_hitting_the_fail_closed_"
-                      "branch=%r (%d tracked files)"
-                      % (real_wrong, fallback_paths[:6], len(tracked)),
+            "id": "NO_TRACKED_PATH_IS_MISCLASSIFIED_AND_FALLBACK_SET_IS_BOUNDED",
+            "ok": not real_wrong and len(unreviewed) <= budget,
+            "detail": "misclassified=%r unreviewed_fail_closed=%d (budget %d) %r"
+                      % (real_wrong, len(unreviewed), budget, unreviewed[:5]),
         })
     finally:
         shutil.rmtree(base, ignore_errors=True)
