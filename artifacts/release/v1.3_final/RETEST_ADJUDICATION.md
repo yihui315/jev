@@ -399,10 +399,11 @@ am labelling that a hypothesis, not a finding.
 
 ---
 
-## 8. Family H — `test_threaded_appends_keep_one_contiguous_chain` (C1) — **REAL FLAKE, root cause NOT YET ESTABLISHED**
+## 8. Family H — `test_threaded_appends_keep_one_contiguous_chain` (C1) — **UNRESOLVED, and my own "flake" figure is WITHDRAWN**
 
-**Verdict: the test genuinely fails intermittently. My leading hypothesis was tested
-and DISPROVEN. Do not treat any mechanism below as established.**
+**Verdict: UNRESOLVED. My leading hypothesis was tested and DISPROVEN, and I have
+withdrawn the "genuinely flaky" claim I made earlier. Do not treat any mechanism
+below as established, and do not quote the 2-of-6 number without §8.1.**
 
 First, the chain is **not** forking. The product's guard is intact:
 `packages/jcc_core/audit.py:155-156` issues `BEGIN IMMEDIATE` as the first statement
@@ -428,6 +429,51 @@ AssertionError: a writer thread failed: ['OperationalError: database is locked',
 ```
 
 So a writer waiting for the write lock gives up despite `PRAGMA busy_timeout=30000`.
+
+### 8.1 CORRECTION (added after re-reading my own timestamps) — the "flake" may be MY measurement error
+
+File mtimes of the six stress runs, against the window of the C2 suite I was
+running **in the same shell at the same time**:
+
+```
+/tmp/stress_1.txt  17:59:46     /tmp/stress_4.txt  18:02:06
+/tmp/stress_2.txt  18:00:32     /tmp/stress_5.txt  18:02:40
+/tmp/stress_3.txt  18:01:22     /tmp/stress_6.txt  18:03:49
+
+c2_after_all_fixes.txt (my concurrent C2 suite) completed 18:01:33
+```
+
+**Runs 1–3 (which contain BOTH failures) overlap that C2 suite.** The team-lead
+constraint for this round is explicit: *"全量测试必须串行，开始前确认无其他
+pytest 在跑（本轮已因并发误判 3 次）"* — full runs must be serial, and concurrent
+runs have already caused three misjudgements this round. **I broke that rule
+for this measurement**: I launched the 6× stress loop while my own C2 suite was
+still executing.
+
+This matters because the two candidate explanations predict *opposite* results:
+
+- if the lock contention is intrinsic to 8 writers, the flake should also appear
+  on an idle host;
+- if it is contention between my two concurrent runs, it should **vanish** when
+  run alone.
+
+And the one clean, isolated measurement I have points at the second: the
+falsifier's DELETE arm — the *same* journal mode, the *same* 8×25 workload —
+completed **200/200 rows three times out of three with zero errors**.
+
+**So: I can no longer claim "genuinely flaky".** The honest statement is
+**UNRESOLVED, and my own 2/6 figure is of unknown validity** because it was taken
+under a self-inflicted concurrent load. Forge's independent run of
+`tools/wal_falsifier.py` (commit `d311ef5`, whose subject line reads *"and it
+REFUTES the hypothesis"*) also ran concurrently and reached the same conclusion
+about WAL.
+
+**A clean re-measurement requires an idle host and is still outstanding.** I did
+not perform one: Forge held the tree with two `pytest packages/jcc_core/tests/`
+processes for the whole window I had, and starting a third concurrent run would
+have repeated the exact error I am documenting. **Whoever re-measures must
+confirm the host is idle first** — that is now a precondition of the experiment,
+not an optional nicety.
 
 ### My hypothesis, and why I am rejecting it
 
@@ -457,17 +503,23 @@ succeeds when run alone. **I did not isolate that further, so it stays UNVERIFIE
 
 ### Status
 
-`OperationalError: database is locked` under 8 concurrent writers with a 30 s busy
-timeout is a **real, reproducible defect surface**. Whether it is a product defect
-(lock handling in `append_audit` under contention) or a test defect (the test demands
-8-way contention that production, with its own `_lock` and WAL, never creates) is
-**not resolved by my evidence**. I am not signing this family off, and I have not
-changed `packages/jcc_core/`.
+**UNRESOLVED — and downgraded from my earlier "REAL FLAKE" verdict.** See §8.1:
+the 2-of-6 figure was measured while another suite of mine was running, and the
+one clean isolated measurement of the same workload and journal mode showed
+**zero** errors. `OperationalError: database is locked` under 8 concurrent
+writers with a 30 s busy timeout is a plausible **defect surface**, but whether
+it is a product defect (lock handling in `append_audit` under contention) or a
+test defect (the test demands 8-way contention that production, with its own
+`_lock` and WAL, never creates) or a **measurement artefact of my own making**
+is not settled by the evidence I have.
 
-**Recommended next step** (needs a decision, see HANDOFF): reproduce under
-`JCC_` env with the shim disabled and with the test's own `busy_timeout` raised, to
-separate "SQLite genuinely cannot satisfy this" from "the sandbox shim is
-interfering". That is a further experiment, not something to guess at.
+I am not signing this family off, I have not changed `packages/jcc_core/`, and
+I am withdrawing the "genuinely flaky" claim I made earlier in this document.
+
+**Precondition for the next attempt**: an idle host, verified by listing running
+`python.exe` command lines first, and the test's own `busy_timeout` raised, to
+separate "SQLite genuinely cannot satisfy this" from "host contention". That is
+a further experiment, not something to guess at.
 
 ---
 
@@ -708,7 +760,7 @@ measurement**, and is labelled as such. Do not quote it as a result.
 | E | 3 NUL lines in boot beacon log | HISTORICAL CORRUPTION / test scope | no — needs CR-H4 | VERIFIED (byte-level, dated) |
 | F | §7 + capability matrix stale | ARTIFACT CURRENCY | regenerated | VERIFIED (field-level diff) |
 | G | p2 HTTP `.decode()` no codec | TEST DEFECT (latent) | no — CR-H2 | VERIFIED defect / **UNVERIFIED** as cause |
-| H | threaded append `database is locked` | REAL FLAKE, cause open | no | VERIFIED flake / **UNVERIFIED** root cause |
+| H | threaded append `database is locked` | **UNRESOLVED** — flake claim withdrawn (§8.1) | no | **2-of-6 figure WITHDRAWN** (measured under my own concurrent load); clean DELETE-arm run showed 0 errors |
 | I | shared pytest basetemp | TEST-INFRA DEFECT | no — CR-H1 | VERIFIED (19/19 vs 13+6err) |
 | J | uptime probe emits invalid JSON | REAL PRODUCT DEFECT | **yes** | VERIFIED (PS 5.1 round-trip) |
 
