@@ -406,18 +406,78 @@ def check_green_port_resolution_is_not_default_dependent() -> None:
     )
 
 
+def check_service_names_cannot_reach_the_green_port() -> None:
+    """A service NAME must not be a way around the guard.
+
+    ``socket.bind((host, port))`` accepts a string port and resolves it through
+    ``getaddrinfo``, which also accepts a SERVICE NAME. So the guard's original
+    "int() failed, therefore it is not 4778" argument was incomplete: on a host
+    where some name is registered against the protected port, a config carrying
+    that name would pass an int()-only guard and still land on 4778.
+
+    Found by metric-verify, who measured that THIS host has no such mapping --
+    which is a property of this machine's service database, not of the code. The
+    guard now resolves such values the same way bind() would, so it does not
+    depend on the host being kind.
+
+    The stubbed resolver is the point: the test asserts the behaviour on a host
+    that DOES have a name for 4778, which is the case that needed closing and
+    the one this machine cannot demonstrate.
+    """
+    import jcc_core.run as run_mod
+    from jcc_core.config import GREEN_PROTECTED_PORT, Config, ServerConfig
+
+    original = run_mod._resolve_port_via_getaddrinfo
+    try:
+        run_mod._resolve_port_via_getaddrinfo = (
+            lambda p: GREEN_PROTECTED_PORT if p == "jev-green" else None)
+
+        hostile = Config(server=ServerConfig(host="127.0.0.1", port="jev-green"))
+        refused_hostile = False
+        try:
+            run_mod.check_green_port_ownership(hostile)
+        except SystemExit:
+            refused_hostile = True
+
+        # Mirror image: a name that resolves elsewhere must NOT be refused, or
+        # the fix would be "refuse anything resolvable".
+        run_mod._resolve_port_via_getaddrinfo = lambda p: 8080
+        elsewhere = Config(server=ServerConfig(host="127.0.0.1", port="whatever"))
+        refused_elsewhere = False
+        try:
+            run_mod.check_green_port_ownership(elsewhere)
+        except SystemExit:
+            refused_elsewhere = True
+    finally:
+        run_mod._resolve_port_via_getaddrinfo = original
+
+    record(
+        "A_SERVICE_NAME_RESOLVING_TO_4778_IS_REFUSED_ON_ANY_HOST",
+        refused_hostile and not refused_elsewhere,
+        "name->4778 refused=%s (simulated hostile host); name->8080 refused=%s "
+        "(must be False, else the fix is a blanket refusal)"
+        % (refused_hostile, refused_elsewhere),
+    )
+
+
 def check_no_regression_in_existing_suites() -> None:
     """The two suites that encode the config/entrypoint contract must stay green."""
     env = fresh_env(CODEBUDDY_SAFE_DELETE_ENABLED="0",
                     JCC_PYTEST_ALLOW_DIRTY_ENV="1")
-    # A PER-RUN basetemp, and this is not cosmetic. `tools/conftest.py:29`
-    # computes the basetemp as a FIXED path (`<tmp>/jev-pytest`) and creates it
-    # with `mkdir(parents=True, exist_ok=False)`, so the second run against a
-    # leftover directory dies with
-    #   FileExistsError: [WinError 183] ... '.workbuddy\scratch\host_temp\jev-pytest'
-    # on EVERY test -- 32 errors that look exactly like a product regression and
-    # are nothing of the kind. Passing a unique --basetemp keeps this suite
-    # measuring the product instead of the previous run's leftovers.
+    # A PER-RUN basetemp, and this is a habit rather than a fix. `tools/conftest.py`
+    # pins the basetemp to a FIXED path (`<tmp>/jev-pytest`), so two pytest runs
+    # racing that directory produce `FileExistsError: [WinError 183]` on every
+    # test -- 32 errors that look exactly like a product regression.
+    #
+    # WHAT THIS IS NOT: an earlier version of this comment claimed conftest
+    # creates that directory with `exist_ok=False`, and that ANY run without
+    # `--basetemp` would fail. Both claims were WRONG and are retracted here
+    # because the comment is now permanent source. conftest actually uses
+    # `exist_ok=True`, and measured on this host the same two suites pass
+    # WITHOUT `--basetemp` (9 passed / 32 passed). The failures were caused by
+    # concurrent runs, not by conftest. Isolating the basetemp still removes a
+    # real source of interference, so the code stays -- but do not read it as
+    # a repair of anything.
     basetemp = Path(tempfile.mkdtemp(prefix="jcc_cr002_pytest_"))
     try:
         proc = subprocess.run(
@@ -559,6 +619,7 @@ def main() -> int:
     check_product_refused_on_4778()
     check_type_confused_ports_are_all_refused()
     check_green_port_resolution_is_not_default_dependent()
+    check_service_names_cannot_reach_the_green_port()
     check_product_instance_actually_starts_on_4779()
     check_product_instance_really_serves_health()
     check_entrypoint_refuses_4778_product()
