@@ -679,6 +679,16 @@ plus 28 more files in the same commit (25 further `pathlib` fixes, `lead_p1_veri
 
 ## 11. Full 30-leg gate — **NOT COMPLETE, do not read as a result**
 
+> **SUPERSEDED by `GATE_MEASUREMENT_2899bab.md`.** This section records the original
+> `--full` attempt, which was reaped by the sandbox during A7_INVARIANTS after 90
+> minutes. That document has the per-leg measurements that actually completed,
+> measured at the later HEAD `2899bab`: **15 of 30 legs measured, 13 PASS / 2 FAIL /
+> 15 NOT MEASURED.** It also records three broken measurement instruments of mine,
+> each of which first presented as a product failure. Where this section and that
+> document differ, **the later document is current** — but the two span different
+> HEADs, and per the freeze-anchor rule the HEAD itself moved during the measurement
+> window, so neither is a single-commit verdict.
+
 Run launched at HEAD `88ff8a8`, in the background, as instructed:
 
 ```
