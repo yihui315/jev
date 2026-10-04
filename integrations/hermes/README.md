@@ -21,10 +21,13 @@ source). Telemetry only; Hermes native safety is **not** bypassed.
 
 ## Install / uninstall
 
+Run from the repository root. `-JccRoot` is optional — the script derives the
+checkout from its own location, so these commands work wherever the repo lives.
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\hermes\install.ps1      # installs ~/.hermes/hooks/jcc-telemetry/
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\hermes\install.ps1 -DryRun
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\hermes\uninstall.ps1    # moves the dir to a timestamped backup
+powershell -ExecutionPolicy Bypass -File .\integrations\hermes\install.ps1      # installs ~/.hermes/hooks/jcc-telemetry/
+powershell -ExecutionPolicy Bypass -File .\integrations\hermes\install.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\integrations\hermes\uninstall.ps1    # moves the dir to a timestamped backup
 ```
 
 > Hermes loads hooks at **gateway startup** — restart the gateway to activate.

@@ -28,9 +28,12 @@ App Server steering DISABLED.
 
 ## Run the observer (verified path)
 
+Run from the repository root; the observer derives the checkout from its own
+location, so these work wherever the repo lives.
+
 ```powershell
-F:\jev\.venv\Scripts\python.exe F:\jev\integrations\codex\codex_rollout_observer.py --once
-F:\jev\.venv\Scripts\python.exe F:\jev\integrations\codex\codex_rollout_observer.py            # continuous
+.\.venv\Scripts\python.exe .\integrations\codex\codex_rollout_observer.py --once
+.\.venv\Scripts\python.exe .\integrations\codex\codex_rollout_observer.py            # continuous
 ```
 Offsets are tracked in `~/.jcc/codex_observer_state.json`, so records are read
 once. Records with no resolvable `session_id` are never ingested.
@@ -39,12 +42,12 @@ once. Records with no resolvable `session_id` are never ingested.
 
 ```powershell
 # probe + observer guidance only (no config change):
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\codex\install.ps1
+powershell -ExecutionPolicy Bypass -File .\integrations\codex\install.ps1
 # chain JCC notify (refuses if a user notify exists; -Force to chain):
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\codex\install.ps1 -EnableNotify
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\codex\install.ps1 -EnableNotify -Force
+powershell -ExecutionPolicy Bypass -File .\integrations\codex\install.ps1 -EnableNotify
+powershell -ExecutionPolicy Bypass -File .\integrations\codex\install.ps1 -EnableNotify -Force
 # rollback:
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\codex\uninstall.ps1
+powershell -ExecutionPolicy Bypass -File .\integrations\codex\uninstall.ps1
 ```
 
 `config.toml` is backed up (`config.toml.jcc-backup-<ts>`) and the original

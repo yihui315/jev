@@ -23,7 +23,7 @@ writes to any agent config; installers do that (see each `integrations/<agent>/`
 
 | Var | Default | Used by |
 | --- | --- | --- |
-| `JCC_ROOT` | `F:/jev` | all |
+| `JCC_ROOT` | *the checkout this file lives in* | all |
 | `JCC_CONTROL_TOKEN` | *(unset)* | emit (HTTP) |
 | `JCC_CORE_URL` | `http://127.0.0.1:4778` | emit (HTTP) |
 | `JCC_SPOOL_DIR` | `~/.jcc/spool` | emit |
@@ -50,7 +50,11 @@ Rejections (fail-closed, reason only — never the body/secret): `payload_too_la
 
 ## Manual run
 
+`<repo>` below is wherever this checkout lives — it is **not** a fixed drive, and
+the tooling derives it rather than being told. Nothing here needs editing when the
+checkout moves.
+
 ```powershell
 # normalize a native event and print the AEP envelope (no side effects)
-F:\jev\.venv\Scripts\python.exe F:\jev\integrations\_common\jcc_emit.py --agent claude --stdin-json <event.json> --dry-run
+<repo>\.venv\Scripts\python.exe <repo>\integrations\_common\jcc_emit.py --agent claude --stdin-json <event.json> --dry-run
 ```
