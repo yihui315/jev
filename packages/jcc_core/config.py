@@ -1,8 +1,14 @@
 """Configuration loading for JCC Core.
 
-Reads ``config/jcc.yaml`` (path overridable via ``JCC_CONFIG``) and applies
-environment overrides. The control token is NEVER stored in config — it is
-read from ``JCC_CONTROL_TOKEN`` at runtime (fail-closed if unset).
+Reads the v1.3 product config ``config/jcc-v1.3.yaml`` (path overridable via
+``JCC_CONFIG``) and applies environment overrides. The control token is NEVER
+stored in config — it is read from ``JCC_CONTROL_TOKEN`` at runtime
+(fail-closed if unset).
+
+The GREEN v1.0.1 baseline is a DIFFERENT instance with a different file,
+``config/jcc.yaml``, and it must be named explicitly (``JCC_CONFIG``) to run —
+see :data:`DEFAULT_CONFIG_PATH` for the fail-open this replaces, and
+:func:`is_green_config` for how the two instances are told apart.
 
 Provider mode (mock | disabled | real) may be overridden by ``JCC_PROVIDER``.
 A DB path override ``JCC_DB_PATH`` is honoured so the test harness can use an
@@ -24,8 +30,57 @@ import yaml
 #: relocation bug, not a configuration choice.
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
-DEFAULT_CONFIG_PATH = str(REPO_ROOT / "config" / "jcc.yaml")
+#: The DEFAULT is the v1.3 PRODUCT EDITION, not the GREEN baseline.
+#:
+#: HISTORY (CR-002, fail-open): this used to be ``config/jcc.yaml`` -- the GREEN
+#: baseline's own file, which carries ``server.port: 4778``. So a bare
+#: ``python -m jcc_core.run`` with no ``JCC_CONFIG`` came up as a *second* v1.3
+#: product instance ON TOP OF GREEN's protected port, which breaks the port
+#: ownership contract in config/jcc-v1.3.yaml and invalidates every GREEN-protection
+#: assertion the release makes. A product instance squatting the baseline's port is
+#: indistinguishable, from a health probe, from the baseline itself.
+#:
+#: WHY THIS DOES NOT MOVE GREEN (measured, not assumed): GREEN is only ever
+#: started by ``scripts/start.ps1``, which sets ``JCC_CONFIG`` EXPLICITLY to
+#: ``config\jcc.yaml`` before spawning the child. ``restart.ps1`` and
+#: ``ensure-stable-runtime.ps1`` both delegate to that same script, and the two
+#: durable Scheduled Tasks run the latter -- so no GREEN launch path reads this
+#: default. ``runtime/jcc/jcc.ownership.json`` corroborates it: ``config =
+#: F:\\jev\\config\\jcc.yaml``, ``created_by = scripts/start.ps1``.
+DEFAULT_CONFIG_PATH = str(REPO_ROOT / "config" / "jcc-v1.3.yaml")
+
+#: The GREEN baseline's configuration, and therefore its DECLARED IDENTITY.
+#:
+#: An instance's config file is what names it: GREEN is the thing started with
+#: this file, and a v1.2/v1.3/product instance is anything started with another
+#: one. ``run.check_green_port_ownership`` uses this to decide whether a process
+#: asking for :data:`GREEN_PROTECTED_PORT` is GREEN itself or a product instance
+#: that must be refused -- so GREEN keeps starting with no change to its launcher,
+#: and no new env var that a future launch path could forget to set.
+GREEN_CONFIG_PATH = str(REPO_ROOT / "config" / "jcc.yaml")
+
+#: Loopback port reserved for the frozen GREEN v1.0.1 baseline. A product
+#: instance must never bind it (master directive 0.2: read-only, never signal,
+#: stop, kill, rewrite, migrate or mutate).
+GREEN_PROTECTED_PORT = 4778
+
 DEFAULT_DB_PATH = str(REPO_ROOT / "runtime" / "jcc" / "jcc.db")
+
+
+def is_green_config(path: str) -> bool:
+    """True when ``path`` is GREEN's own config file.
+
+    Compares resolved, case-folded absolute paths so ``JCC_CONFIG`` spelled with
+    a different separator or drive-letter case still identifies correctly on
+    Windows. An empty/unusable path is NOT GREEN -- fail-closed.
+    """
+    if not path:
+        return False
+    try:
+        return (os.path.normcase(os.path.abspath(str(path)))
+                == os.path.normcase(os.path.abspath(GREEN_CONFIG_PATH)))
+    except (OSError, ValueError):
+        return False
 
 
 class ConfigError(RuntimeError):
@@ -60,7 +115,13 @@ def _resolve_db_path(raw: str) -> str:
 @dataclass
 class ServerConfig:
     host: str = "127.0.0.1"          # hardcoded to localhost-only at bind time too
-    port: int = 4778
+    # CR-002: the built-in default used to be 4778 -- GREEN's protected port. A
+    # Config built with NO server block (library callers, tests) therefore
+    # described a process that would land on the baseline's port. The default is
+    # now the canonical PRODUCT port, so "no port configured" and "GREEN" are no
+    # longer the same statement. GREEN still gets 4778 the only way it should:
+    # by naming config/jcc.yaml, which declares it.
+    port: int = 4779
     cors_origins: List[str] = field(
         default_factory=lambda: [
             "http://localhost:5173",
@@ -115,10 +176,26 @@ class Config:
     policy: PolicyConfig = field(default_factory=PolicyConfig)
     agents: Dict[str, Any] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
+    #: The config file this Config was actually read from. Empty means the
+    #: built-in defaults (no file was found), which is NOT the GREEN instance.
+    config_path: str = ""
+    #: True when the operator named the file (``path`` argument or ``JCC_CONFIG``)
+    #: rather than falling through to the default.
+    config_is_explicit: bool = False
 
     @property
     def control_token(self) -> "str | None":
         return os.environ.get(self.control_token_env)
+
+    @property
+    def is_green_instance(self) -> bool:
+        """True only for the GREEN baseline instance.
+
+        Deliberately NOT "the port is 4778": that would make the check circular
+        (a misconfigured product asking for 4778 would thereby qualify as GREEN).
+        Identity comes from the config file that was loaded.
+        """
+        return is_green_config(self.config_path)
 
 
 def load_config(path: "str | None" = None) -> Config:
@@ -138,6 +215,12 @@ def load_config(path: "str | None" = None) -> Config:
 
     A malformed or non-mapping default file still RAISES: a corrupt config is
     never ignorable, only a *missing* default is.
+
+    The file actually read is recorded on ``Config.config_path`` (and whether it
+    was named explicitly on ``Config.config_is_explicit``). ``run.py`` needs
+    both: a process may only hold :data:`GREEN_PROTECTED_PORT` if it is the
+    GREEN instance, and "is the GREEN instance" is decided by WHICH file was
+    loaded, not by a flag a launcher might forget to set.
     """
     explicit = path or os.environ.get("JCC_CONFIG")
     target = explicit or DEFAULT_CONFIG_PATH
@@ -195,4 +278,6 @@ def load_config(path: "str | None" = None) -> Config:
         policy=policy,
         agents=agents,
         raw=data,
+        config_path=str(target),
+        config_is_explicit=bool(explicit),
     )
