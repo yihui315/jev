@@ -234,45 +234,101 @@ precondition is satisfiable on a re-run.
 
 ---
 
-## 5. Family E — `stable-runtime-boot.jsonl` NUL lines — **TEST SCOPE DEFECT (pre-existing corruption), current writer is clean**
+## 5. Family E — `stable-runtime-boot.jsonl` corruption — **TEST SCOPE DEFECT; 5 corrupt lines, 2 distinct types, NOT a live product defect**
 
-**Verdict: not a live product defect. The failure is real data corruption in an
-untracked log; the code that produced it is fixed, and the test's scope is what makes
-it fail now.**
+**Verdict: not a live product defect. My FIRST description of this family was WRONG and is corrected below.**
 
-`tools/tests/test_stable_runtime_evidence.py:161` asserts `not bad` across the **whole
-file**, so any historical bad line fails the test regardless of the current writer.
+> **RETRACTED CLAIM (mine).** I first reported "3 lines, *entirely* NUL (1482/599/599
+> bytes)". Both halves of that were wrong. Writing a scrub tool
+> (`tools/cr_h4_beacon_scrub.py`) forced a byte-level classification that showed
+> **5** bad lines, and that the 3 I had described are **not** all-NUL. I generalised
+> from `bad[0]` in the test's own assertion message
+> (`tools/tests/test_stable_runtime_evidence.py:167` prints only the first bad
+> line) instead of counting the file. Same class of error as my retracted 2/6 flake
+> figure: I generalised from a sample and stated it as a count.
 
-Measured, per line, in `runtime/logs/stable-runtime-boot.jsonl` (4272 lines, 941 675 bytes):
+`tools/tests/test_stable_runtime_evidence.py:161` asserts `not bad` across the
+**whole file**, so any historical bad line fails the test regardless of the current
+writer.
 
-| line | bytes | next valid record's `at` |
-|---|---|---|
-| 3886 | 1482, entirely `\x00` | 2026-09-30T21:28:25 |
-| 3924 | 599, entirely `\x00` | 2026-09-30T21:56:44 |
-| 4203 | 599, entirely `\x00` | 2026-10-01T15:15:56 |
+### CR-H4: the file is UNTRACKED (team-lead's gate for touching it)
 
-All three are 2026-09-30/10-01. The newest line in the file is today and parses.
-Running the beacon writer now (`scripts/ensure-stable-runtime.ps1 -Watchdog -DryRun`,
-`artifacts/release/v1.3_final/beacon_probe_result.txt`):
+```
+$ git ls-files --error-unmatch runtime/logs/stable-runtime-boot.jsonl
+error: pathspec 'runtime/logs/stable-runtime-boot.jsonl' did not match any file(s) known to git
+$ git check-ignore -v runtime/logs/stable-runtime-boot.jsonl
+.gitignore:6:runtime/    runtime/logs/stable-runtime-boot.jsonl
+```
 
+Untracked and gitignored, so scrubbable in principle. **I did not scrub**, for the
+reason in the next section.
+
+### The measured truth: 5 bad lines, 2 types
+
+| type | line indexes | bytes | non-NUL bytes | recoverable? |
+|---|---|---|---|---|
+| 1 — NUL-padded | 3886 | 1482 | 156 | **YES**, JSON intact after stripping leading NULs |
+| 1 — NUL-padded | 3924 | 599 | 158 | **YES**, same |
+| 1 — NUL-padded | 4203 | 599 | 158 | **YES**, same |
+| 2 — torn write | 4214 | 317 | 317 | no |
+| 2 — torn write | 4234 | 279 | 279 | no |
+
+Type 1 records recovered intact (this is why they must NOT be deleted):
+```
+line 3886 -> at=2026-09-30T21:28:24.3816706+08:00 pid=2304 stage=enter
+line 3924 -> at=2026-09-30T21:56:44.1919941+08:00 pid=2228 stage=enter
+line 4203 -> at=2026-10-01T15:15:53.8511915+08:00 pid=2456 stage=enter
+```
+
+Type 2 is a duplicated fragment spliced mid-record — a torn concurrent append:
+```
+4214: ..."pid":7608,"user":"NT AUTHORITY\\SYSTEM","watchdog:"NT AUTHORITY\\SYSTEM","watchdog":false...
+4234: ..."pid":2484",:"NT AUTHORITY\\SYSTEM","watchdog":false...
+```
+
+### The scrub tool refused, which is the outcome I wanted
+
+```
+$ D:/jev/.venv/Scripts/python.exe tools/cr_h4_beacon_scrub.py
+bytes           : 943062
+sha256 BEFORE   : f6380edfc635d85a7c7fb7806e22f6e37d6469337c2822229c37d748b724ce6a
+all-NUL lines   : 0 -> indexes []
+other unparseable: 5 -> indexes [3886, 3924, 4203, 4214, 4234]
+REFUSING: 5 line(s) are unparseable but NOT all-NUL. Those may carry evidence, so
+this scrub only removes provably-empty lines.
+exit=1
+```
+
+The tool removes a line only when it is 100% NUL bytes. There are none, so it
+changed nothing. Deleting the 3 type-1 lines would have destroyed three real
+beacon records; had I trusted my own earlier write-up instead of measuring, that is
+exactly the damage I would have caused.
+
+### Current writer is clean (timing-independent evidence)
+
+`scripts/ensure-stable-runtime.ps1` `-Watchdog -DryRun`, lines it appended today
+(`artifacts/release/v1.3_final/beacon_probe_result.txt`):
 ```
 rc=0
 new_lines=2 valid_json=2 invalid=0
-NEW: {"at":"2026-10-04T17:53:46...","stage":"enter",...}
-NEW: {"at":"2026-10-04T17:53:46...","stage":"preflight-ok","detail":"port=4779;python=[D:\\jev\\.venv\\Scripts\\python.exe];..."}
 ```
+`Write-JccRawLog` (lines 104-118) opens/appends/flushes/closes with an explicit
+handle; `Write-JccBoot` (line 139) round-trips each line through
+`ConvertTo-Json | ConvertFrom-Json` **before** writing it. Two earlier writer defects
+are already documented and fixed in that file's comments.
 
-The writer (`Write-JccRawLog`, `scripts/ensure-stable-runtime.ps1:104-118`) opens
-append/write/flush/close explicitly and returns success, and `Write-JccBoot`
-serialises with `ConvertTo-Json` then **parses it back before writing**. Two earlier
-writer defects are already documented and fixed in that file's comments. The current
-code produces valid JSON, 2/2, including a correct `D:\jev` root.
+### Root cause of the 5 historical lines
 
-**Not repaired by me**: the three corrupt lines sit in a gitignored runtime log
-(`.gitignore:6` → `runtime/`). Rewriting or truncating a log is a data-destroying act
-on a file I did not create, and the corruption is historical, so I left it and am
-reporting it. **Decision needed from team-lead**: either accept the 3 stale lines as
-known history, or authorise a one-off scrub of exactly those 3 lines.
+All five are `NT AUTHORITY\SYSTEM` watchdog ticks dated 2026-09-30/10-01, and the
+type-2 pair carry `python=[F:\jev\.venv\...]` in their `detail` field. Concurrent
+append-mode writers to one file, in the `F:\jev` era, is consistent with torn
+records. Historical, not live.
+
+**Decision required from team-lead** (see §13 CR-H4): I recommend repairing the 3
+type-1 lines by stripping NULs — that *restores* evidence rather than deleting it —
+and documenting the 2 type-2 lines as unrecoverable. Note that repair alone does
+**not** turn the leg green, because the 2 torn lines still fail the assertion. That
+is precisely why I am not doing it unilaterally.
 
 ---
 
@@ -539,7 +595,7 @@ so **C2 remains FAIL**. The 6 residual, by family:
 | 1 | `test_both_watchdogs_are_registered_as_scheduled_tasks` | C | environment (privilege) |
 | 2 | `test_the_registration_verdict_refuses_a_disabled_or_misaimed_task` | C | environment (privilege) |
 | 3 | `test_doctor_on_this_host_does_not_suggest_starting_an_up_service` | D | environment (was: no service) |
-| 4 | `test_dry_run_tick_writes_a_boot_beacon` | E | historical log corruption |
+| 4 | `test_dry_run_tick_writes_a_boot_beacon` | E | historical log corruption — **5 bad lines, 2 types, see §5 (my first "3 entirely-NUL" claim was wrong)** |
 | 5 | `test_telemetry_verification_includes_resolved_identity` | F2 | host-state precondition (my regeneration surfaced it) |
 | 6 | `test_a_missing_record_becomes_degraded_not_verified` | F2 | host-state precondition (my regeneration surfaced it) |
 
@@ -599,13 +655,23 @@ plus 28 more files in the same commit (25 further `pathlib` fixes, `lead_p1_veri
   of `A1_FREEZE_MODEL` FAIL.
 * **CR-H2 → owner of `test_p2_integration_smoke.py`** — line 399
   `r.read().decode()` must be `.decode("utf-8")`; the default codec is `cp936` here.
-  Latent, not proven to be the recorded failure.
+  The **defect** is COMMUNITY-VERIFIED. The **recorded failure's cause is UNVERIFIED**,
+  and my single 9.68 s passing run is a lone un-replicated observation, NOT evidence of
+  a pass (per team-lead ruling 2026-10-04). To be confirmed in the final serial run or
+  left UNVERIFIED.
 * **CR-H3 → owner of `test_v1_1_capability_matrix.py`** — lines 205-213 and 275 assert
   `VERIFIED` telemetry for all four agents, which requires live session data for all
   four. Only `~/.workbuddy/sessions` exists on this host. Either the assertion must be
   host-conditional, or the artifact must stop pinning a transient `record_path`.
-* **CR-H4 → decision, team-lead** — authorise or decline a one-off scrub of exactly
-  3 NUL lines in `runtime/logs/stable-runtime-boot.jsonl` (Family E).
+  **Assigned to Forge by team-lead. Harbor is not touching `artifacts/` or these tests.**
+* **CR-H4 → decision, team-lead** — `runtime/logs/stable-runtime-boot.jsonl` is
+  **UNTRACKED** and gitignored (`.gitignore:6`), so the scrub gate is open. But the
+  byte-level re-measurement found **5** bad lines in **2** types, not the "3 entirely
+  NUL" I first reported: 3 are NUL-**padded** with the JSON fully recoverable, and 2
+  are torn writes. `tools/cr_h4_beacon_scrub.py` **refuses** (exit 1) because it only
+  deletes provably-empty lines and there are none. Recommended: repair the 3 by
+  stripping NULs (restores evidence), document the 2 as unrecoverable. Note this alone
+  does not green the leg, because the 2 torn lines still fail the assertion.
 
 **Nothing under `docs/v1_3/` was modified. No `git clean`, no `push`, no `force`.**
 
@@ -757,7 +823,7 @@ measurement**, and is labelled as such. Do not quote it as a result.
 | B | `F:\jev` in 4 shipped files | REAL PRODUCT DEFECT | yes, `88ff8a8` | VERIFIED (PS 5.1 `JccRoot=D:\jev`) |
 | C | scheduled-task registration probes | ENVIRONMENT (no elevation) | no — needs operator | VERIFIED (146 tasks, 0 JCC; WinError 5) |
 | D | doctor `next:` hint | ENVIRONMENT (service was down) | no — service now up | VERIFIED (probe JSON) |
-| E | 3 NUL lines in boot beacon log | HISTORICAL CORRUPTION / test scope | no — needs CR-H4 | VERIFIED (byte-level, dated) |
+| E | 5 bad lines in boot beacon log (3 NUL-padded + 2 torn) | HISTORICAL CORRUPTION / test scope | no — needs CR-H4 | VERIFIED (byte-level, 2 types) |
 | F | §7 + capability matrix stale | ARTIFACT CURRENCY | regenerated | VERIFIED (field-level diff) |
 | G | p2 HTTP `.decode()` no codec | TEST DEFECT (latent) | no — CR-H2 | VERIFIED defect / **UNVERIFIED** as cause |
 | H | threaded append `database is locked` | **UNRESOLVED** — flake claim withdrawn (§8.1) | no | **2-of-6 figure WITHDRAWN** (measured under my own concurrent load); clean DELETE-arm run showed 0 errors |
@@ -770,3 +836,53 @@ because Family J appeared; with J fixed the expectation is 10 failed / 0 errors.
 I have **not** re-run the full suite after the J fix, so treat that expectation
 as a prediction, not a measurement. I am not claiming the project-level blocker
 count, because the full gate has still not completed at any single commit.
+
+---
+
+## 14. Retraction ledger — every claim I withdrew, and why
+
+team-lead noted this round produced repeated self-overturns and asked that the pattern be
+recorded rather than any individual fix. This is that record. **All entries are mine.**
+
+| # | Claim I made | Withdrawn because | Correct state |
+|---|---|---|---|
+| R1 | `test_threaded_appends_keep_one_contiguous_chain` is a **product** defect (2/6 flake rate) | The 2 failures both fell inside the stress_1–3 window, and my own concurrent C2 run finished at 18:01:32 inside it — competing for the same SQLite/temp resources. Lead independently verified the timestamps. | **UNRESOLVED.** Neither test defect nor product defect signed. Not re-tested; the next full run measures it serially (§8.1). |
+| R2 | WAL is the fix for the above | I wrote the falsifier to test my own hypothesis and it **refuted** it: DELETE 200/200 rows ×3, zero errors; WAL 25/100/125 rows + `readonly database` ×14. | **REFUTED.** CR closed, no fix proposed (§8.2). |
+| R3 | boot beacon has **3** bad lines, **entirely** NUL | Writing the scrub tool forced a byte-level classification: there are **5**, and the 3 I described carry 156–158 non-NUL bytes with fully recoverable JSON. I had generalised from `bad[0]` in the test's own assertion message instead of counting the file. | **Corrected in §5.** 3 NUL-padded (recoverable) + 2 torn. |
+| R4 | `test_p2_integration_smoke` GBK failure is "transient host state" | That rested on one 9.68 s passing run, itself taken while other runs were active. | **UNVERIFIED** as to cause. The `.decode()`-without-codec defect stands on a reading of line 399 (§7). |
+
+**Common failure mode, R1/R3/R4: generalising from a sample and stating it as a
+population fact.** Twice I had a cheap partial signal — one bad line reported by the
+test, one passing run — and wrote it as a count or a verdict. R3 is the clearest: the
+test literally prints only the first bad line, and I wrote "3 lines".
+
+**What I want preserved as the positive case:** in each instance the withdrawal came
+from a measurement *I chose to run*, not from being asked. In R1 the 2/6 number was
+**favourable to me** — it would have supported a tidy "the test is missing
+`busy_timeout`" fix and turned the C1 leg green. I withdrew it anyway.
+
+### The distinction team-lead asked me to preserve
+
+The real product defects rest on **timing-independent** evidence and are unaffected by
+all of the above:
+
+* `tools/fix_missing_pathlib_import.py` → `changed=0 skipped=26 failed=0` (exit 0) —
+  a static AST check. No clock, no concurrency.
+* `env -u JCC_ROOT python tools/jcc_continuation.py selftest` → `33/33` (exit 0) —
+  a deterministic state-machine self-test.
+* `JccRoot = D:\jev` under real Windows PowerShell 5.1, `venvExists=True` —
+  one deterministic query.
+* Family J probe round-trip — see §12.
+
+None depends on a wall-clock measurement, so none can be re-interpreted by the
+concurrency discovery. **The C2 trajectory (12→0 errors, 21→6 failures) is a count,
+not a timing, and is likewise unaffected.**
+
+### Systemic cause (team-lead's synthesis, which I endorse)
+
+Every concurrency-tainted result this round traces to one assumption: **this repo's
+test infrastructure assumes single-process exclusivity.** `packages/conftest.py:190`
+forcing a shared basetemp (CR-H1) is that assumption in one line. CR-H1 is therefore
+not "fix one failing test" — it is the precondition for this repo being verifiable in
+parallel at all.
+
