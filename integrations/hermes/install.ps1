@@ -8,14 +8,20 @@
 # Reversible: uninstall.ps1 removes (and backs up) only this hook directory.
 #
 # Usage:
-#   powershell -ExecutionPolicy Bypass -File install.ps1 [-JccRoot F:\jev] [-DryRun]
+#   powershell -ExecutionPolicy Bypass -File install.ps1 [-JccRoot D:\jev] [-DryRun]
 # Exit codes: 0 = ok, 1 = failure.
 param(
-  [string]$JccRoot = "F:\jev",
+  [string]$JccRoot = "",
   [switch]$DryRun
 )
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# $JccRoot defaults to the checkout this script lives in (integrations/hermes ->
+# repo root), not to a hardcoded drive letter. It is substituted into the
+# handler.py template below, because the installed handler lives OUTSIDE this
+# checkout and cannot derive the root from its own __file__.
+$repoRoot = Split-Path -Parent (Split-Path -Parent $here)
+if ([string]::IsNullOrWhiteSpace($JccRoot)) { $JccRoot = $repoRoot }
 $log  = Join-Path $here "install.log"
 function Log($m) { $line = "$(Get-Date -Format o) $m"; Write-Host $line; Add-Content -LiteralPath $log -Value $line -Encoding UTF8 }
 
@@ -49,12 +55,32 @@ try {
   }
 
   Copy-Item -LiteralPath $hookYaml  -Destination (Join-Path $hookDir "HOOK.yaml")  -Force
-  Copy-Item -LiteralPath $handler   -Destination (Join-Path $hookDir "handler.py") -Force
+
+  # The handler is RENDERED, not copied verbatim: it is installed OUTSIDE this
+  # checkout, so it cannot derive the repo root from __file__ and relies on the
+  # __JCC_ROOT__ token being substituted here. Copy-then-substitute would leave a
+  # literal token in a live file, so read -> substitute -> write, and fail closed
+  # if the token is somehow absent (a renamed template must not install silently).
+  $handlerText = Get-Content -LiteralPath $handler -Raw
+  if ($handlerText -notmatch "__JCC_ROOT__") { throw "handler template lost its __JCC_ROOT__ token; refusing to install an unrendered handler" }
+  # Backslashes are escaped for the Python string literal the template holds.
+  $pyRootLiteral = $JccRoot.Replace("\", "\\")
+  $handlerText = $handlerText.Replace("__JCC_ROOT__", $pyRootLiteral)
+  $installedHandler = Join-Path $hookDir "handler.py"
+  # WriteAllText with an explicit UTF8 (no BOM) so Python reads it byte-exactly.
+  [System.IO.File]::WriteAllText($installedHandler, $handlerText, (New-Object System.Text.UTF8Encoding($false)))
 
   # Validate the manifest is parsable YAML with the JCC marker name.
   $txt = Get-Content -LiteralPath (Join-Path $hookDir "HOOK.yaml") -Raw
   if ($txt -notmatch "name:\s*jcc-telemetry") { throw "HOOK.yaml validation failed" }
   if (-not (Test-Path -LiteralPath (Join-Path $hookDir "handler.py"))) { throw "handler.py missing after install" }
+  # The rendered handler must no longer contain the token, and the root it was
+  # rendered with must actually contain the emitter.
+  $rendered = Get-Content -LiteralPath (Join-Path $hookDir "handler.py") -Raw
+  if ($rendered -match "__JCC_ROOT__") { throw "handler.py still contains __JCC_ROOT__ after rendering" }
+  if (-not (Test-Path -LiteralPath (Join-Path $JccRoot "integrations\_common\jcc_emit.py"))) {
+    throw "rendered JccRoot does not contain the emitter: $JccRoot"
+  }
 
   Log "installed Hermes hook: $hookDir"
   Log "NOTE: Hermes reads hooks at gateway startup; restart the gateway to activate."

@@ -5,10 +5,13 @@
 #
 # Exit codes: 0 = ok, 1 = failure.
 param(
-  [string]$JccRoot = "F:\jev"
+  [string]$JccRoot = ""
 )
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# Derived from this script's own location, not a hardcoded drive letter.
+$repoRoot = Split-Path -Parent (Split-Path -Parent $here)
+if ([string]::IsNullOrWhiteSpace($JccRoot)) { $JccRoot = $repoRoot }
 $log  = Join-Path $here "uninstall.log"
 function Log($m) { $line = "$(Get-Date -Format o) $m"; Write-Host $line; Add-Content -LiteralPath $log -Value $line -Encoding UTF8 }
 

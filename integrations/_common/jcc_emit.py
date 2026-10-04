@@ -19,7 +19,7 @@ Env:
   JCC_CONTROL_TOKEN   control token for /api/assess (required for HTTP)
   JCC_CORE_URL        default http://127.0.0.1:4778
   JCC_SPOOL_DIR        default ~/.jcc/spool
-  JCC_ROOT             repo root (default F:/jev)
+  JCC_ROOT            repo root override; default = the checkout this file lives in
 """
 from __future__ import annotations
 
@@ -33,7 +33,20 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-DEFAULT_ROOT = os.environ.get("JCC_ROOT", "F:/jev")
+#: Repository root, derived from this file's location rather than hardcoded --
+#: the same idiom as ``jcc_core/config.py``. ``jcc_emit.py`` lives at
+#: ``<repo>/integrations/_common/jcc_emit.py``, so two ``parents`` steps up is
+#: the repo root. The literal this replaced pointed at a drive that no longer
+#: exists, which made ``sys.path`` gain a dead entry and turned the
+#: ``jcc_core`` import below into a LOAD-TIME failure -- breaking the native
+#: event path for all four agents, not just one entry point.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: ``JCC_ROOT`` still wins: it is a supported operator override for pointing the
+#: hook at a checkout other than this file's. It is honoured verbatim (absolute
+#: or not) because an operator who names a location means it. Only the FALLBACK
+#: is derived, so the default can never name a drive that is not there.
+DEFAULT_ROOT = os.environ.get("JCC_ROOT") or str(REPO_ROOT)
 _PACKAGES = str(Path(DEFAULT_ROOT) / "packages")
 if _PACKAGES not in sys.path:
     sys.path.insert(0, _PACKAGES)
