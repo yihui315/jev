@@ -143,6 +143,7 @@ def fsize(p):
 
 # ============================ PHASE A: freeze scene ========================
 import hashlib
+from pathlib import Path
 
 def sha(p):
     if not os.path.isfile(p):

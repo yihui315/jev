@@ -20,6 +20,7 @@ import json
 import os
 import sys
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
 ROOT = str(Path(__file__).resolve().parents[1])
 DEFAULT_EVIDENCE = os.path.join(ROOT, r"artifacts\acceptance\win_scripts\E07_FINAL_EVIDENCE.json")

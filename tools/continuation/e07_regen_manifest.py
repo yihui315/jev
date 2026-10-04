@@ -5,6 +5,7 @@ PHASE 0 rule: never silently re-pin and pretend it is the same acceptance window
 If any frozen script byte differs from the PHASE 0 record -> report MOVED and exit 9.
 """
 import subprocess, os, hashlib, io, json, datetime, sys
+from pathlib import Path
 
 ROOT = str(Path(__file__).resolve().parents[2])
 FROZEN = ["scripts/acceptance.ps1", "scripts/bootstrap.ps1", "scripts/doctor.ps1",

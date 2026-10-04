@@ -61,9 +61,16 @@ import os
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-ROOT = r"F:\jev"
+#: Repo root, DERIVED from this file's location. The literal this replaced was
+#: ``r"F:\jev"``, a drive that does not exist on the current host, so
+#: ``_load_proof_contract()`` raised FileNotFoundError at MODULE level (line 126,
+#: before ``main()``) and the FINAL-12 step could not run at all. Same idiom as
+#: ``jcc_core/config.py``. JCC_ROOT still wins, for pointing the gate at a
+#: checkout other than this one.
+ROOT = os.environ.get("JCC_ROOT") or str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 STATE = os.path.join(ROOT, ".workbuddy", "jcc_execution_state.json")
 OUT = os.path.join(ROOT, "artifacts", "acceptance", "project_run_gate_result.json")

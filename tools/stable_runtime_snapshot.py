@@ -53,6 +53,7 @@ import tarfile
 import tempfile
 import urllib.request
 from datetime import datetime, timezone
+from pathlib import Path
 
 DEFAULT_ROOT = str(Path(__file__).resolve().parents[1])
 SCHEMA = "jcc.stable-runtime-snapshot/1"

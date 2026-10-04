@@ -13,7 +13,26 @@
 
 Set-StrictMode -Version 2.0
 
-$script:JccRoot = 'F:\jev'
+# WHY THIS IS DERIVED AND NOT TYPED IN. The literal this replaced was
+# 'F:\jev'. That drive does not exist on the current host, so every path built
+# from $script:JccRoot below -- the venv python probe (line ~194), the scheduled
+# task's WorkingDirectory (line ~431/495), the recorded working_directory
+# (line ~536) -- resolved into a drive that is not there, and the task
+# registration dry-run reported working_directory 'F:\jev' where the repo
+# actually is. Same idiom as jcc_core/config.py: derive from the file's own
+# location, and let JCC_ROOT override it for an operator who points a watchdog
+# at a checkout other than this one.
+#
+# $PSScriptRoot is this file's directory: <repo>\scripts\lib. Two levels up is
+# the repo root. Falls back to the literal only if the derivation is somehow
+# empty, so the variable is never $null (Set-StrictMode -Version 2.0 would then
+# throw on every use).
+$script:JccRoot = if ($env:JCC_ROOT) {
+    $env:JCC_ROOT
+} else {
+    $derived = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+    if ($derived) { $derived } else { 'F:\jev' }
+}
 
 # ONE encoder, used by every writer in this file and by both watchdogs' audit
 # logs. Windows PowerShell 5.1's `-Encoding UTF8` on Set-Content/Add-Content

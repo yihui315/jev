@@ -33,6 +33,7 @@ shipped watchdog watches the continuation controller, and no component in this
 repository restarts the service if it dies. That gap is reported, not papered over.
 """
 import io, json, os, subprocess, sys, time, datetime
+from pathlib import Path
 
 # The replica builder lives next to this file. Executed as a file, sys.path[0] is
 # already this directory; loaded by path from a test, it is not -- so the
