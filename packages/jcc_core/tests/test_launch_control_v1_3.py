@@ -116,7 +116,19 @@ def _make(tmp_path: Path, *, tid: str = _OK_TID, script: str = _OK_SCRIPT,
     mission = domain.create_mission(project.project_id, "Unit mission", goal="say hi")
     tpl = _template(tid, script)
     signer = DirectiveSigner(signer_key, form=SIGNING_FORM_V2)
-    launcher = HostLauncher(signer=signer, templates={tid: tpl})
+    # CR-003: this fixture's project root IS tmp_path, so tmp_path is the
+    # workspace boundary it means. The boundary goes on the LAUNCHER, not on the
+    # controller: this fixture injects its own launcher, and an injected launcher
+    # is used as-is (so that a test can supply a custom template registry), which
+    # means a `scope_base=` passed to the controller would be silently ignored
+    # here. Without a declared boundary every launch in this file is refused for
+    # being outside the repository root -- correctly, but not what these tests are
+    # about. Declaring it keeps each test's original subject intact: a root that
+    # VANISHES still yields PROJECT_ROOT_MISSING, because a vanished root INSIDE
+    # the boundary passes containment and then fails existence. Scope refusal
+    # itself is pinned in tools/cr003_project_root_falsifier.py.
+    launcher = HostLauncher(signer=signer, templates={tid: tpl},
+                            scope_base=str(tmp_path))
     runtime = _StubRuntime()
     ctl = LC.LaunchController(
         domain, runtime, signer=signer, launcher=launcher,

@@ -32,6 +32,19 @@ server:
 control:
   token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
 
+launcher:
+  # CR-003: the workspace boundary a mission's project_root must sit inside.
+  # A launch sets the child's cwd here AND passes it to the agent as --add-dir,
+  # which is the directory its Read/Edit/Write/Glob/Grep/Bash tools are granted,
+  # so a root outside this base is a privilege grant rather than a convenience.
+  # Leave EMPTY to take the default: jcc_core.config.DEFAULT_PROJECT_SCOPE_BASE
+  # is the repository root, derived from __file__ (never a hardcoded drive
+  # letter -- this project has been broken by that three times already). A
+  # relative value is resolved against the repository root; an absolute value is
+  # honoured verbatim. A base that does not exist refuses EVERY launch
+  # (fail-closed), so a typo here cannot silently widen the boundary.
+  project_scope_base: ""
+
 state_store:
   # RELATIVE to the repository root. The absolute form this line used to carry
   # (F:/jev/...) became a load failure the moment the checkout moved drives; a

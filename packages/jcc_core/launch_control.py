@@ -337,12 +337,19 @@ class LaunchController:
                  measure_path: Optional[Path] = None,
                  journal_path: Optional[Path] = None,
                  audit: Optional[Callable[[Dict[str, Any]], None]] = None,
-                 collect_timeout_s: float = DEFAULT_COLLECT_TIMEOUT_S) -> None:
+                 collect_timeout_s: float = DEFAULT_COLLECT_TIMEOUT_S,
+                 scope_base: Optional[str] = None) -> None:
         self.domain = domain
         self.runtime = runtime
         self.policy_version = policy_version
         self.signer = signer or DirectiveSigner(load_signing_key(), form=SIGNING_FORM_V2)
-        self.launcher = launcher or HostLauncher(signer=self.signer)
+        # CR-003: the scope base reaches the launcher this way, so the configured
+        # boundary is the one enforced. Constructed WITHOUT it here would leave
+        # `launcher.project_scope_base` in the config file as a decorative key --
+        # readable, plausible, and inert -- which is the failure mode this project
+        # treats as worse than an absent control.
+        self.launcher = launcher or HostLauncher(signer=self.signer,
+                                                 scope_base=scope_base)
         self.measure_path = Path(measure_path) if measure_path else None
         self.journal_path = Path(journal_path) if journal_path else None
         self.audit = audit

@@ -223,6 +223,9 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         measure_path=default_measure_path(config.state_store_db_path),
         journal_path=_runtime_dir / "launch_journal.ndjson",
         policy_version="p3.0.0",
+        # CR-003: hand the launcher the boundary THIS instance's config declares.
+        # Omitting it would leave `launcher.project_scope_base` decorative.
+        scope_base=config.launcher.project_scope_base,
     )
     app.state.launch_controller = launch_ctl
 

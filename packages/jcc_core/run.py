@@ -30,6 +30,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -94,6 +95,36 @@ def check_bind_host(config) -> None:
         )
 
 
+def _resolve_port_via_getaddrinfo(port) -> Optional[int]:
+    """Resolve a NON-NUMERIC port the way ``bind()`` would. Read-only.
+
+    Returns the numeric port ``port`` denotes, or None when it denotes nothing
+    bindable. ``socket.bind((host, "jev-green"))`` is legal and goes through
+    ``getaddrinfo``, which accepts both numbers and service names -- so asking
+    the same question the same way is what keeps this guard and the actual bind
+    from disagreeing.
+
+    Loopback only, and it opens nothing: ``getaddrinfo`` is a name lookup.
+    """
+    if isinstance(port, (bytes, bytearray)):
+        try:
+            port = port.decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            return None
+    if not isinstance(port, str) or not port.strip():
+        return None
+    try:
+        infos = socket.getaddrinfo(
+            BIND_HOST, port.strip(), type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError, ValueError, OSError):
+        return None
+    for info in infos:
+        sockaddr = info[4]
+        if sockaddr and isinstance(sockaddr[1], int):
+            return int(sockaddr[1])
+    return None
+
+
 def check_green_port_ownership(config) -> None:
     """Fail-closed: only the GREEN baseline itself may hold GREEN's port (CR-002).
 
@@ -143,17 +174,35 @@ def check_green_port_ownership(config) -> None:
     asking for port 4778?" and cannot be fooled by how the number was spelled.
 
     ``int()`` also collapses ``4778.0`` and ``" 4778 "``, which is why the float
-    form is refused too. A value that is not a number at all cannot equal a port,
-    so it is left alone and fails later at bind time, where the operator sees it.
+    form is refused too.
+
+    WHAT IS *NOT* PROVEN BY "int() FAILED, THEREFORE IT IS NOT 4778" (residual
+    risk found by metric-verify, closed here). ``socket.bind((host, port))``
+    accepts a STRING port and resolves it through ``getaddrinfo``, which also
+    accepts a SERVICE NAME. So a config carrying ``port: jev-green`` would pass
+    an ``int()``-based guard, and on a host where some service name happens to be
+    registered against 4778 it would still land on the protected port. Measured
+    on this host: ``getservbyport(4778)`` raises ``OSError`` and none of the
+    plausible names resolve to 4778 -- so the hole is not reachable HERE, but
+    that is a property of this machine's service database, not of this code.
+
+    Rather than trust the host, a non-numeric port is now RESOLVED and refused if
+    it lands on the protected port. Resolution is done by asking the OS the same
+    way ``bind`` will, so the two cannot disagree. The lookup is read-only, and
+    if resolution itself fails the value is left alone -- an unresolvable port
+    cannot be bound, so it fails at bind time with an error the operator can see.
     """
     port = getattr(getattr(config, "server", None), "port", None)
     try:
         port_number = int(port)
     except (TypeError, ValueError):
-        # Not a number: this cannot be the protected port. Do not invent a
-        # verdict here -- uvicorn will reject it, and refusing an unparseable
-        # port as "GREEN" would be a misleading message.
-        return
+        # Not a number. It still might be a SERVICE NAME that resolves to the
+        # protected port, so ask the OS exactly as bind() would.
+        port_number = _resolve_port_via_getaddrinfo(port)
+        if port_number is None:
+            # Unresolvable => cannot be bound => not the protected port. Do not
+            # invent a verdict here; uvicorn will reject it with a real message.
+            return
     if port_number != GREEN_PROTECTED_PORT:
         return
     if getattr(config, "is_green_instance", False):

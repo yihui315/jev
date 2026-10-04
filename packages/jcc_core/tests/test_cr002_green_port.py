@@ -164,10 +164,72 @@ def test_path_spelling_of_green_config_still_identifies_as_green():
 
 
 # --------------------------------------------------------------------------- #
+# a service NAME must not be a way around the guard
+# --------------------------------------------------------------------------- #
+def test_a_service_name_resolving_to_the_green_port_is_refused():
+    """"int() failed" does not imply "this is not 4778" -- and that must not matter.
+
+    ``socket.bind((host, port))`` accepts a STRING port and resolves it through
+    ``getaddrinfo``, which also accepts a SERVICE NAME. So a config carrying
+    ``port: <some-name>`` passes an int()-only guard, and on a host where a name
+    is registered against the protected port it would still land there.
+
+    Found by metric-verify. The guard now resolves such values the same way bind
+    would. The assertion below does NOT depend on this host's service database:
+    it patches the resolver to answer as a HOST THAT HAS A NAME FOR 4778 would,
+    which is the case that actually needed closing.
+    """
+    import jcc_core.run as run_mod
+
+    original = run_mod._resolve_port_via_getaddrinfo
+    try:
+        # Simulate the hostile host: this name resolves to the protected port.
+        run_mod._resolve_port_via_getaddrinfo = lambda p: (
+            GREEN_PROTECTED_PORT if p == "jev-green" else None)
+        cfg = Config(server=ServerConfig(host="127.0.0.1", port="jev-green"))
+        assert cfg.is_green_instance is False
+        with pytest.raises(SystemExit) as ei:
+            run_mod.check_green_port_ownership(cfg)
+        assert ei.value.code not in (0, None)
+        assert str(GREEN_PROTECTED_PORT) in str(ei.value)
+    finally:
+        run_mod._resolve_port_via_getaddrinfo = original
+
+
+def test_a_service_name_resolving_elsewhere_is_not_refused():
+    """The mirror image: resolving a name must not become a blanket refusal."""
+    import jcc_core.run as run_mod
+
+    original = run_mod._resolve_port_via_getaddrinfo
+    try:
+        run_mod._resolve_port_via_getaddrinfo = lambda p: 8080
+        cfg = Config(server=ServerConfig(host="127.0.0.1", port="whatever"))
+        run_mod.check_green_port_ownership(cfg)  # must not raise
+    finally:
+        run_mod._resolve_port_via_getaddrinfo = original
+
+
+def test_the_resolver_agrees_with_the_numeric_port():
+    """The resolver must return what bind() would use, or the two can disagree.
+
+    A resolver that answered something other than the numeric port would make the
+    guard and the actual bind disagree -- which is the failure this whole path
+    exists to prevent.
+    """
+    from jcc_core.run import _resolve_port_via_getaddrinfo
+
+    assert _resolve_port_via_getaddrinfo(str(GREEN_PROTECTED_PORT)) == \
+        GREEN_PROTECTED_PORT
+    assert _resolve_port_via_getaddrinfo("not-a-port-xyz") is None
+    assert _resolve_port_via_getaddrinfo("") is None
+    assert _resolve_port_via_getaddrinfo(None) is None
+
+
+# --------------------------------------------------------------------------- #
 # a non-numeric port is not this guard's business
 # --------------------------------------------------------------------------- #
 def test_a_non_numeric_port_is_not_treated_as_the_green_port(tmp_path):
-    """Fail honestly: an unparseable port is not 'GREEN', it is broken config.
+    """Fail honestly: an unresolvable port is not 'GREEN', it is broken config.
 
     Claiming it is GREEN would produce a misleading message and, worse, would
     mean the guard's answer depended on a coincidence rather than on the port.

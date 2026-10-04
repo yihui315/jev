@@ -60,6 +60,7 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .config import DEFAULT_PROJECT_SCOPE_BASE
 from .nonce_cache import ReplayCache
 from .signing import (
     REASON_APPROVAL_MISSING,
@@ -501,6 +502,57 @@ def _is_inside(child: str, parent: str) -> bool:
         return False
 
 
+#: A project root that exists but sits OUTSIDE the configured workspace base.
+#:
+#: DELIBERATELY DISTINCT FROM ``PROJECT_ROOT_MISSING`` (CR-003). The two answers
+#: mean opposite things to whoever has to fix it: MISSING says "that path is not
+#: there" (create it, or point at the right directory), OUT_OF_SCOPE says "that
+#: path is right there and you may not use it" (a policy decision, and possibly
+#: an attack). Collapsing them into one code would make a refused traversal
+#: indistinguishable from a typo, and an operator reading the audit tape would be
+#: told to go create the very directory the guard just declined to expose.
+REASON_PROJECT_ROOT_OUT_OF_SCOPE = "PROJECT_ROOT_OUT_OF_SCOPE"
+
+
+def project_scope_violation(project_root: str, base: str) -> str:
+    """Return a refusal message when ``project_root`` is outside ``base``.
+
+    An empty string means "inside scope" -- the caller already owns a separate
+    existence check for the root itself, and this function must not answer that
+    question (see the ordering note in :meth:`HostLauncher.launch`).
+
+    THE ORDERING IS LOAD-BEARING, and it was measured rather than chosen. On this
+    host ``../../../../Windows/System32`` and ``/etc/passwd`` both resolve to
+    paths that DO NOT EXIST (``D:\\Windows\\System32``, ``D:\\etc\\passwd``), so an
+    existence-first guard answers ``PROJECT_ROOT_MISSING`` for them -- a traversal
+    probe gets reported as a typo, and the audit tape claims "no such directory"
+    about an attack. Containment is therefore evaluated FIRST, and only a root
+    that IS inside the base is then asked to exist. That ordering also means an
+    out-of-scope path cannot be probed for existence at all: the answer is
+    identical whether the directory is there or not.
+    """
+    if not project_root or not str(project_root).strip():
+        return ""            # nothing to scope-check; the caller owns emptiness
+    if _is_inside(str(project_root), base):
+        return ""
+    return (
+        "refusing to launch: project_root %r is outside the workspace boundary. "
+        "A launch sets the child's cwd to this path AND passes it to the agent "
+        "as --add-dir, which is the directory the agent's Read/Edit/Write/Glob/"
+        "Grep/Bash tools are granted -- so a root outside the boundary is a "
+        "privilege grant, not a working-directory convenience. "
+        "The boundary is the config item launcher.project_scope_base, currently "
+        "%r, and the root must be that directory or below it. "
+        "To widen the boundary, set launcher.project_scope_base in the config "
+        "file this instance loaded; its default (jcc_core.config."
+        "DEFAULT_PROJECT_SCOPE_BASE) is the repository root derived from "
+        "__file__, never a hardcoded drive letter. Note that '..' traversal, a "
+        "different drive, and a POSIX-shaped path are all resolved before "
+        "comparison, so a root that merely LOOKS relative cannot step outside."
+        % (str(project_root), base)
+    )
+
+
 class HostLauncher:
     """Verify a signed launch directive, then start an allowlisted workload.
 
@@ -511,11 +563,17 @@ class HostLauncher:
     def __init__(self, *, signer: Optional[DirectiveSigner] = None,
                  replay: Optional[ReplayCache] = None,
                  templates: Optional[Dict[str, LaunchTemplate]] = None,
-                 audit: Any = None) -> None:
+                 audit: Any = None,
+                 scope_base: Optional[str] = None) -> None:
         self.signer = signer or DirectiveSigner(load_signing_key(), form=SIGNING_FORM_V2)
         self.replay = replay or ReplayCache()
         self.templates = templates if templates is not None else LAUNCH_TEMPLATES
         self.audit = audit
+        # CR-003: the workspace boundary. Injectable so a caller (and a test) can
+        # state the boundary it means rather than inheriting one; the default is
+        # the DERIVED repo root, imported from config so there is exactly one
+        # definition of "where this checkout is" in the codebase.
+        self.scope_base = str(scope_base) if scope_base else DEFAULT_PROJECT_SCOPE_BASE
         # The digest is computed from the registry this instance will actually
         # execute; see template_registry_digest.
         self.registry_digest = template_registry_digest(self.templates)
@@ -671,6 +729,15 @@ class HostLauncher:
             if head_problem:
                 problems.append({"code": head_problem, "detail": tpl.template_id})
         root = Path(intent.project_root) if intent.project_root else None
+        # CR-003: scope BEFORE existence, and for the same reason launch() does --
+        # a traversal probe must not be reported as a missing directory. Both
+        # paths are reported so a preview cannot say "launchable" for a root the
+        # commit would refuse; a preview that lies about the one thing it exists
+        # to predict is worse than no preview.
+        scope_problem = project_scope_violation(intent.project_root, self.scope_base)
+        if scope_problem:
+            problems.append({"code": REASON_PROJECT_ROOT_OUT_OF_SCOPE,
+                             "detail": scope_problem})
         if not root or not root.is_dir():
             problems.append({"code": "PROJECT_ROOT_MISSING",
                              "detail": intent.project_root or ""})
@@ -757,6 +824,27 @@ class HostLauncher:
         # The project root binding is re-checked HERE, not only in preview: a
         # directive that was previewed against one root must not be replayable
         # against another.
+        #
+        # CR-003 -- SCOPE IS CHECKED BEFORE EXISTENCE, deliberately. This is the
+        # whole point of the guard and the order is load-bearing. Measured on
+        # this host: '../../../../Windows/System32' and '/etc/passwd' both resolve
+        # to paths that do NOT exist, so an existence-first guard would report
+        # PROJECT_ROOT_MISSING for them -- calling an attack a typo, and writing
+        # "no such directory" into the audit tape about a traversal attempt.
+        # Containment first also means an out-of-scope path cannot be probed for
+        # existence: the verdict is the same whether or not it is there.
+        #
+        # It runs BEFORE the argv is built, which is what makes it cover BOTH
+        # landing points named in the template: `cwd=` below and the `--add-dir`
+        # in `tpl.build_argv(...)` (which reads the same `intent.project_root`
+        # via `LaunchIntent.params()`). One check, two grants -- there is no
+        # second code path in which an unscoped root reaches a child.
+        scope_problem = project_scope_violation(intent.project_root, self.scope_base)
+        if scope_problem:
+            out["reason"] = REASON_PROJECT_ROOT_OUT_OF_SCOPE
+            step("project_root", False, scope_problem)
+            out["classification"] = "REFUSED"
+            return out
         if not intent.project_root or not Path(intent.project_root).is_dir():
             out["reason"] = "PROJECT_ROOT_MISSING"
             step("project_root", False, intent.project_root or "")

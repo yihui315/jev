@@ -66,6 +66,46 @@ GREEN_PROTECTED_PORT = 4778
 
 DEFAULT_DB_PATH = str(REPO_ROOT / "runtime" / "jcc" / "jcc.db")
 
+#: The directory a launch is allowed to name as its project root (CR-003).
+#:
+#: WHY A BASE DIRECTORY AT ALL. ``project_root`` is not inert: the launcher sets
+#: the child's ``cwd`` to it AND passes it to the agent as ``--add-dir``, which is
+#: the directory the agent's Read/Write/Glob/Grep/Bash tools are granted. A
+#: project row naming ``../../../../Windows/System32`` therefore hands an agent
+#: write access to System32. An existence-only check cannot see that: the
+#: dangerous property is not "does it exist" but "is it inside the workspace".
+#:
+#: DERIVED, NEVER TYPED. The default is :data:`REPO_ROOT` -- the same
+#: ``Path(__file__).resolve().parents[2]`` derivation as every other path here.
+#: Writing a literal ``D:\\jev`` or ``F:\\jev`` would re-introduce the relocation
+#: bug this project has already paid for three times.
+#:
+#: FAIL-CLOSED IF MISCONFIGURED. A base that does not exist refuses EVERY root
+#: (see the ``ValueError`` branch in the containment check), which is the correct
+#: direction: a typo in the base must not silently widen the boundary to the
+#: whole filesystem.
+DEFAULT_PROJECT_SCOPE_BASE = str(REPO_ROOT)
+
+
+def _resolve_scope_base(raw: str) -> str:
+    """Resolve ``launcher.project_scope_base`` against the repo root.
+
+    A RELATIVE value is anchored to :data:`REPO_ROOT` for the same reason
+    ``state_store.db_path`` is (see :func:`_resolve_db_path`): the absolute form
+    stops being correct the moment the checkout moves, and the relative form
+    travels with it. An ABSOLUTE value is honoured verbatim, because an operator
+    who names one means it -- silently re-anchoring a deliberate choice would be
+    a downgrade of intent, and this value is a *restriction*, so honouring it
+    exactly can only ever be the more conservative reading.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        return DEFAULT_PROJECT_SCOPE_BASE
+    candidate = Path(text)
+    if candidate.is_absolute():
+        return str(candidate)
+    return str((REPO_ROOT / candidate).resolve())
+
 
 def is_green_config(path: str) -> bool:
     """True when ``path`` is GREEN's own config file.
@@ -167,6 +207,18 @@ class PolicyConfig:
 
 
 @dataclass
+class LaunchScopeConfig:
+    """The workspace boundary a launch may not step outside (CR-003).
+
+    ``project_scope_base`` is the ONE directory (or subtree) a mission's
+    ``project_root`` must live inside. See
+    :data:`DEFAULT_PROJECT_SCOPE_BASE` for why the boundary exists and why the
+    default is derived rather than typed.
+    """
+    project_scope_base: str = DEFAULT_PROJECT_SCOPE_BASE
+
+
+@dataclass
 class Config:
     server: ServerConfig = field(default_factory=ServerConfig)
     control_token_env: str = "JCC_CONTROL_TOKEN"
@@ -174,6 +226,7 @@ class Config:
     state_store_db_path: str = DEFAULT_DB_PATH
     actuation: ActuationConfig = field(default_factory=ActuationConfig)
     policy: PolicyConfig = field(default_factory=PolicyConfig)
+    launcher: LaunchScopeConfig = field(default_factory=LaunchScopeConfig)
     agents: Dict[str, Any] = field(default_factory=dict)
     raw: Dict[str, Any] = field(default_factory=dict)
     #: The config file this Config was actually read from. Empty means the
@@ -267,6 +320,14 @@ def load_config(path: "str | None" = None) -> Config:
     pol = data.get("policy") or {}
     policy = PolicyConfig(**pol)                # type: ignore[arg-type]
 
+    # CR-003: the launch workspace boundary. Same fail-closed posture as the
+    # rest of this loader -- an empty value falls back to the DERIVED repo root,
+    # never to "no boundary".
+    scope_raw = (data.get("launcher") or {}).get(
+        "project_scope_base", DEFAULT_PROJECT_SCOPE_BASE)
+    launcher_scope = LaunchScopeConfig(
+        project_scope_base=_resolve_scope_base(scope_raw))
+
     agents = (data.get("agents") or {}).get("capabilities", {})
 
     return Config(
@@ -276,6 +337,7 @@ def load_config(path: "str | None" = None) -> Config:
         state_store_db_path=db_path,
         actuation=actuation,
         policy=policy,
+        launcher=launcher_scope,
         agents=agents,
         raw=data,
         config_path=str(target),
