@@ -2,10 +2,10 @@
   "command": [
     "netstat -ano x4"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "{\"4779\": 0, \"4780\": 0, \"4781\": 0, \"4782\": 0}",
   "dimension": "no v1.3 product listener is left running by the gate",
-  "duration_s": 0.67,
+  "duration_s": 0.48,
   "env_keys": [],
   "evidence": {
     "ports": {
@@ -17,13 +17,13 @@
     "problems": []
   },
   "exit_code": 0,
-  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "builtin",
   "leg_id": "E4_NO_LISTENERS_LEFT_BEHIND",
-  "measured_at_utc": "2026-09-29T23:18:01Z",
-  "run_id": "20260930-071747",
+  "measured_at_utc": "2026-10-04T04:25:45Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T23:18:00Z",
+  "started_utc": "2026-10-04T04:25:45Z",
   "stderr_tail": "",
   "stdout_bytes": 44,
   "stdout_sha256": "66e787484049d08956131711cd1b08f5e2f4a7c7e9c3998964c36265161c3bf7",

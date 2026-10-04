@@ -1,12 +1,12 @@
 {
   "command": [
-    "F:\\jev\\.venv\\Scripts\\python.exe",
-    "F:\\jev\\tools\\v1_3_wave2_ui_gate.py"
+    "D:\\jev\\.venv\\Scripts\\python.exe",
+    "D:\\jev\\tools\\v1_3_wave2_ui_gate.py"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "child=PASS artifact=PASS 30/30",
   "dimension": "W2 product UI renders REAL persisted state",
-  "duration_s": 33.73,
+  "duration_s": 36.02,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -14,7 +14,7 @@
   ],
   "evidence": {
     "claim": {
-      "evidence": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260930-070634.json",
+      "evidence": "D:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20261004-121101.json",
       "failed": null,
       "passed": 30,
       "shape": "passline",
@@ -23,7 +23,7 @@
     },
     "cross_check": {
       "agrees": true,
-      "artifact": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260930-070634.json",
+      "artifact": "D:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20261004-121101.json",
       "artifact_failures": 0,
       "artifact_passed": 30,
       "artifact_total": 30,
@@ -35,16 +35,16 @@
     "min_total": 1
   },
   "exit_code": 0,
-  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "gate",
   "leg_id": "B1_W2_PRODUCT_UI",
-  "measured_at_utc": "2026-09-29T23:07:08Z",
-  "run_id": "20260930-064032",
+  "measured_at_utc": "2026-10-04T04:11:37Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T23:06:34Z",
-  "stderr_tail": "F:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa",
+  "started_utc": "2026-10-04T04:11:01Z",
+  "stderr_tail": "D:\\jev\\.venv\\Lib\\site-packages\\fastapi\\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.\n  from starlette.testclient import TestClient as TestClient  # noqa\nException in thread Thread-8 (_readerthread):\nTraceback (most recent call last):\n  File \"C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\threading.py\", line 1044, in _bootstrap_inner\n    self.run()\n    ~~~~~~~~^^\n  File \"C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\threading.py\", line 995, in run\n    self._target(*self._args, **self._kwargs)\n    ~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"C:\\Users\\Administrator\\.workbuddy\\binaries\\python\\versions\\3.13.12\\Lib\\subprocess.py\", line 1615, in _readerthread\n    buffer.append(fh.read())\n                  ~~~~~~~^^\n  File \"<frozen codecs>\", line 325, in decode\nUnicodeDecodeError: 'utf-8' codec can't decode byte 0xb2 in position 8: invalid start byte",
   "stdout_bytes": 1836,
-  "stdout_sha256": "c21fd3b628ccd839c28862d1cc651e65836cd1c73b7d94ce5cd412c1edccc972",
-  "stdout_tail": "  [PASS] BOOT_SCHEMA: domain home schema\n  [PASS] API_CREATE_PROJECT: project created\n  [PASS] API_CREATE_MISSION: mission created as DRAFT\n  [PASS] API_TOKEN_FAIL_CLOSED: write without token refused\n  [PASS] CHROME: real Chrome channel\n  [PASS] SHELL_SIDEBAR: sidebar\n  [PASS] SHELL_TOPBAR: top bar\n  [PASS] HOME_DEFAULT: Home lands first\n  [PASS] HOME_COUNTERS: 5/5 counters\n  [PASS] HOME_CTA: New Mission CTA\n  [PASS] LIVE_COUNTER_NONZERO: active-project counter reflects the API\n  [PASS] LIVE_REAL_DATA: API-created project renders on the Projects surface\n  [PASS] LIVE_REAL_MISSION: API-created mission renders with its DRAFT state\n  [PASS] LIVE_MISSION_STATE: mission shows its real state\n  [PASS] NAV_ALL: 13/13 surfaces\n  [PASS] STUDIO_FORM: 8/8 fields\n  [PASS] STUDIO_PROJECT_OPTION: API-created project is selectable\n  [PASS] PALETTE_CTRLK: Ctrl+K palette\n  [PASS] THEME_ATTR: theme attribute set\n  [PASS] A11Y_LANDMARKS: nav/header/main landmarks\n  [PASS] RESPONSIVE_MOBILE: navigation present at 420px\n  [PASS] NO_CONSOLE_ERRORS: 0 console errors\n  [PASS] PORTS_RELEASED_AFTER_TEARDOWN: the gate leaves no product listener behind\n\nPASS 30/30 -> F:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20260930-070634.json",
+  "stdout_sha256": "7e19f8c3e2607d0a7b49b21c4121a242a2c0a976f8e9e2215695a609d4fb9b34",
+  "stdout_tail": "  [PASS] BOOT_SCHEMA: domain home schema\n  [PASS] API_CREATE_PROJECT: project created\n  [PASS] API_CREATE_MISSION: mission created as DRAFT\n  [PASS] API_TOKEN_FAIL_CLOSED: write without token refused\n  [PASS] CHROME: real Chrome channel\n  [PASS] SHELL_SIDEBAR: sidebar\n  [PASS] SHELL_TOPBAR: top bar\n  [PASS] HOME_DEFAULT: Home lands first\n  [PASS] HOME_COUNTERS: 5/5 counters\n  [PASS] HOME_CTA: New Mission CTA\n  [PASS] LIVE_COUNTER_NONZERO: active-project counter reflects the API\n  [PASS] LIVE_REAL_DATA: API-created project renders on the Projects surface\n  [PASS] LIVE_REAL_MISSION: API-created mission renders with its DRAFT state\n  [PASS] LIVE_MISSION_STATE: mission shows its real state\n  [PASS] NAV_ALL: 13/13 surfaces\n  [PASS] STUDIO_FORM: 8/8 fields\n  [PASS] STUDIO_PROJECT_OPTION: API-created project is selectable\n  [PASS] PALETTE_CTRLK: Ctrl+K palette\n  [PASS] THEME_ATTR: theme attribute set\n  [PASS] A11Y_LANDMARKS: nav/header/main landmarks\n  [PASS] RESPONSIVE_MOBILE: navigation present at 420px\n  [PASS] NO_CONSOLE_ERRORS: 0 console errors\n  [PASS] PORTS_RELEASED_AFTER_TEARDOWN: the gate leaves no product listener behind\n\nPASS 30/30 -> D:\\jev\\.workbuddy\\scratch\\v1_3_wave2_ui_gate_20261004-121101.json",
   "verdict": "PASS"
 }

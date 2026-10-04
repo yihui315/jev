@@ -1,15 +1,15 @@
 {
   "command": [
-    "F:\\jev\\.venv\\Scripts\\python.exe",
-    "F:\\jev\\tools\\v1_3_ui_runtime_audit.py",
+    "D:\\jev\\.venv\\Scripts\\python.exe",
+    "D:\\jev\\tools\\v1_3_ui_runtime_audit.py",
     "--file",
-    "F:\\jev\\apps\\command_center_3d\\serve_visual.py",
+    "D:\\jev\\apps\\command_center_3d\\serve_visual.py",
     "--json"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "positives=4 banned=0 ",
   "dimension": "the SPA is served by a real ASGI server, not python http.server",
-  "duration_s": 0.58,
+  "duration_s": 0.52,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -19,7 +19,7 @@
     "finding": {
       "banned_imports": [],
       "banned_references": [],
-      "file": "F:\\jev\\apps\\command_center_3d\\serve_visual.py",
+      "file": "D:\\jev\\apps\\command_center_3d\\serve_visual.py",
       "note": "AST-based: a docstring or comment that mentions http.server is not an import and is deliberately not reported.",
       "positives": {
         "serves_files": true,
@@ -33,16 +33,16 @@
     "problems": []
   },
   "exit_code": 0,
-  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "builtin",
   "leg_id": "D3_UI_IS_NOT_STDLIB",
-  "measured_at_utc": "2026-09-29T23:13:48Z",
-  "run_id": "20260930-064032",
+  "measured_at_utc": "2026-10-04T04:25:37Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T23:13:47Z",
+  "started_utc": "2026-10-04T04:25:36Z",
   "stderr_tail": "",
   "stdout_bytes": 391,
-  "stdout_sha256": "3ba54c0aa6f6ee48ef5d9a9ef7b39432dcba1ae1279a34e5e3d7264d162f5a7b",
-  "stdout_tail": "{\"file\": \"F:\\\\jev\\\\apps\\\\command_center_3d\\\\serve_visual.py\", \"verdict\": \"PASS\", \"problems\": [], \"banned_imports\": [], \"banned_references\": [], \"positives\": {\"uvicorn_imported\": true, \"uvicorn_run_called\": true, \"starlette_app_referenced\": true, \"serves_files\": true}, \"note\": \"AST-based: a docstring or comment that mentions http.server is not an import and is deliberately not reported.\"}",
+  "stdout_sha256": "cf465aa26ba1e63a1065e40fb47aede11d377b9be0e40b26c41d7b47e4f08131",
+  "stdout_tail": "{\"file\": \"D:\\\\jev\\\\apps\\\\command_center_3d\\\\serve_visual.py\", \"verdict\": \"PASS\", \"problems\": [], \"banned_imports\": [], \"banned_references\": [], \"positives\": {\"uvicorn_imported\": true, \"uvicorn_run_called\": true, \"starlette_app_referenced\": true, \"serves_files\": true}, \"note\": \"AST-based: a docstring or comment that mentions http.server is not an import and is deliberately not reported.\"}",
   "verdict": "PASS"
 }

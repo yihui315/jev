@@ -1,6 +1,6 @@
 {
   "command": [
-    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "D:\\jev\\.venv\\Scripts\\python.exe",
     "-m",
     "pytest",
     "packages/jcc_core/tests/test_mission_runtime_v1_3.py",
@@ -11,10 +11,10 @@
     "-p",
     "no:cacheprovider"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "23 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
   "dimension": "W3 first real WorkBuddy mission",
-  "duration_s": 57.31,
+  "duration_s": 90.15,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -29,7 +29,7 @@
       "passed": 23,
       "skipped": 0
     },
-    "fresh_temp": "C:\\Windows\\TEMP\\jev-w9\\a3_mission-20260930-064347",
+    "fresh_temp": "D:\\jev\\.workbuddy\\scratch\\host_temp\\jev-w9\\a3_mission-20261004-112438",
     "min_passed": 1,
     "problems": [],
     "targets": [
@@ -38,16 +38,16 @@
     ]
   },
   "exit_code": 0,
-  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "pytest",
   "leg_id": "A3_MISSION",
-  "measured_at_utc": "2026-09-29T22:44:45Z",
-  "run_id": "20260930-064032",
+  "measured_at_utc": "2026-10-04T03:26:08Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T22:43:47Z",
+  "started_utc": "2026-10-04T03:24:38Z",
   "stderr_tail": "",
-  "stdout_bytes": 100,
-  "stdout_sha256": "42b1df69e8401567464532cc90e3d2f47d2648e6e6c2adb78704fdbd3b158292",
-  "stdout_tail": ".......................                                                  [100%]\n23 passed in 55.46s",
+  "stdout_bytes": 110,
+  "stdout_sha256": "949c7b97605a97822bddd29d29b5d2475660200279325e2371a28f3e4efa0af3",
+  "stdout_tail": ".......................                                                  [100%]\n23 passed in 88.37s (0:01:28)",
   "verdict": "PASS"
 }

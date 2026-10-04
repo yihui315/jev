@@ -1,6 +1,6 @@
 {
   "command": [
-    "F:\\jev\\.venv\\Scripts\\python.exe",
+    "D:\\jev\\.venv\\Scripts\\python.exe",
     "-m",
     "pytest",
     "packages/jcc_core/tests/test_domain_v1_3.py",
@@ -11,10 +11,10 @@
     "-p",
     "no:cacheprovider"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "47 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
   "dimension": "W1 Project/Mission domain + state machine",
-  "duration_s": 47.59,
+  "duration_s": 119.07,
   "env_keys": [
     "CODEBUDDY_SAFE_DELETE_ENABLED",
     "PYTHONDONTWRITEBYTECODE",
@@ -29,7 +29,7 @@
       "passed": 47,
       "skipped": 0
     },
-    "fresh_temp": "C:\\Windows\\TEMP\\jev-w9\\a2_domain-20260930-064300",
+    "fresh_temp": "D:\\jev\\.workbuddy\\scratch\\host_temp\\jev-w9\\a2_domain-20261004-112239",
     "min_passed": 1,
     "problems": [],
     "targets": [
@@ -38,16 +38,16 @@
     ]
   },
   "exit_code": 0,
-  "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "pytest",
   "leg_id": "A2_DOMAIN",
-  "measured_at_utc": "2026-09-29T22:43:47Z",
-  "run_id": "20260930-064032",
+  "measured_at_utc": "2026-10-04T03:24:38Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-29T22:43:00Z",
+  "started_utc": "2026-10-04T03:22:39Z",
   "stderr_tail": "",
-  "stdout_bytes": 100,
-  "stdout_sha256": "72183893b8463f906bd1c4583e43ede35c291459a0bf446dbfa95b826b2c6f58",
-  "stdout_tail": "...............................................                          [100%]\n47 passed in 45.69s",
+  "stdout_bytes": 111,
+  "stdout_sha256": "1d939210233160300e7a1130e2fec1fa93a6fa71c09f1b5a6c83d27501ffc594",
+  "stdout_tail": "...............................................                          [100%]\n47 passed in 117.06s (0:01:57)",
   "verdict": "PASS"
 }

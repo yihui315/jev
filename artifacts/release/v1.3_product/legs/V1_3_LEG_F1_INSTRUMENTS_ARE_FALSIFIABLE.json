@@ -2,10 +2,10 @@
   "command": [
     "in-process falsifiers x7"
   ],
-  "cwd": "F:\\jev",
+  "cwd": "D:\\jev",
   "detail": "7/7 falsifiers behaved",
   "dimension": "this gate's own parsers and auditor reject the false shapes they exist to catch",
-  "duration_s": 0.24,
+  "duration_s": 0.11,
   "env_keys": [],
   "evidence": {
     "checks": {
@@ -23,11 +23,11 @@
       },
       "STALE_EVIDENCE_IS_REFUSED": {
         "ok": true,
-        "why": "an artifact older than the leg start must be refused, got {'claim': 'PASS', 'agrees': False, 'stale': True, 'artifact_verdict': 'PASS', 'artifact_passed': 5, 'artifact_total': 5, 'artifact_failures': 0, 'artifact': 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\w9f3_zn85ncfr\\\\good.json', 'problems': [\"evidence predates this leg -- it is the PREVIOUS run's result\"]}"
+        "why": "an artifact older than the leg start must be refused, got {'claim': 'PASS', 'agrees': False, 'stale': True, 'artifact_verdict': 'PASS', 'artifact_passed': 5, 'artifact_total': 5, 'artifact_failures': 0, 'artifact': 'D:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\w9f3_jepiaq26\\\\good.json', 'problems': [\"evidence predates this leg -- it is the PREVIOUS run's result\"]}"
       },
       "THE_JUDGE_ALSO_ACCEPTS": {
         "ok": true,
-        "why": "a fresh, agreeing artifact MUST be accepted, got {'claim': 'PASS', 'agrees': True, 'stale': False, 'artifact_verdict': 'PASS', 'artifact_passed': 5, 'artifact_total': 5, 'artifact_failures': 0, 'artifact': 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\w9f3_zn85ncfr\\\\good.json', 'problems': []}"
+        "why": "a fresh, agreeing artifact MUST be accepted, got {'claim': 'PASS', 'agrees': True, 'stale': False, 'artifact_verdict': 'PASS', 'artifact_passed': 5, 'artifact_total': 5, 'artifact_failures': 0, 'artifact': 'D:\\\\jev\\\\.workbuddy\\\\scratch\\\\host_temp\\\\w9f3_jepiaq26\\\\good.json', 'problems': []}"
       },
       "UNPARSED_STDOUT_IS_NOT_A_PASS": {
         "ok": true,
@@ -41,13 +41,13 @@
     "problems": []
   },
   "exit_code": 0,
-  "head": "99d3dc2ced4531517b783518d6f2d3a295029c97",
+  "head": "cf9b2ea7a237b5c8d63355bfdffd45fb21de45bb",
   "kind": "builtin",
   "leg_id": "F1_INSTRUMENTS_ARE_FALSIFIABLE",
-  "measured_at_utc": "2026-09-30T06:01:58Z",
-  "run_id": "selftest",
+  "measured_at_utc": "2026-10-04T04:25:45Z",
+  "run_id": "20261004-112232",
   "schema": "jcc/v1.3-final-leg/1",
-  "started_utc": "2026-09-30T06:01:58Z",
+  "started_utc": "2026-10-04T04:25:45Z",
   "stderr_tail": "",
   "stdout_bytes": 211,
   "stdout_sha256": "6f4a1cf442c6a42736bb4bb767b4d7b9a33e29da8d6f5d2f2163b0283e1f1083",
