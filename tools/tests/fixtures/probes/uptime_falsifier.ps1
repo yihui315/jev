@@ -13,15 +13,31 @@ $Paths = Get-JccPaths -Root $Root
 $pidFilePid = Get-JccPidFromFile -Paths $Paths
 
 # Bail early if no service; the test treats that as "no measurement".
+#
+# SERIALISED, NOT HAND-CONCATENATED. The line below used to be:
+#
+#     '{"error":"no_pid_file","pid_file":"' + $Paths.PidFile + '"}'
+#
+# $Paths.PidFile is D:\jev\runtime\jcc\jcc.pid, so the emitted document contains
+# the two-character sequence \j, which is not a legal JSON escape. Measured on
+# this host: tools/tests/test_status_uptime.py reported 4 SETUP ERRORS with
+# "probe JSON could not be parsed: ... Invalid \escape: line 1 column 38
+# (char 37)" -- and the probe file is handed back UNPARSEABLE, so the test could
+# not even classify the condition it was written to detect.
+#
+# This is the same mistake scripts/ensure-stable-runtime.ps1 already documents
+# in its own beacon writer ("inventing an encoding by hand" -- it was bitten
+# twice there). One writer was fixed; this one was missed. The report is now
+# produced by ConvertTo-Json, so the value is escaped by a real serialiser.
 if ($pidFilePid -le 0) {
-    [System.IO.File]::WriteAllText($OutPath,
-        ('{"error":"no_pid_file","pid_file":"' + $Paths.PidFile + '"}'),
+    $report = [pscustomobject]@{ error = 'no_pid_file'; pid_file = $Paths.PidFile }
+    [System.IO.File]::WriteAllText($OutPath, ($report | ConvertTo-Json -Compress),
         (New-Object System.Text.UTF8Encoding($false)))
     exit 2
 }
 if (-not (Test-JccProcessAlive -ProcessId $pidFilePid)) {
-    [System.IO.File]::WriteAllText($OutPath,
-        ('{"error":"service_dead","pid":' + $pidFilePid + '}'),
+    $report = [pscustomobject]@{ error = 'service_dead'; pid = $pidFilePid }
+    [System.IO.File]::WriteAllText($OutPath, ($report | ConvertTo-Json -Compress),
         (New-Object System.Text.UTF8Encoding($false)))
     exit 2
 }
