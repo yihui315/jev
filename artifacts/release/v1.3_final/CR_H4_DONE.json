@@ -1,0 +1,47 @@
+{
+  "after_bytes": 936587,
+  "after_lines": 4277,
+  "before_bytes": 943062,
+  "before_lines": 4277,
+  "before_sha256": "f6380edfc635d85a7c7fb7806e22f6e37d6469337c2822229c37d748b724ce6a",
+  "empty_lines_left_in_place": 27,
+  "log": "D:\\jev\\runtime\\logs\\stable-runtime-boot.jsonl",
+  "note": "The 2 torn lines are deliberately retained. They are real mid-append truncations from the F:-era host, they are not recoverable, and a whole-file validity assertion must still fail on them -- that is the correct signal.",
+  "quarantine": "D:\\jev\\artifacts\\release\\v1.3_final\\CR_H4_recovered_records_1791110284245733600.jsonl",
+  "recovered_from_nul_pad": [
+    {
+      "bytes": 1481,
+      "line": 3887,
+      "nul_bytes": 1326,
+      "record": "{\"at\":\"2026-09-30T21:28:24.3816706+08:00\",\"pid\":2304,\"user\":\"NT AUTHORITY\\\\SYSTEM\",\"watchdog\":true,\"stage\":\"enter\",\"detail\":\"watchdog=True;root=[];port=0\"}"
+    },
+    {
+      "bytes": 598,
+      "line": 3925,
+      "nul_bytes": 441,
+      "record": "{\"at\":\"2026-09-30T21:56:44.1919941+08:00\",\"pid\":2228,\"user\":\"NT AUTHORITY\\\\SYSTEM\",\"watchdog\":false,\"stage\":\"enter\",\"detail\":\"watchdog=False;root=[];port=0\"}"
+    },
+    {
+      "bytes": 598,
+      "line": 4204,
+      "nul_bytes": 441,
+      "record": "{\"at\":\"2026-10-01T15:15:53.8511915+08:00\",\"pid\":2456,\"user\":\"NT AUTHORITY\\\\SYSTEM\",\"watchdog\":false,\"stage\":\"enter\",\"detail\":\"watchdog=False;root=[];port=0\"}"
+    }
+  ],
+  "sidecar_backup": "D:\\jev\\runtime\\logs\\stable-runtime-boot.jsonl.crh4.bak",
+  "torn_left_in_place": [
+    {
+      "bytes": 316,
+      "error": "Expecting ':' delimiter: line 1 column 95 (char 94)",
+      "line": 4215,
+      "preview": "{\"at\":\"2026-10-01T15:29:21.0385143+08:00\",\"pid\":7608,\"user\":\"NT AUTHORITY\\\\SYSTEM\",\"watchdog:\"NT AUTHORITY\\\\SYSTEM\",\"wat"
+    },
+    {
+      "bytes": 278,
+      "error": "Expecting ':' delimiter: line 1 column 57 (char 56)",
+      "line": 4235,
+      "preview": "{\"at\":\"2026-10-01T20:58:15.6338327+08:00\",\"pid\":2484,\":\"NT AUTHORITY\\\\SYSTEM\",\"watchdog\":false,\"stage\":\"preflight-ok\",\"d"
+    }
+  ],
+  "valid_json_after": 4248
+}
