@@ -214,8 +214,50 @@ class LaunchScopeConfig:
     ``project_root`` must live inside. See
     :data:`DEFAULT_PROJECT_SCOPE_BASE` for why the boundary exists and why the
     default is derived rather than typed.
+
+    RISK-1: ``allowed_project_roots`` is the WRITE-side form of the same
+    boundary -- the list a project root is checked against when it is stored.
+    It is a LIST rather than a single base because the launch path (one base)
+    and the write path (any of several) do not have to agree in cardinality,
+    only in direction: everything either accepts must resolve inside a root the
+    operator chose. Its DEFAULT is derived from ``project_scope_base``, so a
+    deployment that configured only CR-003 gets one boundary rather than two
+    that can disagree.
     """
     project_scope_base: str = DEFAULT_PROJECT_SCOPE_BASE
+    allowed_project_roots: List[str] = field(default_factory=list)
+
+    def effective_allowed_roots(self) -> List[str]:
+        """The allow-list to enforce, never empty (fail-closed).
+
+        Empty means "the operator did not configure one", and the correct
+        reading of that is the DERIVED default -- the same one
+        ``project_scope_base`` defaults to. Returning an empty list here would
+        mean "admit everything", which is the opposite of the intent and is the
+        failure mode :mod:`jcc_core.project_scope` refuses to implement.
+
+        THE BLANK-BASE BRANCH IS NOT COSMETIC, and it was a real defect caught by
+        the falsifier's fail-closed case. A caller that constructs
+        ``LaunchScopeConfig(project_scope_base="")`` explicitly -- which is
+        exactly what the shipped YAML's ``project_scope_base: ""`` means -- used
+        to get ``[""]`` back: a list holding the empty string. That is neither
+        the derived root NOR an empty list, and it is the worst of the three,
+        because ``_is_inside(anything, "")`` resolves the empty string against
+        the process working directory. On this host that made every project root
+        -- including the repository's own -- refuse with OUT_OF_SCOPE, so a
+        correctly-configured instance rejected all work. The failure direction is
+        safe, but "safe" is not "correct": a boundary that refuses everything is
+        indistinguishable from a misconfigured one, and the operator's fix (set
+        the base) is not what the message would have told them to do.
+        """
+        if self.allowed_project_roots:
+            return [str(p) for p in self.allowed_project_roots if str(p).strip()]
+        base = str(self.project_scope_base or "").strip()
+        if base:
+            return [base]
+        # No base configured anywhere: fall back to the DERIVED repo root, never
+        # to an empty entry and never to "no boundary".
+        return [DEFAULT_PROJECT_SCOPE_BASE]
 
 
 @dataclass
@@ -327,6 +369,24 @@ def load_config(path: "str | None" = None) -> Config:
         "project_scope_base", DEFAULT_PROJECT_SCOPE_BASE)
     launcher_scope = LaunchScopeConfig(
         project_scope_base=_resolve_scope_base(scope_raw))
+
+    # RISK-1: the WRITE-side allow-list. The environment variable wins over the
+    # file (an operator widening the boundary for one process should not have to
+    # edit a file that is under A8 pinning); the file value is next; and when
+    # neither is present the list stays EMPTY, which
+    # ``effective_allowed_roots()`` resolves to ``project_scope_base``. So the
+    # default boundary is derived from the checkout and never typed.
+    roots_raw = os.environ.get("JCC_ALLOWED_PROJECT_ROOTS")
+    if roots_raw:
+        launcher_scope.allowed_project_roots = [
+            part.strip() for part in roots_raw.split(os.pathsep) if part.strip()]
+    else:
+        cfg_roots = (data.get("launcher") or {}).get("allowed_project_roots")
+        if isinstance(cfg_roots, str):
+            cfg_roots = [p for p in cfg_roots.split(os.pathsep) if p.strip()]
+        if isinstance(cfg_roots, list):
+            launcher_scope.allowed_project_roots = [
+                _resolve_scope_base(str(p)) for p in cfg_roots if str(p).strip()]
 
     agents = (data.get("agents") or {}).get("capabilities", {})
 

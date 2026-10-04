@@ -41,6 +41,7 @@ from pydantic import ValidationError
 
 from .core import CoreEngine
 from .events import EventBus, format_sse
+from .project_scope import ProjectRootRejected, scope_report
 from .providers.base import activation_state_for_requested
 from .schemas import AEPEnvelope, Directive, DirectiveAction
 from .scene import build_scene
@@ -228,6 +229,35 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         scope_base=config.launcher.project_scope_base,
     )
     app.state.launch_controller = launch_ctl
+
+    # ------------------------------------------------------------------ #
+    # RISK-1 -- the WRITE-side project root boundary.
+    #
+    # Two closures rather than inline code at each route, because the same
+    # decision is made in two places (a project's root_path and a mission's
+    # working_directory) and two copies of a security decision eventually
+    # disagree. Both read the SAME allow-list the launcher does, so there is one
+    # boundary in the system rather than a launch-side one and a write-side one.
+    # ------------------------------------------------------------------ #
+    def _allowed_roots() -> list:
+        """The roots a project root may resolve inside, for THIS instance.
+
+        Delegates to :meth:`LaunchScopeConfig.effective_allowed_roots`, so the
+        answer is derived from ``launcher.project_scope_base`` when nothing
+        wider was configured. Never a typed drive letter.
+        """
+        return config.launcher.effective_allowed_roots()
+
+    def _validate_root(raw: str, *, field: str) -> str:
+        """Validate one submitted path; return the CANONICAL path to store.
+
+        Raises :class:`~jcc_core.project_scope.ProjectRootRejected` carrying the
+        reason code. Re-raises nothing and returns ``""`` for an empty input --
+        a project may legitimately have no root yet, and the launch path already
+        answers ``PROJECT_ROOT_MISSING`` for that case.
+        """
+        from .project_scope import validate_project_root
+        return validate_project_root(raw, roots=_allowed_roots(), field=field)
 
     # -- v1.3 Wave 4 helpers: attention control ------------------------- #
     def _actuation_enabled() -> bool:
@@ -480,6 +510,14 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             # honest constants: the UI must never invent these
             "actuation_enabled": engine.actuator.enabled,
             "localhost_only": True,
+            # RISK-1 spec 10: the project-root boundary as DATA on an EXISTING
+            # open read. Deliberately NOT a new GET route: adding one would
+            # change the declared open surface (OPEN_GET_ENDPOINTS is an exact
+            # set, enforced by test_server_surface.py), and widening the
+            # unauthenticated surface to deliver a hint the operator needs is
+            # the wrong trade. This endpoint already returns the constants a UI
+            # must not invent, and "which roots may I name" is exactly that.
+            "project_scope": scope_report(roots=_allowed_roots()),
         }
 
     @app.get("/api/v1/domain/counts")
@@ -597,9 +635,32 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         name = str(body.get("name") or "").strip()
         if not name:
             raise HTTPException(status_code=422, detail="name is required")
-        p = domain.create_project(name, root_path=str(body.get("root_path") or ""),
+        # RISK-1: validate BEFORE the write, and store only the CANONICAL path.
+        # The launch side already refuses an out-of-scope root (CR-003), but a
+        # row that was never checked is still a row: it renders in the UI, it is
+        # exported, and it is one launcher change away from being reachable. A
+        # boundary enforced only on the way out is not a boundary.
+        #
+        # The RAW value is echoed back under `root_path_raw` for display and
+        # audit only (spec 9). It is never used as a cwd and never stored.
+        raw_root = str(body.get("root_path") or "")
+        try:
+            canonical_root = _validate_root(raw_root, field="root_path")
+        except ProjectRootRejected as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": exc.code, "detail": exc.detail,
+                        "field": "root_path", "raw": raw_root,
+                        "allowed_project_roots": list(_allowed_roots())},
+            )
+        p = domain.create_project(name, root_path=canonical_root,
                                   description=str(body.get("description") or ""))
-        return p.model_dump(mode="json")
+        out = p.model_dump(mode="json")
+        # Spec 9: what the operator typed, kept beside -- never instead of -- the
+        # canonical value that was actually persisted.
+        out["root_path_raw"] = raw_root
+        out["root_path_canonical"] = canonical_root
+        return out
 
     @app.post("/api/v1/domain/missions")
     def domain_create_mission(body: dict,
@@ -609,11 +670,26 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         if not pid or not title:
             raise HTTPException(status_code=422,
                                 detail="project_id and title are required")
+        # RISK-1: a mission's working_directory is the OTHER place a path reaches
+        # the launcher. ``launch_control.build_intent`` falls back to
+        # ``mission.working_directory`` when the project has no root, so a
+        # mission row is exactly as capable of carrying a traversal as a project
+        # row is -- and it is a second entry, so it needs the same check.
+        raw_wd = str(body.get("working_directory") or "")
+        try:
+            canonical_wd = _validate_root(raw_wd, field="working_directory")
+        except ProjectRootRejected as exc:
+            raise HTTPException(
+                status_code=422,
+                detail={"code": exc.code, "detail": exc.detail,
+                        "field": "working_directory", "raw": raw_wd,
+                        "allowed_project_roots": list(_allowed_roots())},
+            )
         try:
             m = domain.create_mission(
                 pid, title, goal=str(body.get("goal") or ""),
                 agent=str(body.get("agent") or "workbuddy"),
-                working_directory=str(body.get("working_directory") or ""),
+                working_directory=canonical_wd,
                 context=str(body.get("context") or ""),
                 permissions=list(body.get("permissions") or []),
                 budget_units=float(body.get("budget_units") or 0.0),
@@ -621,7 +697,10 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             )
         except ValueError as exc:
             raise HTTPException(status_code=422, detail=str(exc))
-        return m.model_dump(mode="json")
+        out = m.model_dump(mode="json")
+        out["working_directory_raw"] = raw_wd
+        out["working_directory_canonical"] = canonical_wd
+        return out
 
     @app.post("/api/v1/domain/missions/{mid}/transition")
     def domain_transition_mission(mid: str, body: dict,
