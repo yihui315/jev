@@ -264,6 +264,36 @@ export function HomeView({
                 value={s?.localhost_only ? "LOCALHOST" : "UNKNOWN"}
                 variant={s?.localhost_only ? "info" : "unknown"}
               />
+              {/* RISK-1 spec 10 — the project-root boundary, shown rather than
+                  implied.
+                  An operator who cannot see WHICH roots are allowed cannot act on
+                  a refusal; they can only retry. And the count is rendered from
+                  the server's list, never from a value the UI derived, because a
+                  client-side notion of "the workspace" is exactly the kind of
+                  assumption this control exists to remove. Absent field renders
+                  UNKNOWN (never "none"), matching the honesty rule the rest of
+                  this panel follows. */}
+              <HealthRow
+                label="Project roots"
+                value={
+                  !s?.project_scope
+                    ? "UNKNOWN"
+                    : s.project_scope.allowed_project_roots.length === 0
+                      ? "NONE (fail-closed)"
+                      : `${s.project_scope.allowed_project_roots.length} allowed`
+                }
+                variant={
+                  !s?.project_scope
+                    ? "unknown"
+                    : s.project_scope.allowed_project_roots.length === 0
+                      ? "danger"
+                      : "ok"
+                }
+                hint={
+                  s?.project_scope?.allowed_project_roots?.join("  ·  ") ??
+                  "server did not report a boundary"
+                }
+              />
               <div className="pt-1 text-[10px] text-muted-foreground">
                 Last loaded:{" "}
                 {data.lastLoadedAt ? fmtRelative(Math.floor(data.lastLoadedAt / 1000)) : "—"}

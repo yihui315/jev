@@ -50,7 +50,10 @@ import type {
   LaunchRequestResult,
   Mission,
   Project,
+  ProjectRootRejection,
+  ProjectScope,
 } from "../app/domainApi";
+import { projectRootRejectionHelp } from "../app/domainApi";
 
 export interface StudioProps {
   api: DomainApi;
@@ -61,6 +64,11 @@ export interface StudioProps {
   onCreated: (m: Mission) => void;
   onOpenProjects: () => void;
   onCreateProject: (name: string, rootPath: string) => Promise<Project | null>;
+  /** RISK-1 — the last refused project root, when the server refused the PATH
+   * rather than the request. Null after a success or a non-path failure. */
+  projectRejection?: ProjectRootRejection | null;
+  /** RISK-1 — the server's own failure text for a non-path refusal. */
+  projectError?: string | null;
 }
 
 export function MissionStudio(props: StudioProps) {
@@ -380,7 +388,7 @@ export function MissionStudio(props: StudioProps) {
                 id="msn-wd"
                 value={v.workingDirectory}
                 onChange={(e) => set("workingDirectory", e.target.value)}
-                placeholder="F:\\jev"
+                placeholder="absolute path, e.g. the folder your code lives in"
                 spellCheck={false}
               />
             </Field>
@@ -771,6 +779,9 @@ export function MissionStudio(props: StudioProps) {
         open={newProjectOpen}
         onOpenChange={setNewProjectOpen}
         onCreate={props.onCreateProject}
+        api={props.api}
+        projectError={props.projectError ?? null}
+        rejection={props.projectRejection ?? null}
       />
     </div>
   );
@@ -830,15 +841,74 @@ function CreateProjectDialog({
   open,
   onOpenChange,
   onCreate,
+  api,
+  projectError,
+  rejection: rejectionFromServer,
 }: {
   open: boolean;
   onOpenChange: (v: boolean) => void;
   onCreate: (name: string, rootPath: string) => Promise<Project | null>;
+  api: DomainApi;
+  /** RISK-1 — the server's own failure text, shown when the failure was NOT a
+   * path refusal. Without it a 401/403/timeout renders as a bare
+   * "Project not created." with no reason at all. */
+  projectError: string | null;
+  rejection?: ProjectRootRejection | null;
 }) {
   const [name, setName] = useState("");
   const [rootPath, setRootPath] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+  // RISK-1: the server's structured refusal is owned by useDomain and threaded in
+  // through the `rejection` prop, so this dialog never holds a second copy that
+  // could disagree with the hook's. Displayed separately from `err` so a PATH
+  // refusal (which carries a code and a fix) is never rendered as the generic
+  // auth/transport message that a token failure deserves.
+  const rejection = rejectionFromServer ?? null;
+  // The boundary, as the server last reported it. `null` means "we have not
+  // got an answer yet" and is rendered UNKNOWN -- NOT as an empty list. An empty
+  // list is a real, alarming answer (fail-closed: nothing can be created), and
+  // rendering it as the same thing as "the read failed" would tell the operator
+  // their server is fine when it is not answering.
+  const [scope, setScope] = useState<ProjectScope | null>(null);
+
+  // Read the boundary through the ONE client that knows the API base.
+  //
+  // NOT a bare `fetch("/api/v1/domain/home")`: the shipped topology is
+  // cross-origin (the SPA is served by its own ASGI process that does NOT proxy
+  // /api/v1, and the API lives on a different loopback port), so a
+  // page-relative URL asks the static file server for an API route, gets the SPA
+  // shell back with 200, and fails to parse -- leaving this list permanently
+  // empty. `api.home()` carries the same resolved base as every other read in
+  // this app, and honours VITE_API_BASE / `same-origin` like the rest of the UI.
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const r = await api.home();
+        if (alive && r.ok && r.data) setScope(r.data.project_scope ?? null);
+      } catch {
+        // Unreachable server: leave `scope` null so the row reads UNKNOWN,
+        // which is the truth, rather than a fabricated boundary.
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [api, open]);
+
+  const allowedRoots = scope?.allowed_project_roots ?? null;
+  // The refusal itself carries the authoritative list as of the moment it was
+  // issued. Prefer it over a possibly-stale pre-fetch: if the operator widened
+  // the boundary and retried, the refusal is the newer truth.
+  const rootsToShow = rejection?.allowed_project_roots?.length
+    ? rejection.allowed_project_roots
+    : allowedRoots;
+  // Plain-language guidance for THIS code, or null for a code this build has
+  // never heard of -- in which case the server's own detail is shown alone
+  // rather than being dressed up with advice meant for a different problem.
+  const rejectionHelp = rejection ? projectRootRejectionHelp(rejection.code) : null;
+
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -862,11 +932,86 @@ function CreateProjectDialog({
               id="prj-root"
               value={rootPath}
               onChange={(e) => setRootPath(e.target.value)}
-              placeholder="F:\\jev"
+              placeholder="full absolute path of an existing directory"
               spellCheck={false}
             />
+            {/* RISK-1 spec 10 — the allowed roots, next to the input that is
+                refused without them. The placeholder deliberately names no drive
+                letter: this project has been broken by a hardcoded drive four
+                times, and a placeholder naming one is how the fifth starts -- the
+                drive an operator copies is a drive that does not exist on their
+                machine, or worse, one that does. The roots come from the server,
+                never from a value invented here.
+
+                THREE states, not two. "Not loaded / server silent" must not look
+                like "loaded and empty", because they call for opposite
+                reactions: one is an outage to report, the other is a
+                misconfiguration to fix. */}
+            <p className="text-[11px] text-muted-foreground">
+              {rootsToShow === null
+                ? "Project roots: UNKNOWN — the server has not reported a boundary yet."
+                : rootsToShow.length === 0
+                  ? "No project roots are configured on the server, so every project root will be refused. An operator must set launcher.project_scope_base (config) or JCC_ALLOWED_PROJECT_ROOTS (environment)."
+                  : `Must be an absolute path inside: ${rootsToShow.join("  ·  ")}`}
+            </p>
           </div>
           {err && <InlineError message={err} />}
+          {/* RISK-1 — the server's reason code, when the refusal was about the
+              path. PROJECT_ROOT_MISSING ("create it") and
+              PROJECT_ROOT_OUT_OF_SCOPE ("you may not have it") are opposite
+              instructions; showing one message for both is how an operator ends
+              up creating the very directory the guard just declined to expose.
+
+              All four codes get their own plain-language title and fix, because
+              the code alone is not an instruction an operator can act on. The
+              server's own `detail` is kept verbatim underneath as the
+              audit-grade statement -- it names the resolved path, which is often
+              not what was typed, and that difference is worth seeing. */}
+          {rejection && (
+            <div
+              className="rounded-md border border-status-danger/40 bg-status-danger/5 p-2 text-[11px]"
+              role="alert"
+            >
+              <div className="font-semibold text-foreground">
+                {rejectionHelp?.title ?? "Project root refused"}
+              </div>
+              <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                {rejection.code}
+              </div>
+              {rejectionHelp && (
+                <p className="mt-1 text-foreground">{rejectionHelp.fix}</p>
+              )}
+              {rejection.raw ? (
+                <p className="mt-1 text-muted-foreground">
+                  You entered: <span className="font-mono">{rejection.raw}</span>
+                </p>
+              ) : null}
+              <p className="mt-1 text-muted-foreground">{rejection.detail}</p>
+              {rejection.allowed_project_roots.length > 0 ? (
+                <p className="mt-1 text-muted-foreground">
+                  Allowed roots:{" "}
+                  <span className="font-mono">
+                    {rejection.allowed_project_roots.join("  ·  ")}
+                  </span>
+                </p>
+              ) : (
+                <p className="mt-1 text-muted-foreground">
+                  The server named no allowed roots with this refusal, which means
+                  its allow-list is empty — nothing can be created until an
+                  operator configures one.
+                </p>
+              )}
+            </div>
+          )}
+          {/* A failure that is NOT a path refusal still has to say why. This is the
+              server's own text, verbatim; the two panels are mutually exclusive by
+              construction (a rejection always sets projectError too), and this one
+              renders only when there is no code to explain. */}
+          {!rejection && projectError ? (
+            <p className="rounded-md border border-status-danger/40 bg-status-danger/5 p-2 text-[11px] text-foreground">
+              {projectError}
+            </p>
+          ) : null}
         </div>
         <DialogFooter>
           <Button variant="ghost" onClick={() => onOpenChange(false)}>
@@ -880,7 +1025,19 @@ function CreateProjectDialog({
               const p = await onCreate(name.trim(), rootPath.trim());
               setBusy(false);
               if (!p) {
-                setErr("Project creation failed. Check the control token.");
+                // RISK-1: distinguish a PATH refusal from everything else.
+                // "Check the control token" is actively wrong advice for a
+                // PROJECT_ROOT_MISSING -- the token was fine, and the operator
+                // would go looking for a credential problem that does not exist
+                // instead of creating the directory they were told about.
+                //
+                // No message here may promise a reason panel "below": `rejection`
+                // is a PROP, so within this handler it still holds the value from
+                // before this attempt, and the new one only arrives on the next
+                // render. A message that says "shown below" and then shows
+                // nothing is worse than no message. The server's own text is
+                // rendered separately and unconditionally.
+                setErr("Project not created.");
                 return;
               }
               setName("");

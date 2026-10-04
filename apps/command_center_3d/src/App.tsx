@@ -258,6 +258,8 @@ export function App() {
             onCreated={() => void domain.refresh()}
             onOpenProjects={() => goto("projects")}
             onCreateProject={domain.createProject}
+            projectError={domain.projectError}
+            projectRejection={domain.projectRejection}
           />
         );
       case "connections":

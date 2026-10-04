@@ -86,6 +86,15 @@ export interface Project {
   created_at: number;
   updated_at: number;
   archived: boolean;
+  /** RISK-1 — what the operator TYPED, echoed for display only.
+   *
+   * `root_path` is the CANONICAL value the server resolved and stored; this is
+   * the raw submission. Keeping both means the UI can show "you typed X, we
+   * stored Y" instead of silently rewriting the operator's input, which is the
+   * behaviour that makes a canonicalisation bug invisible. Absent on older
+   * servers. */
+  root_path_raw?: string;
+  root_path_canonical?: string;
 }
 
 export interface Mission {
@@ -431,6 +440,143 @@ export interface HomeSummary {
   attention_items: AttentionItem[];
   actuation_enabled: boolean;
   localhost_only: boolean;
+  /** RISK-1 — the project-root boundary, as the server states it.
+   *
+   * Optional so a build against an older server renders "UNKNOWN" rather than
+   * crashing: the UI must never invent a boundary it was not told (the same
+   * rule `actuation_enabled` follows). */
+  project_scope?: ProjectScope;
+}
+
+/** RISK-1 — what a project root is allowed to be, and why one was refused.
+ *
+ * `allowed_project_roots` is the whole point of shipping this: an operator who
+ * cannot see the boundary cannot fix a rejection, and a UI that renders a
+ * refusal without naming the allowed set teaches the operator to retry blindly. */
+export interface ProjectScope {
+  schema: string;
+  allowed_project_roots: string[];
+  reason_codes: string[];
+  fail_closed: boolean;
+  stored_value: string;
+  note?: string;
+}
+
+/** RISK-1 — a refused project root, parsed out of the 422 detail.
+ *
+ * The server returns `{code, detail, field, raw, allowed_project_roots}` for a
+ * rejected path. `code` is what the UI must branch on: `PROJECT_ROOT_MISSING`
+ * ("create it") and `PROJECT_ROOT_OUT_OF_SCOPE` ("you may not have it") are
+ * opposite instructions, and collapsing them into one generic error is how a
+ * refused traversal ends up looking like a typo to the person fixing it. */
+export interface ProjectRootRejection {
+  code: string;
+  detail: string;
+  field: string;
+  raw: string;
+  allowed_project_roots: string[];
+}
+
+/** Parse a write failure into a `ProjectRootRejection`, or null if it is not one.
+ *
+ * Returns null for every other failure (401, 403, network, 500) so the caller
+ * keeps its existing handling instead of mislabelling an auth failure as a
+ * path problem.
+ *
+ * THE SHAPE IS NOT GUESSED. `request()` does not hand this function the raw
+ * response body: `extractDetail()` has already unwrapped it, and for a
+ * non-string `detail` it returns `JSON.stringify(detail)` -- i.e. the code sits
+ * at the TOP level of this string, not under a second `detail` key. Both
+ * spellings are accepted so the parser is correct whether it is handed the
+ * unwrapped string (the production path) or a whole body (a fixture, a future
+ * caller that logs envelopes). Accepting only the nested form is a parser that
+ * returns `null` for every real refusal: the UI then silently falls back to a
+ * generic error and the operator is back to guessing.
+ */
+export function asProjectRootRejection(error: string | null): ProjectRootRejection | null {
+  if (!error) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(error);
+  } catch {
+    // Not JSON — a plain-string detail from some other endpoint.
+    return null;
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const top = parsed as Partial<ProjectRootRejection>;
+  const nested = (top as { detail?: unknown }).detail;
+  // Prefer the unwrapped top level; fall back to a nested `detail` object.
+  const d =
+    typeof top.code === "string" && typeof top.detail === "string"
+      ? top
+      : nested && typeof nested === "object"
+        ? (nested as Partial<ProjectRootRejection>)
+        : null;
+  if (!d || typeof d.code !== "string" || typeof d.detail !== "string") return null;
+  return {
+    code: d.code,
+    detail: d.detail,
+    field: typeof d.field === "string" && d.field ? d.field : "root_path",
+    raw: typeof d.raw === "string" ? d.raw : "",
+    allowed_project_roots: Array.isArray(d.allowed_project_roots)
+      ? d.allowed_project_roots.map(String)
+      : [],
+  };
+}
+
+/** RISK-1 — the four refusals, each with the instruction the operator needs.
+ *
+ * Kept as DATA with one entry per code, because these are four different
+ * problems: two say "not there, create it", one says "you may not have it",
+ * one says "a file is not a working directory". An operator who is told only
+ * "invalid path" retries; an operator who is told which of the four it is can
+ * finish. The prose is the UI's own wording -- the server's `detail` is shown
+ * beneath it verbatim as the audit-grade statement, never replaced by it.
+ *
+ * `fix` is the action. `blame` is the honest answer to "whose fault is this",
+ * because two of the four are a configuration problem the operator cannot fix
+ * from this screen and saying otherwise sends them hunting the wrong thing. */
+export const PROJECT_ROOT_REJECTION_HELP: Readonly<
+  Record<string, { title: string; fix: string; blame: "operator" | "server" }>
+> = {
+  PROJECT_ROOT_OUT_OF_SCOPE: {
+    title: "Outside the allowed project roots",
+    fix: "Pick a directory that sits inside one of the allowed roots listed above. Paths that reach elsewhere by .. or through a link are refused even when the target exists.",
+    blame: "operator",
+  },
+  PROJECT_ROOT_MISSING: {
+    title: "Inside an allowed root, but nothing is there",
+    fix: "Create the directory first, or give the full path of a directory that already exists.",
+    blame: "operator",
+  },
+  PROJECT_ROOT_NOT_ABSOLUTE: {
+    title: "Not a full path from a drive or UNC root",
+    fix: "Enter the complete absolute path (for example D:\\workspace\\my-project). A relative fragment is refused rather than resolved against wherever the server happens to be running.",
+    blame: "operator",
+  },
+  PROJECT_ROOT_NOT_A_DIRECTORY: {
+    title: "That path is a file, not a directory",
+    fix: "Give the folder that contains your work, not a document inside it.",
+    blame: "operator",
+  },
+  /** An empty allow-list refuses everything. Not a code the server emits -- it
+   *  is what the refusal MEANS when `fail_closed` has nothing configured, and
+   *  the operator's only fix is a server-side config change. */
+  NO_PROJECT_ROOTS_CONFIGURED: {
+    title: "No project roots are configured on the server",
+    fix: "Every project root is refused until an operator sets launcher.project_scope_base (config) or JCC_ALLOWED_PROJECT_ROOTS (environment). This cannot be fixed from this screen.",
+    blame: "server",
+  },
+};
+
+/** The human-readable guidance for a refusal code, or null if we do not know it.
+ *
+ * An unknown code returns null rather than a generic string, so a future server
+ * reason shows its own text instead of being mislabelled with today's advice. */
+export function projectRootRejectionHelp(
+  code: string,
+): { title: string; fix: string; blame: "operator" | "server" } | null {
+  return PROJECT_ROOT_REJECTION_HELP[code] ?? null;
 }
 
 export interface DeliverableCounts {

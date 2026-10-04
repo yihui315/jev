@@ -1,5 +1,13 @@
-import { describe, it, expect } from "vitest";
-import { DOMAIN_LIST_LIMIT, DomainApi, fmtBytes, fmtRelative, fmtTime } from "./domainApi";
+import { afterEach, describe, it, expect } from "vitest";
+import {
+  DOMAIN_LIST_LIMIT,
+  DomainApi,
+  asProjectRootRejection,
+  fmtBytes,
+  fmtRelative,
+  fmtTime,
+  projectRootRejectionHelp,
+} from "./domainApi";
 
 /**
  * Formatters are shared by every domain view, so a regression here misreports
@@ -410,5 +418,195 @@ describe("domain totals client contract", () => {
     } finally {
       globalThis.fetch = original;
     }
+  });
+});
+
+/**
+ * RISK-1 — the project-root rejection parser.
+ *
+ * The four server codes are OPPOSITE instructions: MISSING means "create it",
+ * OUT_OF_SCOPE means "it is there and you may not have it". A UI that rendered
+ * them as one generic error would send the operator to create the very
+ * directory the guard just declined to expose — so the parser must preserve the
+ * code, and must NOT claim a rejection for failures that are not path problems.
+ *
+ * THE SHAPES BELOW ARE THE ONES THE SERVER SENDS, spelled the way
+ * `packages/jcc_core/server.py` builds them at the `POST /api/v1/domain/projects`
+ * 422. An earlier version of this file fed the parser a hand-written
+ * `JSON.stringify({detail: {...}})` instead — a shape the real code path never
+ * produces, because `request()` has already unwrapped `detail` and stringified
+ * the inner object by the time the parser sees it. The parser therefore returned
+ * `null` for every real refusal while all four tests passed. The end-to-end
+ * tests below drive the actual `DomainApi.createProject` over a stubbed fetch so
+ * the shape under test is the shape that ships.
+ */
+describe("asProjectRootRejection", () => {
+  /** The unwrapped string `request()` really hands the parser for a 422. */
+  const serverDetail = (d: Record<string, unknown>) => JSON.stringify(d);
+  /** The whole response body, for a caller that logs/holds envelopes. */
+  const envelope = (d: unknown) => JSON.stringify({ detail: d });
+
+  const OUT_OF_SCOPE = {
+    code: "PROJECT_ROOT_OUT_OF_SCOPE",
+    detail: "root_path 'C:\\Windows' is outside every allowed project root",
+    field: "root_path",
+    raw: "C:\\Windows",
+    allowed_project_roots: ["D:\\workspace"],
+  };
+  const MISSING = {
+    code: "PROJECT_ROOT_MISSING",
+    detail: "root_path 'D:\\nope' does not exist",
+    field: "root_path",
+    raw: "D:\\nope",
+    allowed_project_roots: ["D:\\workspace"],
+  };
+
+  it("parses the UNWRAPPED detail the real request path produces", () => {
+    // This is the regression that mattered: the production string has `code` at
+    // the TOP level. A parser that only looked under a nested `detail` key
+    // returned null here, and the UI fell back to a generic error.
+    const parsed = asProjectRootRejection(serverDetail(OUT_OF_SCOPE));
+    expect(parsed).not.toBeNull();
+    expect(parsed?.code).toBe("PROJECT_ROOT_OUT_OF_SCOPE");
+    expect(parsed?.field).toBe("root_path");
+    expect(parsed?.raw).toBe("C:\\Windows");
+    expect(parsed?.allowed_project_roots).toEqual(["D:\\workspace"]);
+  });
+
+  it("also parses a full response envelope", () => {
+    const parsed = asProjectRootRejection(envelope(OUT_OF_SCOPE));
+    expect(parsed?.code).toBe("PROJECT_ROOT_OUT_OF_SCOPE");
+    expect(parsed?.allowed_project_roots).toEqual(["D:\\workspace"]);
+  });
+
+  it("keeps MISSING distinct from OUT_OF_SCOPE", () => {
+    const missing = asProjectRootRejection(serverDetail(MISSING));
+    const outOfScope = asProjectRootRejection(serverDetail(OUT_OF_SCOPE));
+    expect(missing?.code).toBe("PROJECT_ROOT_MISSING");
+    expect(outOfScope?.code).toBe("PROJECT_ROOT_OUT_OF_SCOPE");
+    expect(missing?.code).not.toBe(outOfScope?.code);
+    // ...and the two must not share guidance, or the UI is back to one message.
+    expect(projectRootRejectionHelp(missing!.code)?.fix).not.toBe(
+      projectRootRejectionHelp(outOfScope!.code)?.fix,
+    );
+  });
+
+  it("carries all FOUR codes distinctly, with actionable text for each", () => {
+    // The operator must be able to tell "not configured" from "not there" from
+    // "not absolute" from "not a directory". Four codes, four different fixes.
+    const codes = [
+      "PROJECT_ROOT_OUT_OF_SCOPE",
+      "PROJECT_ROOT_MISSING",
+      "PROJECT_ROOT_NOT_ABSOLUTE",
+      "PROJECT_ROOT_NOT_A_DIRECTORY",
+    ];
+    const fixes = new Set<string>();
+    for (const code of codes) {
+      const help = projectRootRejectionHelp(code);
+      expect(help, `no help for ${code}`).not.toBeNull();
+      expect(help!.title.length).toBeGreaterThan(0);
+      expect(help!.fix.length).toBeGreaterThan(0);
+      fixes.add(help!.fix);
+    }
+    // Four problems, four different instructions — not one generic string.
+    expect(fixes.size).toBe(4);
+  });
+
+  it("returns null for a NON-path failure so auth errors are not mislabelled", () => {
+    // A 401/403 detail is a string, not an object with a `code`. Claiming it is
+    // a path rejection would send the operator hunting a directory problem they
+    // do not have.
+    expect(asProjectRootRejection(envelope("Control token not configured"))).toBeNull();
+    expect(asProjectRootRejection("HTTP 500")).toBeNull();
+    expect(asProjectRootRejection(null)).toBeNull();
+    // A JSON error that is not a path refusal (an upstream 500 body, say).
+    expect(asProjectRootRejection(JSON.stringify({ message: "boom" }))).toBeNull();
+  });
+
+  it("returns null for a future/unknown code rather than inventing one", () => {
+    // An unrecognised refusal must not borrow advice meant for a different
+    // problem; the server's own detail is shown on its own instead.
+    const parsed = asProjectRootRejection(
+      serverDetail({ code: "PROJECT_ROOT_SOMETHING_NEW", detail: "new rule" }),
+    );
+    expect(parsed?.code).toBe("PROJECT_ROOT_SOMETHING_NEW");
+    expect(projectRootRejectionHelp("PROJECT_ROOT_SOMETHING_NEW")).toBeNull();
+  });
+
+  it("defaults the optional fields rather than throwing on a partial detail", () => {
+    const parsed = asProjectRootRejection(
+      serverDetail({ code: "PROJECT_ROOT_NOT_A_DIRECTORY", detail: "is a file" }),
+    );
+    expect(parsed?.code).toBe("PROJECT_ROOT_NOT_A_DIRECTORY");
+    expect(parsed?.field).toBe("root_path");
+    expect(parsed?.raw).toBe("");
+    expect(parsed?.allowed_project_roots).toEqual([]);
+  });
+});
+
+/**
+ * RISK-1 — end-to-end over the real client.
+ *
+ * These drive `DomainApi.createProject` against a stubbed `fetch` returning the
+ * exact 422 envelope `server.py` raises, then feed the resulting `r.error` to
+ * the parser. The point is to test the SHAPE THAT SHIPS: `request()` unwraps
+ * `detail` and stringifies it, and a parser tested only against a hand-written
+ * string can agree with a shape the product never produces.
+ */
+describe("createProject -> ProjectRootRejected, end to end", () => {
+  const original = globalThis.fetch;
+  afterEach(() => {
+    globalThis.fetch = original;
+  });
+
+  async function rejectWith(detail: Record<string, unknown>) {
+    globalThis.fetch = (async () => ({
+      ok: false,
+      status: 422,
+      text: async () => JSON.stringify({ detail }),
+    })) as unknown as typeof fetch;
+    const api = new DomainApi("http://x");
+    const r = await api.createProject("tok", { name: "p", root_path: "C:\\Windows" });
+    expect(r.ok).toBe(false);
+    expect(r.status).toBe(422);
+    return asProjectRootRejection(r.error);
+  }
+
+  it("recognises a refused OUT_OF_SCOPE root from the live error string", async () => {
+    const parsed = await rejectWith({
+      code: "PROJECT_ROOT_OUT_OF_SCOPE",
+      detail: "root_path 'C:\\Windows' is outside every allowed project root: ['D:\\workspace']",
+      field: "root_path",
+      raw: "C:\\Windows",
+      allowed_project_roots: ["D:\\workspace"],
+    });
+    expect(parsed).not.toBeNull();
+    expect(parsed?.code).toBe("PROJECT_ROOT_OUT_OF_SCOPE");
+    expect(parsed?.allowed_project_roots).toEqual(["D:\\workspace"]);
+    expect(projectRootRejectionHelp(parsed!.code)?.blame).toBe("operator");
+  });
+
+  it("recognises a MISSING root, whose fix is the opposite instruction", async () => {
+    const parsed = await rejectWith({
+      code: "PROJECT_ROOT_MISSING",
+      detail: "root_path 'D:\\nope' does not exist",
+      field: "root_path",
+      raw: "D:\\nope",
+      allowed_project_roots: ["D:\\workspace"],
+    });
+    expect(parsed?.code).toBe("PROJECT_ROOT_MISSING");
+    expect(projectRootRejectionHelp(parsed!.code)?.fix).toContain("Create the directory");
+  });
+
+  it("does NOT claim a path rejection for a 401", async () => {
+    globalThis.fetch = (async () => ({
+      ok: false,
+      status: 401,
+      text: async () => JSON.stringify({ detail: "Control token not configured" }),
+    })) as unknown as typeof fetch;
+    const api = new DomainApi("http://x");
+    const r = await api.createProject("tok", { name: "p", root_path: "D:\\workspace" });
+    expect(r.status).toBe(401);
+    expect(asProjectRootRejection(r.error)).toBeNull();
   });
 });
