@@ -1,0 +1,479 @@
+{
+  "schema": "jcc.host_preflight.v1",
+  "schema_version": 1,
+  "release": "v1.3-final",
+  "branch": "release/jcc-v1.3-final",
+  "head": "05715da68794eff374703467f00de0871a44d65a",
+  "repo_root": "D:\\jev",
+  "owner": "Aegis (Security / Secrets)",
+  "generated_at": "2026-10-04T17:33:03+0800",
+  "python": "3.13.14",
+  "verification_policy": [
+    "VERIFIED = observed on this real Windows host in this session with a reproducible command.",
+    "NOT_MEASURED = the measurement was not possible; never rendered as a pass.",
+    "No secret VALUE is present in this document. Only names, emptiness and lengths are recorded.",
+    "No process was signalled, killed or stopped. jcc_green_process_pid=0 is the true value."
+  ],
+  "host": {
+    "manufacturer": "Micro-Star International Co., Ltd.",
+    "model": "MS-7C98",
+    "cpu": "Intel(R) Core(TM) i7-10700KF CPU @ 3.80GHz",
+    "cores_physical": 8,
+    "cores_logical": 16,
+    "ram_gb": 127.92,
+    "hypervisor_present": false,
+    "os_build": "10.0.22621",
+    "last_boot_uptime": "2026-10-04T06:13:20+08:00",
+    "uptime_days_at_probe": 0.458,
+    "is_admin_shell": false,
+    "user_sessions": 1,
+    "source": "VERIFIED via Get-CimInstance on the real host"
+  },
+  "gpu": {
+    "class": "GPU",
+    "blocking_classification": "HOST",
+    "blocking_nature": "REPAIRABLE_HOST_ISSUE",
+    "hardware_present": true,
+    "hardware_evidence": {
+      "pci_instance_id_working": "PCI\\VEN_10DE&DEV_1E04&SUBSYS_86751043&REV_A1\\4&10C1AA52&0&0008",
+      "pci_instance_id_failed": "PCI\\VEN_10DE&DEV_1E04&SUBSYS_86751043&REV_A1\\4&7368FA&0&00DC",
+      "vendor_id": "VEN_10DE",
+      "vendor_id_meaning": "NVIDIA Corporation",
+      "device_id": "DEV_1E04",
+      "device_id_meaning": "TU102 / GeForce RTX 2080 Ti",
+      "subsystem_id": "SUBSYS_86751043",
+      "subsystem_vendor": "1043 (ASUSTeK)",
+      "location_working_instance": "PCI bus 1, device 0, function 0",
+      "location_failed_instance": "PCI bus 3, device 0, function 0",
+      "config_manager_error_code_working": 0,
+      "config_manager_error_code_failed": 31,
+      "pnp_problem_failed_instance": "CM_PROB_FAILED_ADD",
+      "source": "VERIFIED via Win32_VideoController + Get-PnpDevice + Get-PnpDeviceProperty(DEVPKEY_*)"
+    },
+    "driver_loaded": false,
+    "driver_service": "BasicDisplay",
+    "driver_inf": "display.inf",
+    "driver_provider": "Microsoft",
+    "driver_version": "10.0.22621.1",
+    "driver_date": "06/21/2006",
+    "adapter_ram_reported": 0,
+    "video_processor_reported": "",
+    "nvidia_smi_present": false,
+    "nvidia_services_present": false,
+    "nvidia_driverstore_display_package_present": false,
+    "nvidia_driverstore_packages_found": [
+      "nvdimm.inf",
+      "nvhda.inf",
+      "nvhdc.inf",
+      "nvmedisk.inf",
+      "nvpcf.inf",
+      "nvppc.inf",
+      "nvraid.inf"
+    ],
+    "nvidia_driverstore_note": "Only chipset/RAID/HD-audio INF packages exist. No display-class NVIDIA package and no nvlddmkm.sys bound to the adapter. The only nvlddmkm.sys found on the box belongs to nvhdc.inf (HDMI audio), not to a display driver.",
+    "display_provider_eventlog_hits_since_log_retained": 0,
+    "ven_10de_message_eventlog_hits": 0,
+    "current_renderer": "Microsoft Basic Render Driver (WARP, CPU rasterisation)",
+    "renderer_class": "SOFTWARE",
+    "verdict": "NVIDIA RTX 2080 Ti hardware IS physically present and enumerable. The NVIDIA display driver is NOT installed, so Windows fell back to the Microsoft Basic Display Adapter. All GPU work is therefore CPU-rasterised.",
+    "supersedes": [
+      "RELOCATION_CLOSURE_VERDICT.md :: 'Host has no hardware GPU in this session'",
+      "FINAL_CLOSURE_STATUS.md :: '本沙箱无GPU'"
+    ],
+    "supersede_reason": "Both statements are contradicted by the PCI device ID. The host has the hardware; it lacks the driver. These are different remediation paths, so the honest wording matters."
+  },
+  "hardware_performance": {
+    "status": "NOT_MEASURED",
+    "reason": "NVIDIA driver not installed; the OS reports the adapter through the Microsoft Basic Display Adapter and Chrome rasterises via WARP on the CPU. No frame time produced on this host can be attributed to the RTX 2080 Ti.",
+    "permanent": false,
+    "reachable_after_remediation": true,
+    "required_action": "Install the NVIDIA display driver for PCI VEN_10DE DEV_1E04 (TU102), reboot, then re-run the J stage.",
+    "note": "This is NOT a structural 'host has no discrete GPU' limit. The instrument exists; the driver does not. A remediation attempt is warranted before J is recorded as permanently NOT_MEASURED."
+  },
+  "gpu_driver_remediation": {
+    "action_taken_by_aegis": "NONE",
+    "reason": "Driver installation is a host-mutating, user-interactive action requiring explicit approval. Aegis did not download or install anything, and did not use the sandbox's own package manager.",
+    "device_identifier_to_target": "PCI\\VEN_10DE&DEV_1E04&SUBSYS_86751043&REV_A1",
+    "acquisition_guidance_only": [
+      "NVIDIA driver download page, select GeForce RTX 2080 Ti (TU102).",
+      "The subsystem id 86751043 is an ASUS board subsystem, so the ASUS TUF series page is the most specific match if one is published.",
+      "Verify after install: nvidia-smi must return, and the Display device's DEVPKEY_Device_Service must change away from 'BasicDisplay'.",
+      "Re-verify: Get-PnpDevice -Class Display | Should show a non-Error status and DEVPKEY_Device_DriverProvider = 'NVIDIA'.",
+      "A second instance of the same adapter is currently at PnP code 31 (CM_PROB_FAILED_ADD) on PCI bus 3; that one also needs the driver to bind."
+    ]
+  },
+  "ports": {
+    "checked_range": "4770-4790",
+    "ports_of_interest": [
+      4778,
+      4779,
+      4780
+    ],
+    "listening_among_them": [],
+    "get_nettcpconnection_hits": 0,
+    "netstat_hits": 0,
+    "classification": "PASS",
+    "finding": "4778 / 4779 / 4780 are all free. No foreign process holds them. There is NO JCC process running on this host at all.",
+    "jcc_green_process_pid": 0,
+    "jcc_green_process_pid_meaning": "0 is the CORRECT value. No JCC process exists to protect, and Aegis did not signal, kill or stop any process.",
+    "listening_ports_observed_unrelated": [
+      135,
+      139,
+      445,
+      4709,
+      5040,
+      5357,
+      10808,
+      18488,
+      39099,
+      49664,
+      49665,
+      49666,
+      49667,
+      49668,
+      49669,
+      51717,
+      51739,
+      52428,
+      52429,
+      52460,
+      52498,
+      52515,
+      56210,
+      57922,
+      59846,
+      59881
+    ],
+    "source": "VERIFIED via Get-NetTCPConnection + netstat -ano"
+  },
+  "scheduled_tasks": {
+    "cmdlet_available": true,
+    "module_present": true,
+    "total_tasks_on_host": 145,
+    "task_scheduler_service": "Running/Automatic",
+    "jcc_tasks_found": [],
+    "api_jcc_v13_task_exists": false,
+    "ui_jcc_v13_task_exists": false,
+    "xml_export_readable": true,
+    "xml_export_sample_length": 1980,
+    "xml_export_sample_head": "<?xml version=\"1.0\" encoding=\"UTF-16\"?><Task ...",
+    "classification": "HOST",
+    "finding": "The Task Scheduler API and task XML are fully readable. No task matching JCC/Jev/JEV exists in ANY state, so the durability mechanism the release plan describes is simply not installed. This is absent infrastructure, not an API or permission failure.",
+    "non_microsoft_tasks_present": [
+      "\\WB-Win11-Stability-Resume (Disabled)",
+      "\\WpsUpdateLogonTask_Administrator (Ready)",
+      "\\WpsUpdateTask_Administrator (Ready)",
+      "\\WpsWakeWnsLogonTask (Ready)",
+      "\\Mozilla\\Firefox Default Browser Agent 308046B0AF4A39CB (Ready)"
+    ],
+    "windows_restart_recovery_verified": false,
+    "windows_restart_recovery_reason": "No JCC scheduled task exists, so restart recovery cannot have been exercised. It is NOT_MEASURED, not PASS.",
+    "source": "VERIFIED via Get-ScheduledTask + Export-ScheduledTask"
+  },
+  "security": {
+    "localhost_only_binding": {
+      "status": "PASS",
+      "bind_host": "127.0.0.1",
+      "loopback_allowlist": [
+        "127.0.0.1",
+        "127.0.0.2",
+        "localhost",
+        "::1",
+        "[::1]"
+      ],
+      "refusal_behaviour": "SystemExit (exit 1) BEFORE store/provider/socket/marker",
+      "verified_refusals": [
+        "0.0.0.0",
+        "192.168.1.5",
+        "::",
+        "example.com"
+      ],
+      "verified_accepts": [
+        "127.0.0.1",
+        "localhost",
+        "(empty)"
+      ],
+      "config_server_block": null,
+      "external_listener_observed": false,
+      "note": "run.py hardcodes BIND_HOST=127.0.0.1 and passes it to uvicorn.run. config/jcc.yaml declares no server.host, so there is nothing to override the hardcoded value with."
+    },
+    "route_auth": {
+      "status": "PASS",
+      "mutating_routes_found": 27,
+      "mutating_routes_without_token": [],
+      "mechanism": "hmac.compare_digest against JCC_CONTROL_TOKEN, fail-closed when unset (empty string is rejected, not accepted)",
+      "bearer_precedence": "Authorization: Bearer OVERRIDES X-JCC-Token. A wrong bearer paired with a VALID X-JCC-Token returns 403, so there is no smuggling path through a second header.",
+      "bearer_bypass_attempted": false,
+      "bypass_found": false,
+      "token_trimming": "None. A trailing space does not match (403).",
+      "open_get_surface_declared": 28,
+      "open_get_surface_served": 27,
+      "undeclared_open_get_routes": [],
+      "openapi_docs_disabled": true,
+      "malformed_json": "422 with a schema error, not a 500",
+      "oversized_payload": "422 (envelope validation rejects the oversized field); no unbounded buffering observed at the API layer"
+    },
+    "hermes_hardened_receiver": {
+      "status": "PASS",
+      "controls_verified_rejected": {
+        "oversized_body": "payload_too_large",
+        "bad_hmac": "bad_signature",
+        "replay_same_delivery_id": "replay",
+        "stale_timestamp": "timestamp_out_of_window",
+        "malformed_json_with_valid_signature": "bad_json",
+        "missing_headers": "missing_header",
+        "body_swap": "bad_signature",
+        "agent_header_swap": "bad_signature"
+      },
+      "replay_check_ordering": "AFTER signature, so unauthenticated traffic cannot poison the replay cache",
+      "session_isolation_enforced": true,
+      "session_cross_talk_result": "hermes bound session_id 'cross-77'; a claude request reusing it was rejected with reason='session_isolation'",
+      "session_id_absent": "isolation is skipped when no session_id is present; refusal then depends on the adapter's session_id-required rule, not on this layer",
+      "compare_digest_timing_ratio": 1.02,
+      "secret_in_rejection_log": false
+    },
+    "directive_signing": {
+      "status": "PASS",
+      "bad_hmac": "BAD_SIGNATURE",
+      "replay": "REPLAY (nonce consumed exactly once)",
+      "stale_timestamp": "EXPIRED",
+      "future_timestamp": "NOT_YET_VALID",
+      "v2_sig_downgraded_to_v1": "REJECTED (BAD_SIGNATURE)",
+      "unknown_signing_form": "ValueError, closed set {v1, v2}, never defaulted",
+      "blank_signing_key": "load_signing_key returns None (an empty key is not a key)",
+      "effect_boundary_pins_v2": true,
+      "effect_boundary_pins_v2_sites": [
+        "host_launcher.py:515",
+        "host_launcher.py:595",
+        "launch_control.py:261",
+        "launch_control.py:344"
+      ],
+      "known_v1_weakness": "Under form v1, adding human_approval to a signed directive still verifies. This is DOCUMENTED in signing.py and is the stated reason the effect boundary requires v2. Not a new finding."
+    },
+    "audit_integrity": {
+      "status": "PASS",
+      "table": "audit_tape",
+      "chain_columns": [
+        "seq",
+        "entry_hash",
+        "prev_hash",
+        "evidence_hash"
+      ],
+      "hash_chained": true,
+      "baseline_intact": true,
+      "content_tamper_detected": true,
+      "row_deletion_detected": true,
+      "source": "VERIFIED by mutating a copy DB under runtime/ and re-verifying"
+    },
+    "secret_scan": {
+      "env_file_present": true,
+      "env_file_value_leaks_into_source": 0,
+      "files_scanned": 1601,
+      "hardcoded_credential_pattern_hits": 144,
+      "unique_credential_values": 12,
+      "hits_outside_tests_dirs": 98,
+      "hits_outside_tests_dirs_are_snapshot_artifacts": true,
+      "assessment": "All 144 hits reduce to 12 unique strings that originate in packages/jcc_core/tests/test_redaction_values.py as obviously synthetic redaction fixtures: the AWS documentation example access-key, a Slack example token, a GitHub example PAT and a fixed unsigned JWT, each written out in full at test_redaction_values.py:78-85. The remaining occurrences are copies propagated into artifacts/acceptance/ snapshot JSON and Markdown, and into artifacts/acceptance/_lead_baseline.txt. No live credential is present. Hygiene note, not a security blocker, and no fixture value is reproduced in this artifact.",
+      "redaction_verified": "redact() masks api_key and password values; no raw value survives",
+      "server_logs_token": false
+    },
+    "telemetry_control_separation": {
+      "status": "PASS",
+      "actuation_enabled": false,
+      "actuation_allowed_actions": [],
+      "policy_version": "p3.0.0",
+      "note": "Jev scores, Policy emits directives, the Actuator refuses all side-effects. config/jcc.yaml actuation.enabled=false and allowed_actions=[] are both explicit."
+    },
+    "hook_config_clobbering": {
+      "status": "PASS",
+      "codex_installer_refuses_to_overwrite_user_notify_without_force": true,
+      "codex_installer_backs_up_before_write": true,
+      "codex_installer_writes_only_after_transform_succeeds": true,
+      "codex_installer_is_idempotent": true,
+      "native_hook_agents_present_on_host": [],
+      "native_hook_agents_note": "~/.claude, ~/.codex and ~/.hermes DO NOT EXIST on this host. There is no native agent hook installed and therefore nothing to clobber. The installers are unexercised on this machine."
+    }
+  },
+  "findings": [
+    {
+      "id": "AEGIS-F1",
+      "title": "project_root has NO containment check before becoming a child process cwd and --add-dir grant",
+      "severity": "HIGH",
+      "class": "PRODUCT",
+      "blocking_for_p0_p2": false,
+      "evidence": {
+        "dead_code": "host_launcher.py:484 defines _is_inside(child, parent) and its docstring says it is 'Used for the project-root binding'. A repo-wide search finds exactly ONE occurrence: the definition. There is no call site anywhere.",
+        "the_check_itself_is_correct": [
+          "_is_inside('D:\\\\jev\\\\packages','D:\\\\jev') -> True",
+          "_is_inside('D:\\\\Windows\\\\System32','D:\\\\jev') -> False",
+          "_is_inside('D:\\\\jev\\\\..\\\\Windows\\\\System32','D:\\\\jev') -> False",
+          "_is_inside('D:\\\\JEV\\\\packages','D:\\\\jev') -> True (case-folded, correct on Windows)",
+          "_is_inside('C:\\\\other','D:\\\\jev') -> False (different drive)"
+        ],
+        "the_guard_that_actually_runs": "host_launcher.py:760 — if not intent.project_root or not Path(intent.project_root).is_dir(): refuse with PROJECT_ROOT_MISSING. This is an EXISTENCE check only.",
+        "sinks": [
+          "host_launcher.py:774 subprocess.Popen(argv, cwd=intent.project_root)",
+          "host_launcher.py:208 argv --add-dir <project_root>"
+        ],
+        "no_base_dir_configured": "allowed_root / base_dir / workspace_root / jail / REPO_ROOT all absent from host_launcher.py",
+        "stored_verbatim": "POST /api/v1/domain/projects accepted and stored '../../../../Windows/System32', '..\\\\..\\\\..\\\\..\\\\Windows\\\\System32', 'C:\\\\Windows\\\\System32' and '/etc/passwd' with 200 OK, no normalisation."
+      },
+      "exploitability": "Requires a valid JCC_CONTROL_TOKEN, a resolvable node runtime and WorkBuddy CLI, and a signed v2 directive with a fresh launcher nonce. It is NOT reachable by an unauthenticated or remote party.",
+      "honest_framing": "On a single-user host where the token holder is already the operator this is a privilege-boundary defect, not a remote traversal and not a sandbox escape. It still means the launcher has no workspace boundary of its own.",
+      "minimal_fix": "Call the existing _is_inside at host_launcher.py just before the line 760 existence check, refusing when the root is outside a configured base directory, and add the base directory to config/jcc.yaml. This is a packages/ change and is OUTSIDE Aegis ownership.",
+      "owner": "main (Change Request) — packages/ is not Aegis ownership"
+    },
+    {
+      "id": "AEGIS-F2",
+      "title": "Non-ASCII control token raises an unhandled TypeError in the auth dependency",
+      "severity": "MEDIUM",
+      "class": "PRODUCT",
+      "blocking_for_p0_p2": false,
+      "evidence": {
+        "root_cause": "require_control_token compares the presented token against JCC_CONTROL_TOKEN with hmac.compare_digest. Python's compare_digest raises TypeError('comparing strings with non-ASCII characters is not supported') for str inputs containing non-ASCII codepoints.",
+        "repro": "Raw ASGI request to POST /api/pause with header x-jcc-token: \\xe4\\xb8\\xad\\xe6\\x96\\x87 → the app raised TypeError out of the dependency. Verified by driving the ASGI app directly, because httpx refuses to encode a non-ASCII header (UnicodeEncodeError) and would otherwise mask it.",
+        "security_impact": "NONE on confidentiality or integrity. The request is still refused; no token is ever accepted that should not be. This is an availability/robustness defect: an unhandled exception instead of a 403, which also crashes the request rather than logging a clean denial."
+      },
+      "minimal_fix": "Encode both operands to bytes with errors handling, or wrap the compare in try/except TypeError and fall through to 403.",
+      "owner": "main (Change Request) — packages/ is not Aegis ownership"
+    },
+    {
+      "id": "AEGIS-F3",
+      "title": "D:\\\\jev\\\\.env declares JCC_CONTROL_TOKEN, JCC_CONFIG and JEV_API_KEY with EMPTY values, and the host exports no JCC_*/JEV_* variables at all",
+      "severity": "MEDIUM",
+      "class": "PRODUCT",
+      "blocking_for_p0_p2": false,
+      "evidence": {
+        "env_keys_found": {
+          "JCC_CONTROL_TOKEN": "empty (value length 0)",
+          "JCC_CONFIG": "empty (value length 0)",
+          "JCC_PROVIDER": "set, value length 4",
+          "JEV_API_KEY": "empty (value length 0)"
+        },
+        "process_env": "Get-ChildItem Env: filtered to ^JCC_|^JEV_|^HERMES returned NOTHING. No JCC_* or JEV_* variable is exported in this session.",
+        "note": "No secret VALUE was read into this artifact. Only names, emptiness and lengths were recorded."
+      },
+      "security_impact": "This is SAFE by design rather than broken: control_token reads os.environ.get(env_name), so an unset or empty token yields '' which require_control_token rejects, i.e. the control plane is LOCKED, not open. The measured 27 mutating routes all refused. The risk is operational: an operator could believe a token is configured when the file says otherwise, and JEV_API_KEY being empty means the real provider cannot authenticate.",
+      "minimal_fix": "Document that a committed .env with empty values is a fail-closed placeholder, and make the health endpoint report control_token_configured=false so it is visible without leaking anything.",
+      "owner": "main (Change Request) — packages/ and config/ are not Aegis ownership"
+    },
+    {
+      "id": "AEGIS-F4",
+      "title": "SessionIsolation map in the webhook receiver grows without bound",
+      "severity": "LOW",
+      "class": "PRODUCT",
+      "blocking_for_p0_p2": false,
+      "evidence": {
+        "bounded": "ReplayCache has ttl + maxsize eviction.",
+        "unbounded": "SessionIsolation._map has NO eviction, NO TTL and NO maxsize. In the probe, 3000 distinct signed session_ids left isolation_map_size=0 because the probe used verify() directly; through handle() each distinct session_id binds permanently for the process lifetime."
+      },
+      "security_impact": "Memory growth on a long-lived receiver, and the isolation map itself is a cross-agent binding table an attacker with the webhook secret could deliberately grow. Requires the shared secret, so it is post-authentication.",
+      "minimal_fix": "Give SessionIsolation the same TTL + maxsize treatment as ReplayCache, or derive bindings from the audit table.",
+      "owner": "main (Change Request) — integrations/ is not Aegis ownership"
+    },
+    {
+      "id": "AEGIS-F5",
+      "title": "The J stage cannot be measured because the NVIDIA driver is absent",
+      "severity": "HIGH",
+      "class": "HOST",
+      "blocking_for_p0_p2": false,
+      "hardware_is_present": true,
+      "remediable": true,
+      "owner": "operator / user approval required"
+    },
+    {
+      "id": "AEGIS-F6",
+      "title": "No JCC scheduled task exists, so Windows restart recovery is NOT_MEASURED",
+      "severity": "HIGH",
+      "class": "HOST",
+      "blocking_for_p0_p2": false,
+      "evidence": "Get-ScheduledTask filtered to JCC/Jev/JEV returned no task in any state across all 145 tasks. The API and XML export both work, so this is absent infrastructure, not a tooling failure.",
+      "owner": "main / Harbor — the durability mechanism must exist before restart recovery can be claimed"
+    },
+    {
+      "id": "AEGIS-F7",
+      "title": "D:\\\\jev\\\\.workbuddy\\\\fixtures does not exist; the main instruction's H section points at F:\\\\jev\\\\.workbuddy\\\\fixtures",
+      "severity": "MEDIUM",
+      "class": "PRODUCT",
+      "evidence": "D:\\\\jev\\\\.workbuddy exists but has no fixtures subdirectory. F: does not exist on this machine at all (Test-Path F: = False).",
+      "owner": "main — the instruction path must be corrected to D:\\\\jev, and the fixture directory must be populated before final acceptance"
+    },
+    {
+      "id": "AEGIS-F8",
+      "title": "CLAIM FALSIFIED: SOFTWARE_RENDERER_TOKENS does already cover 'Microsoft Basic Render Driver'",
+      "severity": "INFORMATION_ONLY",
+      "class": "NOT_A_DEFECT",
+      "evidence": {
+        "actual_tuple_in_tree": "('swiftshader','subzero','llvmpipe','softpipe','software','basic render driver','basic display adapter','warp','microsoft basic','mesa offscreen')",
+        "line_numbers": "tools/v1_3_wave10_browser_perf.py:181-186 (the tuple spans 181 to 186, it is not a 2-line tuple ending at 182)",
+        "executed_proof": "Imported the real module and called the real classify_renderer(). 'ANGLE (Microsoft, Microsoft Basic Render Driver (0x0000008C) Direct3D11 vs_5_0 ps_5_0, D3D11)' -> SOFTWARE. 'ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti ...)' -> HARDWARE. '' -> UNKNOWN. 'Some Future Unrecognised Renderer v1' -> UNKNOWN.",
+        "the_defence_is_better_than_the_claim_assumed": "classify_renderer has a THIRD branch that returns UNKNOWN. 'Not obviously software' never folds into HARDWARE, so an unrecognised future renderer cannot be quietly reported as a GPU either.",
+        "provenance": "The docstring records that this exact defect WAS observed on this host on 2026-09-30 (after the 11:22:58 reboot left the adapter at PnP code 52) and was already fixed. The stale premise appears to predate that fix."
+      },
+      "conclusion": "No product honesty defect. No change request needed. No Harbor ticket needed. Anyone re-raising this must run the classifier first, not read the token tuple from memory.",
+      "owner": "none"
+    }
+  ],
+  "classification": {
+    "PRODUCT": [
+      "AEGIS-F1",
+      "AEGIS-F2",
+      "AEGIS-F3",
+      "AEGIS-F4",
+      "AEGIS-F7"
+    ],
+    "HOST": [
+      "AEGIS-F5",
+      "AEGIS-F6"
+    ],
+    "GPU": [
+      "AEGIS-F5"
+    ],
+    "AUTH": [],
+    "SANDBOX": [],
+    "PASS": [
+      "4779/4780 free, no foreign process on 4778/4779/4780",
+      "JCC binds localhost only, refuses 0.0.0.0 and any routable host",
+      "All 27 mutating routes fail closed without a token; no bearer bypass",
+      "Undeclared open GET routes: none (28 declared / 27 served)",
+      "/docs and /openapi.json both 404",
+      "Hermes receiver rejected all 8 adversarial inputs including bad HMAC, replay, stale timestamp, body swap and agent swap",
+      "Session cross-talk rejected with session_isolation",
+      "Directive signing: bad HMAC / replay / expired / future / v2->v1 downgrade all rejected; effect boundary pins v2 as a literal",
+      "Audit chain is hash-linked and detects both content tampering and row deletion",
+      "No .env secret value appears in any scanned file; 144 credential pattern hits are all synthetic redaction fixtures",
+      "Server never logs a token; redaction masks api_key and password",
+      "Actuation disabled, allowed_actions empty, policy p3.0.0 — telemetry, control and execution planes separated",
+      "Hook installers refuse to clobber a user notify without --force and back up before writing",
+      "Task Scheduler API and task XML both readable"
+    ]
+  },
+  "artifacts_evidence": [
+    "D:\\jev\\runtime\\_aegis_host_probe.txt",
+    "D:\\jev\\runtime\\_aegis_gpu_probe.txt",
+    "D:\\jev\\runtime\\_aegis_gpu_events2.txt",
+    "D:\\jev\\runtime\\_aegis_gpu_events3.txt",
+    "D:\\jev\\runtime\\_aegis_task_probe.txt",
+    "D:\\jev\\runtime\\_aegis_hook_probe.txt",
+    "D:\\jev\\runtime\\_aegis_probe_receiver.py",
+    "D:\\jev\\runtime\\_aegis_probe_api.py",
+    "D:\\jev\\runtime\\_aegis_probe_containment.py",
+    "D:\\jev\\runtime\\_aegis_probe_audit.py",
+    "D:\\jev\\runtime\\_aegis_probe_renderer.py"
+  ],
+  "conclusion": {
+    "security_gate_decision": "GO WITH CONDITIONS",
+    "security_blockers": 0,
+    "conditions": [
+      "AEGIS-F1 must be dispositioned by main (Change Request) before any claim that the launcher confines work to a project root.",
+      "AEGIS-F5 (NVIDIA driver) must be attempted, or its non-attempt explicitly accepted, before the J stage is finalised.",
+      "AEGIS-F6 (scheduled task / restart recovery) blocks any claim that Windows restart recovery is verified. It is currently NOT_MEASURED."
+    ],
+    "explicitly_not_claimed": [
+      "GPU hardware performance is NOT measured.",
+      "Windows restart recovery is NOT verified.",
+      "No JCC process was running, so no live protection was exercised.",
+      "Native agent hooks (Claude/Codex/Hermes) are not installed on this host, so the installers are unexercised here."
+    ]
+  }
+}
