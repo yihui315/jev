@@ -1,5 +1,16 @@
 # Root cause: the p2 smoke test's server never becomes healthy in time
 
+> ⚠️ **PARTIALLY RETRACTED — read `WAL_STALL_RETRACTION.md` first.**
+> The *measurements* below are correct and reproduce exactly. The **mechanism I built
+> on them is wrong**: §1's "63.7 s ≈ 2 × 30 s, one stall per WAL database" is
+> retracted. Only the **first** WAL close in a process is slow (30.13 s, then 0.12 s),
+> so two databases cost ~30 s, not ~60 s; the stall is variable (36 s, 58 s) rather
+> than fixed; and it **disappears entirely on a quiet host** — the same test, same
+> commit, same 30 s budget went from 4× FAILED at 91 s to **1 PASSED in 14.74 s**.
+> §2 and §3's refutations (proxy, warm-up) still stand. §3's "raise the budget" option
+> is moot: **30 s is adequate.** The stall is a **HOST artefact, not a product defect**,
+> and no `packages/` change is warranted.
+
 **Status: VERIFIED by measurement. This is NOT the CR-H2 `.decode()` line, and it is
 NOT a proxy fault. Both of my earlier hypotheses were tested and refuted.**
 
