@@ -22,9 +22,16 @@ Two sandbox / user-profile hazards are neutralised here:
 
    The target is therefore derived from ``tempfile.gettempdir()`` at runtime
    rather than hard-coded, so it stays correct when TEMP/TMP differ per host or
-   per shell. It is deliberately stable (no timestamp): pytest ``rm_rf``s a
-   user-supplied basetemp on entry, which keeps scratch from accumulating
-   across runs.
+   per shell.
+
+   It is also PER-PROCESS (CR-H1). It used to be one fixed ``jev-pytest``
+   directory for the whole machine, but pytest ``rm_rf``s a basetemp on entry,
+   so two concurrent runs deleted each other's scratch: measured 3 of 5
+   concurrent pairs on this host had a non-zero leg, the loser erroring during
+   SETUP. Each process now gets ``jev-pytest<pid>-<uuid8>`` under the same
+   parent, and removes only its own on exit. The rule itself lives in
+   ``jcc_core.pytest_basetemp`` so this file and ``tools/conftest.py`` cannot
+   drift apart again.
 
 2. TEST-NUMBER PRECONDITION (lead ruling 2026-09-25). The suite's pass/fail
    numbers are NOT a property of the code under test: with the machine's
@@ -64,7 +71,6 @@ Two sandbox / user-profile hazards are neutralised here:
 from __future__ import annotations
 
 import os
-import tempfile
 import warnings
 from pathlib import Path
 
@@ -181,13 +187,16 @@ def pytest_collection_modifyitems(config, items) -> None:
 
 
 def pytest_configure(config) -> None:
-    if config.option.basetemp:  # explicit --basetemp wins
-        return
-    # MUST live under tempfile.gettempdir(): that is the only path prefix the
-    # safe-delete shim exempts from the bulk-delete guard. See module docstring.
-    root = Path(tempfile.gettempdir()) / "jev-pytest"
-    root.mkdir(parents=True, exist_ok=True)
-    config.option.basetemp = str(root)
+    # CR-H1: the basetemp is PER-PROCESS. This used to be a single fixed path
+    # (``gettempdir()/jev-pytest``), which pytest rm_rf's on entry -- so two
+    # concurrent runs deleted each other's scratch. Measured on this host before
+    # the fix: 3 of 5 concurrent pairs had a non-zero leg, the loser erroring
+    # during SETUP. The derivation, the shim requirement and the --basetemp
+    # precedence all now live in one place (jcc_core.pytest_basetemp) because
+    # this file and tools/conftest.py previously carried duplicate copies.
+    from jcc_core.pytest_basetemp import configure_basetemp
+
+    configure_basetemp(config)
 
 
 @pytest.fixture(autouse=True, scope="session")
