@@ -118,9 +118,43 @@ def check_green_port_ownership(config) -> None:
     typo, a copied config, or a stale default is refused.
 
     Non-zero exit, before the store/provider/socket/marker are touched.
+
+    THE PORT IS COMPARED AS AN INT, NOT AS-LOADED (verified bypass, 2026-10-04).
+    The first version of this guard read ``config.server.port`` and compared it
+    to ``GREEN_PROTECTED_PORT`` directly. ``ServerConfig`` is a bare dataclass and
+    ``load_config`` splats ``**data["server"]`` straight into it, so YAML type
+    survives all the way to the bind. A config with a QUOTED
+
+        server:
+          port: '4778'          # a str, not an int
+
+    therefore produced ``port == '4778'``, and ``'4778' != 4778`` is True, so the
+    guard returned early and the process went on to bind GREEN's port. Measured
+    before the fix: ``port='4778' -> REFUSED=False`` while ``port=4778 ->
+    REFUSED=True``. The quoted form is exactly what a hand-edited or
+    template-copied config tends to produce, and the failure is invisible: the
+    impostor then answers ``/api/health`` with 200.
+
+    Fixing this at the COMPARISON rather than only in ``load_config`` is
+    deliberate. Normalising in the loader would leave every other reader of
+    ``config.server.port`` -- ``Get-JccPort`` in ``scripts/lib/JccCommon.ps1``,
+    which regex-matches ``^\\d+$``, and uvicorn's own bind -- still seeing
+    whatever the YAML said. Coercing here means the guard asks "is this process
+    asking for port 4778?" and cannot be fooled by how the number was spelled.
+
+    ``int()`` also collapses ``4778.0`` and ``" 4778 "``, which is why the float
+    form is refused too. A value that is not a number at all cannot equal a port,
+    so it is left alone and fails later at bind time, where the operator sees it.
     """
     port = getattr(getattr(config, "server", None), "port", None)
-    if port != GREEN_PROTECTED_PORT:
+    try:
+        port_number = int(port)
+    except (TypeError, ValueError):
+        # Not a number: this cannot be the protected port. Do not invent a
+        # verdict here -- uvicorn will reject it, and refusing an unparseable
+        # port as "GREEN" would be a misleading message.
+        return
+    if port_number != GREEN_PROTECTED_PORT:
         return
     if getattr(config, "is_green_instance", False):
         return
