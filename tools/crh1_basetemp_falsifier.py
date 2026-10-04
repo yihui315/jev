@@ -269,6 +269,58 @@ def _run_concurrent_pair(extra_a: Optional[list] = None,
     return a.returncode, ao, b.returncode, bo
 
 
+def check_three_way_concurrency_also_holds() -> None:
+    """THREE concurrent runs, not two.
+
+    The 2-way case is what CR-H1 was specified against, but a shared resource
+    gets worse as legs accumulate, and this tree currently has several members
+    running suites at once -- so 2-way green is not sufficient evidence.
+
+    Measured on this host, same three suites, no ``--basetemp``:
+
+        PRE-FIX  (fixed shared dir):  3/3 legs CONTAMINATED
+                                       (16 errors / 11 errors / 6 errors)
+        POST-FIX (per-process dir):   0/3 legs contaminated
+                                       (16 passed / 11 passed / 6 passed)
+
+    Both directions are asserted by the negative control, which forces the
+    pre-fix shape; this case is the post-fix half. A guard that only survives two
+    legs would pass the 2-way case and fail this one, which is the point.
+    """
+    suites = ["packages/jcc_core/tests/test_p3_core_integration.py",
+              "packages/jcc_core/tests/test_policy.py",
+              "packages/jcc_core/tests/test_versioning.py"]
+    env = child_env()
+    procs = []
+    for suite in suites:
+        procs.append(subprocess.Popen(
+            [PY, "-m", "pytest", suite, "-q", "-p", "no:cacheprovider"],
+            env=env, cwd=str(REPO), text=True, errors="replace",
+            stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT))
+        # Staggered so the legs genuinely OVERLAP. Launching them together in a
+        # tight loop would still overlap, but the stagger makes it reliable
+        # rather than timing-dependent -- and this whole defect is
+        # timing-dependent, which is why a single clean run proves nothing.
+        time.sleep(0.3)
+    legs, contaminated = [], 0
+    for suite, proc in zip(suites, procs):
+        out = proc.communicate(timeout=900)[0] or ""
+        last = (out.strip().splitlines() or ["<none>"])[-1][:40]
+        bad = proc.returncode != 0 or _contamination(out, "")
+        if bad:
+            contaminated += 1
+        legs.append("%s rc=%s [%s]%s"
+                    % (Path(suite).name[:34], proc.returncode, last,
+                       "  <-- CONTAMINATED" if bad else ""))
+    record(
+        "THREE_CONCURRENT_RUNS_ALL_PASS_NOT_JUST_TWO",
+        contaminated == 0,
+        "%d legs launched together, no --basetemp | %s | contaminated=%d/3"
+        % (len(legs), " || ".join(legs), contaminated),
+    )
+
+
 def _contamination(ao: str, bo: str) -> Optional[str]:
     """Name the SETUP-time signature of a shared-basetemp collision, or None.
 
@@ -436,9 +488,11 @@ def run_negative_control() -> None:
             detected and bool(holes),
             "with per_process_basetemp forced back to the single fixed "
             "jev-pytest directory, the child reported CONTAMINATION=%s and %d "
-            "HOLE(s) (%d bytes to %s) | %s. The child runs ONLY the concurrency "
-            "case, so this is that case failing on the original defect."
+            "HOLE(s) (%d bytes to %s): %s | %s. The child runs ONLY the "
+            "concurrency cases, so this is the defect being detected rather than "
+            "an unrelated case failing."
             % (detected, len(holes), len(out), log.name,
+               "; ".join(h.split("] ", 1)[-1][:56] for h in holes),
                summary[-1] if summary else "NO SUMMARY"),
         )
     finally:
@@ -468,9 +522,14 @@ def main() -> int:
 
     if concurrency_only:
         # Used ONLY by the negative control: exercise the requirement alone, so
-        # a control failure cannot be blamed on an unrelated case.
+        # a control failure cannot be blamed on an unrelated case. BOTH the 2-way
+        # and the 3-way case run here -- the control has to demonstrate that the
+        # pre-fix shape breaks what the post-fix suite actually asserts, and a
+        # control that only covered the 2-way half would leave the 3-way
+        # assertion unbacked.
         _concurrency_case(
             "CONCURRENT_PYTEST_RUNS_BOTH_PASS_REPEATEDLY_WITH_NO_BASETEMP_ARG")
+        check_three_way_concurrency_also_holds()
     else:
         check_both_conftests_delegate_to_one_helper()
         check_helper_source_has_no_drive_letter()
@@ -479,6 +538,7 @@ def main() -> int:
         check_explicit_basetemp_still_wins()
         check_one_runs_cleanup_cannot_delete_a_siblings_scratch()
         check_concurrent_runs_both_pass()
+        check_three_way_concurrency_also_holds()
         run_negative_control()
         # Prove the restore really did restore: the requirement must hold again.
         _concurrency_case(
