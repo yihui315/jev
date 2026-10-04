@@ -209,7 +209,7 @@ def gather() -> dict:
             "ownership_marker_path": marker_path,
             "ownership_marker_sha256": _sha256(marker_path) if os.path.isfile(marker_path) else None,
             "pid_file_sha256": _sha256(pid_path) if os.path.isfile(pid_path) else None,
-            "db_path": "F:/jev/runtime/jcc/jcc.db",
+            "db_path": db_path.replace("\\", "/"),
             "db_sha256": _sha256(db_path) if os.path.isfile(db_path) else None,
         },
         "frozen_source": {

@@ -17,6 +17,7 @@ import io
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import time
@@ -37,9 +38,33 @@ def build(tag):
         os.makedirs(os.path.join(rep, d), exist_ok=True)
     for rel in (r".venv\Scripts\python.exe", r".venv\pyvenv.cfg"):
         shutil.copyfile(os.path.join(ROOT, rel), os.path.join(rep, rel))
+    # Repoint the watchdog's $ProjectRoot at the sandbox replica `rep`.
+    #
+    # This used to be a literal `.replace("$ProjectRoot  = 'F:\\jev'", ...)`, which
+    # had two defects: it named a drive that does not exist on this host, and --
+    # worse -- a plain str.replace that silently does NOTHING when the pattern is
+    # absent. If the upstream watchdog had already been made drive-agnostic (as
+    # scripts/lib/JccWatchdogCommon.ps1 has), the copy would have kept whatever
+    # root the original declared and the probe would have been measuring the real
+    # checkout instead of `rep`, with no error to say so.
+    #
+    # So match the assignment by shape instead of by literal: find the line that
+    # ASSIGNS $ProjectRoot and rewrite only its value. If no such line exists we
+    # raise, because a probe that cannot redirect the root is not a probe.
+    lines = WPSRC.splitlines(keepends=True)
+    hit = 0
+    for i, ln in enumerate(lines):
+        m = re.match(r"^(\s*\$ProjectRoot\s*=\s*)(['\"]).*?\2\s*$", ln.rstrip("\r\n"))
+        if m:
+            lines[i] = "%s'%s'\r\n" % (m.group(1), rep)
+            hit += 1
+    if hit != 1:
+        raise RuntimeError(
+            "expected exactly one $ProjectRoot assignment in the watchdog source, "
+            "found %d -- cannot redirect the probe root" % hit
+        )
     io.open(os.path.join(rep, "tools", "continuation-watchdog.ps1"), "w",
-            encoding="utf-8", newline="\r\n").write(
-        WPSRC.replace("$ProjectRoot  = 'F:\\jev'", "$ProjectRoot  = '%s'" % rep))
+            encoding="utf-8", newline="\r\n").write("".join(lines))
     io.open(os.path.join(rep, "tools", "jcc_continuation.py"), "w",
             encoding="utf-8", newline="\n").write(STUB)
     return rep

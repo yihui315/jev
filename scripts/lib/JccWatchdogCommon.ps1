@@ -24,14 +24,19 @@ Set-StrictMode -Version 2.0
 # at a checkout other than this one.
 #
 # $PSScriptRoot is this file's directory: <repo>\scripts\lib. Two levels up is
-# the repo root. Falls back to the literal only if the derivation is somehow
-# empty, so the variable is never $null (Set-StrictMode -Version 2.0 would then
-# throw on every use).
+# the repo root. The last-resort branch keeps $script:JccRoot non-$null (which
+# Set-StrictMode -Version 2.0 below would otherwise turn into a throw on every
+# use) WITHOUT naming a drive: $PSScriptRoot is always populated for a dot-
+# sourced or invoked script file, so it is a real directory on whatever volume
+# the checkout lives on. The branch that used to return the literal 'F:\jev'
+# here was the last drive literal in live PowerShell in this repo; on a host
+# without F: it would hand the watchdogs a root that does not exist, and they
+# would fail closed on a path the operator never asked for.
 $script:JccRoot = if ($env:JCC_ROOT) {
     $env:JCC_ROOT
 } else {
     $derived = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-    if ($derived) { $derived } else { 'F:\jev' }
+    if ($derived) { $derived } elseif ($PSScriptRoot) { $PSScriptRoot } else { $env:SystemDrive }
 }
 
 # ONE encoder, used by every writer in this file and by both watchdogs' audit

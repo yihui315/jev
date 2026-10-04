@@ -147,7 +147,7 @@ def test_real_launch_produces_real_telemetry(api_server):
 
     mid = _mission(api_server)
     st, doc = _post(api_server, "/api/v1/domain/missions/%s/launch" % mid,
-                    {"capture": True, "cwd": r"F:\jev"}, TOK)
+                    {"capture": True, "cwd": r"C:\some\checkout"}, TOK)
     assert st == 200, doc
     assert doc["ok"] is True, doc
     assert doc["ingested"] is True

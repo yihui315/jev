@@ -217,7 +217,7 @@ def main() -> None:
 
     env_body = {
         "event_id": "evt-lead-1", "delivery_id": "dlv-lead-1", "session_id": "sess-lead-1",
-        "agent": "workbuddy", "project": "lead-verify", "cwd": r"F:\jev",
+        "agent": "workbuddy", "project": "lead-verify", "cwd": r"C:\some\checkout",
         "event_type": "session_start", "payload": {"note": "lead"}, "evidence": {"ok": True},
     }
     try:

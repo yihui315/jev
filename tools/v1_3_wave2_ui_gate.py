@@ -298,7 +298,7 @@ def main() -> int:
 
     # ---- create REAL state through the API ----
     st, proj = http("POST", f"{api_base}/api/v1/domain/projects",
-                    {"name": "Wave2 Gate Project", "root_path": r"F://jev"}, CONTROL_TOKEN)
+                    {"name": "Wave2 Gate Project", "root_path": r"C:\some\checkout"}, CONTROL_TOKEN)
     check("API_CREATE_PROJECT", st == 200 and isinstance(proj, dict) and proj.get("project_id"),
           proj.get("project_id") if isinstance(proj, dict) else proj, "project created")
 

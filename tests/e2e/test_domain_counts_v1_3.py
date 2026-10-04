@@ -60,7 +60,7 @@ def _seed(api_server, projects=1, missions_each=5):
     pids, total = [], 0
     for i in range(projects):
         st, proj = _post(api_server, "/api/v1/domain/projects",
-                         {"name": "Counts P%d" % i, "root_path": r"F:\\jev"}, TOK)
+                         {"name": "Counts P%d" % i, "root_path": r"C:\some\checkout"}, TOK)
         assert st == 200 and proj.get("project_id"), (st, proj)
         pids.append(proj["project_id"])
         for j in range(missions_each):

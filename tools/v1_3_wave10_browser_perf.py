@@ -467,7 +467,7 @@ def seed(api_base: str, want_missions: int, project_ids: List[str],
         for i in range(PROJECTS):
             st, proj = http("POST", api_base + "/api/v1/domain/projects",
                             {"name": "Perf Workspace %d" % i,
-                             "root_path": r"F:\jev"}, CONTROL_TOKEN)
+                             "root_path": str(ROOT)}, CONTROL_TOKEN)
             if st != 200 or not isinstance(proj, dict):
                 raise RuntimeError("project create failed: %s %s" % (st, proj))
             project_ids.append(proj["project_id"])

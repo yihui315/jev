@@ -112,7 +112,7 @@ def test_every_domain_write_is_token_gated(api_server):
 
 def test_full_project_mission_lifecycle(api_server):
     st, proj = _post(api_server, "/api/v1/domain/projects",
-                     {"name": "Alpha", "root_path": "F:/jev"}, TOK)
+                     {"name": "Alpha", "root_path": r"C:\some\checkout"}, TOK)
     assert st == 200, proj
     pid = proj["project_id"]
 

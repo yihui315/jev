@@ -174,7 +174,7 @@ def test_an_unrecognised_native_event_type_is_recorded_as_unknown():
         "_source": "hook",
         "hook_event_name": "TotallyUnknownHookName",
         "session_id": "S-unknown",
-        "cwd": "F:/jev",
+        "cwd": "C:/some/checkout",
     }))
     assert env.event_type is EventType.UNKNOWN
     assert env.payload.get("native_event") == "TotallyUnknownHookName"
@@ -188,7 +188,7 @@ def test_a_recognised_native_event_type_is_not_degraded_to_unknown():
         "_source": "hook",
         "hook_event_name": "PreToolUse",
         "session_id": "S-2",
-        "cwd": "F:/jev",
+        "cwd": "C:/some/checkout",
         "tool_name": "Read",
     }))
     assert env.event_type is EventType.TOOL_CALL

@@ -37,7 +37,7 @@ def _env(event_id: str, delivery_id: str) -> AEPEnvelope:
         session_id="s-death",
         agent=AgentName.WORKBUDDY,
         project="jev",
-        cwd="F:\\jev",
+        cwd=r"C:\some\checkout",
         event_type="tool_call",
         payload={"tool": "read"},
     )

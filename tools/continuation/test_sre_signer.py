@@ -11,10 +11,25 @@ than the gate it feeds and made the legitimate freeze-signed configuration
 un-signable.
 """
 import importlib.util, io, json, os, shutil, sys, tempfile
+from pathlib import Path
 
-ROOT = r"F:\jev"
-GEN = os.path.join(ROOT, r"tools\generate_final_sre_go.py")
-REAL_EVID = os.path.join(ROOT, r"artifacts\acceptance\win_scripts\E07_FINAL_EVIDENCE.json")
+# WHY THIS IS DERIVED AND NOT TYPED IN. This used to be `ROOT = r"F:\jev"`, and
+# on any host without an F: volume the harness died on its own line 21 with
+# FileNotFoundError: 'F:\\jev\\tools\\generate_final_sre_go.py' -- before a
+# single falsification case ran. A falsifier that cannot start falsifies
+# nothing; it just reports a load error that reads like a product defect.
+#
+# Same idiom as jcc_core/config.py (Path(__file__).resolve().parents[N]): this
+# file is <repo>/tools/continuation/test_sre_signer.py, so parents[2] is the
+# repo root. JCC_ROOT still overrides, so an operator can point the harness at
+# a different checkout.
+_ROOT_OVERRIDE = os.environ.get("JCC_ROOT")
+ROOT = str(Path(_ROOT_OVERRIDE).resolve()) if _ROOT_OVERRIDE else str(
+    Path(__file__).resolve().parents[2]
+)
+GEN = os.path.join(ROOT, "tools", "generate_final_sre_go.py")
+REAL_EVID = os.path.join(ROOT, "artifacts", "acceptance", "win_scripts",
+                         "E07_FINAL_EVIDENCE.json")
 
 spec = importlib.util.spec_from_file_location("gen", GEN)
 mod = importlib.util.module_from_spec(spec)

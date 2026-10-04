@@ -166,17 +166,24 @@ def collect_durable() -> dict:
     # Host-side durable task registration (Register-ScheduledTask) is blocked by
     # the sandbox Program Blacklist on schtasks.exe. Until an operator runs
     # scripts/jcc-v1.2-register-tasks.ps1 on the HOST, this is PENDING.
+    #
+    # The command_line strings are derived from ROOT rather than typed as
+    # 'F:\jev\...'. They are supposed to describe how the service on THIS host is
+    # actually launched; a hardcoded drive made the emitted evidence claim a
+    # launch path that does not exist wherever the checkout is not on F:, which
+    # is a false statement in a release-evidence file rather than a cosmetic one.
+    _PY_EXE = str(ROOT / ".venv" / "Scripts" / "python.exe")
+    _SERVE = str(ROOT / "apps" / "command_center_3d" / "serve_visual.py")
     rec = {
         "gate": "Durable Runtime Proof (v1.2)",
         "api": {"port": API_PORT, "observed_pid": api_pid,
                 "listening": api_up,
-                "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+                "command_line": _PY_EXE + " -m jcc_core.run",
                 "ownership_marker": "runtime/jcc-v1.2/jcc-v1.2.ownership.json"},
         "ui": {"port": UI_PORT, "observed_pid": ui_pid,
                "listening": ui_up,
-               "command_line": "F:\\jev\\.venv\\Scripts\\python.exe "
-                               "F:\\jev\\apps\\command_center_3d\\serve_visual.py "
-                               "--host 127.0.0.1 --port 4780",
+               "command_line": _PY_EXE + " " + _SERVE +
+                               " --host 127.0.0.1 --port 4780",
                "ownership_marker": "runtime/jcc-v1.2/visual-ui.ownership.json"},
         "live_processes_verified": api_up and ui_up,
         "durability_mechanism": "long-lived run_in_background service processes "

@@ -118,8 +118,8 @@ def test_identity_is_session_id_not_cwd(path: Path):
 def test_same_cwd_different_sessions_do_not_collide():
     a = WorkBuddyAdapter()
     b = ClaudeAdapter()
-    ra = {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-A", "cwd": "F:\\jev"}
-    rb = {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-B", "cwd": "F:\\jev"}
+    ra = {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-A", "cwd": "C:/some/checkout"}
+    rb = {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-B", "cwd": "C:/some/checkout"}
     ea = _norm(a, ra)
     eb = _norm(b, rb)
     assert ea.session_id != eb.session_id
@@ -128,8 +128,8 @@ def test_same_cwd_different_sessions_do_not_collide():
 
 def test_same_session_different_cwd_single_identity():
     a = WorkBuddyAdapter()
-    e1 = _norm(a, {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-1", "cwd": "F:\\jev"})
-    e2 = _norm(a, {"_source": "hook", "hook_event_name": "Stop", "session_id": "S-1", "cwd": "F:\\other"})
+    e1 = _norm(a, {"_source": "hook", "hook_event_name": "SessionStart", "session_id": "S-1", "cwd": "C:/some/checkout"})
+    e2 = _norm(a, {"_source": "hook", "hook_event_name": "Stop", "session_id": "S-1", "cwd": "C:/other/checkout"})
     assert e1.session_id == e2.session_id == "S-1"
     assert e1.cwd != e2.cwd  # metadata differs, identity stable
 
@@ -146,7 +146,7 @@ def test_deterministic_event_and_delivery_ids():
 def test_missing_session_id_raises_unidentifiable():
     a = WorkBuddyAdapter()
     with pytest.raises(UnidentifiableEvent):
-        _norm(a, {"_source": "hook", "hook_event_name": "SessionStart", "cwd": "F:\\jev"})
+        _norm(a, {"_source": "hook", "hook_event_name": "SessionStart", "cwd": "C:/some/checkout"})
 
     c = CodexAdapter()
     with pytest.raises(UnidentifiableEvent):
@@ -189,7 +189,7 @@ def test_secret_redaction_in_payload_and_evidence():
         "_source": "hook",
         "hook_event_name": "PreToolUse",
         "session_id": "S-redact",
-        "cwd": "F:\\jev",
+        "cwd": "C:/some/checkout",
         "tool_name": "Bash",
         "tool_input": {"command": "curl -H 'Authorization: Bearer xyz'", "api_key": secret,
                        "password": "hunter2"},

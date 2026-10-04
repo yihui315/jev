@@ -25,6 +25,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[3]
 INTEGRATIONS = ROOT / "integrations"
 
+# The codex notify wrapper, as an absolute Windows path with backslashes. These
+# cases exist to prove the installer does not blow up on `re.error` when the
+# wrapper path contains regex metacharacters (`\` and `.`), so the value MUST
+# keep its backslashes -- deriving it from ROOT keeps that property while making
+# the fixture independent of which drive the checkout happens to live on.
+WRAPPER = str(INTEGRATIONS / "codex" / "jcc-codex-notify.cmd")
+
 
 def _load(module_path: Path, name: str):
     if str(module_path.parent) not in sys.path:
@@ -152,7 +159,7 @@ def test_codex_notify_force_with_windows_path_does_not_raise(tmp_path):
     cfg = _codex_cfg(tmp_path, 'model = "gpt-5-codex"\n'
                                'notify = [ "codex-computer-use.exe", "turn-ended" ]\n'
                                '[projects]\n')
-    wrapper = r"F:\jev\integrations\codex\jcc-codex-notify.cmd"  # backslashes!
+    wrapper = WRAPPER  # backslashes!
     res = codex_cfg.install(cfg, wrapper, force=True)  # must not raise re.error
     assert res["ok"] is True and res["chained"] is True
     text = cfg.read_text(encoding="utf-8")
@@ -168,7 +175,7 @@ def test_codex_notify_uninstall_restores_original_exactly(tmp_path):
     cfg = _codex_cfg(tmp_path, 'model = "gpt-5-codex"\n'
                                'notify = [ "codex-computer-use.exe", "turn-ended" ]\n')
     before = cfg.read_text(encoding="utf-8")
-    codex_cfg.install(cfg, r"F:\jev\integrations\codex\jcc-codex-notify.cmd", force=True)
+    codex_cfg.install(cfg, WRAPPER, force=True)
     res = codex_cfg.uninstall(cfg)
     assert res["restored"] == ["codex-computer-use.exe", "turn-ended"]
     assert cfg.read_text(encoding="utf-8") == before, "uninstall is not exactly reversible"
@@ -178,7 +185,7 @@ def test_codex_notify_uninstall_restores_original_exactly(tmp_path):
 def test_codex_notify_refuses_without_force(tmp_path):
     cfg = _codex_cfg(tmp_path, 'notify = [ "codex-computer-use.exe", "turn-ended" ]\n')
     before = cfg.read_text(encoding="utf-8")
-    res = codex_cfg.install(cfg, r"F:\jev\integrations\codex\jcc-codex-notify.cmd", force=False)
+    res = codex_cfg.install(cfg, WRAPPER, force=False)
     assert res["ok"] is False and res["reason"] == "user_notify_present"
     assert cfg.read_text(encoding="utf-8") == before  # fail-safe: unchanged
 
@@ -186,7 +193,7 @@ def test_codex_notify_refuses_without_force(tmp_path):
 def test_codex_failed_install_leaves_no_orphan_sidecar(tmp_path):
     """A refused install must not write a sidecar (ordering regression guard)."""
     cfg = _codex_cfg(tmp_path, 'notify = [ "a.exe" ]\n')
-    codex_cfg.install(cfg, r"F:\jev\integrations\codex\jcc-codex-notify.cmd", force=False)
+    codex_cfg.install(cfg, WRAPPER, force=False)
     assert not cfg.with_name(cfg.name + codex_cfg.SIDECAR_SUFFIX).exists()
 
 
@@ -207,7 +214,7 @@ def test_codex_notify_restore_is_byte_exact(tmp_path, body):
     """Uninstall must reproduce the original file byte-for-byte (rollback)."""
     cfg = _codex_cfg(tmp_path, body)
     before = cfg.read_bytes()
-    codex_cfg.install(cfg, r"F:\jev\integrations\codex\jcc-codex-notify.cmd", force=True)
+    codex_cfg.install(cfg, WRAPPER, force=True)
     assert cfg.read_bytes() != before
     codex_cfg.uninstall(cfg)
     assert cfg.read_bytes() == before, "uninstall is not byte-exact reversible"

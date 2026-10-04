@@ -591,13 +591,13 @@ def test_A8_gitattributes_enforces_lf_eol():
     """
     ga = REPO_ROOT / ".gitattributes"
     assert ga.is_file(), (
-        "F:/jev/.gitattributes is MISSING -- A8's EOL-normalised pin depends on "
+        "repo .gitattributes is MISSING -- A8's EOL-normalised pin depends on "
         "* text=auto eol=lf; without it a fresh checkout can re-introduce CRLF "
         "(the 49d91d4 failure mode). Restore .gitattributes."
     )
     text = ga.read_text(encoding="utf-8")
     assert "* text=auto eol=lf" in text, (
-        "F:/jev/.gitattributes no longer contains '* text=auto eol=lf' -- A8's "
+        "repo .gitattributes no longer contains '* text=auto eol=lf' -- A8's "
         "EOL-normalised pin assumes LF on checkout. A '*.py -text' or removed "
         "eol=lf rule would let CRLF back in and the pin would silently depend on "
         "the _sha fold being a no-op. Restore the rule or re-pin deliberately."

@@ -56,7 +56,7 @@ def _real_workbuddy_event(session_id: str = "wb-session-1") -> dict:
         "_source": "session_file",
         "pid": os.getpid(),
         "sessionId": session_id,
-        "cwd": r"F:\jev",
+        "cwd": r"C:\some\checkout",
         "startedAt": 1790565401514,
         "kind": "interactive",
         "url": "http://127.0.0.1:50220",
