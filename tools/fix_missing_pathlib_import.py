@@ -102,12 +102,23 @@ def main(argv: list[str]) -> int:
         print("usage: fix_missing_pathlib_import.py <file> [<file> ...]")
         return 2
     changed, skipped, failed = [], [], []
+    # Every target, whether it was repaired or already correct, is verified in
+    # the pass below. The `to_verify` list exists because the repair loop used to
+    # `continue` on the already-imports branch, which meant a file whose import
+    # was present but WHOSE `Path` USE was not at module scope never got checked
+    # -- found by mutation M2 in
+    # artifacts/release/v1.3_final/mutation_check.py, which re-indents the
+    # `Path(__file__)` use into a function body and watches this tool wave it
+    # through with `changed=0 skipped=1 failed=0` and exit 0. Skipping
+    # verification for the files that most obviously need it was exactly backwards.
+    to_verify = []
     for path in targets:
         # Callers may pass repo-relative paths; resolve before the REPO check.
         path = (REPO / path).resolve()
         rel = path.relative_to(REPO)
         original = path.read_text(encoding="utf-8")
         new = insert_import(original)
+        to_verify.append(path)
         if new is None:
             (skipped if already_imports(original) else failed).append(str(rel))
             continue
@@ -127,8 +138,8 @@ def main(argv: list[str]) -> int:
     # repository. So: compile to bytecode (catches SyntaxError) and resolve the
     # `Path` binding through the AST (catches the actual defect, a name that is
     # never bound at module scope).
-    for path in targets:
-        path = (REPO / path).resolve()
+    for path in to_verify:
+        path = (REPO / path).resolve() if not path.is_absolute() else path
         rel = path.relative_to(REPO)
         try:
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(rel))
