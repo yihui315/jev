@@ -536,13 +536,14 @@ def project_scope_violation(project_root: str, base: str) -> str:
     if _is_inside(str(project_root), base):
         return ""
     return (
-        "refusing to launch: project_root %r is outside the workspace boundary. "
+        "refusing to launch: project_root '%s' is outside the workspace "
+        "boundary. "
         "A launch sets the child's cwd to this path AND passes it to the agent "
         "as --add-dir, which is the directory the agent's Read/Edit/Write/Glob/"
         "Grep/Bash tools are granted -- so a root outside the boundary is a "
         "privilege grant, not a working-directory convenience. "
         "The boundary is the config item launcher.project_scope_base, currently "
-        "%r, and the root must be that directory or below it. "
+        "'%s', and the root must be that directory or below it. "
         "To widen the boundary, set launcher.project_scope_base in the config "
         "file this instance loaded; its default (jcc_core.config."
         "DEFAULT_PROJECT_SCOPE_BASE) is the repository root derived from "
