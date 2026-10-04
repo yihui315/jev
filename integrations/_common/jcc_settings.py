@@ -152,7 +152,26 @@ def install(agent: str, settings_path: Path, jcc_root: str, command: Optional[st
         raise ValueError(f"agent '{agent}' has no settings-hook installer")
     cmd = command or default_hook_command(agent, jcc_root)
     events = TELEMETRY_EVENTS[agent]
-    assert not (FORBIDDEN_EVENTS & set(events)), "P2 forbids PermissionRequest hooking"
+    # P2 forbids PermissionRequest hooking. This is a RELEASE GATE, so it must
+    # be a real raise and not an `assert`: `python -O` strips asserts, and this
+    # module is reachable from installer/integrator entrypoints that may be run
+    # optimised. Measured on this host, before the fix, with a real agent whose
+    # event list had been made to include PermissionRequest:
+    #
+    #   python     -> AssertionError: P2 forbids PermissionRequest hooking
+    #   python -O  -> NO EXCEPTION (gate did not hold)
+    #
+    # Under -O the install proceeded. Nothing was written in that particular
+    # case ONLY because the loop below also skips forbidden events -- so the
+    # bypass was silent rather than loud, which is worse: the guard that exists
+    # to make P2 non-negotiable reported success while doing nothing. Any future
+    # change to that loop would have turned it into a written PermissionRequest
+    # hook, i.e. exactly the actuation-adjacent capability P2 removes.
+    #
+    # The error MESSAGE is preserved verbatim so anything matching on it (tests,
+    # logs, an integrator's error handling) is unaffected.
+    if FORBIDDEN_EVENTS & set(events):
+        raise ValueError("P2 forbids PermissionRequest hooking")
 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     data = _load(settings_path)
