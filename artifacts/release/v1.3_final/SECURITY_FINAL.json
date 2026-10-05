@@ -344,7 +344,7 @@
       "The write-side check first reported FAIL because my own filter treated the scope base D:\\jev as an out-of-scope probe. The product was correct; the assertion was wrong.",
       "The launch-side and existence-oracle sections first reported PASS VACUOUSLY: I called validate_project_root(raw) without its keyword-only `roots` argument, every call raised TypeError, and my handler counted TypeError as REFUSED. A test that passes because the call was malformed proves nothing. Now the real roots are passed and a TypeError is treated as FAILURE."
     ],
-    "vacuous_pass_lesson": "A refusal-shaped exception from a malformed call is indistinguishable from a real refusal unless the expected exception type is asserted explicitly. This is the same class as the CRLF false positive: the check appeared to pass for a reason unrelated to the property under test."
+    "vacuous_pass_lesson": "A refusal-shaped exception from a malformed call is indistinguishable from a real refusal unless the expected exception type is asserted explicitly. This is the same class as the CRLF false positive: the check appeared to pass for a reason unrelated to the property under test. A third instance of the same shape was caught in this very correction: a shell-escaped comparison string made every CR look like a lone CR. Method errors keep arriving in the same family: a check that passes or fails for a reason unrelated to the property under test."
   },
   "tests_at_this_head": {
     "pytest": "138 passed, 0 failed (test_project_scope_v1_3, test_server_surface, test_signing_form_v2, test_v1_1_directive_gate, test_config_failclosed)",
@@ -352,5 +352,30 @@
     "k_section_probe": "16/16 PASS, no regression",
     "bind_probe": "9/9 PASS, localhost binding and GREEN port ownership intact",
     "note": "The previous issue reported 108 passed; the 30 new tests are test_project_scope_v1_3, added with the CR-003/RISK-1 fix."
+  },
+  "normalisation_correction": {
+    "what_was_wrong": "Aegis verified these artefacts with tr -d '\\r' and reported MATCH. That rule deletes EVERY CR, not only the CRLF one, so an in-band CR injection normalises to the same bytes as a clean file -- a FALSE NEGATIVE, not a labelling nicety.",
+    "independently_reproduced": "HEAD 'ab\\r\\n' -> 61 62 0a; WORK 'a\\rb\\r\\n' -> tr: 61 62 0a (MATCH, damage hidden) vs sed 's/\\r$//': 61 0d 62 0a (DIFFER, caught). Verified on this host.",
+    "correct_rule_shell": "sed 's/\\r$//'",
+    "correct_rule_python": "b.replace(b\"\\r\\n\", b\"\\n\")   # NOT replace(b\"\\r\", b\"\")",
+    "verdicts_re_run_under_correct_rule": {
+      "HOST_PREFLIGHT.json": "normalised=MATCH zeroed=no lone_CR=0",
+      "SECURITY_FINAL.json": "normalised=MATCH zeroed=no lone_CR=0",
+      "AEGIS_SHA_CORRECTION.txt": "normalised=MATCH zeroed=no lone_CR=0"
+    },
+    "do_any_verdicts_change": "No. Both rules agree on all three artefacts, because the tree contains zero lone CRs. The earlier MATCH results were right BY LUCK, not by correctness: on a tree with no lone CR the unsound rule and the sound rule coincide. A correct conclusion reached by an unsound method is not a verified result.",
+    "tree_wide_exposure": {
+      "git_grep_flagged_files": 32,
+      "files_with_genuinely_non_crlf_CR": 0,
+      "measurement": "direct byte count (total CR minus CRLF pairs), not grep",
+      "conclusion": "The -P \r(?!\n) flag is a FALSE POSITIVE of the pattern on this tree, not evidence of in-band CR anywhere. Confirmed by strict json.loads on both JSON artefacts and by a CRLF-free canonical re-serialisation."
+    },
+    "withdrawn_claim": "Aegis had forwarded forge2's 'use cat-file -p, not git show, because git show may mask (a)'. Measured: both return 26d9cd51e4458837 / 45366 B, byte-identical. cat-file -p is only clearer about intent. The stronger claim is withdrawn.",
+    "aegis_own_error_in_this_correction": "The first re-check reported 'SECURITY_FINAL.json: 355 lone CR'. That was Aegis's bug: the CR count was compared against a shell-escaped b'\\\\r\\\\n' (a literal 4-byte backslash sequence) rather than the real CRLF pair, so every CR looked lone. Re-measured by counting bytes: 355 CR, 355 CRLF pairs, 0 lone. The file was never damaged.",
+    "artefact": "artifacts/release/v1.3_final/AEGIS_RENORM_CORRECTION.txt",
+    "reproduce": [
+      "python runtime/_aegis_probe_renorm.py",
+      "python runtime/_aegis_probe_lonecr.py"
+    ]
   }
 }

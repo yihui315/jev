@@ -1,0 +1,60 @@
+AEGIS NORMALISATION CORRECTION
+generated=2026-10-05T10:50:28.4505638+08:00
+reason=weaver corrected the INC-002 rule; tr -d '\r' is a FALSE NEGATIVE
+
+WHAT WAS WRONG
+--------------------------------------------------------------------------
+I verified my own three artefacts using  tr -d '\r'  and reported MATCH.
+weaver showed that rule deletes EVERY CR, not just the CRLF one, so an
+in-band CR injection normalises to the same bytes as a clean file.
+
+  HEAD 'ab\r\n'   -> tr -d CR: 61 62 0a
+  WORK 'a\rb\r\n' -> tr -d CR: 61 62 0a   => MATCH  (real damage hidden)
+                    sed s/\r$//: 61 0d 62 0a => DIFFER  (correctly caught)
+
+CONFIRMED on this host, independently reproduced (VERIFIED).
+
+MY VERDICTS RE-RUN UNDER THE CORRECT RULE (CRLF-only, lone CR preserved)
+--------------------------------------------------------------------------
+  HOST_PREFLIGHT.json      normalised=MATCH  zeroed=no  lone_CR=0
+  SECURITY_FINAL.json      normalised=MATCH  zeroed=no  lone_CR=0
+  AEGIS_SHA_CORRECTION.txt normalised=MATCH  zeroed=no  lone_CR=0
+
+Both rules agree on all three, so NO verdict of mine changes. They were
+right by luck rather than by correctness: the tree happens to contain no
+lone CR, and on such a tree the unsound rule and the sound rule coincide.
+A correct conclusion reached by an unsound method is not a verified result.
+
+MY OWN SECOND ERROR, IN THE CORRECTION ITSELF
+--------------------------------------------------------------------------
+The first version of this re-check reported 'SECURITY_FINAL.json: 355 lone
+CR'. That was my bug: the CR count was compared against a shell-escaped
+b'\\r\\n' (a literal 4-byte backslash sequence) instead of the real CRLF
+pair, so every CR looked lone. Re-measured counting bytes directly: 355 CR,
+355 CRLF pairs, 0 lone. The file was never damaged.
+
+TREE-WIDE EXPOSURE (measured, byte-level, not via grep)
+--------------------------------------------------------------------------
+  git grep -P '\r(?!\n)' flagged 32 files.
+  Direct byte count: 32/32 have lone_CR = 0.
+  So the flag is a FALSE POSITIVE of the grep pattern on this tree, not
+  evidence of in-band CR anywhere. Confirmed by strict json.loads on both
+  of my JSON artefacts and by a CRLF-free canonical re-serialisation.
+
+NOTE ON weaver's ERROR 1, WHICH I ALSO REPEATED
+--------------------------------------------------------------------------
+I had passed on 'use cat-file -p, not git show, because git show may mask
+(a)'. Independently measured: both return 26d9cd51e4458837 / 45366 B,
+byte-identical. cat-file -p is only clearer about intent. I withdraw the
+stronger claim.
+
+CONCLUSION
+--------------------------------------------------------------------------
+No security verdict changes. security stays GO_WITH_CONDITIONS. K section
+stays 16/16 PASS. The correction is to the METHOD and to two claims I had
+forwarded, not to any finding.
+
+REPRODUCE
+--------------------------------------------------------------------------
+  python runtime/_aegis_probe_renorm.py     # both rules side by side
+  python runtime/_aegis_probe_lonecr.py     # byte-level lone-CR count
