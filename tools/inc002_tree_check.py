@@ -47,6 +47,21 @@ structure, so rewriting "line endings" in one would corrupt the comparison and
 manufacture a false DIFFER. Git's own ``text=auto eol=lf`` already exempts them
 (``.gitattributes`` marks *.png / *.pdf binary).
 
+RE-EMITTED EVIDENCE, AND THE LIMIT OF ITS EXEMPTION
+-----------------------------------------------------
+Five artifacts under ``artifacts/acceptance/`` are re-emitted with a fresh
+``probe_at`` timestamp on every full-suite run, so they would otherwise be
+reported as DRIFT every single time -- and a rule that cries wolf gets ignored.
+They are classified ``EVIDENCE_REEMITTED`` with the reason printed, never
+silently skipped.
+
+The exemption is keyed on PATH, not on what changed: a hand edit to the
+substance of one of those files would also be classified EVIDENCE_REEMITTED.
+This is a known, adjudicated limit rather than an oversight -- see the long note
+on ``EVIDENCE_REEMITTED`` for why schema-aware exemption would be worse. The
+zero-byte and size checks still run on these paths unconditionally, so a zeroed
+exempt file fails with exit 1 and cannot hide.
+
 READ-ONLY. Reads git objects and files; writes nothing but the report.
 
 USAGE
@@ -96,6 +111,30 @@ SEV_EVIDENCE = "EVIDENCE_REEMITTED"
 #:
 #: Verified, not assumed: each of the four adapter JSONs carries
 #: ``"probe_at": "2026-10-04T09:55:15Z"``, which changes on every re-emit.
+#: KNOWN LIMITATION -- read this before trusting an EVIDENCE_REEMITTED verdict.
+#:
+#: The exemption is keyed on PATH, not on WHAT changed. If a hand edit alters
+#: the substance of one of these files -- a capability flipped to CONNECTED, a
+#: field dropped -- it is still classified EVIDENCE_REEMITTED rather than DRIFT,
+#: because this check does not parse the JSON and cannot tell a re-emit's
+#: timestamp churn from a substantive edit.
+#:
+#: This is deliberate and was adjudicated rather than overlooked. Distinguishing
+#: the two would require knowing these documents' schema, and schema knowledge
+#: hard-wired into a checker is a liability: the schema will change and the tool
+#: will not, so it would silently keep applying a rule that no longer describes
+#: the file. A path-keyed exemption with a printed reason degrades honestly --
+#: it says "I did not verify this one, here is why" -- whereas a schema-aware
+#: exemption that has drifted would say "I checked this one" falsely.
+#:
+#: WHAT IS STILL ENFORCED on these paths, unconditionally:
+#:   * the NUL/zero-byte check (INC-002 shape (a)) -- verified by test;
+#:   * the size comparison against the HEAD blob.
+#: So a zeroed exempt file fails with exit 1; it cannot hide.
+#:
+#: TO TIGHTEN THIS LATER: compare the parsed document with volatile fields
+#: (probe_at and friends) removed, rather than adding more exempt paths. That is
+#: the right shape of fix, and it belongs in whoever owns those artifacts.
 EVIDENCE_REEMITTED = {
     "artifacts/acceptance/CONTINUATION_INFRA_TEST.json":
         "re-emitted by the continuation infra test (per-run node_ids/checks)",
