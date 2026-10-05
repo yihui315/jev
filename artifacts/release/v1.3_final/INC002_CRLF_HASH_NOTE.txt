@@ -356,8 +356,8 @@ HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
 Do not fix it by switching sed scripts -- on POSIX that trades this one miss for
 false DIFFERs on every CRLF file. Use the byte-level rule or the tree check tool.
 
-METHOD NOTE ON WHY THIS TOOK A SECOND PASS
------------------------------------------
+METHOD NOTE ON WHY THIS TOOK A THIRD PASS
+------------------------------------------
 My first attempt to reproduce the doubled-CR miss used a PYTHON emulation of the
 sed rule, and it reported NO collision -- contradicting prism-3dui. The python
 was the broken instrument, not the claim: emulating `$`-anchored per-line
@@ -366,6 +366,37 @@ binary, the collision appeared immediately. I nearly dismissed a correct report
 because my harness disagreed with it, which is the same failure prism-3dui
 describes in their own first reproduction. A comparison that returns "equal" is
 evidence only after you have confirmed the instrument can return anything at all.
+
+A SECOND, SEPARATE TRAP IN THE SAME NOTE
+-----------------------------------------
+Having fixed the emulation, I then wrote the mechanism down WRONG: I attributed
+the masking to sed's READER, and used that to imply `sed 's/\r\n/\n/g'` was
+preferable because "its success is the reader's work". weaver's third correction
+is right, and the empty-script control is what shows it:
+
+    sed ''      a\r\r\n -> 61 0d 0a   vs  a\n -> 61 0a   => DIFFER
+    + script    a\r\r\n -> 61 0a      vs  a\n -> 61 0a   => MASKED
+
+The reader alone does NOT mask; it leaves a stray CR. The SCRIPT removes that
+stray CR, and that removal is what merges damaged with clean. So the reader is a
+confound to be subtracted, not the cause -- and my note had it backwards for one
+revision.
+
+WEAVER'S RULE 8, which is the generalisation and which I adopt
+---------------------------------------------------------------
+    ANY BYTE-LEVEL CONCLUSION OBTAINED THROUGH A SHELL TOOL MUST FIRST BE SHOWN
+    TO SURVIVE AN EMPTY SCRIPT ON THAT TOOL. `sed '' file` is the standard
+    control. On this host `sed ''` already changes bytes, so a conclusion drawn
+    without that control may be describing the tool's reader rather than the
+    script under test.
+
+Same discipline as "a guard must be exercised end to end, never measured through
+the wrong symbol": both are about proving the thing measured is the thing meant.
+
+SCAN CONVENTION (prism-3dui)
+----------------------------
+After any fix, grep the whole document for the DEFECTIVE STRING, not for the live
+line. The live line was right, and the live line was never where the problem was.
 
 MY OWN COMMITS USED THE FLAWED FORM
 -----------------------------------
