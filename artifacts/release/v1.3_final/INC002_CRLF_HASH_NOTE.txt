@@ -1,0 +1,92 @@
+INC-002 follow-up — the content-hash rule needs CRLF normalisation
+=================================================================
+Owner: forge2. Raised after team-lead's INC-002 broadcast.
+
+INC-002 is real and the rule "do not prove the tree is intact with
+`git status`" is correct. But executing that rule literally produces FALSE
+POSITIVES on this repository, and a verification rule that cries wolf gets
+ignored -- which is worse than no rule.
+
+WHAT I HIT
+----------
+`packages/jcc_core/host_launcher.py` under the literal rule:
+
+  $ git show HEAD:packages/jcc_core/host_launcher.py | sha256sum   -> 45366 B
+  $ sha256sum packages/jcc_core/host_launcher.py                   -> 46355 B
+  $ git diff -- packages/jcc_core/host_launcher.py                 -> EMPTY
+
+git diff says unchanged; the hashes disagree. Root cause:
+
+  HEAD blob 45366 B vs worktree 46355 B   -> difference of exactly 989
+  worktree lines containing CR            = 989
+  CR-stripped HEAD  = 26d9cd51e4458837
+  CR-stripped WORK  = 26d9cd51e4458837    -> IDENTICAL
+
+Content is byte-for-byte unchanged. Only line endings differ (CRLF vs LF), and
+the size delta equals the CR count exactly. `core.autocrlf=true` makes git
+normalise before comparing, so git diff is CORRECT and a bare sha256sum is the
+thing that is wrong.
+
+THE TWO SHAPES ARE DIFFERENT INCIDENTS
+--------------------------------------
+  (a) size UNCHANGED, content zeroed  -> INC-002. Escapes git because the stat
+      cache compares mtime+size.
+  (b) size CHANGED, content identical  -> ordinary CRLF/LF. Caught by a bare
+      hash, but reported as damage when there is none.
+
+A rule that cannot tell (a) from (b) will flag every CRLF file in the tree.
+
+SUGGESTED CHECK (both halves are required)
+------------------------------------------
+    # CORRECTION 2026-10-05: these two functions originally read `tr -d '\r'`.
+    # That form is unsound and was withdrawn -- see the note below.
+    #   tr -d '\r'  deletes EVERY CR byte, not just the one in a CRLF pair, so an
+    #                in-band CR injection normalises to the same bytes as a clean
+    #                file and real damage is reported as MATCH (false negative).
+    #   sed 's/\r$//' is closer but still lossy: it strips only ONE trailing CR per
+    #                line, so a doubled CR at EOL ("a\r\r\n") collapses onto the
+    #                clean form ("a\r\n") and is ALSO masked.
+    # The faithful shell equivalent of the canonical rule -- which is
+    # b.replace(b"\r\n", b"\n"), per adjudication #21 -- is the CRLF-pair form
+    # below. It removes exactly the CR that is paired with an LF and leaves every
+    # other CR byte in place.
+    #   measured: sed 's/\r\n/\n/g' agrees with the python rule on 9/9 shapes;
+    #             sed 's/\r$//' disagrees on 2 of them (doubled CR at EOL, and a
+    #             lone CR at EOF with no trailing newline).
+    # In python, write:  b.replace(b"\r\n", b"\n")
+    # NOT b.replace(b"\r", b"") -- that is the same defect as `tr -d '\r'`.
+    hdiff() { git cat-file -p "HEAD:$1" | sed 's/\r\n/\n/g' | sha256sum | cut -d' ' -f1; }
+    hwork() { sed 's/\r\n/\n/g' < "$1" | sha256sum | cut -d' ' -f1; }
+    [ "$(hdiff "$f")" = "$(hwork "$f")" ] && echo MATCH || echo DIFFER
+
+  -- note `git cat-file -p`, NOT `git show`: this was long given as the reason
+     `cat-file` is safer. That reason is WITHDRAWN -- both return byte-identical
+     output (adjudication #21, item(1): measured 45366 B and the same sha256 from
+     each). `cat-file -p` is still fine to use; it just reads the object store
+     explicitly rather than through working-tree conversion. Do not cite it as
+     the defence against INC-002.
+
+INDEPENDENT HALF -- DO NOT SKIP IT
+-----------------------------------
+Hashing alone does not localise INC-002, because a zeroed file hashes
+*something*. The size-preserving check is what actually names it:
+
+    s=$(wc -c < "$f"); z=$(tr -d '\0' < "$f" | wc -c)
+    [ "$s" = "$z" ] || echo "ZEROED $f"
+
+I ran both on 13 A8-pin-related files: all MATCH, all non-zero, so my own
+overwrite cycle (`git show <old> > server.py`, then restore) left no trace.
+
+I do NOT claim to have caused INC-002 and do NOT claim to be cleared. The
+attribution is unestablished and I have no evidence pointing anywhere. I only
+report what I can measure about the work I did.
+
+SECOND, UNRELATED-TO-INC-002 METHOD NOTE
+----------------------------------------
+A negative control that identifies its baseline as `HEAD~1` is invalid as soon
+as anyone commits. Mine did exactly that: HEAD moved to the A8 re-baseline, so
+`HEAD~1` still contained the fix, and the control "passed" while testing fixed
+code. Pin the SHA explicitly (`d012509~1` = f8a5aeb) and assert the baseline
+has the shape you expect (e.g. 0 `.encode(` and 2 raw `compare_digest` calls)
+BEFORE trusting a result from it. Same class as INC-002: a reference that can
+drift, used to support a conclusion it cannot prove.

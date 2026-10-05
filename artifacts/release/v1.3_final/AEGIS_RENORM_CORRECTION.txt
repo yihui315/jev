@@ -5,11 +5,20 @@ never a recipe. I actually ran that command and it produced a false MATCH.
 
 The correct normalisation, stated once so you need not infer it:
 
-      sed 's/\r$//'                              # shell
+      sed 's/\r\n/\n/g'                           # shell
       b.replace(b"\r\n", b"\n")                 # python
 
+  [2026-10-05 amend, rulings-fix] This line previously read `sed 's/\r$//'`.
+  That form is closer but NOT equivalent: it strips only ONE trailing CR per
+  line, so a doubled CR at EOL ("ab\r\r\n") collapses onto the clean form
+  ("ab\r\n") and is masked -- the same class of false negative as `tr -d '\r'`.
+  Measured: the CRLF-pair form agrees with the python rule on 9/9 shapes;
+  `sed 's/\r$//'` disagrees on 2 (doubled CR at EOL; lone CR at EOF with no
+  trailing newline). The python line above was always right and is unchanged.
+  Canonical rule: adjudication #21 in ORION_ADJUDICATIONS.md.
+
 Do NOT use any `tr -d '\r'` form quoted below. Rewriting those quotes into
-`sed 's/\r$//'` would make this document lie about its own history -- it is a
+the correct form would make this document lie about its own history -- it is a
 record of a mistake, and the mistake is the content. The live, copy-pasteable
 recipe that genuinely needed fixing was in AEGIS_SHA_CORRECTION.txt:25-26,
 corrected in commit 85302ea with an inline DO NOT comment. This file has zero
@@ -23,10 +32,10 @@ reason=weaver corrected the INC-002 rule; tr -d '\r' is a FALSE NEGATIVE
 WHAT WAS WRONG
 --------------------------------------------------------------------------
 I verified my own three artefacts using  tr -d '\r'  and reported MATCH.
-      sed 's/\r$//'                              # shell
+      sed 's/\r\n/\n/g'                           # shell
       b.replace(b"\r\n", b"\n")                 # python
 
-Rewriting the `tr -d '\r'` mentions below into `sed 's/\r$//'` would make this
+Rewriting the `tr -d '\r'` mentions below into the correct form would make this
 document lie: it is a record of a mistake, and the mistake is the content. The
 live, copy-pasteable recipe that DID need fixing was in
 AEGIS_SHA_CORRECTION.txt:25-26; that one is corrected in commit 85302ea, and it
