@@ -4,39 +4,60 @@
   "release": "v1.3-final",
   "security": "GO_WITH_CONDITIONS",
   "verdict": "GO_WITH_CONDITIONS",
-  "head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
-  "head_commit_containing_this_file": "20c037f152eddc358cf654f347a6ac3043f30f63",
-  "head_measured_code_sha": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
-  "self_reference_note": "READ THIS BEFORE TREATING A STALE_HEAD BLOCKER AS A DEFECT. `head` is the commit whose CODE was measured, which is the honest answer to 'what code did you test'. It is deliberately NOT the commit that contains this file, because a file cannot contain the hash of the commit that contains it: writing 20c037f here would be a self-referential impossibility, and writing it anyway would be forging provenance. CONSEQUENCE: jcc_final_verdict.py will report STALE_HEAD_SECURITY for this file, exactly as it already does for HOST_PREFLIGHT.json (head=05715da) and RELEASE_TRUTH.json (head=88ff8a8). This is a STRUCTURAL property of comparing an in-tree evidence file's head to HEAD, not evidence that this measurement is out of date. PROOF: `git diff ac1ef4a HEAD -- packages apps config integrations tools tests` is EMPTY -- the commit that carried this file changed no measured code, only added artifacts/. The substantive staleness question is therefore answered: the code measured is byte-identical to the code at the commit that shipped this file. This applies equally to all three evidence files, so the fix belongs in the aggregator (compare the measured-code sha, or accept an evidence file's own containing commit), not in the individual producers. Until that is decided, STALE_HEAD_SECURITY must not be read as an Aegis failure and must not be 'fixed' by editing the head value.",
+  "head": "591c364b99c40e36f269c32bedb99bf8fc33047c",
+  "head_measured_code_sha": "591c364b99c40e36f269c32bedb99bf8fc33047c",
   "branch": "release/jcc-v1.3-final",
   "stale": false,
   "head_provenance": {
-    "measured_at_head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
-    "preflight_commit": "05715da68794eff374703467f00de0871a44d65a",
-    "commits_since_preflight": "6",
-    "log_since_preflight": [
-      "ac1ef4a fix(cr002): a product instance can never bind the GREEN baseline port",
-      "29a76c0 fix(hygiene): ignore in-tree test scratch so a pytest run cannot block the freeze",
-      "88ff8a8 fix(relocation): 30 scripts load again -- the missing pathlib import and 4 F: literals",
-      "11fc2be feat(cr004): continuous port watcher -- a bounded-interval GREEN-untouched claim",
-      "e0d678c docs(integrations): the user-facing READMEs stop naming a drive that is gone",
-      "01cfb6a fix(relocation): the four agent integrations derive their repo root too"
+    "measured_at_head": "591c364b99c40e36f269c32bedb99bf8fc33047c",
+    "previous_measurement_head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
+    "reason_for_reissue": "CR-003 (task #15) and RISK-1 (tasks #20-21) landed after the previous SECURITY_FINAL.json. They wired the containment guard that my previous verdict recorded as FAIL. The two affected K items were re-measured; every other K item was re-run at this HEAD and is unchanged.",
+    "log_since_previous_measurement": [
+      "591c364 fix(inc002): classify re-emitted evidence instead of letting it cry wolf",
+      "74255f8 fix(falsifier): refuse an unparsable product file instead of calling it clean",
+      "34fd71d docs(retest): add sha256 provenance per the new record rule; correct a guessed explanation",
+      "981d216 fix(pins): adopt team-lead's CRLF->LF-only rule; my a4fab43 rule had the flaw I criticised",
+      "314f936 feat(inc002): executable tree check -- CRLF-normalised hash AND a non-zero-byte half",
+      "8018b82 docs(security): correct the sha256 values I reported for my own evidence",
+      "d884be8 test(a8): verify all 12 A8 pins with the three-signal rule; 0 assume-unchanged flags",
+      "a4fab43 test(pins): adopt forge2's INC-002 rule, with one added signal that closes a real blind spot",
+      "fbeafb2 test(security): cover the Bearer branch of the control-token gate",
+      "b8ec575 docs: root-cause the E2E_CONTROL_TOKEN collection failure (no code change)",
+      "df4bc4e chore(a8): re-baseline the pins to the RISK-1 and P3/P4 commits",
+      "d012509 fix(security): report control-token state in health; refuse non-ASCII tokens",
+      "f8a5aeb RISK-1: close out the 3D UI project-root surface (spec 10)",
+      "590ecf3 fix(security): refuse an out-of-scope project root at the WRITE entry (RISK-1)",
+      "3941cad fix(relocation): stop the tree from depending on a drive that is gone",
+      "3a8712f test(crh1): hold the basetemp fix at three-way concurrency, not just two",
+      "05b4f9a fix(p2): the PermissionRequest gate must survive `python -O`",
+      "a45fb49 fix(crh1): give each pytest process its own basetemp",
+      "c5f70c2 fix(cr003): make the falsifier's negative control actually measure the guard",
+      "085823a docs(retest): record the E1 host-normalisation finding, with a mechanism correction",
+      "a33998a docs(retest): retract the \"two WAL stalls = 63s\" mechanism -- it is a HOST artefact",
+      "9108ade fix(logs): CR-H4 -- recover 3 NUL-padded boot-beacon records; keep the 2 torn ones",
+      "759333d fix(tools): stop the selftests' own cleanup from hanging the run",
+      "dff2e3f docs(falsifier): retract the conftest claim in permanent source",
+      "d9e41e9 docs(retest): 15 of 30 gate legs measured; three of my own instruments were the obstacle",
+      "2899bab fix(tools): close the verification gap the mutation test found in my own repair tool",
+      "9d297ef chore(a8): re-baseline the pins to the CR-003 commit",
+      "1d7d55a fix(cr003): bind the launch project root to a base directory",
+      "33ce713 feat(release_truth): adjudicate the tracked paths the classifier was guessing at",
+      "3af548b fix(cr002): the GREEN port helper must not ride the product default",
+      "52f484b docs(retest): correct Family E -- 5 bad lines in 2 types, not \"3 entirely NUL\"",
+      "0ebb7ef docs(retest): withdraw the Family H flake claim -- it was measured under my own concurrent load",
+      "7e6d4e5 docs(retest): adjudicate every C2/C1 failure family with line-level evidence",
+      "c8ab3cc chore(a8): re-baseline the run.py pin to the port-normalisation commit",
+      "3ebb38b fix(cr002): normalize the port before the GREEN-port guard compares it",
+      "8848390 fix(uptime-probe): the no_pid_file report must be JSON, not a hand-built string",
+      "d311ef5 probe(tools): WAL falsifier for the audit-chain threaded flake -- and it REFUTES the hypothesis",
+      "46ff531 docs(security): name the evidence self-reference trap so it is not misread",
+      "20c037f docs(security): SECURITY_FINAL.json -- the K-section security gate, at HEAD"
     ],
-    "security_surface_unchanged": true,
-    "security_surface_diff": [],
-    "runtime_and_config_changed": [
-      "config/.env.example",
-      "packages/jcc_core/config.py",
-      "packages/jcc_core/run.py"
-    ],
-    "revalidated_despite_drift": [
-      "packages/jcc_core/run.py and packages/jcc_core/config.py changed under CR-002 (new GREEN port-ownership guard, DEFAULT_CONFIG_PATH moved to config/jcc-v1.3.yaml). Both were therefore RE-MEASURED at ac1ef4a6a9dd rather than inherited: runtime/_aegis_probe_bind_v13.py exercises check_bind_host over 10 hosts, is_green_config over 6 path forms, and check_green_port_ownership over 4 real load_config() outputs (GREEN/4778 starts, product/4779 starts, product-pointed-at-4778 refused, GREEN/4779 unaffected). All 9 checks PASS."
-    ],
-    "note": "This file is CURRENT for the recorded head. It is not a re-statement of the 05715da preflight: the tests were re-run at this commit."
+    "not_inherited": "No verdict was carried over from the previous issue of this file. All 16 K items were re-executed at this HEAD."
   },
-  "generated_at": "2026-10-04T18:28:28+0800",
+  "generated_at": "2026-10-05T10:40:55+0800",
   "generated_by": "Aegis (Security / Secrets), evidence-only gate",
-  "decision_rationale": "GO_WITH_CONDITIONS, deliberately NOT 'GO'. Two K-section items fail: launch_scope and artifact_path_traversal (both AEGIS-F1, the dead _is_inside guard). Conditional pass is not pass: a conditional GO in a release gate means the gate did not pass. Writing 'GO' here to turn the aggregator green would be exactly the falsification this project exists to prevent.",
+  "decision_rationale": "GO_WITH_CONDITIONS. The two K items that previously FAILED (launch_scope, artifact_path_traversal) now PASS: CR-003 and RISK-1 wired the containment guard, re-measured here at 7/7. All 16 K items are PASS and 0 are NOT_MEASURED. The verdict is still not GO, for two reasons that are NOT security-blockers and NOT this gate's to sign: the two HOST dependencies (AEGIS-F5 absent NVIDIA driver, AEGIS-F6 no scheduled task) leave restart recovery and GPU performance unmeasured, and four evidence inputs the aggregator requires do not exist. A gate that reported GO here would be claiming a release readiness it cannot measure.",
   "security_blockers": 0,
   "blockers_are_not_p0_p2": "AEGIS-F1 is HIGH but is NOT a P0-P2 blocker: it needs a valid control token AND a signed v2 directive AND a resolvable node+WorkBuddy CLI. No unauthenticated or remote party can reach it, and no automatic side-effect actuator exists or is enabled.",
   "k_section": [
@@ -126,17 +147,27 @@
     },
     {
       "item": "launch_scope",
-      "verdict": "FAIL",
-      "probe": "D:\\jev\\runtime\\_aegis_probe_containment.py",
-      "evidence": "AEGIS-F1. project_root reaches subprocess.Popen(cwd=...) and --add-dir with ONLY an is_dir() existence check. host_launcher.py:484 defines _is_inside() whose docstring says it is 'Used for the project-root binding', but a repo-wide search finds exactly one occurrence -- the definition. It is dead code. The function itself is correct (6/6 containment cases pass, including case-folding and cross-drive), so this is a MISSING CALL, not a broken check. POST /api/v1/domain/projects stored '../../../../Windows/System32', 'C:\\Windows\\System32' and '/etc/passwd' verbatim with 200 OK.",
-      "artifact": "packages/jcc_core/host_launcher.py:484 (dead), :760 (the guard that runs), :774 + :208 (the sinks)"
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py",
+      "evidence": "RE-VERIFIED at HEAD after CR-003 (task #15) and RISK-1 (tasks #20-21). Previously FAIL because _is_inside() was dead code. Measured now, not read off a task list: (1) AST shows _is_inside has 4 real call sites (host_launcher.py:536 plus project_scope.py:295,319 and its import) vs 0 before; (2) all 7 containment cases still decide correctly, so the fix WIRED the predicate rather than rewriting it; (3) POST /api/v1/domain/projects now returns 422 for all 6 out-of-scope roots ('../..//../../Windows/System32', '..\\..\\..\\..\\Windows\\System32', 'C:\\Windows\\System32', '/etc/passwd', 'D:\\Windows\\System32', 'Z:/somewhere/else') and 200 for the in-scope ones, so no out-of-scope root is stored; (4) validate_project_root(raw, roots=['D:\\jev']) refuses all 6 with PROJECT_ROOT_OUT_OF_SCOPE and returns a canonical path only for in-scope roots; (5) 3/3 genuinely in-scope roots are still admitted, so the guard is a boundary and not a blanket refusal; (6) an existing out-of-scope path and two non-existent ones are refused with indistinguishable wording, so the endpoint is not a filesystem-existence oracle; (7) NEGATIVE CONTROL: with the pre-CR-003 shape the 6 out-of-scope roots pass the write side, so the passes are caused by the wiring.",
+      "artifact": "packages/jcc_core/host_launcher.py:485,536; packages/jcc_core/project_scope.py:182,295,319; config item launcher.project_scope_base",
+      "superseded_verdict": {
+        "previous": "FAIL",
+        "reason": "AEGIS-F1: _is_inside was defined and never called",
+        "fixed_by": "CR-003 (task #15) + RISK-1 (tasks #20-21)"
+      }
     },
     {
       "item": "artifact_path_traversal",
-      "verdict": "FAIL",
-      "probe": "D:\\jev\\runtime\\_aegis_probe_containment.py",
-      "evidence": "Same root cause as launch_scope, seen from the ingest side: an artifact or project path supplied over the API is stored without normalisation or containment, and there is no base-directory configuration anywhere in host_launcher.py (allowed_root / base_dir / workspace_root / jail / REPO_ROOT all absent). Reachability requires a valid control token AND a signed v2 directive, so this is not remotely exploitable.",
-      "artifact": "packages/jcc_core/host_launcher.py:760, packages/jcc_core/launch_control.py:188"
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py",
+      "evidence": "RE-VERIFIED at HEAD after CR-003 (task #15) and RISK-1 (tasks #20-21). Previously FAIL because _is_inside() was dead code. Measured now, not read off a task list: (1) AST shows _is_inside has 4 real call sites (host_launcher.py:536 plus project_scope.py:295,319 and its import) vs 0 before; (2) all 7 containment cases still decide correctly, so the fix WIRED the predicate rather than rewriting it; (3) POST /api/v1/domain/projects now returns 422 for all 6 out-of-scope roots ('../..//../../Windows/System32', '..\\..\\..\\..\\Windows\\System32', 'C:\\Windows\\System32', '/etc/passwd', 'D:\\Windows\\System32', 'Z:/somewhere/else') and 200 for the in-scope ones, so no out-of-scope root is stored; (4) validate_project_root(raw, roots=['D:\\jev']) refuses all 6 with PROJECT_ROOT_OUT_OF_SCOPE and returns a canonical path only for in-scope roots; (5) 3/3 genuinely in-scope roots are still admitted, so the guard is a boundary and not a blanket refusal; (6) an existing out-of-scope path and two non-existent ones are refused with indistinguishable wording, so the endpoint is not a filesystem-existence oracle; (7) NEGATIVE CONTROL: with the pre-CR-003 shape the 6 out-of-scope roots pass the write side, so the passes are caused by the wiring.",
+      "artifact": "packages/jcc_core/host_launcher.py:485,536; packages/jcc_core/project_scope.py:182,295,319; config item launcher.project_scope_base",
+      "superseded_verdict": {
+        "previous": "FAIL",
+        "reason": "AEGIS-F1: _is_inside was defined and never called",
+        "fixed_by": "CR-003 (task #15) + RISK-1 (tasks #20-21)"
+      }
     },
     {
       "item": "sse_data_exposure",
@@ -155,13 +186,14 @@
   ],
   "k_section_summary": {
     "total": 16,
-    "pass": 14,
-    "fail": 2,
+    "pass": 16,
+    "fail": 0,
     "not_measured": 0,
-    "failing_items": [
-      "launch_scope",
-      "artifact_path_traversal"
-    ]
+    "failing_items": [],
+    "changed_since_previous_issue": {
+      "launch_scope": "FAIL -> PASS",
+      "artifact_path_traversal": "FAIL -> PASS"
+    }
   },
   "host_dependencies": {
     "note": "HOST-class, not security blockers. Recorded separately so the security verdict is not averaged against them.",
@@ -187,23 +219,6 @@
     }
   },
   "product_findings": [
-    {
-      "id": "AEGIS-F1",
-      "severity": "HIGH",
-      "k_items": [
-        "launch_scope",
-        "artifact_path_traversal"
-      ],
-      "summary": "_is_inside() at host_launcher.py:484 is dead code; project_root has no containment check before becoming a child cwd and an --add-dir grant.",
-      "preconditions": [
-        "valid JCC_CONTROL_TOKEN",
-        "resolvable node runtime + WorkBuddy CLI",
-        "signed v2 directive with a fresh launcher nonce"
-      ],
-      "remotely_exploitable": false,
-      "status": "Forge fixing under CR-003",
-      "minimal_fix": "Call the existing _is_inside just before the line 760 existence check and add a base directory to config."
-    },
     {
       "id": "AEGIS-F2",
       "severity": "MEDIUM",
@@ -254,6 +269,18 @@
       "summary": "A claim that SOFTWARE_RENDERER_TOKENS does not cover 'Microsoft Basic Render Driver' is FALSE and was falsified by executing the real classifier.",
       "evidence": "The tuple spans lines 181-186 and already contains 'basic render driver', 'basic display adapter', 'warp' and 'microsoft basic'. classify_renderer returns SOFTWARE for the WARP string and UNKNOWN for anything unrecognised, so an unknown future renderer cannot be reported as a GPU either.",
       "action_required": "NONE. Do not open a Change Request for this."
+    },
+    {
+      "id": "AEGIS-F1",
+      "severity": "HIGH (now FIXED, verified)",
+      "k_items": [
+        "launch_scope",
+        "artifact_path_traversal"
+      ],
+      "summary": "_is_inside() at host_launcher.py:485 was dead code, so project_root reached subprocess.Popen(cwd=...) and --add-dir with only an is_dir() existence check.",
+      "status": "FIXED by CR-003 (task #15) and RISK-1 (tasks #20-21); re-verified at 7/7 by runtime/_aegis_probe_f1_recheck.py",
+      "fix_shape": "The existing predicate was WIRED on, not rewritten: 4 call sites now, all 7 containment cases still correct, a new packages/jcc_core/project_scope.py owns the write-side validator and a new config item launcher.project_scope_base (default derived from __file__, never a hardcoded drive).",
+      "residual_risk": "None observed. The guard is scoped to the repo root by default, so an operator who genuinely needs a project outside D:\\jev must widen launcher.project_scope_base explicitly -- that is a deliberate config decision, and it is the right place for it."
     }
   ],
   "not_measured": [
@@ -280,8 +307,9 @@
   ],
   "explicit_non_claims": [
     "This gate signs the SECURITY dimension only. It does not speak for architecture, acceptance, rollback, or performance.",
-    "Security blockers = 0 does NOT mean the release may proceed: two K items FAIL, and four evidence files the aggregator needs do not exist yet (SANDBOX_CERTIFICATION, HOST_ACCEPTANCE, PRODUCT_FREEZE, MANIFEST).",
-    "A K item that was not measured is never rendered as a pass."
+    "16/16 K items PASS does NOT mean the release may proceed: the two HOST dependencies remain unmeasured, four required evidence files do not exist, and the worktree state is not this gate's to certify.",
+    "A K item that was not measured is never rendered as a pass.",
+    "The launch_scope PASS means the containment defect is fixed. It does NOT mean launching was exercised end-to-end on this host: no workload was spawned, so the child process was never observed running inside a boundary."
   ],
   "constraints_honoured": [
     "No product code modified: packages/, apps/, config/, integrations/, tools/ and tests/ were read only.",
@@ -298,10 +326,31 @@
     "containment": "D:\\jev\\runtime\\_aegis_probe_containment.py",
     "audit": "D:\\jev\\runtime\\_aegis_probe_audit.py",
     "renderer": "D:\\jev\\runtime\\_aegis_probe_renderer.py",
-    "api": "D:\\jev\\runtime\\_aegis_probe_api.py"
+    "api": "D:\\jev\\runtime\\_aegis_probe_api.py",
+    "f1_recheck": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py"
   },
   "prior_evidence": {
     "host_preflight": "artifacts/release/v1.3_final/HOST_PREFLIGHT.json",
     "note": "HOST_PREFLIGHT.json records head=05715da. It is retained unaltered as a物证. This file supersedes it for the security dimension and is current for the recorded head."
+  },
+  "conditions": [
+    "AEGIS-F5 (NVIDIA driver absent) must be attempted, or its non-attempt explicitly accepted, before the J stage is finalised. HOST class, not a security blocker.",
+    "AEGIS-F6 (no JCC scheduled task) blocks any claim that Windows restart recovery is verified. It is NOT_MEASURED. HOST class.",
+    "Four aggregator inputs still absent: SANDBOX_CERTIFICATION.json, HOST_ACCEPTANCE.json, PRODUCT_FREEZE.json, MANIFEST.json. This gate cannot substitute for them."
+  ],
+  "verification_discipline": {
+    "note": "Two of my own probes were wrong before they were right. Both are recorded because a gate that hides its own broken tests cannot be audited.",
+    "self_corrections": [
+      "The write-side check first reported FAIL because my own filter treated the scope base D:\\jev as an out-of-scope probe. The product was correct; the assertion was wrong.",
+      "The launch-side and existence-oracle sections first reported PASS VACUOUSLY: I called validate_project_root(raw) without its keyword-only `roots` argument, every call raised TypeError, and my handler counted TypeError as REFUSED. A test that passes because the call was malformed proves nothing. Now the real roots are passed and a TypeError is treated as FAILURE."
+    ],
+    "vacuous_pass_lesson": "A refusal-shaped exception from a malformed call is indistinguishable from a real refusal unless the expected exception type is asserted explicitly. This is the same class as the CRLF false positive: the check appeared to pass for a reason unrelated to the property under test."
+  },
+  "tests_at_this_head": {
+    "pytest": "138 passed, 0 failed (test_project_scope_v1_3, test_server_surface, test_signing_form_v2, test_v1_1_directive_gate, test_config_failclosed)",
+    "f1_recheck_probe": "7/7 PASS",
+    "k_section_probe": "16/16 PASS, no regression",
+    "bind_probe": "9/9 PASS, localhost binding and GREEN port ownership intact",
+    "note": "The previous issue reported 108 passed; the 30 new tests are test_project_scope_v1_3, added with the CR-003/RISK-1 fix."
   }
 }
