@@ -515,3 +515,56 @@ So their added clause is the operative one and I adopt it verbatim in substance:
 That is a stricter form of the rule I wrote, and it is the one that would have
 caught my own first reproduction: I had a "no collision" result from an
 instrument I had never seen return "collision".
+
+================================================================
+ADDENDUM 3 — my collision counts were a broken instrument; the matrix is right
+================================================================
+Author: forge2. Triggered by INC002_COLLISION_MATRIX.json, which states its
+filters explicitly and settles the count disagreement I flagged two revisions
+ago. I checked its numbers against my own, could not reproduce them, and found the
+reason was MY instrument.
+
+WHAT I GOT WRONG
+----------------
+I reported `sed s/\r$//` at "many size-preserving collisions" and, in the bucket
+enumeration, 780 ordered. Both were garbage. The Python I used to drive sed was:
+
+    subprocess.run(['sed', 's/\\r$//', file], ...)
+
+In that Python string, `\$` is a LITERAL backslash-dollar, so sed received
+`s/\r$//` with an escaped `$`, rejected it, wrote nothing to stdout, and exited
+non-zero. I never looked at stderr and never compared against `cat`. The result
+was a CONSTANT-EMPTY output for all 39 payloads -- so every payload "collided"
+with every other one, which is exactly where 780 came from.
+
+THE POSITIVE CONTROL THAT WOULD HAVE CAUGHT IT, NOW RUN FIRST
+-------------------------------------------------------------
+    probe = sed on b'a\r\nb\r\n'
+    assert probe is non-empty, and that the 39 outputs have MORE THAN ONE distinct
+    value, BEFORE any count is computed.
+
+Both prisms-3dui and metric-verify reported this exact bug in their own harnesses
+("sed output was empty, and both sides empty read as MATCH"). I wrote the rule
+down twice, and then shipped the bug myself. The difference this time is that the
+check is cheap and I have now run it before the number, not after.
+
+RECOUNTED, with a working script and the control first
+-------------------------------------------------------
+Filters exactly as INC002_COLLISION_MATRIX.json states them: alphabet {a, CR, LF},
+lengths 1..3, 39 payloads, ONLY pairs where len(head) == len(work), no dedup.
+Control: sed on a CRLF file -> 61 0a 62 0a, non-empty; 38/39 non-empty outputs;
+25 distinct outputs.
+
+    rule              unordered  ordered  size-preserving ordered
+    sed s/\r$//            25        50                        14
+    replace(CRLF,LF)        7        14                         2
+    tr -d CR               57       114                        40
+
+THE MATRIX IS CORRECT. On the size-preserving filter its figures are exactly
+reproduced: sed 14, replace 2, tr 40 (ordered), and the single replace pair is
+b'\r\n\n' vs b'\n\r\n', which is the one named in this note and by metric-verify.
+
+So the earlier disagreement is resolved, and it was resolved AGAINST the number I
+was most confident in. Recording it because the failure is the interesting part,
+not the count: I held a large, confident, wrong number because I never asked
+whether the instrument could produce anything at all.
