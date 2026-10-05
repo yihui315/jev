@@ -201,8 +201,16 @@ def scan_python(path: Path) -> list[dict]:
     try:
         toks = list(tokenize.generate_tokens(io.StringIO(src).readline))
     except (tokenize.TokenError, IndentationError, SyntaxError) as exc:
-        return [{"file": path.name, "line": 0, "kind": "TOKENIZE_ERROR",
-                 "text": type(exc).__name__}]
+        # An unparseable file is NOT a clean file. INC-002 replaced a tracked
+        # file's bytes with NULs while leaving its size (and therefore git's
+        # stat cache) intact; such a file yields no tokens, so a detector that
+        # only counts literals sees "zero hits" and reports GREEN on exactly the
+        # damage it exists to catch. Measured end-to-end: with one zeroed
+        # product file in the tree, this tool used to exit 0 with
+        # "FALSIFIER: PASS". Emit an UNREADABLE marker so main() can refuse.
+        return [{"file": path.name, "line": 0, "kind": "UNREADABLE",
+                 "text": "%s: file does not parse as source (zeroed or corrupt?)"
+                         % type(exc).__name__}]
     for tok in toks:
         if tok.type != tokenize.STRING:
             continue
@@ -523,6 +531,25 @@ def main() -> int:
     print("    other live drive literals (context): %d  (host-install paths)" % len(context))
     print("    inert docstring/comment (preserved): %d" % len(inert))
 
+    # --- 3b. UNREADABLE FILES: refuse before anything else ---------------
+    # A file that does not parse is not clean, it is unknown. This check comes
+    # BEFORE adjudication on purpose: an exemption names a file whose literals
+    # are deliberate, which is a claim about CONTENT. A file with no parsable
+    # content makes that claim meaningless, so no exemption may silence it.
+    unreadable = [h for h in violations + context if h["kind"] == "UNREADABLE"]
+    if unreadable:
+        print("\n    UNREADABLE product files (INC-002 signature):")
+        for h in unreadable:
+            print("      %s  %s" % (h["file"], h["text"]))
+        print("      -> INC-002 replaces bytes with NULs and leaves SIZE intact,")
+        print("         so git's stat cache still calls the file clean. A")
+        print("         relocation gate that only counts literals reports this")
+        print("         as green. Refusing: an unparsable file is UNKNOWN, not OK.")
+        failures.append("%d product file(s) do not parse (zeroed or corrupt)"
+                        % len(unreadable))
+    else:
+        print("    unreadable product files              : 0")
+
     # --- 4. per-violation adjudication ---------------------------------
     # Every remaining hit must carry a stated reason from ADJUDICATED_EXCEPTIONS.
     # A file not on that list is a real defect, even if it looks harmless.
@@ -530,6 +557,8 @@ def main() -> int:
     keepers: list[dict] = []
     unadjudicated: list[dict] = []
     for h in violations:
+        if h["kind"] == "UNREADABLE":
+            continue  # already refused in 3b; not a literal, cannot be exempted
         reason = next((r for frag, r, _ in ADJUDICATED_EXCEPTIONS
                        if frag in h["file"]), None)
         h["reason"] = reason
