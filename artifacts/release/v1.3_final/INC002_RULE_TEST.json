@@ -38,6 +38,15 @@
       "rule_says": "DIFFER",
       "size": 0,
       "size_minus_nul": 0
+    },
+    {
+      "byte_check_ok": true,
+      "case": "in_band_cr_injection",
+      "expected": "DIFFER",
+      "rule_is_correct": true,
+      "rule_says": "DIFFER",
+      "size": 45367,
+      "size_minus_nul": 45367
     }
   ],
   "known_limitation": "CR-stripping is lossy for binary content, so a binary file that differs ONLY in 0x0D bytes would read as MATCH. Verified harmless for the text files in this repo; a binary pin would need a size+separate-hash check instead.",

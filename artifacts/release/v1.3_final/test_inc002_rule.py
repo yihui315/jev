@@ -142,6 +142,27 @@ def zeroed_short(b: bytes) -> bytes:
     return b""
 
 
+def in_band_cr(b: bytes) -> bytes:
+    """A CR injected INSIDE the content, not at a line ending. Must DIFFER.
+
+    relay's case, and the one that matters most. Deleting every CR normalises
+    this away: a mid-line CR and a CRLF line ending become indistinguishable, so
+    real content damage reads as a benign line-ending difference. That is a false
+    negative, which is worse than a false positive because it is trusted.
+
+    Reproduced against weaver's minimal pair -- HEAD=b'ab\\r\\n',
+    WORK=b'a\\rb\\r\\n' -- where the delete-every-CR form reduces both to
+    b'ab\\n' and reports MATCH.
+    """
+    out = bytearray(b.replace(b"\r\n", b"\n"))       # start from clean LF
+    nl = out.find(b"\n")
+    if nl > 0:
+        out[nl - 1:nl - 1] = b"\r"                 # CR immediately before the LF
+    else:
+        out.extend(b"\ra")
+    return bytes(out)
+
+
 def rule_selftest() -> dict:
     """Prove THIS script's own rule is not blind, before trusting its verdict.
 
@@ -213,6 +234,12 @@ def main() -> int:
     out["cases"].append(case("one_char_real_edit", False, one_char_edit))
     out["cases"].append(case("zeroed_same_size_form_a_INC002", False, zeroed_same_size))
     out["cases"].append(case("zeroed_truncated", False, zeroed_short))
+    # relay's case, added so the ON-DISK cases[] table covers it independently of
+    # the selftest block. Its point is correct: cases[] alone did NOT distinguish
+    # the two normalisations, so a revert to delete-every-CR left cases[] fully
+    # green. The selftest already caught that, but a reader auditing this JSON
+    # would only look at cases[] and would have seen four greens.
+    out["cases"].append(case("in_band_cr_injection", False, in_band_cr))
 
     # (5) a binary file must not make the rule crash.
     png = REPO / "apps" / "favicon.png"
@@ -251,7 +278,22 @@ def main() -> int:
                     encoding="utf-8", newline="\n")
     print(json.dumps(out, indent=2, sort_keys=True, ensure_ascii=False)[:3500])
     print("\nVERDICT: %s" % out["verdict"])
-    return 0 if not wrong else 1
+    # EXIT CODE MUST REFLECT THE VERDICT, BOTH HALVES OF IT.
+    #
+    # This used to be `return 0 if not wrong else 1`, keyed only on the `cases[]`
+    # table -- so a script whose own discrimination self-test had FAILED still
+    # exited 0, and any CI gate or wrapper checking the exit code would have passed
+    # a rule that the text right above it called UNSOUND. Found by reverting the
+    # rule in this file to `b.replace(b"\r", b"")` and re-running: the verdict
+    # correctly said "RULE UNSOUND ... failed on: ['mid-line CR injection', 'CR
+    # immediately before LF']" and the process still exited 0.
+    #
+    # A guard that detects and then returns success is worse than no guard, because
+    # it is believed. Both conditions now set the exit code, and the Windows
+    # safe-ops rule is that a failed script must not exit 0.
+    if not selftest["all_ok"] or wrong:
+        return 1
+    return 0
 
 
 if __name__ == "__main__":
