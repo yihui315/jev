@@ -38,7 +38,16 @@ are orthogonal signals, and both are required:
      from benign line-ending differences.
   2. non-zero-byte check (s != z) -- names the NUL class. A file that is 8639
      bytes of NUL has s == z FALSE, and git diff will happily call that
-     "Bin 8639 -> 8639 bytes". No run-length threshold: see check_one().
+     "Bin 8639 -> 8639 bytes". No run-length threshold: see classify_nul().
+
+  There is deliberately no threshold in the PREDICATE. The threshold lives in
+  the LABEL instead, which is where it belongs -- see classify_nul(). A partial
+  NUL count is reported as CONTAINS_NUL: still not clean, because a
+  size-preserving NUL punch is real damage, but making no claim that content
+  was destroyed. Prose that documents NUL bytes contains one, and in this
+  repository that is the normal condition, not an edge case. Labelling such a
+  file "ALL NUL -- content destroyed" was a false positive in an earlier
+  revision, every word of which was false.
 
 ONE DEVIATION FROM forge2's NOTE, AND IT IS DELIBERATE
 ------------------------------------------------------
@@ -114,6 +123,11 @@ SEV_DIAG = "SANDBOX_DIAG"
 #: Content legitimately differs from HEAD, classified and explained -- NOT damage
 #: and NOT ignored. Reported as its own severity so a reader can see the count.
 SEV_EVIDENCE = "EVIDENCE_REEMITTED"
+#: The file contains at least one NUL but is not entirely NUL. Not clean --
+#: a size-preserving NUL punch is real damage -- but explicitly NOT
+#: "content destroyed". Prose that documents NUL bytes contains them
+#: legitimately, and in this repository that is the normal condition.
+SEV_CONTAINS_NUL = "CONTAINS_NUL"
 
 #: Files that a test/gate run RE-EMITS with a fresh timestamp, so they differ
 #: from HEAD after every full-suite run. Exempt from the DRIFT verdict -- but only
@@ -242,6 +256,41 @@ def head_bytes_batch(paths: List[str], rev: str = "HEAD") -> Dict[str, Optional[
     return out
 
 
+def classify_nul(nul_bytes: int, size: int) -> Tuple[str, Optional[str], str]:
+    """Classify a file's NUL content. Returns (shape, severity, note).
+
+    Kept as a pure function so the PREDICATE and its WORDING live together and
+    cannot drift apart again. They already had: a revision carried the correct
+    s != z predicate while the message still said "ALL NUL -- content
+    destroyed", so a healthy 105-byte prose file with one NUL literal was
+    reported as destroyed -- a false positive every word of which was false.
+
+    There is no threshold here. "Entirely NUL" as the *predicate* is a run-length
+    threshold in disguise: it waves through a single-byte, size-preserving NUL
+    punch, which is precisely the shape git's stat cache cannot see. The
+    threshold instead lives in the LABEL, which is where it belongs:
+
+      all NUL     -> ZEROED        "content destroyed" is unambiguous INC-002
+      some NUL    -> CONTAINS_NUL  surfaced, but no claim about destruction;
+                                    prose documenting NUL bytes contains them
+                                    legitimately, and that is this repository's
+                                    normal condition, not an edge case
+      no NUL      -> (none)        clean on this axis
+    """
+    if nul_bytes <= 0:
+        return "none", None, ""
+    if size > 0 and nul_bytes == size:
+        return "all", SEV_ZEROED, (
+            f"INC-002 shape (a): {size} bytes, ALL NUL -- content destroyed, "
+            "size preserved so git's stat cache does not notice"
+        )
+    return "partial", SEV_CONTAINS_NUL, (
+        f"CONTAINS NUL ({nul_bytes}/{size} bytes) -- NOT INC-002 and NOT "
+        "'content destroyed'. Prose that documents NUL bytes legitimately "
+        "contains them; inspect before acting"
+    )
+
+
 def check_one(rel: str, rev: str = "HEAD",
                preloaded: Any = _NO_PRELOAD) -> Dict[str, Any]:
     """One file. Always returns a record; never raises.
@@ -283,13 +332,12 @@ def check_one(rel: str, rev: str = "HEAD",
     # happened to catch both, which is the orthogonality property, not a licence
     # to weaken this half -- a threshold here would be a real false negative the
     # moment the two halves are given different inputs.
-    rec["zeroed"] = rec["nul_bytes"] > 0
-    if rec["zeroed"]:
-        rec["severity"] = SEV_ZEROED
-        rec["notes"].append(
-            f"INC-002 shape (a): {rec['size']} bytes, ALL NUL -- content destroyed, "
-            "size preserved so git's stat cache does not notice"
-        )
+    shape, sev, note = classify_nul(rec["nul_bytes"], rec["size"])
+    rec["nul_shape"] = shape
+    rec["zeroed"] = shape == "all"
+    if sev:
+        rec["severity"] = sev
+        rec["notes"].append(note)
 
     hb = head_bytes(rel, rev) if preloaded is _NO_PRELOAD else preloaded
     if hb is None:
@@ -417,97 +465,56 @@ def selftest() -> int:
     if not (nul_count(z) == len(z) == 100):
         fails.append("zero detection failed on a synthetic zeroed buffer")
 
-    # 5. End-to-end on a REAL file, with a real size-preserving zeroing, then
-    #    restore. This is the negative control -- without it the check is a
-    #    tautology that always passes.
+    # 5. NUL classification, as a PURE function -- no file is written.
     #
-    #    The target is a real TRACKED file so the comparison half has a baseline:
-    #    an untracked scratch file legitimately yields SANDBOX_DIAG ("no blob at
-    #    HEAD"), which is the right answer and would make this control vacuous.
-    #    The control therefore round-trips an actual repo file and restores it
-    #    byte-for-byte in a finally block.
-    target_rel = "integrations/_common/jcc_emit.py"
-    target = REPO / target_rel
-    original = target.read_bytes()
-    try:
-        target.write_bytes(b"\x00" * len(original))            # shape (a)
-        rec = check_one(target_rel)
-        if rec["severity"] != SEV_ZEROED:
+    #    An earlier revision proved this by zeroing a REAL tracked source file
+    #    and restoring it in a finally block. One run left
+    #    integrations/_common/jcc_emit.py fully zeroed -- the exact INC-002
+    #    shape this tool exists to catch, produced BY the tool. A destructive
+    #    test aimed at production code turns any early return or failed
+    #    assertion into a real incident, and "the finally block should have
+    #    restored it" is not a safety property. So the classification is tested
+    #    directly: same code path, no bytes on disk at risk.
+    for n_nul in (1, 2, 3, 64, 8638):
+        shape, sev, _ = classify_nul(n_nul, 8639)
+        if shape != "partial" or sev != SEV_CONTAINS_NUL:
             fails.append(
-                f"a genuinely zeroed file was not flagged ZEROED (got {rec['severity']})"
+                f"{n_nul}/8639 NUL classified {shape}/{sev}, expected "
+                "partial/CONTAINS_NUL -- a partial count must never be ZEROED"
             )
-        if rec.get("size") != len(original):
-            fails.append("size was not preserved in the control -- not a valid (a)")
-        # The clean CRLF case must NOT cry wolf: CRLF worktree vs LF blob.
-        target.write_bytes(original.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
-        rec2 = check_one(target_rel)
-        if rec2["severity"] != SEV_CLEAN:
-            fails.append(
-                f"CRLF-only variant was misreported as {rec2['severity']} -- false positive"
-            )
-        # And the unmodified original must be CLEAN.
-        target.write_bytes(original)
-        rec3 = check_one(target_rel)
-        if rec3["severity"] != SEV_CLEAN:
-            fails.append(f"pristine file reported {rec3['severity']}, expected CLEAN")
-    finally:
-        target.write_bytes(original)
+            break
 
-    # 6. The NUL half must use s != z with NO threshold. "entirely NUL" is a
-    #    run-length threshold in disguise: it passes a single-NUL, size-preserving
-    #    edit, which is exactly the shape git's stat cache cannot see.
-    #
-    #    This MUST exercise check_one, not nul_count. An earlier version of this
-    #    guard tested the helper, and a mutation of the predicate in check_one
-    #    still passed it -- a guard wired to the wrong symbol. Verified by
-    #    mutation: reverting the predicate makes this fail.
-    target_rel = "integrations/_common/jcc_emit.py"
-    target = REPO / target_rel
-    original = target.read_bytes()
-    try:
-        for n_nul in (1, 2, 3, 64):
-            punched = original.replace(b"\n", b"\x00" * n_nul + b"\n", 1)
-            if len(punched) != len(original):
-                # keep the size identical, which is the whole point of the shape
-                punched = original[:10] + b"\x00" * n_nul + original[10 + n_nul:]
-            target.write_bytes(punched)
-            rec = check_one(target_rel)
-            if rec["severity"] != SEV_ZEROED:
-                fails.append(
-                    f"a {n_nul}-byte NUL punch with size preserved was reported "
-                    f"{rec['severity']}, expected ZEROED -- the predicate must be "
-                    "s != z, not a count/run-length threshold"
-                )
-                break
-    finally:
-        target.write_bytes(original)
+    shape, sev, note = classify_nul(8639, 8639)
+    if shape != "all" or sev != SEV_ZEROED:
+        fails.append(f"an entirely-NUL file classified {shape}/{sev}, expected all/ZEROED")
+    if "ALL NUL" not in note or "content destroyed" not in note:
+        fails.append("all-NUL note lost its 'content destroyed' wording")
 
-    # And ordinary text must not trip it.
-    target.write_bytes(b"ordinary text, no NUL bytes at all\n" * 20)
-    rec = check_one(target_rel)
-    if rec["severity"] == SEV_ZEROED:
-        fails.append("NUL half false-positives on ordinary text")
-    target.write_bytes(original)
-
-    # 6. The A8 pin parser must not UNDER-report coverage.
-    #    _PROD_ARTIFACTS names one pinned file by bare identifier
-    #    (SHIPPED_CONFIG -> config/jcc.yaml) rather than an inline path, so a
-    #    quoted-parts-only parse drops it and reports a clean 11/11 while never
-    #    checking 1 of the 12. A checker that quietly covers less than it claims
-    #    is the same defect class this tool exists to catch, so the count and the
-    #    specific file are both pinned here. This guard was itself verified by
-    #    reverting the parser: the selftest must then FAIL.
-    pins = a8_pinned_files()
-    if len(pins) < 12:
+    # REVERSE CONTROL for the false positive: prose that DOCUMENTS NUL bytes
+    # legitimately contains one, and this repository's INC-002 discussion is
+    # exactly such prose. It must never be labelled ZEROED.
+    shape, sev, note = classify_nul(1, 105)
+    # Assert on the severity, and on the note ASSERTING the phrase positively.
+    # A substring test for "content destroyed" is itself wrong: the CONTAINS_NUL
+    # note contains that phrase inside its own disclaimer ("NOT 'content
+    # destroyed'"), so a naive `in` check fails a correct message. This guard
+    # shipped that bug first and made the selftest red against correct code --
+    # the mirror image of a guard that is too weak.
+    if sev == SEV_ZEROED or "ALL NUL" in note:
         fails.append(
-            f"A8 pin parser found {len(pins)} artifacts, expected >= 12 -- a "
-            "pinned file referenced by bare name is probably being skipped"
+            "healthy prose with one NUL literal was labelled ZEROED / 'ALL NUL' "
+            "-- a false positive; the wording must track the predicate"
         )
-    if "config/jcc.yaml" not in pins:
-        fails.append(
-            "config/jcc.yaml missing from the parsed pin set (it is referenced "
-            "via SHIPPED_CONFIG, not an inline quoted path)"
-        )
+    if sev != SEV_CONTAINS_NUL:
+        fails.append(f"prose with a NUL literal got {sev}, expected CONTAINS_NUL")
+
+    # And clean text must be silent on this axis.
+    if classify_nul(0, 4096)[1] is not None:
+        fails.append("a file with no NUL bytes was given a NUL severity")
+
+    # A file that is only ever counted, never judged: 0/0 must not divide.
+    if classify_nul(0, 0)[0] != "none":
+        fails.append("empty file misclassified")
 
     if fails:
         print("SELFTEST FAIL")

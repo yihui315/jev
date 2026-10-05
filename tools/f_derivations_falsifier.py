@@ -226,17 +226,33 @@ def scan_python(path: Path) -> list[dict]:
     stripped in-band CR and one that did not would disagree. Agreement here
     would have proved nothing; divergence is what makes the result meaningful.
     """
-    # NUL check FIRST, and explicitly, because relying on the tokenizer to catch
+    # NUL check FIRST, and explicitly, because relying on the parser to catch
     # NUL is relying on an accident.
     #
-    # Measured: a NUL placed inside a COMMENT leaves the file perfectly valid
-    # Python -- it compiles, tokenize is happy, and zero drive literals are
-    # found. So the parse-failure path below does NOT catch that form, and a
-    # partially-zeroed (a') file whose NUL run lands in a comment would be
-    # reported CLEAN. INC-002 is documented as size-preserving, and the size it
-    # preserves can be preserved by a partial zeroing just as well as a total
-    # one. The strong signal is that the file contains NUL AT ALL, not that it
-    # fails to parse -- so that is what we test.
+    # WHY, HONESTLY. An earlier version of this comment claimed that "a NUL
+    # inside a COMMENT leaves the file perfectly valid Python -- it compiles,
+    # tokenize is happy". That was FALSE, and how it went false is worth
+    # recording so nobody repeats it. The probe backing it ran
+    # `bytes.replace(b"# frozen", b"# \x00roze", 1)` against this very file --
+    # and the string "# frozen" does not occur here (find returns -1), so the
+    # replace was a NO-OP. The sample stayed clean, the probe correctly
+    # reported no NUL, and I read that clean result as proof of a hole instead
+    # of as the no-op it was. Measured properly, BOTH `compile()` and
+    # `tokenize` REJECT a NUL wherever it appears: comment, string, or EOL.
+    #
+    # So the parse-failure path would in fact have caught most NUL placements
+    # on its own. The explicit check stays anyway, for two real reasons rather
+    # than the invented one:
+    #   1. It states the invariant instead of inheriting it. A future CPython
+    #      that tolerated a NUL somewhere would silently un-fix this gate, and
+    #      the failure would be invisible -- no crash, just a green result.
+    #   2. It removes the dependence on WHICH stage notices, which is the same
+    #      "right by luck, not by correctness" shape aegis flagged when
+    #      retracting his own CR conclusion.
+    #
+    # INC-002 is documented as size-preserving, and partial zeroing preserves
+    # size as well as total zeroing does, so the signal to test is "this file
+    # contains NUL AT ALL" rather than "this file failed to parse".
     #
     # The test is deliberately `b"\x00" in raw`, i.e. exactly `s != z` (total
     # byte count vs non-NUL byte count), with NO run-length or count threshold.
