@@ -656,7 +656,16 @@ def selftest() -> int:
     #      same bytes, opposite verdict, decided only by `git add`. preloaded=None
     #      is passed explicitly because None is ambiguous (absent vs not fetched)
     #      and the sentinel means "fetch it yourself".
-    _untracked_rel = ".selftest_untracked_nul_probe.tmp"
+    # The probe lives under .workbuddy/scratch, NOT the repo root. It must be
+    # untracked for the test to mean anything, and a root-level file is not
+    # gitignored -- so a concurrent agent scanning mid-run would see the tree
+    # flicker dirty, which is the exact coupling this suite is supposed to have
+    # removed. A scratch path is equally untracked (git ls-files has no such
+    # entry, so head_bytes() returns None) and is ignored by git. The guard was
+    # correct while contradicting this module's own claim that it writes no file.
+    _probe_dir = REPO / ".workbuddy" / "scratch"
+    _probe_dir.mkdir(parents=True, exist_ok=True)
+    _untracked_rel = ".workbuddy/scratch/selftest_untracked_nul_probe.tmp"
     _untracked = REPO / _untracked_rel
     try:
         _untracked.write_bytes(b"probe: NUL literal " + b"\x00" + b" here\n")
