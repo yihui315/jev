@@ -83,6 +83,31 @@ SEV_CLEAN = "CLEAN"
 SEV_DRIFT = "DRIFT"
 SEV_ZEROED = "ZEROED"
 SEV_DIAG = "SANDBOX_DIAG"
+#: Content legitimately differs from HEAD, classified and explained -- NOT damage
+#: and NOT ignored. Reported as its own severity so a reader can see the count.
+SEV_EVIDENCE = "EVIDENCE_REEMITTED"
+
+#: Files that a test/gate run RE-EMITS with a fresh timestamp, so they differ
+#: from HEAD after every full-suite run. Exempt from the DRIFT verdict -- but only
+#: after the two damage checks still run on them, and only with the reason
+#: printed. Silently skipping them would be the failure mode this tool exists to
+#: prevent: a check that cries wolf gets ignored, and an exemption with no
+#: recorded justification is just a hole.
+#:
+#: Verified, not assumed: each of the four adapter JSONs carries
+#: ``"probe_at": "2026-10-04T09:55:15Z"``, which changes on every re-emit.
+EVIDENCE_REEMITTED = {
+    "artifacts/acceptance/CONTINUATION_INFRA_TEST.json":
+        "re-emitted by the continuation infra test (per-run node_ids/checks)",
+    "artifacts/acceptance/adapter_capability/claude.json":
+        "probe_at timestamp; re-emitted by v1_1_emit_capability_matrix",
+    "artifacts/acceptance/adapter_capability/codex.json":
+        "probe_at timestamp; re-emitted by v1_1_emit_capability_matrix",
+    "artifacts/acceptance/adapter_capability/hermes.json":
+        "probe_at timestamp; re-emitted by v1_1_emit_capability_matrix",
+    "artifacts/acceptance/adapter_capability/workbuddy.json":
+        "probe_at timestamp; re-emitted by v1_1_emit_capability_matrix",
+}
 
 
 def _sha(data: bytes) -> str:
@@ -227,15 +252,26 @@ def check_one(rel: str, rev: str = "HEAD",
     if rec["zeroed"]:
         pass  # already recorded above; do not overwrite with DRIFT
     elif not rec["match"]:
-        rec["severity"] = SEV_DRIFT
-        d_head, d_work = rec["head_size"], rec["size"]
-        if d_work - d_head == work.count(b"\r\n") and d_work > d_head:
+        if rec["mode"] == "binary-exact" and rec["match"] is False and rel in EVIDENCE_REEMITTED:
+            pass
+        if rel in EVIDENCE_REEMITTED:
+            # Re-emitted evidence, not damage -- but say so out loud, and say why.
+            rec["severity"] = SEV_EVIDENCE
+            rec["exempt_reason"] = EVIDENCE_REEMITTED[rel]
             rec["notes"].append(
-                "size delta equals the CRLF count but content still differs after "
-                "normalisation -- a real edit, not a line-ending artefact"
+                "content differs from HEAD; classified as re-emitted evidence "
+                f"({EVIDENCE_REEMITTED[rel]}) -- not counted as DRIFT"
             )
         else:
-            rec["notes"].append("content differs from HEAD after EOL normalisation")
+            rec["severity"] = SEV_DRIFT
+            d_head, d_work = rec["head_size"], rec["size"]
+            if d_work - d_head == work.count(b"\r\n") and d_work > d_head:
+                rec["notes"].append(
+                    "size delta equals the CRLF count but content still differs after "
+                    "normalisation -- a real edit, not a line-ending artefact"
+                )
+            else:
+                rec["notes"].append("content differs from HEAD after EOL normalisation")
     return rec
 
 
@@ -387,7 +423,9 @@ def main(argv: Optional[List[str]] = None) -> int:
     for r in records:
         by_sev[r["severity"]] = by_sev.get(r["severity"], 0) + 1
 
+    # EVIDENCE is reported, never silently dropped and never counted as damage.
     bad = [r for r in records if r["severity"] in (SEV_ZEROED, SEV_DRIFT)]
+    ev = [r for r in records if r["severity"] == SEV_EVIDENCE]
     diags = [r for r in records if r["severity"] == SEV_DIAG]
     if bad:
         verdict = "FAIL"
@@ -423,6 +461,8 @@ def main(argv: Optional[List[str]] = None) -> int:
     print(f"verdict={verdict} checked={len(records)} {by_sev}")
     for r in bad:
         print(f"  [{r['severity']}] {r['path']}: {'; '.join(r['notes'])}")
+    for r in ev:
+        print(f"  [{SEV_EVIDENCE}] {r['path']}: {r.get('exempt_reason', '')}")
     for r in diags[:5]:
         print(f"  [{SEV_DIAG}] {r['path']}: {'; '.join(r['notes'])}")
     return 1 if bad else (2 if diags else 0)
