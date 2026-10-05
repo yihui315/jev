@@ -191,7 +191,29 @@ def _docstring_lines(src: str) -> set[int]:
 
 
 def scan_python(path: Path) -> list[dict]:
-    """Live drive literals in a Python file (docstrings and comments excluded)."""
+    """Live drive literals in a Python file (docstrings and comments excluded).
+
+    NOTE ON LINE ENDINGS, because this is a known trap in this repo.
+    `read_text()` opens in universal-newline mode, which translates a lone "\\r"
+    into "\\n" just as it translates "\\r\\n". So an in-band CR -- a CR in the
+    MIDDLE of a line, which is real content damage and not a line ending -- is
+    silently re-flowed before tokenize ever sees it.
+
+    That was measured here rather than assumed, because the obvious mitigation is
+    itself the bug weaver retracted from the INC-002 rule: `tr -d '\\r'` (or
+    Python's `b.replace(b"\\r", b"")`) deletes EVERY CR, so it makes an in-band
+    CR injection hash-identical to a benign CRLF file -- a false NEGATIVE, not a
+    labelling nit. Only line-ENDING CR may be stripped: `sed 's/\\r$//'` in
+    shell, `b.replace(b"\\r\\n", b"\\n")` in Python. This scanner strips nothing.
+
+    Universal-newline folding is nevertheless safe HERE, and that is an
+    empirical result rather than a guarantee: every in-band CR placement was
+    tested (before the drive letter, between drive and colon, between colon and
+    slash, inside an f-string, and in an adjacent comment). Each one either
+    leaves the literal intact and gets reported, or breaks the parse and is
+    escalated to UNREADABLE by the caller. None produced a silent CLEAN. If that
+    ever stops being true, this docstring is where to look first.
+    """
     try:
         src = path.read_text(encoding="utf-8", errors="replace")
     except OSError:
