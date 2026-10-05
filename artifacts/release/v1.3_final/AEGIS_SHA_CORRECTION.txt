@@ -122,8 +122,12 @@ recompute:
 
       for f in HOST_PREFLIGHT SECURITY_FINAL; do
         printf '%s  ' "$f"
+        # RAW bytes. Do NOT pipe through sed: this host's sed line reader strips
+        # the CR of a trailing CRLF before the script runs, so `sed ''` alone
+        # already alters its input (measured: a\r\n -> a\n). A digest computed
+        # through sed is not this artefact's digest.
         git cat-file -p "HEAD:artifacts/release/v1.3_final/$f.json" \
-          | sed 's/\r$//' | sha256sum | cut -d' ' -f1
+          | sha256sum | cut -d' ' -f1
       done
 
 Compare against the CITE lines above. If they differ, the artefact was
@@ -136,10 +140,11 @@ Digest of each artefact as of the commit that last changed it:
 
 NOTE ON THE LINE-DENDING RULE
 --------------------------------------------------------------------------
-Normalisation is CRLF -> LF only (`sed 's/\r$//'`, or
-b.replace(b"\r\n", b"\n")). Never `tr -d '\r'`: it deletes EVERY CR, so an
-in-band CR injection normalises to a clean-looking file and the check reports
-MATCH on damaged content. Measured:
-    clean   'ab\r\n'    -> tr: 61 62 0a
-    damaged 'a\rb\r\n'  -> tr: 61 62 0a   MATCH  (damage hidden)
-                            -> sed: 61 0d 62 0a  DIFFER  (caught)
+The byte-level transform is CRLF -> LF and nothing else:
+    b.replace(b"\r\n", b"\n")
+    NOT b.replace(b"\r", b"")   -- deletes EVERY CR, in-band ones included
+And it is EVIDENCE, not a verdict: it has measured size-preserving collisions
+(0d0a0a <-> 0a0d0a), so the only sound decision rule for size-preserving damage
+is a RAW byte comparison. `tr -d '\r'` fails on the in-band case as measured
+earlier; `sed 's/\r$//'` is worse, because on this host sed's line reader
+alters input before any script runs, so `sed ''` already changes a\r\n.

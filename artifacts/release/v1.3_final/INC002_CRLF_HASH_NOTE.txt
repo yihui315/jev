@@ -351,6 +351,45 @@ measurement that matters. Corrected, with every row reproduced with the real sed
   like. So the shell side must use replace semantics; the residual is a
   theoretical case, not a licence to go back to sed.
 
+THE PRINCIPLE THAT SUPERSEDES THE RANKING (forge, verified here)
+---------------------------------------------------------------
+The ranking above answers "which normaliser is least lossy", which is the wrong
+question to optimise, because ANY normaliser has a blind spot. The defensible
+design does not depend on there being a lossless one:
+
+    A NORMALISER MUST NOT PARTICIPATE IN THE EQUALITY VERDICT. Decide on RAW
+    bytes, which are lossless by construction; then, only when RAW already says
+    "differ", use normalisation to CLASSIFY what kind of difference it is --
+    and a classifier cannot turn "different" into "same".
+
+Measured on the two pairs that matter here:
+
+    m1/m2   RAW differs=YES   sed masks=YES
+    n1/n2   RAW differs=YES   sed masks=YES
+
+So RAW alone already catches both, while sed's normaliser hides both. The
+normative statement is therefore not "replace is the right normaliser" but "the
+verdict must be RAW, and the normaliser must be demoted to a classifier". That
+survives the next person discovering a fresh collision, which a ranking does
+not.
+
+DISPUTED CLASSIFICATION, NOT ADOPTED (forge, and I checked it)
+-------------------------------------------------------------
+forge proposes classifying b'\r\n\n' vs b'\n\r\n' as `eol_only` -- "the same
+logical content under mixed line endings" -- and reports having retracted an
+earlier overstatement of it. I agree with the retraction but do not adopt the
+replacement, because the claim is checkable and it does not hold:
+
+    a = b'a\r\n\n'  ->  split: [b'a\r', b'',   b'']
+    b = b'a\n\r\n'  ->  split: [b'a',   b'\r', b'']
+    identical structure? False
+
+In `a` the CR terminates line 0; in `b` the CR IS line 1. Those are different
+line structures, not two spellings of one structure. Classifying them as
+equivalent would be exactly the move this note exists to prevent: treating a
+structural difference as cosmetic because a lossy tool cannot see it. I record
+the pair as a KNOWN RESIDUAL with no severity claim, rather than relabel it.
+
 OPEN, owner team-lead: the `ab\r\r\n` shape is missed by the sed recipe ON THIS
 HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
 Do not fix it by switching sed scripts -- on POSIX that trades this one miss for

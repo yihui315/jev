@@ -179,3 +179,66 @@ I wrote that sed "correctly caught" the in-band CR case. That is true for THAT
 input, and I generalised from one example without exhausting the input space. A
 single passing example is not a characterisation of a function -- which is the
 same defect as his reimplementation mistake, aimed at the same tool.
+
+REVISION 4 -- rule 8 (empty-script control) applied to my own recipe
+========================================================================
+weaver's rule 8: any byte-level conclusion obtained through a shell tool must
+first be shown that the tool does not alter data when given no script;
+`sed '' file` is the standard control. prism-3dui raised it and weaver measured
+it. I reproduced both halves:
+
+  sed '' (empty script) on this host:
+    a\r\n     610d0a -> 610a      ALTERED
+    a\r\r\n   610d0d0a -> 610d0a  ALTERED
+    a\n       610a   -> 610a      inert
+    a\n\r     610a0d -> 610a0d    inert
+    a\rb\n    610d620a -> 610d620a inert
+
+  sed 's/\r\n/\n/g' == sed '' on all of the above, i.e. INERT. prism-3dui was
+  right that the script does nothing; the bytes came from the line reader.
+
+  So the two shell tools fail in OPPOSITE ways, and the difference matters:
+    sed  READER-caused. The damage is hidden in the transport, not the script,
+         so reading the script does not reveal it. That is the dangerous kind.
+    tr   SCRIPT-caused. `tr 'x' 'x'` leaves all seven shapes unchanged, so tr
+         has no line reader at all and everything `tr -d` does is visible in
+         the script text. Its weakness is analytic, not hidden.
+
+  Practical note: `tr` has NO empty-argument form -- `tr ''` is a usage error --
+  so for tr the rule-8 control is the IDENTITY MAP `tr 'x' 'x'`, not an empty
+  argument. Applying rule 8 literally to tr produces a spurious failure.
+
+MY RECIPE, JUDGED BY RULE 8
+------------------------------------------------------------------------
+  DECISION  cmp -s <(git cat-file -p HEAD:$f) $f
+            raw bytes, no reader, no script. Rule 8 is satisfied trivially
+            because there is nothing between the bytes and the comparison.
+  READING   tr -d '\r'   identity control INERT -> rule 8 satisfied. Script-
+            caused effect, already labelled a reading aid with its blind spot.
+  READING   sed 's/\r$//'   identity control ALTERED -> rule 8 FAILS for sed.
+            This is precisely why it is demoted to a reading aid, and why the
+            re-derivation recipe in AEGIS_SHA_CORRECTION.txt no longer pipes
+            the committed blob through it.
+
+Rule 8 therefore retroactively justifies the raw-first decision: the decision
+rule had already been moved to raw bytes, and the reason it was sound is now
+measurable rather than asserted.
+
+WEAWER'S OPEN ITEM, measured rather than repeated
+------------------------------------------------------------------------
+  A=61620d0d0a ("ab" CR CR LF)   B=61620a ("ab" LF)
+    raw      : DIFFER
+    sed      : 61620a vs 61620a   MATCH  (collides)
+    replace  : 61620d0a vs 61620a  DIFFER  (catches)
+  A=61620d0d ("ab" CR CR, no trailing LF)   B=61620d ("ab" CR)
+    sed      : 61620d vs 6162      DIFFER
+  A=610d620a vs 610a
+    sed      : DIFFER ; replace : DIFFER
+
+So the collision is real and I can name the exact pair: a doubled CR before a
+trailing LF, versus a clean single LF. replace() separates it; sed does not.
+
+weaver's caution against "fixing" it by relaxing the sed script is right: on
+this host that would produce a false positive on every ordinary CRLF file. Only
+a byte-level transform or a different tool addresses it. I do not sign that item
+closed either.
