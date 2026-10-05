@@ -52,14 +52,35 @@ def sh(*args: str) -> bytes:
     return p.stdout
 
 
+def norm(b: bytes) -> bytes:
+    """CRLF -> LF ONLY. Not `replace(b"\\r", b"")`.
+
+    The delete-every-CR form is what forge2 originally proposed and what I shipped
+    in a4fab43; team-lead's final rule corrects it. Measured, both blind on the
+    same two inputs:
+
+        case                        delete-all-CR   CRLF->LF-only
+        mid-line CR injection       MATCH  (wrong)  DIFFER  (correct)
+        CR immediately before LF    MATCH  (wrong)  DIFFER  (correct)
+
+    Deleting every CR discards CR *position*, not just CRLF line endings, so real
+    corruption reads as clean -- the same failure as form (a), inverted. I flagged
+    this in someone else's code and then wrote it myself, which is why the shape
+    is worth naming rather than just fixing.
+    """
+    return b.replace(b"\r\n", b"\n")
+
+
 def hdiff(rel: str) -> str:
-    """forge2's hdiff: HEAD blob via `git cat-file -p`, CR stripped, hashed."""
-    return hashlib.sha256(sh("cat-file", "-p", "HEAD:%s" % rel).replace(b"\r", b"")).hexdigest()
+    """forge2's hdiff, with team-lead's normalisation: HEAD blob via
+    `git cat-file -p`, CRLF->LF only, hashed. The `cat-file` choice is load-bearing:
+    `git show` applies worktree conversion and could mask a zeroed file."""
+    return hashlib.sha256(norm(sh("cat-file", "-p", "HEAD:%s" % rel))).hexdigest()
 
 
 def hwork(path: Path) -> str:
-    """forge2's hwork: worktree bytes, CR stripped, hashed."""
-    return hashlib.sha256(path.read_bytes().replace(b"\r", b"")).hexdigest()
+    """Worktree bytes, CRLF->LF only, hashed."""
+    return hashlib.sha256(norm(path.read_bytes())).hexdigest()
 
 
 def byte_shape(path: Path) -> tuple[int, int]:
@@ -121,22 +142,70 @@ def zeroed_short(b: bytes) -> bytes:
     return b""
 
 
+def rule_selftest() -> dict:
+    """Prove THIS script's own rule is not blind, before trusting its verdict.
+
+    Added after I shipped the delete-all-CR form in a4fab43 and team-lead's final
+    rule corrected it. A verification script that cannot demonstrate its own
+    discrimination is the exact failure this round produced five of, so the
+    shapes are asserted here rather than assumed.
+    """
+    shapes = [
+        ("pure CRLF line endings", b"line1\r\nline2\r\n", b"line1\nline2\n", "MATCH"),
+        ("mid-line CR injection", b"li\rne1\nline2\n", b"line1\nline2\n", "DIFFER"),
+        ("CR immediately before LF", b"line1\r\r\nline2\n", b"line1\nline2\n", "DIFFER"),
+        ("one-byte real edit", b"line1\nline2\n", b"LINE1\nline2\n", "DIFFER"),
+    ]
+    rows = []
+    for name, a, b, expect in shapes:
+        got = "MATCH" if norm(a) == norm(b) else "DIFFER"
+        old = "MATCH" if norm_old(a) == norm_old(b) else "DIFFER"
+        rows.append({
+            "shape": name, "expected": expect, "current_rule": got,
+            "current_rule_ok": got == expect,
+            # Where the superseded form gave a DIFFERENT (wrong) answer.
+            "old_delete_all_cr_rule": old,
+            "old_rule_was_wrong": old != expect,
+        })
+    return {
+        "shapes": rows,
+        "all_ok": all(r["current_rule_ok"] for r in rows),
+        "shapes_the_superseded_form_got_wrong": [
+            r["shape"] for r in rows if r["old_rule_was_wrong"]],
+    }
+
+
+def norm_old(b: bytes) -> bytes:
+    """The superseded delete-every-CR form, kept ONLY so the self-test can state
+    which shapes the current form fixed. Not used for any verdict."""
+    return b.replace(b"\r", b"")
+
+
+def norm_old(b: bytes) -> bytes:
+    """The superseded delete-every-CR form, kept ONLY so the self-test can state
+    which shapes the current form fixed. Not used for any verdict."""
+    return b.replace(b"\r", b"")
+
+
 def main() -> int:
     WORK.mkdir(parents=True, exist_ok=True)
     src = REPO / TARGET_REL
     head_blob = sh("cat-file", "-p", "HEAD:%s" % TARGET_REL)
     work_bytes = src.read_bytes()
+    selftest = rule_selftest()
     out: dict = {
-        "rule_under_test": "forge2's hdiff/hwork (CR-stripped sha256) + non-zero-byte check",
+        "rule_under_test": ("team-lead's final rule: CRLF->LF-only normalisation, "
+                            "NUL check first, git cat-file -p (not git show)"),
         "target": TARGET_REL,
+        "selftest": selftest,
         "measurement": {
             "head_blob_bytes": len(head_blob),
             "worktree_bytes": len(work_bytes),
             "delta": len(work_bytes) - len(head_blob),
             "worktree_crlf_lines": work_bytes.count(b"\r\n"),
             "head_crlf_lines": head_blob.count(b"\r\n"),
-            "content_equal_after_cr_strip": (
-                head_blob.replace(b"\r", b"") == work_bytes.replace(b"\r", b"")),
+            "content_equal_after_crlf_normalisation": (
+                norm(head_blob) == norm(work_bytes)),
         },
         "cases": [],
     }
@@ -151,18 +220,29 @@ def main() -> int:
         blob = png.read_bytes()
         same = png.read_bytes() == blob
         out["binary_probe"] = {"file": str(png.relative_to(REPO)),
-                               "cr_strip_is_lossy": blob.replace(b"\r", b"") != blob,
+                               "crlf_normalisation_is_lossy_for_binary": norm(blob) != blob,
                                "unchanged_reads_identical": same}
     else:
         out["binary_probe"] = {"skipped": "no apps/favicon.png on this host"}
 
     wrong = [c["case"] for c in out["cases"] if not c["rule_is_correct"]]
-    out["verdict"] = (
-        "RULE SOUND on all tested shapes: it matches CRLF-only noise, still detects a "
-        "real one-byte edit, and still detects INC-002 in both the same-size-zeroed and "
-        "truncated forms. Adopt as written."
-        if not wrong else
-        "RULE UNSOUND on: %s -- do not adopt as written." % wrong)
+    # The self-test gates the verdict: a rule that cannot demonstrate its own
+    # discrimination must not be reported as sound, however clean the case table is.
+    if not selftest["all_ok"]:
+        out["verdict"] = ("RULE UNSOUND -- its own discrimination self-test failed on: %s"
+                          % [s["shape"] for s in selftest["shapes"] if not s["current_rule_ok"]])
+    elif wrong:
+        out["verdict"] = "RULE UNSOUND on: %s -- do not adopt as written." % wrong
+    else:
+        fixed = selftest["shapes_the_superseded_form_got_wrong"]
+        out["verdict"] = (
+            "RULE SOUND. Uses team-lead's final normalisation (CRLF->LF only, NOT "
+            "delete-every-CR), NUL check before normalisation, and git cat-file -p. "
+            "Self-test confirms it matches CRLF-only noise while still detecting a "
+            "mid-line CR, a CR immediately before LF, a one-byte edit, and INC-002 in "
+            "both the same-size-zeroed and truncated forms. Shapes the superseded "
+            "delete-every-CR form got wrong: %s."
+            % (", ".join(fixed) if fixed else "none"))
     out["known_limitation"] = (
         "CR-stripping is lossy for binary content, so a binary file that differs ONLY "
         "in 0x0D bytes would read as MATCH. Verified harmless for the text files in "

@@ -58,9 +58,16 @@ fixtures/ tools/ integrations/ adapters/ policies/ evals/ tests/`. The leg recor
 
 Consequences for the wording:
 
-* The byte-level facts are **true and worth keeping** — worktree sha256
-  `7b1ba0cb5b70040c` with 989 CRLF, HEAD blob `17d36c5223aff329` with 0 CRLF — but
-  they are **not the mechanism**. E1 fails because porcelain prints
+* The byte-level facts are **true and worth keeping**, and their provenance is stated
+  here so a third party can reproduce them in place:
+  * HEAD side: `git cat-file -p HEAD:packages/jcc_core/host_launcher.py | sha256sum`
+    → `17d36c5223aff329…`, 45 366 bytes, 0 CRLF. **`cat-file`, not `git show`** —
+    `git show` applies worktree conversion and would hide the difference.
+  * Worktree side: `sha256sum < packages/jcc_core/host_launcher.py` → `7b1ba0cb5b70040c…`,
+    46 355 bytes, 989 CRLF.
+  * Checked at commit `a33998a` (2026-10-05), `core.autocrlf=true`, 737 tracked files,
+    0 `assume-unchanged`/`skip-worktree` flags.
+  But they are **not the mechanism E1 uses** — E1 fails because porcelain prints
   `M packages/jcc_core/host_launcher.py`, not because a digest diverged.
 * **"Phantom clean" is not a reachable failure mode here.** Porcelain reported dirty
   for a worktree that differs from the index. A phantom *clean* would require

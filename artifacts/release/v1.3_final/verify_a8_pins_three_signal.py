@@ -89,8 +89,13 @@ def check(rel: str, expected: str) -> dict:
 
     raw_h_work = hashlib.sha256(raw).hexdigest()
     raw_h_head = hashlib.sha256(blob).hexdigest()
-    lf_h_work = hashlib.sha256(raw.replace(b"\r", b"")).hexdigest()
-    lf_h_head = hashlib.sha256(blob.replace(b"\r", b"")).hexdigest()
+    # CRLF -> LF ONLY, per team-lead's final rule. This file previously used
+    # replace(b"\r", b""), which is the delete-every-CR form I criticised in
+    # someone else's rule and then shipped myself: it discards CR *position*, so a
+    # mid-line CR or a CR immediately before LF read as MATCH. Measured blind on
+    # both. Corrected here so no committed script of mine carries the flaw.
+    lf_h_work = hashlib.sha256(raw.replace(b"\r\n", b"\n")).hexdigest()
+    lf_h_head = hashlib.sha256(blob.replace(b"\r\n", b"\n")).hexdigest()
     rec["raw_match"] = raw_h_work == raw_h_head
     rec["lf_match"] = lf_h_work == lf_h_head
 

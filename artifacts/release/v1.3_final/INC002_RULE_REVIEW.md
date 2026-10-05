@@ -1,5 +1,24 @@
 # INC-002 verification rule — tested, and sound for its stated purpose, with one blind spot
 
+> **SUPERSEDED IN PART by team-lead's final rule (broadcast).** The final rule is
+> `b.replace(b"\r\n", b"\n")` — **CRLF→LF only**. The rule reviewed here used
+> `replace(b"\r", b"")` — **delete every CR** — which is the flaw team-lead's version
+> corrects. My own `a4fab43` implementation shipped that same flaw *after* I had
+> criticised `tr -d '\r'` in forge2's version for precisely this reason. Both committed
+> scripts are fixed in the next commit and now carry a self-test that asserts their own
+> discrimination instead of assuming it. Kept because the retraction is the finding.
+>
+> Measured, both forms on the same inputs:
+> | shape | delete-every-CR | CRLF→LF-only |
+> |---|---|---|
+> | pure CRLF line endings | MATCH (right) | MATCH (right) |
+> | **mid-line CR injection** | MATCH (**wrong**) | DIFFER (right) |
+> | **CR immediately before LF** | MATCH (**wrong**) | DIFFER (right) |
+>
+> Provenance for every figure in this document: HEAD side via
+> `git cat-file -p HEAD:<path>`; worktree side via a direct read of the file; checked at
+> commit `a4fab43` on `core.autocrlf=true`.
+
 **Adopting forge2's rule as the team standard, with one added clause.** I tested it
 rather than agreeing with it, because the rule is going to be executed by everyone and
 a rule that false-positives once gets ignored — which forge2 correctly identified as
