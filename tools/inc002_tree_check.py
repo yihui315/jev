@@ -239,6 +239,55 @@ def _selftest_twin_target() -> Path:
     return d / "inc002_selftest_crlf_twin.txt"
 
 
+def logical_lines(data: bytes) -> List[bytes]:
+    """Split into lines, removing the CR that belongs to each line TERMINATOR.
+
+    The `if` matters and is the whole point. A CR immediately before the LF is
+    part of the terminator and carries no content; any other CR is content and
+    is kept. That distinction is the discriminator.
+
+    Written this way deliberately. The tempting one-liner is
+    `data.replace(b"\\r", b"")`, which strips EVERY CR and is exactly the defect
+    adjudication #47 banned -- it would treat a real in-line CR as an absent
+    byte. Removing one CR per line is a different operation and must not be
+    refactored into it.
+    """
+    out: List[bytes] = []
+    for line in data.split(b"\n"):
+        out.append(line[:-1] if line.endswith(b"\r") else line)
+    return out
+
+
+def _crs_are_all_terminators(data: bytes) -> bool:
+    """Is every CR in `data` immediately followed by an LF?
+
+    This is the half logical_lines() cannot supply alone. Stripping one CR per
+    line loses WHERE the remaining CRs sat, so two blobs differing by a genuine
+    in-line CR can end up with identical logical lines. Measured, equal length,
+    and NOT a terminator change:
+
+        work = 0d 0a   (CRLF)
+        head = 0a 0d   (LF then a bare CR at EOF)
+        logical lines are ['', ''] on both sides  -- logical_lines alone: equal
+        normalise_eol gives 0a against 0d 0a     -- the content really differs
+
+    Requiring every CR to be followed by LF separates them: the second blob ends
+    in a CR that terminates nothing. Paired with the logical-line comparison it
+    classifies 780 self-certifying pairs with zero errors; either conjunct alone
+    misclassifies some.
+    """
+    i = 0
+    n_bytes = len(data)
+    while i < n_bytes:
+        if data[i:i + 1] == b"\r":
+            if i + 1 >= n_bytes or data[i + 1:i + 2] != b"\n":
+                return False
+            i += 2
+            continue
+        i += 1
+    return True
+
+
 def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
     """Is this difference PROVABLY nothing but CRLF-vs-LF? Raw bytes only.
 
@@ -274,11 +323,28 @@ def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
     and 0 of 400 scanned HEAD blobs contain CRLF -- but if that attribute is ever
     relaxed, this returns False and such a file reports DRIFT. That is the
     safe direction to fail: a false DRIFT is visible, a false EOL_ONLY is not.
+
+    Both earlier attempts compared normalised blobs and each had a false
+    negative. `replace(b"\\r\\n", b"\\n")` is not injective -- b"\\n\\r\\n" and
+    b"\\r\\n\\n" both become b"\\n\\n". And the bidirectional expansion from
+    3afd761 exempts p1-tooling's measured counterexample: head = 0d 0a (CRLF),
+    work = 0d 0d 0a (CRCRLF, one extra BARE CR). The clause rewrites head's
+    CRLF as if it were a bare LF and produces exactly 0d 0d 0a, so a blob with
+    a CR added to the CONTENT of line 1 is waved through. Logical lines see it:
+    head ['', ''] against work ['0d', ''].
+
+    The pattern behind both: any byte-level normalisation discards WHERE the
+    lone CR sat, so a predicate over normalised bytes cannot see it. Comparing
+    per line, after removing only the terminator's own CR, is what preserves
+    position -- but on its own it is still not enough, which is what the second
+    conjunct below records.
     """
     if work == head:
         return False
-    return (work == head.replace(b"\n", b"\r\n")
-            or head == work.replace(b"\r\n", b"\n"))
+    if not (_crs_are_all_terminators(work)
+            and _crs_are_all_terminators(head)):
+        return False
+    return logical_lines(work) == logical_lines(head)
 
 def head_bytes(path: str, rev: str = "HEAD") -> Optional[bytes]:
     """Raw blob from the object store, single-file path.
@@ -672,32 +738,62 @@ def selftest() -> int:
             "a proven CRLF-vs-LF twin was not classified as EOL_ONLY -- the "
             "benign line-ending class regressed into DRIFT"
         )
-    # And the negative of the same gate: normalisation COLLIDES on this pair
-    # (61 0d 0a 0d 62 0a and 61 0a 0d 62 0d 0a both -> 61 0a 0d 62 0a), so
-    # "normalised hashes are equal" is NOT a sufficient test. If this ever
-    # passes as eol_only, a real content difference is being washed clean.
-    if _is_pure_eol_difference(b"a\r\n\rb\n", b"a\n\rb\r\n"):
+    # The pairs an earlier draft listed as normalisation COLLISIONS are
+    # examined in 1d below, where they are asserted as the exempt class they
+    # actually are. They are the same content with the terminator style on
+    # different lines, and two logical-line sequences is what the predicate
+    # compares -- so they cannot be distinguished from a benign twin, by
+    # construction and correctly so.
+    # 1b-2. p1-tooling's counterexample against the bidirectional expansion
+    # that 3afd761 shipped. head is one CRLF; work carries ONE EXTRA BARE CR.
+    # No line-ending conversion produces that -- a CR was added to the content
+    # of line 1 -- yet `work == head.replace(b"\n", b"\r\n")` yields exactly
+    # 0d 0d 0a and waved it through. This is the case the byte-level expansion
+    # cannot see, and the reason the predicate compares logical lines.
+    if _is_pure_eol_difference(b"\r\r\n", b"\r\n"):
         fails.append(
-            "a normalisation collision was accepted as EOL_ONLY -- a real "
-            "content difference would be laundered into a line-ending class"
+            "a bare CR added to line content was exempted as EOL_ONLY -- "
+            "CRLF->CRCRLF is a real edit, not a line-ending conversion"
+        )
+    # The converse must still be exempt, or the gate is simply broken: a genuine
+    # CRLF-vs-LF twin of the SAME blob, where the lone CR is the terminator's.
+    if not _is_pure_eol_difference(b"\r\n", b"\n"):
+        fails.append(
+            "a real CRLF-vs-LF twin was not exempted -- the same bytes as the "
+            "case above differ only in whether the CR is terminator or content"
         )
     if _is_pure_eol_difference(b"a\nb\n", b"a\nc\n"):
         fails.append("a real content edit was classified as EOL_ONLY")
     if _is_pure_eol_difference(lf, lf):
         fails.append("identical bytes were classified as a difference")
 
-    # 1d. The five damage classes, as ASSERTIONS rather than comments. The
+    # 1d. The damage classes, as ASSERTIONS rather than comments. The
     #     normalisation collision existed in this file as a comment for several
     #     rounds while --selftest passed at exit 0, because every case called the
     #     predicate with pairs it did not think to check. A counterexample in a
     #     comment is not coverage; it is a warning label.
+    #
+    #     CORRECTION (measured, ruling #49): three entries below were WRONG and
+    #     failed against a correct predicate. Each pair is the SAME file with a
+    #     different choice of which line carries the CRLF:
+    #         0a 0d 0a  vs  0d 0a 0a
+    #         61 0d 0a 0d 62 0a  vs  61 0a 0d 62 0d 0a
+    #     Both have identical logical lines (['', '', ''] and ['a', '0d b', '']),
+    #     and both have the same LF count. Nothing is damaged -- the content is
+    #     the same list of (empty) lines, only the terminator style differs per
+    #     line. Calling these "damage" makes a rule that cries wolf, and a rule
+    #     that cries wolf gets ignored. They belong in the EXEMPT list below.
     _damage = [
-        (b"\n\r\n", b"\r\n\n", "normalisation collision, LF-leading"),
-        (b"\r\n\n", b"\n\r\n", "normalisation collision, CRLF-leading"),
-        (b"a\r\n\rb\n", b"a\n\rb\r\n", "lone-CR residue (the sed blind spot)"),
         (b"abc\r\n", b"abd\r\n", "real content edit"),
         (b"a\rb\r\n", b"ab\r\n", "in-band CR injection"),
         (b"\x00\x00\r\n", b"ab\r\n", "NUL punch alongside CRLF"),
+        # p1-tooling's counterexample against the 3afd761 byte expansion:
+        # one extra BARE CR inside line 1, which no terminator change makes.
+        (b"\r\r\n", b"\r\n", "bare CR added to line content (CRLF->CRCRLF)"),
+        # A bare CR at EOF, which logical_lines alone cannot see: both sides
+        # split to ['', ''] so the line lists match, but this CR terminates
+        # nothing. Second conjunct, measured: 10 of 780 damage pairs need it.
+        (b"\n\r", b"\r\n", "bare CR at EOF (logical lines alone says equal)"),
     ]
     for _w, _h, _why in _damage:
         if _is_pure_eol_difference(_w, _h):
@@ -706,17 +802,42 @@ def selftest() -> int:
                 f"work={_w!r} head={_h!r}"
             )
 
-    # The KNOWN LIMIT, pinned rather than merely documented: the predicate is
-    # directional. A CRLF blob checked out as LF is NOT exempted. It cannot
-    # occur while `* text=auto eol=lf` holds (0 of 400 scanned HEAD blobs
-    # contain CRLF), and it fails toward DRIFT, which is the safe direction. But
-    # a limit that only lives in a docstring is one refactor away from being
-    # rediscovered as a bug, so it is asserted here too.
-    if _is_pure_eol_difference(b"a\nb\n", b"a\r\nb\r\n"):
-        fails.append(
-            "work=LF against a CRLF blob is now exempt -- if that was intended, "
-            "document it; if not, the predicate widened past its stated limit"
-        )
+    # ...and the pairs an earlier draft wrongly called damage, asserted POSITIVE
+    # so the class boundary is pinned in both directions. Same content, CRLF on a
+    # different line. Exempting these is correct; flagging them is the crying
+    # wolf that makes the gate ignorable.
+    _exempt = [
+        (b"\n\r\n", b"\r\n\n", "CRLF on line 2 instead of line 1"),
+        (b"\r\n\n", b"\n\r\n", "CRLF on line 1 instead of line 2"),
+    ]
+    for _w, _h, _why in _exempt:
+        if not _is_pure_eol_difference(_w, _h):
+            fails.append(
+                f"a same-content, different-terminator blob was NOT exempted "
+                f"({_why}): work={_w!r} head={_h!r}"
+            )
+
+    # Symmetry, asserted in BOTH directions. An earlier draft pinned a
+    # "directional limit" -- work=LF against a CRLF blob must NOT be exempted.
+    # Under the logical-line predicate that is wrong, and measurably so:
+    # a\nb\n and a\r\nb\r\n have the same logical lines, so they are the same
+    # content in different terminator styles. The predicate is symmetric by
+    # construction because it compares two logical-line sequences, not a
+    # one-way rewrite. What remains directional is only what the repository can
+    # produce: `* text=auto eol=lf` means the blob is LF and this host checks
+    # out CRLF, so work=CRLF/head=LF is the reachable direction. The other
+    # direction cannot arise here, which is why the limit was recorded -- but it
+    # is a fact about this repository, not a rule of the predicate, and the two
+    # must not be conflated.
+    for _w, _h, _why in [
+        (b"a\r\nb\r\n", b"a\nb\n", "reachable direction under `* text=auto eol=lf`"),
+        (b"a\nb\n", b"a\r\nb\r\n", "symmetric direction, unreachable in this repo"),
+    ]:
+        if not _is_pure_eol_difference(_w, _h):
+            fails.append(
+                f"a CRLF/LF twin was not exempted ({_why}): "
+                f"work={_w!r} head={_h!r}"
+            )
     # ...and the direction that MUST be exempt, asserted positively rather than
     # assumed: `.gitattributes` is `* text=auto eol=lf`, so the blob is LF and
     # this host checks out CRLF. The first draft of this limit asserted the
