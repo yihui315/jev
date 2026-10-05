@@ -38,26 +38,53 @@ A rule that cannot tell (a) from (b) will flag every CRLF file in the tree.
 
 SUGGESTED CHECK (both halves are required)
 ------------------------------------------
-    # CORRECTION 2026-10-05: these two functions originally read `tr -d '\r'`.
-    # That form is unsound and was withdrawn -- see the note below.
+    # CORRECTION 2026-10-05 (twice; the second one withdraws the first).
+    # These two functions originally read `tr -d '\r'`. That form is genuinely
+    # unsound and stays withdrawn:
     #   tr -d '\r'  deletes EVERY CR byte, not just the one in a CRLF pair, so an
     #                in-band CR injection normalises to the same bytes as a clean
     #                file and real damage is reported as MATCH (false negative).
-    #   sed 's/\r$//' is closer but still lossy: it strips only ONE trailing CR per
-    #                line, so a doubled CR at EOL ("a\r\r\n") collapses onto the
-    #                clean form ("a\r\n") and is ALSO masked.
-    # The faithful shell equivalent of the canonical rule -- which is
-    # b.replace(b"\r\n", b"\n"), per adjudication #21 -- is the CRLF-pair form
-    # below. It removes exactly the CR that is paired with an LF and leaves every
-    # other CR byte in place.
-    #   measured: sed 's/\r\n/\n/g' agrees with the python rule on 9/9 shapes;
-    #             sed 's/\r$//' disagrees on 2 of them (doubled CR at EOL, and a
-    #             lone CR at EOF with no trailing newline).
-    # In python, write:  b.replace(b"\r\n", b"\n")
-    # NOT b.replace(b"\r", b"") -- that is the same defect as `tr -d '\r'`.
-    hdiff() { git cat-file -p "HEAD:$1" | sed 's/\r\n/\n/g' | sha256sum | cut -d' ' -f1; }
-    hwork() { sed 's/\r\n/\n/g' < "$1" | sha256sum | cut -d' ' -f1; }
+    #
+    # ATTEMPT 1 (withdrawn, do not use): I first replaced it with
+    #   sed 's/\r\n/\n/g'
+    # claiming it was the faithful shell equivalent of the canonical rule and that
+    # sed 's/\r$//' "still masked" a doubled CR at EOL. **That was wrong**, and the
+    # error was mine. Measured on this host:
+    #     printf 'ab\r\r\n' > p.bin
+    #     sed ''                p.bin | od -An -tx1   ->  61 62 0d 0a
+    #     sed 's/\r\n/\n/g'     p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+    #   My script was INERT. The canonical bytes came from GNU sed's *line reader*
+    #   (this MSYS build strips the CR of a trailing CRLF), not from the script.
+    #   On a host whose sed does not do that -- i.e. any POSIX sed -- the pattern
+    #   space never contains the line's own trailing \n, so the two-byte sequence
+    #   CRLF can never match and the script CANNOT EVER FIRE. There it is a no-op
+    #   that would report DIFFER for every ordinary CRLF file. (POSIX half is
+    #   reasoned from documented sed semantics, NOT executed: wsl.exe is blocked by
+    #   policy on this host, so it is UNVERIFIED here.)
+    #
+    # The "doubled CR is masked" observation was also an artifact of the same
+    # reader: it had already removed one CR, so sed 's/\r$//' removed a SECOND
+    # one. Proof -- 3 CRs in, 1 left out (a correct run leaves 2):
+    #     printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+    #
+    # SETTLED FORM (what adjudication #21 actually specifies, and what
+    # tools/inc002_tree_check.py implements):
+    #     python : b.replace(b"\r\n", b"\n")
+    #     NOT b.replace(b"\r", b"")  -- same defect as tr -d '\r'.
+    # The shell form below is correct on a POSIX sed and, per the measurement
+    # above, is what this repo's own MSYS host actually uses today. Do not
+    # "simplify" it to the CRLF-pair form: that form is a no-off on POSIX.
+    hdiff() { git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1; }
+    hwork() { sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1; }
     [ "$(hdiff "$f")" = "$(hwork "$f")" ] && echo MATCH || echo DIFFER
+
+    # HOST CAVEAT, still open: on this MSYS build sed's reader already converts a
+    # trailing CRLF, so the two steps compose to strip up to TWO CRs at EOL. The
+    # measured consequence is limited to the shape "a\r\r\n", which this host
+    # reports as MATCH where canonical python says DIFFER. If that shape must be
+    # caught here, do not reach for a different sed script -- use the python form
+    # or tools/inc002_tree_check.py, which read bytes and are host-independent.
+    # Owner: team-lead. Tracked as an open condition, not a closed defect.
 
   -- note `git cat-file -p`, NOT `git show`: this was long given as the reason
      `cat-file` is safer. That reason is WITHDRAWN -- both return byte-identical
@@ -172,3 +199,66 @@ NOTE ON ORDERING, which I agree with and had also got wrong by implication
 ----------------------------------------------------------------------------
 The NUL / size check must run FIRST. A zeroed file must never reach the hash
 comparison and be explained away as a line-ending artefact.
+
+================================================================
+ADDENDUM 2 — my correction to my OWN correction (verified with git)
+================================================================
+Author: forge2. prism-3dui corrected the causal story and both parts of the
+correction check out. I verified each with git rather than conceding on tone.
+
+WHAT I GOT WRONG, and it was the more serious half
+---------------------------------------------------
+I told team-lead: "rulings-fix changed the live recipe but not my prose, so a
+defect I had already documented survived in the one sentence I wrote for people
+to copy." That framing is FALSE. Measured:
+
+  $ for c in $(git log --format=%h -- artifacts/.../INC002_CRLF_HASH_NOTE.txt); do
+        git cat-file -p "$c:...F" | wc -l; done
+    6e10842   92 lines   docs(inc002): withdraw tr -d '\r' from the three surviving notes
+    ca8aacc  174 lines   docs(inc002): withdraw the third normaliser form; rank all three
+
+  $ git cat-file -p "6e10842:...F" | grep -cE "^[^#].*s/\r\$//"
+    0
+
+At 6e10842 the file was 92 lines. **L119 did not exist.** The only two mentions of
+`s/\r$//` were `#` comment lines, and both were WARNINGS AGAINST the form
+("is closer but still lossy ... is ALSO masked"). There was no defective prose for
+rulings-fix to have missed. `git log -S "Using CRLF->LF only"` returns only
+ca8aacc, so the lossy recommendation was never in any commit before mine.
+
+=> THE REGRESSION WAS INTRODUCED BY MY OWN ADDENDUM. Writing the correction is
+   what created the defect: I took a true statement ("the pair form is correct"),
+   summarised it in one clause, and in that clause named the lossy form as
+   co-recommended. **Documenting a defect is not the same as not repeating it.**
+
+This is a fourth instance of this round's one root cause, and the sharpest yet:
+the first three used a drifting observation to support a claim it could not
+prove; this one PROVED its claim correctly and the proof itself carried the flaw.
+Correct reasoning about a correct subject still produced a defective artefact.
+
+THE SCAN CONVENTION prism-3dui proposed, which I am adopting
+------------------------------------------------------------
+After any fix, grep the whole document for the DEFECTIVE STRING, not for the live
+line. The live line was right; the live line was never where the problem was.
+I only found it because they pushed back instead of accepting "already correct".
+
+ON THEIR SHARPENED CONTROL, which is better than mine
+------------------------------------------------------
+They note that all three of our instrument failures shared a property beyond
+emptiness: **the instrument returned a plausible, well-formed, WRONG answer** --
+no exception, no non-zero exit, no empty output. A malformed sed script that
+returns empty is detectable; a regex faithfully modelling the wrong anchor is
+indistinguishable from a real negative result.
+
+So their added clause is the operative one and I adopt it verbatim in substance:
+
+    A NEGATIVE RESULT needs a POSITIVE CONTROL on the same instrument, in the
+    same run. Not "did two of my outputs agree" -- mine agreed, wrongly. Ask
+    instead: has this instrument, today, demonstrably returned the OTHER answer
+    anywhere? If it has never returned DIFFER for this input class, its MATCH is
+    not evidence of absence; it is evidence that the case which would make it
+    differ has not been built yet.
+
+That is a stricter form of the rule I wrote, and it is the one that would have
+caught my own first reproduction: I had a "no collision" result from an
+instrument I had never seen return "collision".
