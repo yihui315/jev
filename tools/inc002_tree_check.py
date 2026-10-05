@@ -407,7 +407,29 @@ def check_one(rel: str, rev: str = "HEAD",
 
     hb = head_bytes(rel, rev) if preloaded is _NO_PRELOAD else preloaded
     if hb is None:
-        if rec["severity"] != SEV_ZEROED:
+        # "No blob at HEAD" is a statement about TRACKING, not about content, so
+        # it must not overwrite a content verdict -- only fill in a blank one.
+        # The guard used to be `severity != SEV_ZEROED`, which excepted exactly
+        # one content severity by name. CONTAINS_NUL was not excepted, so a
+        # partial NUL in an untracked or new file was downgraded to
+        # SANDBOX_DIAG: is_not_clean() then called it clean, `bad` did not
+        # collect it, and the run reported DEGRADED/exit 2 instead of
+        # FAIL/exit 1. Measured on a 26-byte untracked doc holding one NUL:
+        #
+        #     untracked -> verdict=DEGRADED {'SANDBOX_DIAG': 1}      exit 2
+        #     tracked   -> verdict=FAIL     {'CONTAINS_NUL': 1}     exit 1
+        #
+        # Same bytes, same NUL, opposite verdict -- decided purely by whether
+        # the file happened to be `git add`ed. That silences precisely the
+        # files most worth a human eye: a freshly written document about NUL
+        # bytes, not yet staged. --all-tracked walks `git ls-files`, so the
+        # path is unreachable in that mode and the defect was invisible there.
+        #
+        # is_not_clean() is asked instead of naming severities, so this cannot
+        # drift when a severity is added. DRIFT is also spared, which is right:
+        # DRIFT is set below this point, so it cannot occur here yet, and if
+        # that ever changes the content verdict must win over tracking anyway.
+        if not is_not_clean(rec["severity"]):
             rec["severity"] = SEV_DIAG
             rec["notes"].append(f"no blob at {rev}:{rel} (untracked or new file)")
         else:
@@ -620,6 +642,40 @@ def selftest() -> int:
         # not wrong per se, but these must stay out of the failure set or every
         # re-emitted evidence file would fail the tree
         fails.append("EVIDENCE/DIAG are being counted as failures")
+
+    #  (v) "no blob at HEAD" must not overwrite a CONTENT verdict. This one is
+    #      asserted through check_one on a genuinely untracked file, because the
+    #      defect it guards was invisible to every other probe here: --all-tracked
+    #      walks `git ls-files`, so a downgrade that only fires for untracked
+    #      paths cannot show up in a tracked-only run at all. A 26-byte scratch
+    #      file holding one NUL was enough --
+    #
+    #          untracked -> DEGRADED {'SANDBOX_DIAG': 1}   exit 2
+    #          tracked   -> FAIL     {'CONTAINS_NUL': 1}  exit 1
+    #
+    #      same bytes, opposite verdict, decided only by `git add`. preloaded=None
+    #      is passed explicitly because None is ambiguous (absent vs not fetched)
+    #      and the sentinel means "fetch it yourself".
+    _untracked_rel = ".selftest_untracked_nul_probe.tmp"
+    _untracked = REPO / _untracked_rel
+    try:
+        _untracked.write_bytes(b"probe: NUL literal " + b"\x00" + b" here\n")
+        _rec = check_one(_untracked_rel, preloaded=None)
+        if _rec["severity"] != SEV_CONTAINS_NUL:
+            fails.append(
+                f"an untracked file with one NUL was reported {_rec['severity']}, "
+                f"expected {SEV_CONTAINS_NUL} -- the no-blob downgrade must not "
+                "overwrite a content verdict, or unstaged NUL documents are the "
+                "one class of NUL finding that never gets reported"
+            )
+        if not is_not_clean(_rec["severity"]):
+            fails.append(
+                "an untracked partial NUL does not fail the run -- it is "
+                "surfaced and then discarded, which is worse than a false positive"
+            )
+    finally:
+        if _untracked.exists():
+            _untracked.unlink()
 
     #  (ii) DRIFT must not overwrite the NUL classification. Exercised through
     #       check_one on a copy-shaped buffer: a size-preserving NUL punch also
