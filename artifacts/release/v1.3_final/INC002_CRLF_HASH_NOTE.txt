@@ -72,42 +72,68 @@ SUGGESTED CHECK (both halves are required)
     #     python : b.replace(b"\r\n", b"\n")
     #     NOT b.replace(b"\r", b"")  -- same defect as tr -d '\r'.
     #
-    # NO SHELL FORM IS RECOMMENDED ANY MORE, and the line that used to stand here
-    # was wrong. It read:
+    # NO SHELL FORM IS RECOMMENDED, and the line that used to stand here was
+    # wrong. It read:
     #
     #     hdiff() { ... | sed 's/\r$//' | ... }
     #     "The shell form below is correct ... Do not 'simplify' it to the
     #      CRLF-pair form: that form is a no-off on POSIX."
     #
-    # That "do not simplify" advice was built on a false premise and pointed
-    # readers straight at a size-preserving blind spot. weaver withdrew the
-    # equivalence claim that motivated it (see ADDENDUM 3), and the real sed on
+    # That "do not simplify" advice was built on a false premise. weaver withdrew
+    # the equivalence claim that motivated it (see ADDENDUM 3), and the real sed on
     # this host does the following to two DIFFERENT, SAME-LENGTH inputs:
     #
     #     HEAD = 0d 0a ("\r\n")  ->  0a
-    #     work = 0a 0d ("\n\r")  ->  0a        sed: SAME  => MASKS the change
+    #     work = 0a 0d ("\n\r")  ->  0a        sed 's/\r$//': SAME => MASKS
     #     HEAD = 61 0d 0a        ->  61 0a
-    #     work = 61 0a 0d        ->  61 0a      sed: SAME  => MASKS the change
+    #     work = 61 0a 0d        ->  61 0a      sed 's/\r$//': SAME => MASKS
+    #     HEAD = 61 0d 0a 62     ->  61 0a 62
+    #     work = 61 0a 62 0d     ->  61 0a 62  sed 's/\r$//': SAME => MASKS
     #
-    # `replace(CRLF,LF)` gives 0a vs 0a 0d, i.e. DIFFER, correctly. Both masked
-    # pairs are the SAME LENGTH before and after, which is precisely INC-002's
-    # defining shape -- so a shell-side sed cannot be the deciding instrument
-    # here, on this host, in any script form.
+    # `replace(CRLF,LF)` gives 0a vs 0a 0d, i.e. DIFFER, correctly. All three
+    # masked pairs are the SAME LENGTH before and after, which is precisely
+    # INC-002's defining shape -- so `sed 's/\r$//'` cannot be the deciding
+    # instrument here, in any script form, on any host.
+    #
+    # >>> CORRECTION (2026-10-05, rulings-fix). The note above previously over-
+    # >>> stated the case as "no sed script can be correct for this shape on this
+    # >>> host". That is too strong, and the no-op control proves it: on THIS
+    # >>> host `sed ''` (empty script) already equals the canonical rule on 9/9
+    # >>> shapes, because the reader is doing the CRLF->LF conversion. Re-measured
+    # >>> with BOTH sides shown, on weaver's own same-length pairs:
+    # >>>     pair  HEAD=0d0a      WORK=0a0d
+    # >>>       sed 's/\r$//'  -> 0a   / 0a      MASKED
+    # >>>       sed ''         -> 0a   / 0a 0d   differs (caught)
+    # >>>       byte rule      -> 0a   / 0a 0d   differs (caught)
+    # >>> So the accurate statement is: `s/\r$//` is defective everywhere, and
+    # >>> `sed ''` happens to be right on this host ONLY -- it is correct by
+    # >>> accident of the reader, and would be a no-op on POSIX. Neither is
+    # >>> portable, so the portable instrument is the byte-level one.
     #
     # USE THIS INSTEAD (host-independent, reads bytes):
     #     tools/inc002_tree_check.py, which uses b.replace(b"\r\n", b"\n")
+    # or, inline in a shell recipe with no new dependency (python is already
+    # required by this repo, and this spawns no sed, so no reader is involved):
+    #     norm() { python -c 'import sys;sys.stdout.buffer.write(
+    #                sys.stdin.buffer.read().replace(b"\r\n",b"\n"))'; }
+    # measured 8/8 on the recipe matrix including the doubled-CR and lone-CR
+    # shapes that every sed form gets wrong on this host.
     #
     # A size-preserving CHECK is still required and is unaffected -- it reads
     # size and NUL directly, no normaliser involved:
     #     s=$(wc -c < "$1"); z=$(tr -d '\0' < "$1" | wc -c)
     #     [ "$s" = "$z" ] || echo "ZEROED $1"
 
-  -- note `git cat-file -p`, NOT `git show`: this was long given as the reason
-     `cat-file` is safer. That reason is WITHDRAWN -- both return byte-identical
-     output (adjudication #21, item(1): measured 45366 B and the same sha256 from
-     each). `cat-file -p` is still fine to use; it just reads the object store
-     explicitly rather than through working-tree conversion. Do not cite it as
-     the defence against INC-002.
+  -- `git cat-file -p` is used rather than `git show` for SEMANTIC CLARITY: it
+     reads the object store directly and never depends on working-tree
+     conversion. The "cat-file is safer" reason is WITHDRAWN -- measured on this
+     host both return byte-identical output for the same blob (45366 B, sha
+     26d9cd51e4458837, `core.autocrlf=true`, no textconv).
+     THE LOAD-BEARING PART IS THE CRLF->LF NORMALISATION ABOVE, NOT THE CHOICE OF
+     COMMAND. Citing cat-file as the defence invites the belief that picking the
+     right command is enough and the normalisation can be skipped -- which is
+     exactly the mistake that produced the blind spot documented here. Prefer
+     tools/inc002_tree_check.py, which reads bytes and normalises explicitly.
 
 INDEPENDENT HALF -- DO NOT SKIP IT
 -----------------------------------
@@ -279,6 +305,25 @@ measurement that matters. Corrected, with every row reproduced with the real sed
 
   SO: use `tools/inc002_tree_check.py` (b.replace), not a shell normaliser. The
   size/NUL check remains valid and needs no normaliser at all.
+
+  AND `replace` IS NOT PERFECT -- state this, or the next person will "find" it
+  and wrongly conclude the whole comparison is unsound. Exhaustive scan over the
+  alphabet {a, CR, LF} at lengths 1..3 (39 payloads, bucketed by output):
+
+      sed 's/\r$//'      many size-preserving collisions (e.g. b'a' vs b'\r')
+      replace(CRLF, LF)  ONE unordered pair / 2 ordered, size-preserving:
+                            b'\r\n\n'  vs  b'\n\r\n'   ->  b'\n\n'
+
+  Reproduced here, not quoted:
+      printf '\r\n\n' > m1 ; printf '\n\r\n' > m2
+      replace both -> 0a0a 0a0a   (identical; both inputs 3 bytes)
+
+  That pair needs three bytes of nothing but CR/LF, so no text file hits it. The
+  important contrast is not "replace is perfect" but WHICH defects each form
+  carries: sed also merges pairs containing an ordinary character -- b'\r\n' vs
+  b'\n\r', b'a\r\n' vs b'a\n\r' -- which is what a real line-ending change looks
+  like. So the shell side must use replace semantics; the residual is a
+  theoretical case, not a licence to go back to sed.
 
 OPEN, owner team-lead: the `ab\r\r\n` shape is missed by the sed recipe ON THIS
 HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
