@@ -55,6 +55,16 @@ SCRATCH = os.environ.get("JCC_FALSIFY_SCRATCH") or os.path.join(
     str(Path(__file__).resolve().parents[1]), "runtime", "harbor_wal_falsify")
 
 
+#: The RESULT file used to be written to Path(__file__).with_name(...), i.e. into
+#: tools/ -- a frozen product path. Every run therefore left uncommitted bytes in
+#: the product tree, and `release_truth.py --check` correctly refused to freeze
+#: ("uncommitted product bytes cannot be part of any freeze"). A verification
+#: tool's CODE is a deliverable; its OUTPUT is not, unless a frozen gate consumes
+#: it. Nothing reads this file (measured: one write site, zero read sites), so it
+#: moves under runtime/, which .gitignore already covers.
+RESULT_PATH = Path(SCRATCH).parent / "_verify_wal" / "wal_falsify_result.json"
+
+
 def one_round(path: str, journal: str | None) -> tuple[str, list[str], int]:
     """Run the workload once. Returns (journal_mode_used, errors, rows)."""
     for suffix in ("", "-wal", "-shm", "-journal"):
@@ -148,7 +158,8 @@ def main() -> int:
         }
         print("[%s] modes=%s rows=%s errors=%s"
               % (label, dict(modes), dict(rowcounts), dict(errs) or "none"))
-    Path(__file__).with_name("wal_falsify_result.json").write_text(
+    RESULT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RESULT_PATH.write_text(
         json.dumps(out, indent=2, sort_keys=True), encoding="utf-8", newline="\n")
     print(json.dumps(out, indent=2, sort_keys=True))
     # Non-vacuity: a round that wrote fewer rows than threads*per_thread proves

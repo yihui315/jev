@@ -113,19 +113,52 @@ Keep forge2's rule as-is, and add a third signal so the CR blind spot is closed.
 `sed 's/\r$//'`.**
 
 > **`sed 's/\r$//'` IS NOT EQUIVALENT, and I recommended it here until weaver measured
-> the real binary.** Real GNU sed 4.9 has a **size-preserving blind spot**: it operates
-> line-wise, so `CR LF` and `LF CR` are distinct inputs that both normalise to `LF`.
-> Measured, invoking the real `sed` with exact bytes:
+> the real binary and prism-3dui supplied the empty-script control.** Real GNU sed 4.9
+> masks size-preserving differences. Measured, invoking the real `sed` with exact bytes:
 >
-> | HEAD | worktree | size | real `sed` | `replace(CRLF,LF)` |
+> | HEAD | worktree | size | `sed 's/\r$//'` | `replace(CRLF,LF)` |
 > |---|---|---|---|---|
 > | `0d 0a` | `0a 0d` | 2 = 2 | **MATCH — masked** | DIFFER ✅ |
 > | `61 0d 0a` | `61 0a 0d` | 3 = 3 | **MATCH — masked** | DIFFER ✅ |
 > | `0d 0d 0a` | `0d 0a 0d` | 3 = 3 | **MATCH — masked** | DIFFER ✅ |
+> | `0d 0a 0d` | `0d 0d 0a` | 3 = 3 | **MATCH — masked** | DIFFER ✅ |
 >
 > Exhaustive over `{a, CR, LF}^1..2` (12 payloads): **2 size-preserving distinct pairs
-> masked by real `sed`, 0 masked by `replace`.** Every masked pair is
-> size-preserving with different content — **precisely the INC-002 shape.**
+> masked, 0 masked by `replace`.** Every masked pair is size-preserving with different
+> content — **precisely the INC-002 shape.**
+>
+> **⚠️ THE MASKING IS CAUSED BY THE SCRIPT, NOT BY THE READER ALONE — and I initially
+> got this wrong too.** prism-3dui's control is decisive: on this host `sed ''` with an
+> **empty** script is **not** inert. It already strips a CR that is paired with an LF:
+>
+> ```
+> a\r\n   61 0d 0a  ->  sed ''  61 0a      (data changed by the READER)
+> a\r\r\n 61 0d 0d 0a ->  sed ''  61 0d 0a   (data changed by the READER)
+> a\n\r   61 0a 0d  ->  sed ''  61 0a 0d   (unchanged)
+> cat control on a\r\n -> 61 0d 0a          (cat is clean; sed's reader is not)
+> ```
+>
+> But separating the two on my own four pairs shows the reader is **not** the cause of
+> the masking:
+>
+> | pair | `sed ''` (reader only) | `sed 's/\r$//'` (reader + script) | `replace` |
+> |---|---|---|---|
+> | CR-LF vs LF-CR | differ | **MASKED** | differ |
+> | aCR-LF vs aLF-CR | differ | **MASKED** | differ |
+> | CRCRLF vs CRLFCR | differ | **MASKED** | differ |
+> | CRLFCR vs CRCRLF | differ | **MASKED** | differ |
+>
+> **Reader alone masks 0/4. Reader + script masks 4/4.** The script strips the CR the
+> reader left behind on the final line, which is what collapses two different inputs
+> onto one output. **So the defect is the `s/\r$//` script, and it would still be a
+> defect with a perfectly faithful reader.**
+>
+> **Therefore: any byte-level conclusion drawn through `sed` must first be justified by
+> `sed '' <file>` showing the tool is inert when unloaded.** I did not do that in
+> `crlf_form_safety.py`, and the reason my conclusion still came out right is luck —
+> `replace` has no reader at all, so the reference side was never contaminated. The
+> measurement was sound; the *reasoning about the mechanism* was not, and I would have
+> published a wrong explanation of a right result.
 >
 > **I propagated this error twice**: first endorsing `tr -d '\r'`, then "correcting" it
 > to `sed 's/\r$//'` and shipping the shell form in this file. Both were wrong, and the

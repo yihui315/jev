@@ -46,8 +46,19 @@ def form_replace(b: bytes) -> bytes:
 
 
 def form_sed(b: bytes) -> bytes:
-    p = subprocess.run([SED, r"s/\r$//"], input=b, capture_output=True)
-    return p.stdout
+    return subprocess.run([SED, r"s/\r$//"], input=b, capture_output=True).stdout
+
+
+def form_sed_empty(b: bytes) -> bytes:
+    """CONTROL, not a candidate: `sed ''` with an empty script.
+
+    prism-3dui's point, adopted. On this host the sed READER already strips a CR that
+    is paired with an LF, so `sed ''` is NOT inert. That does not make the script
+    innocent -- separating the two on the four pairs below shows reader-alone masks 0/4
+    while reader+script masks 4/4 -- but it does mean any byte-level conclusion drawn
+    through sed has to be justified against this control rather than assumed.
+    """
+    return subprocess.run([SED, ""], input=b, capture_output=True).stdout
 
 
 def form_tr_delete_cr(b: bytes) -> bytes:
@@ -68,7 +79,8 @@ def form_python_subprocess(b: bytes) -> bytes:
 
 FORMS = {
     "replace(CRLF,LF)  [REFERENCE / production]": form_replace,
-    "sed 's/\\r$//'    [real GNU sed]": form_sed,
+    "sed 's/\\r$//'    [reader + script]": form_sed,
+    "sed ''  [CONTROL: reader only, expect NOT to be a candidate]": form_sed_empty,
     "tr -d '\\r'  (delete every CR)": form_tr_delete_cr,
     "python -c, binary stdio  [my proposed shell form]": form_python_subprocess,
 }
@@ -102,9 +114,12 @@ def main() -> int:
     }
     payload["conclusion"] = (
         "The reference byte-level replace is the only form that distinguishes every "
-        "pair. sed's line-wise semantics collapse CR-LF and LF-CR, tr -d deletes every "
-        "CR, and a text-mode python pipe re-normalises newlines -- three independent "
-        "ways to mask a size-preserving difference."
+        "pair, and it is also the only one with no reader in the path. The empty-script "
+        "control shows sed's READER alone masks 0/4 while reader+script masks 4/4, so "
+        "the s/\\r$// script is the defect -- it would remain one with a perfectly "
+        "faithful reader. tr -d deletes every CR. A text-mode python pipe "
+        "re-normalises newlines. Three independent ways to mask a size-preserving "
+        "difference, and one form that does not."
         if ref_ok else
         "THE REFERENCE FORM ITSELF FAILED -- stop trusting any conclusion drawn with it.")
 

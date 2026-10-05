@@ -1,5 +1,5 @@
 {
-  "conclusion": "The reference byte-level replace is the only form that distinguishes every pair. sed's line-wise semantics collapse CR-LF and LF-CR, tr -d deletes every CR, and a text-mode python pipe re-normalises newlines -- three independent ways to mask a size-preserving difference.",
+  "conclusion": "The reference byte-level replace is the only form that distinguishes every pair, and it is also the only one with no reader in the path. The empty-script control shows sed's READER alone masks 0/4 while reader+script masks 4/4, so the s/\\r$// script is the defect -- it would remain one with a perfectly faithful reader. tr -d deletes every CR. A text-mode python pipe re-normalises newlines. Three independent ways to mask a size-preserving difference, and one form that does not.",
   "question": "which CRLF-normalisation forms mask size-preserving differences?",
   "reference_form": "replace(CRLF,LF)  [REFERENCE / production]",
   "reference_is_clean": true,
@@ -72,7 +72,41 @@
       "masked_pairs": 0,
       "of": 4
     },
-    "sed 's/\\r$//'    [real GNU sed]": {
+    "sed ''  [CONTROL: reader only, expect NOT to be a candidate]": {
+      "detail": [
+        {
+          "head_hex": "0d 0a",
+          "outputs_equal": false,
+          "pair": "CR-LF vs LF-CR (2B)",
+          "verdict": "distinguished",
+          "work_hex": "0a 0d"
+        },
+        {
+          "head_hex": "61 0d 0a",
+          "outputs_equal": false,
+          "pair": "aCR-LF vs aLF-CR (3B)",
+          "verdict": "distinguished",
+          "work_hex": "61 0a 0d"
+        },
+        {
+          "head_hex": "0d 0d 0a",
+          "outputs_equal": false,
+          "pair": "CRCRLF vs CRLFCR (3B)",
+          "verdict": "distinguished",
+          "work_hex": "0d 0a 0d"
+        },
+        {
+          "head_hex": "0d 0a 0d",
+          "outputs_equal": false,
+          "pair": "CRLFCR vs CRCRLF (3B)",
+          "verdict": "distinguished",
+          "work_hex": "0d 0d 0a"
+        }
+      ],
+      "masked_pairs": 0,
+      "of": 4
+    },
+    "sed 's/\\r$//'    [reader + script]": {
       "detail": [
         {
           "head_hex": "0d 0a",
