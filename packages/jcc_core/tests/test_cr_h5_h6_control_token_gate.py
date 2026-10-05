@@ -164,22 +164,31 @@ def test_control_token_configured_tracks_the_environment(tmp_path, restore_env):
 # --------------------------------------------------------------------------- #
 # P4 / CR-H6 -- a non-ASCII token is REFUSED, and refusing is unchanged
 # --------------------------------------------------------------------------- #
-async def _asgi_post(app, path: str, token: bytes) -> Optional[int]:
+async def _asgi_post(app, path: str, token: Optional[bytes],
+                     authorization: Optional[bytes] = None) -> Optional[int]:
     """Drive the ASGI app directly with RAW header bytes; return the status.
+
+    ``token`` goes in ``X-JCC-Token``; ``authorization`` in ``Authorization``.
+    At least one must be given, since the point is to exercise a header the
+    httpx client cannot transmit.
 
     Returns None if the app never sent a response start -- which is what an
     unhandled exception looks like from here, and is the shape this test exists
     to catch. It is raised rather than returned so the failure message names the
     real problem instead of reporting a bare None.
     """
+    headers = [(b"host", b"127.0.0.1"),
+               (b"content-type", b"application/json")]
+    if token is not None:
+        headers.append((b"x-jcc-token", token))
+    if authorization is not None:
+        headers.append((b"authorization", b"Bearer " + authorization))
     scope: Dict[str, Any] = {
         "type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1",
         "method": "POST", "path": path, "raw_path": path.encode("utf-8"),
         "query_string": b"", "root_path": "", "scheme": "http",
         "server": ("127.0.0.1", 4779), "client": ("127.0.0.1", 5555),
-        "headers": [(b"host", b"127.0.0.1"),
-                    (b"content-type", b"application/json"),
-                    (b"x-jcc-token", token)],
+        "headers": headers,
     }
     sent: List[Dict[str, Any]] = []
 
@@ -234,6 +243,42 @@ def test_p4_ascii_paths_are_unchanged_by_the_fix(tmp_path, restore_env):
                       headers={"X-JCC-Token": "wrong-token-entirely"})
     assert bad.status_code == 403, (
         "a WRONG token was not refused (%s)" % bad.status_code)
+
+
+def test_p4_bearer_authorization_path_is_also_covered(tmp_path, restore_env):
+    """The `Authorization: Bearer` branch reaches the SAME comparison.
+
+    Added after risk1-scope asked whether the ASCII path was covered by the
+    hand-built ASGI scope. It is -- but that question exposed a real gap: the gate
+    accepts the token from EITHER header, and the Bearer branch is the one a
+    normal API client uses. The fix rewrote the line that consumes it
+    (``presented = authorization.split(" ", 1)[1]`` feeds the encoded compare),
+    so leaving that branch untested meant a mistake there would not be caught.
+
+    Both the accept and the refuse direction are asserted, and a wrong Bearer
+    token must still be 403 -- a rewrite of the comparison is exactly the kind
+    of edit that can quietly turn "Bearer" into "accepted".
+    """
+    app, _cfg = _build(tmp_path, TOKEN)
+    client = TestClient(app)
+    ok = client.post("/api/pause", json={"reason": "x"},
+                     headers={"Authorization": "Bearer " + TOKEN})
+    assert ok.status_code == 200, (
+        "a correct Bearer token was refused (%s) -- the Bearer branch feeds the "
+        "same comparison and must still accept" % ok.status_code)
+    bad = client.post("/api/pause", json={"reason": "x"},
+                      headers={"Authorization": "Bearer wrong-token-entirely"})
+    assert bad.status_code == 403, (
+        "a wrong Bearer token was NOT refused (%s) -- the Bearer branch must be "
+        "held to the same standard as the X-JCC-Token branch" % bad.status_code)
+    # And a non-ASCII Bearer token must be refused, not raise, for the same
+    # reason as the header branch: it arrives at the identical comparison.
+    status = asyncio.run(
+        _asgi_post(app, "/api/pause", None,
+                   authorization=NON_ASCII_TOKEN.encode("utf-8")))
+    assert status == 403, (
+        "a non-ASCII Bearer token must be refused with 403, got %r" % (status,))
+
 
 
 def test_p4_unconfigured_token_is_still_401_not_403(tmp_path, restore_env):
