@@ -1,0 +1,51 @@
+Measurement note — a 37-minute suite run that produced no result
+================================================================
+Owner: forge2. Recorded because the NUMBER matters for interpreting my earlier
+handoff, and because the failure mode is easy to misread as a product defect.
+
+SEQUENCE (all measured, not inferred)
+-------------------------------------
+1. 836-test run, two files --ignore'd, NO concurrent pytest:
+     -> 836 passed, 2 failed in 1207.88s (20m07s)
+2. 860-test run (collection now unblocked, nothing --ignore'd), CONCURRENT with
+   one other member's pytest:
+     -> 37m16s, EXIT=127, log TRUNCATED at ~56%, NO "passed"/"failed" summary
+        line at all. Output was 509 bytes: progress dots only.
+3. Both files that were previously broken, run alone:
+     -> 22 passed in 148.72s  (prism-3dui's fix is good)
+4. The file at the 56% mark (test_p3_core_integration.py), run alone:
+     -> 16 passed in 113.58s
+5. Concurrent check taken mid-run: `pytest run procs: 2`
+     (mine PID=18816 cpu=21.3s, plus PID=21064)
+
+WHY THIS IS NOT A PRODUCT RESULT
+--------------------------------
+pytest's own exit codes are 0/1/2/3/4/5. **127 is not one of them** -- on
+Windows/bash it means "command not found", i.e. the SHELL failed, and the log
+contains no pytest summary whatsoever, which means pytest never finished. A
+genuine test failure cannot produce this shape: it would still print
+"=== FAILURES ===" and a count.
+
+The truncating point (~56%, around test 480) lands in test_p3_core_integration.py,
+which passes cleanly in isolation (item 4). The 37m vs 20m duration is itself
+evidence of contention: the same suite nearly doubled in wall-clock while
+another pytest ran.
+
+I am NOT claiming to know whether the other process, a timeout wrapper, or the
+harness ended it. What I can measure is: 0 concurrent pytest at the moment I
+started the clean re-run, and the re-run is the number I will report.
+
+METHOD NOTE (this is the second time this round that a drifting reference
+produced a confident wrong answer)
+------------------------------------------
+  * `HEAD~1` as "pre-fix" was invalid once HEAD moved (see
+    INC002_CRLF_HASH_NOTE.txt).
+  * A truncated run with a non-pytest exit code is not "tests failed". Treating
+    an absent summary as a failure count is how a harness artefact gets filed
+    as a defect. **"No summary" and "zero failures" are different claims.**
+
+RULE FOR READERS OF MY HANDOFFS
+-------------------------------
+If a number of mine is quoted as a suite result, it should carry whether a
+summary line was present. `836 passed, 2 failed` has one. A run that ends at
+56% with 509 bytes does not, and should not be counted.
