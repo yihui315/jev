@@ -15,20 +15,45 @@
 >
 > **正确写法**（裁定 #21 的规范：只剥 CRLF，保留带内 CR）：
 > ```
-> shell : sed 's/\r\n/\n/g'      <- 注意不是 sed 's/\r$//'，理由见下
 > python: b.replace(b"\r\n", b"\n")   <- 注意不是 b.replace(b"\r", b"")
+> shell : sed 's/\r$//'               <- 见下方「我自己的第二次撤回」
 > ```
 >
-> **并且 `sed 's/\r$//'` 也不够**（本文上一版订正曾用它，仍是错的）：
-> 它每行只剥**一个**行尾 CR，所以**行尾两个 CR**（`ab\r\r\n`）会被归一化成与
-> 干净 `ab\r\n` **完全相同的字节** → 同样漏报。实测：
+> ### ⚠️ 我自己的第二次撤回（2026-10-05，rulings-fix）—— 上一版订正也是错的
+>
+> 上一版订正把 `tr -d '\r'` 换成了 `sed 's/\r\n/\n/g'`，并断言
+> 「`sed 's/\r$//'` 仍会漏报行尾双CR」。**这个断言是错的，错在我。**
+>
+> **我的脚本是惰性的。** 本机实测：
 > ```
-> "ab\r\r\n"  sed 's/\r$//'   -> 61 62 0a      = 干净文件的归一结果 => MATCH（漏）
->            sed 's/\r\n/\n/g' -> 61 62 0d 0a  => DIFFER（抓到）
->            python replace() -> 61 62 0d 0a  => DIFFER（抓到，与 sed 一致）
+> printf 'ab\r\r\n' > p.bin
+> sed ''             p.bin | od -An -tx1   ->  61 62 0d 0a
+> sed 's/\r\n/\n/g'  p.bin | od -An -tx1   ->  61 62 0d 0a   （完全相同）
 > ```
-> **`sed 's/\r\n/\n/g'` 与 python `replace(b"\r\n", b"\n")` 在 9/9 形态上实测一致；
-> `sed 's/\r$//'` 在其中 2 个上不一致。** 故本文件统一采用 CRLF 对形式。
+> 产生规范字节的是 **GNU sed 的行读取器**（本MSYS build 会把行尾 CRLF 的 CR 去掉），
+> **不是我的脚本**。脚本本身从未生效。
+>
+> **为什么它在 POSIX 上必然失效**：sed 的pattern space **不含该行自己的换行符**，
+> 所以两字节序列 CRLF 永远不会出现在pattern space 里，`s/\r\n/\n/g` **不可能匹配**。
+> 在任何 POSIX sed 上它都是 no-op，会把**每一个普通 CRLF 文件**都报成 DIFFER。
+> （POSIX 那一半来自sed 文档语义推导，**未实机执行**：本机 wsl.exe 被安全策略拦截，
+> 故标记 UNVERIFIED。）
+>
+> **「行尾双CR 漏报」也是同一个读取器造成的假象**：它已经去掉一个 CR，
+> 于是 `s/\r$//` 又去掉**第二个**。证据 —— 3 个 CR 进去，剩 1 个出来
+> （正确行为应剩 2 个）：
+> ```
+> printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+> ```
+>
+> **本文件统一回到 `sed 's/\r$//'`，即prism-3dui 最初的形式** —— 那个判断是对的。
+> 我原来的「9/9 一致」是**读取器的功劳，不是脚本的功劳**；把功劳记给脚本是错的。
+>
+> **仍然成立的开放条件**：本机 MSYS 读取器 + `s/\r$//` 会叠加剥掉最多两个 CR，
+> 所以 `ab\r\r\n` 这一形态在本机被判 MATCH，而 python 规范判 DIFFER。
+> 要在本机抓住该形态，**不要换sed 脚本**，用 python 形式或
+> `tools/inc002_tree_check.py`（按字节读，与宿主无关）。
+> **owner: team-lead**，作为未闭合条件跟踪。
 >
 > **被撤回的原文一律保留并标注，不删除** —— 删除会让后来者以为该问题从未存在。
 > 规范正本在 `ORION_ADJUDICATIONS.md` 裁定 #21，**本文不另立规范**。
@@ -63,12 +88,14 @@ git cat-file -p HEAD:packages/jcc_core/run.py | tr -d '\r' | sha256sum
 > HEAD(clean) = 61 62 0d 0a      ("ab\r\n")
 > WORK(inject)= 61 0d 62 0d 0a   ("a\rb\r\n")  <- 行内多了一个 CR
 > tr -d '\r'   : MATCH  <-- 掩盖了真实的内容损坏（假阴性）
-> sed 's/\r\n/\n/g': DIFFER <-- 抓到（本文件采用此形式）
+> sed 's/\r$//': DIFFER <-- 抓到（本文件采用此形式）
 > ```
 >
-> ⚠️ **【2026-10-05 再订正，rulings-fix】本节原先写的 `sed 's/\r$//': DIFFER` 只对
-> 上面的 in-band CR 成立，对**行尾两个 CR**（`ab\r\r\n`）仍然漏报——它每行只剥一个
-> 行尾 CR。故正文 recipe 已改用 `sed 's/\r\n/\n/g'`。详见文件开头 SUPERSEDED 横幅。
+> ⚠️ **【2026-10-05 更正，rulings-fix】** 我一度把本节的 `sed 's/\r$//'` 换成
+> `sed 's/\r\n/\n/g'` 并声称前者对**行尾两个 CR** 仍漏报。**该断言已撤回：错在我。**
+> 那个 CRLF 形式是**惰性脚本**，本机见到的规范字节来自 sed 的行读取器而非脚本；
+> 在 POSIX sed 上它不可能匹配（pattern space 不含行尾换行符），会成为 no-op。
+> 本节与正文 recipe 均已回到 `sed 's/\r$//'`。详见开头 SUPERSEDED 横幅。
 
 **正确用法：先试 RAW 比对，只在 RAW 不同且确属行尾差异时才归一化**
 
@@ -78,10 +105,9 @@ rh=$(git cat-file -p "HEAD:$f" | sha256sum | cut -d' ' -f1)
 rw=$(sha256sum "$f" | cut -d' ' -f1)
 [ "$rh" = "$rw" ] && echo "IDENTICAL (raw)"        # 强结论：逐字节相同
 # 仅当 RAW DIFFER 时，才用【只去 CRLF 的 CR】的归一化来分辨是 smudge 还是真损坏
-# 用 sed 's/\r\n/\n/g'，不要用 sed 's/\r$//'（后者每行只剥一个行尾 CR，
-# 行尾两个 CR 会被归一化成干净文件的字节而漏报），更不要用 tr -d '\r'
-[ "$(git cat-file -p "HEAD:$f" | sed 's/\r\n/\n/g' | sha256sum | cut -d' ' -f1)" \
-= "$(sed 's/\r\n/\n/g' < "$f" | sha256sum | cut -d' ' -f1)" ] \
+# 用 sed 's/\r$//'（只去行尾 CR），不要用 tr -d '\r'（删掉每一个 CR）
+[ "$(git cat-file -p "HEAD:$f" | sed 's/\r$//' | sha256sum | cut -d' ' -f1)" \
+= "$(sed 's/\r$//' < "$f" | sha256sum | cut -d' ' -f1)" ] \
   && echo "EOL-ONLY (CRLF smudge, 无内容损坏)" || echo "REAL DIFFER"
 ```
 
@@ -111,13 +137,43 @@ rw=$(sha256sum "$f" | cut -d' ' -f1)
 
 **为什么必须这样读**（实测，见 §2.4）：`host_launcher.py` 裸哈希
 `7b1ba0cb…` vs HEAD `26d9cd51…`，但 `git diff` 为空，**RAW 相等不成立**，
-而 `sed 's/\r\n/\n/g'` 归一化后两者**完全相同**——内容逐字节未变，只有行尾不同。
+而 `sed 's/\r$//'` 归一化后两者**完全相同**——内容逐字节未变，只有行尾不同。
 **是裸哈希误报，不是文件损坏。**
 
 
 > 这一条由 forge2 提出并独立复现，我已核实。**它同时命中了我自己这份文档**：
 > 我最初用裸哈希判断"文件回到原始值"，虽然该结论另有多文件同时一致 + `git diff`
 > 交叉支撑、**未被 CRLF 误导**，但**证据的表达形式是脆的**。
+
+### 三个有损变换，一个共同根因（prism-3dui 归纳，rulings-fix 首发，forge 核实）
+
+> 这一节记录**本轮 INC-002 规则的整个失败史**，
+> 因为**四个版本、三位作者**，全都以同一种方式失败过。
+> 留着它比留着任何一次单独的订正更有用。
+
+**一句话根因：把一个会丢弃某一类字节的变换，当成了相等性判据。**
+于是**这个检查无法报告它本该抓的那类缺陷**。
+
+| 版本 | 变换 | 丢掉了什么 | 后果 |
+|---|---|---|---|
+| 1（forge2 指出） | `tr -d '\r'` | **全部** CR | 带内 CR 注入被洗成干净文件 → 假阴性 |
+| 2（prism 推荐后撤回） | `sed 's/\r$//'` | 每行**除最后一个**外的 CR | `ab\r\r\n` 折成干净文件 → 假阴性 |
+| 3（relay / aegis 指出） | 零检查的**文案** | —— | 把"含 NUL"说成"内容被摧毁"，诱导抢救完好文件 |
+| 4（当前） | **无变换**（RAW）或**只去行尾 CR** `sed 's/\r$//'` | 什么都不丢 | —— |
+
+**为什么第 1、2 版看起来都"合理"**：
+它们的作者（包括我）都先确认了它**能通过**正确样本，
+**然后就把它当成了正确的**——**没有构造一个它会失败的样本**。
+我自己的判据是后来才补上的：
+> **给出一个"检测手段"时，必须构造一个该手段会失败的样本，并证明它失败。**
+
+`tr -d` 在纯 CRLF 树上是对的；`s/\r$//` 在"一行只有一个 CR"时是对的。
+**它们不是"错在实现"，是"错在未表征自己的损失面"**——
+aegis 的原话是 **"right by luck, not by correctness"（靠运气对，不是靠正确对）**。
+
+**这一节也是我全部失误的归并**：§2.3、§2.4、§0 的每一次订正，
+本质都在补同一个洞——**我给出的是一个看起来可复核的形式，
+而没问它能不能测出它声称要测的东西。**
 
 ### 两半各抓一类，不是互相补位（2026-10-04 订正）
 
@@ -370,7 +426,7 @@ core.autocrlf = true
   run.py             git show -> <不同>              worktree -> <不同>
   git diff -- <上述文件>                                          -> 全部 EMPTY
 
-归一化后（【sed 's/\r\n/\n/g'，只剥 CRLF 的 CR】——原写作 tr -d '\r'，见 §0 SUPERSEDED 横幅）：
+归一化后（【sed 's/\r$//'，只去行尾 CR】——原写作 tr -d '\r'，见 §0 SUPERSEDED 横幅）：
   host_launcher.py   MATCH      config.py   MATCH      run.py   MATCH
 
 **【2026-10-05 补测】RAW 比对（无任何变换）——这才是决定性的那一半：**
@@ -381,8 +437,8 @@ core.autocrlf = true
 **这改变了我原结论的强度。** `run.py` / `config.py` **无需归一化即 RAW 相同**，
 所以"这两个文件与 HEAD 逐字节一致"是**强结论**，不依赖任何归一化论证，
 也就不受 `tr -d '\r'` 掩盖带内 CR 的缺陷影响。
-只有 `host_launcher.py` 需要归一化，且它用的是 `sed 's/\r\n/\n/g'`（能抓行内 CR），
-**不是** `tr -d '\r'`，**也不是** `sed 's/\r$//'`（后者漏行尾两个 CR，见 §0 横幅）。
+只有 `host_launcher.py` 需要归一化，且它用的是 `sed 's/\r$//'`（能抓行内 CR），
+**不是** `tr -d '\r'`。
 
 非零字节（独立于哈希，验"含 NUL"——含任意一个 NUL 即标记，非只查全零）：
   OK size=46355 host_launcher.py   OK size=20585 run.py   OK size=18407 config.py

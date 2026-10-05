@@ -5,16 +5,36 @@ never a recipe. I actually ran that command and it produced a false MATCH.
 
 The correct normalisation, stated once so you need not infer it:
 
-      sed 's/\r\n/\n/g'                           # shell
-      b.replace(b"\r\n", b"\n")                 # python
+      b.replace(b"\r\n", b"\n")                 # python  <- authoritative
+      sed 's/\r$//'                             # shell
 
-  [2026-10-05 amend, rulings-fix] This line previously read `sed 's/\r$//'`.
-  That form is closer but NOT equivalent: it strips only ONE trailing CR per
-  line, so a doubled CR at EOL ("ab\r\r\n") collapses onto the clean form
-  ("ab\r\n") and is masked -- the same class of false negative as `tr -d '\r'`.
-  Measured: the CRLF-pair form agrees with the python rule on 9/9 shapes;
-  `sed 's/\r$//'` disagrees on 2 (doubled CR at EOL; lone CR at EOF with no
-  trailing newline). The python line above was always right and is unchanged.
+  [2026-10-05 amend, rulings-fix] The python line was always right and is
+  unchanged. The shell line is the POSIX-correct form: sed's pattern space holds
+  the line WITHOUT its trailing newline, so `s/\r$//` removes exactly the CR of a
+  CRLF pair and leaves an in-band CR alone.
+
+  [2026-10-05 amend #2, rulings-fix -- WITHDRAWN, kept for the record]
+  I first replaced the shell line with `sed 's/\r\n/\n/g'` and claimed
+  `s/\r$//` "still masks" a doubled CR at EOL. **That was wrong.**
+  Proof the script is inert on this host:
+      printf 'ab\r\r\n' > p.bin
+      sed ''             p.bin | od -An -tx1   ->  61 62 0d 0a
+      sed 's/\r\n/\n/g'  p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+  The canonical bytes came from GNU sed's LINE READER (this MSYS build strips the
+  CR of a trailing CRLF), not from the script. On a POSIX sed the two-byte CRLF
+  can never occur inside a pattern space, so that script CANNOT EVER FIRE -- it
+  would be a no-op reporting DIFFER for every ordinary CRLF file.
+  (POSIX half reasoned from documented sed semantics, NOT executed: wsl.exe is
+  blocked by policy on this host -> UNVERIFIED here.)
+  The "doubled CR is masked" claim was an artifact of the same reader: it had
+  already removed one CR, so `s/\r$//` removed a second. Proof: 3 CRs in, 1 out
+  (a correct run leaves 2):
+      printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+  OPEN (owner: team-lead): on this MSYS host the reader plus `s/\r$//` compose to
+  strip up to TWO CRs at EOL, so "ab\r\r\n" is MATCH here where python says
+  DIFFER. To catch that shape host-independently, use the python form or
+  tools/inc002_tree_check.py -- do NOT switch to a different sed script.
+
   Canonical rule: adjudication #21 in ORION_ADJUDICATIONS.md.
 
 Do NOT use any `tr -d '\r'` form quoted below. Rewriting those quotes into
@@ -32,8 +52,8 @@ reason=weaver corrected the INC-002 rule; tr -d '\r' is a FALSE NEGATIVE
 WHAT WAS WRONG
 --------------------------------------------------------------------------
 I verified my own three artefacts using  tr -d '\r'  and reported MATCH.
-      sed 's/\r\n/\n/g'                           # shell
       b.replace(b"\r\n", b"\n")                 # python
+      sed 's/\r$//'                             # shell
 
 Rewriting the `tr -d '\r'` mentions below into the correct form would make this
 document lie: it is a record of a mistake, and the mistake is the content. The
