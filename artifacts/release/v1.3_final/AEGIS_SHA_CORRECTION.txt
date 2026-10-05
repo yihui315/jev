@@ -4,6 +4,16 @@ AEGIS EVIDENCE SHA CORRECTION
 Reason: CRLF normalisation. See INC002_CRLF_HASH_NOTE.txt (forge2).
 Repo autocrlf setting: true
 
+REVISION 2 (line-ending rule corrected)
+------------------------------------------------------------------------
+The re-derivation recipe below originally shipped `tr -d '\r'`. That was wrong
+and weaver caught it: it deletes every CR, not only the line-ending one, so an
+in-band CR injection is silently normalised to a clean-looking file. The recipe
+now uses `sed 's/\r$//'`, and the measured numbers are unchanged because this
+tree contains no lone CR anywhere -- meaning the original figures were right by
+luck, not by construction. The numbers did not change; the method did.
+See AEGIS_RENORM_CORRECTION.txt for the full evidence.
+
 WHAT I GOT WRONG
 ------------------------------------------------------------------------
 The sha256 values I reported to team-lead earlier were computed with a bare
@@ -22,8 +32,27 @@ HOW TO RE-DERIVE (either is valid, say which you used)
   committed artefact : git cat-file -p HEAD:<path> | sha256sum
   worktree as-is     : sha256sum <path>
   line-ending agnostic (either side may be CRLF or LF):
-      ndiff() { git cat-file -p "HEAD:$1" | tr -d '\r' | sha256sum | cut -d' ' -f1; }
-      nwork() { tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1; }
+      ndiff() { git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1; }
+      nwork() { sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1; }
+      # ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
+      # DO NOT replace the sed above with `tr -d '\r'`. That form is WRONG and
+      # it fails silently. `tr -d '\r'` deletes EVERY CR, not just the one that
+      # pairs with a LF, so an IN-BAND CR injection normalises to the same
+      # bytes as a clean file. Measured on this host:
+      #     clean   '...\n\nLoads the config\n'
+      #     damaged '...\n\n\rLoads the config\n'   (a CR before 'L')
+      #     tr -d '\r'      -> MATCH   (real damage hidden)
+      #     sed 's/\r$//'   -> DIFFER  (correctly caught)
+      #     non-zero-byte check -> not flagged either, so the two checks do
+      #                           NOT substitute for normalisation here.
+      # Only the line-ending CR may be removed; a lone CR is content.
+      # Python: b.replace(b"\r\n", b"\n")   -- NOT b.replace(b"\r", b"")
+      # See AEGIS_RENORM_CORRECTION.txt for the full write-up, and
+      # tools/inc002_tree_check.py:120-126 for the reference implementation.
+      # The MEASURED VALUES below were produced with the sed form. The earlier
+      # issue of this file used tr -d; on this tree both agree (no lone CR
+      # exists anywhere), so no number changes -- but the tr form was correct
+      # by luck, not by construction.
 
 MEASURED VALUES
 ------------------------------------------------------------------------
