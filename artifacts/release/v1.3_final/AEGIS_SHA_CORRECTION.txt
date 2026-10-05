@@ -32,8 +32,12 @@ HOW TO RE-DERIVE (either is valid, say which you used)
   committed artefact : git cat-file -p HEAD:<path> | sha256sum
   worktree as-is     : sha256sum <path>
   line-ending agnostic (either side may be CRLF or LF):
-      ndiff() { git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1; }
-      nwork() { sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1; }
+      # RAW first -- this is the only sound test for size-preserving damage:
+      ndiff() { cmp -s <(git cat-file -p "HEAD:$1") "$1" \
+                 && echo SAME || echo DIFFER; }
+      # A normalised hash is a READING AID. It is lossy: see the collision
+      # table below. Never let it overrule a raw DIFFER.
+      nwork() { tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1; }
       # ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
       # DO NOT replace the sed above with `tr -d '\r'`. That form is WRONG and
       # it fails silently. `tr -d '\r'` deletes EVERY CR, not just the one that
@@ -46,7 +50,8 @@ HOW TO RE-DERIVE (either is valid, say which you used)
       #     non-zero-byte check -> not flagged either, so the two checks do
       #                           NOT substitute for normalisation here.
       # Only the line-ending CR may be removed; a lone CR is content.
-      # Python: b.replace(b"\r\n", b"\n")   -- NOT b.replace(b"\r", b"")
+      # Python: b.replace(b"\r\n", b"\n")   -- better than sed, but also lossy
+      # (0d0a0a and 0a0d0a both become 0a0a). Raw compare is the sound test.
       # See AEGIS_RENORM_CORRECTION.txt for the full write-up, and
       # tools/inc002_tree_check.py:120-126 for the reference implementation.
       # The MEASURED VALUES below were produced with the sed form. The earlier

@@ -1,12 +1,32 @@
 AEGIS NORMALISATION CORRECTION
 ========================================================================
+
+LINE-ENDING RULE, REVISED (2026-10-05): the `sed` line above is NOT the rule
+--------------------------------------------------------------------------
+weaver retracted his equivalence claim and is right. Measured with the REAL
+GNU sed 4.9 binary, exhaustive over {a,CR,LF} lengths 1..3:
+
+    sed 's/\r$//'  ->  7 size-preserving collisions  (masks real damage)
+    replace(CRLF,LF)->  1 collision                  (0d0a0a <-> 0a0d0a)
+
+`sed` removes a CR that ends a line whether or not it was paired with an LF, so
+CRLF and LF-CR normalise the same. Treat `sed 's/\r$//'` as a READING AID for
+a human, never as a decision rule.
+
+`b.replace(b"\r\n", b"\n")` is the better normalisation, and it is what the
+python paths in this repository use -- but it is NOT collision-free either: a
+CR/LF transposition survives it. The only sound test for size-preserving damage
+is a RAW byte comparison. Any normalisation is a lossy projection and belongs
+in the evidence, not in the verdict.
 READ THIS FIRST: every `tr -d '\r'` string below is EVIDENCE OF A DEFECT,
 never a recipe. I actually ran that command and it produced a false MATCH.
 
 The correct normalisation, stated once so you need not infer it:
 
       b.replace(b"\r\n", b"\n")                 # python  <- authoritative
-      sed 's/\r$//'                             # shell
+      sed 's/\r$//'                             # shell -- READING AID ONLY -- READING AID ONLY
+      #   ^ NOT a decision rule: 7 size-preserving collisions, measured with
+      #     the real sed 4.9 binary. Use raw compare to decide.
 
   [2026-10-05 amend, rulings-fix] The python line was always right and is
   unchanged. The shell line is the POSIX-correct form: sed's pattern space holds

@@ -143,3 +143,39 @@ threshold.
 
 MY OWN FILES: verified to contain neither the tr -d recipe nor the git-show
 causality.
+
+REVISION 3 -- the sed recommendation was itself unsound
+========================================================================
+weaver retracted his claim that `sed 's/\r$//'` equals
+`replace(b"\r\n", b"\n")`, and he is right. I had recommended the sed form in
+three of my own documents; measured against the REAL GNU sed 4.9 binary (not a
+model of it, which was his error), exhaustive over the alphabet {a,CR,LF} at
+lengths 1..3:
+
+    HEAD=0d0a     WORK=0a0d     sed -> 0a   vs 0a     MATCH  (masks)
+    HEAD=610d0a   WORK=610a0d   sed -> 610a vs 610a   MATCH  (masks)
+
+    real sed 's/\r$//'   ->  7 size-preserving collisions
+    replace(CRLF, LF)     ->  1 collision  (0d0a0a <-> 0a0d0a)
+
+sed removes a CR that ends a line whether or not it was paired with an LF, so
+CRLF and LF-CR normalise identically. All three of my documents are corrected.
+
+But weaver overcorrected in the other direction: replace is NOT collision-free.
+0d0a0a (CRLF LF) and 0a0d0a (LF CRLF) are a size-preserving pair -- exactly the
+INC-002 shape -- and both become 0a0a. So NEITHER normalisation is sufficient
+as a decision rule.
+
+THE CORRECTED RULE, which supersedes what I wrote before:
+  * A RAW byte comparison is the only sound test for size-preserving damage.
+  * Every normalisation is a lossy projection. It is evidence, not a verdict,
+    and it must never overrule a raw DIFFER.
+  * replace(CRLF,LF) is the better of the two (1 collision vs 7) and is what the
+    production path already uses, so PRODUCTION was never affected -- only my
+    shell-side advice was wrong.
+
+My method error, for the record: I repeated weaver's habit in a different place.
+I wrote that sed "correctly caught" the in-band CR case. That is true for THAT
+input, and I generalised from one example without exhausting the input space. A
+single passing example is not a characterisation of a function -- which is the
+same defect as his reimplementation mistake, aimed at the same tool.
