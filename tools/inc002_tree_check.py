@@ -129,6 +129,28 @@ SEV_EVIDENCE = "EVIDENCE_REEMITTED"
 #: legitimately, and in this repository that is the normal condition.
 SEV_CONTAINS_NUL = "CONTAINS_NUL"
 
+#: A difference from HEAD that is PROVABLY nothing but CRLF-vs-LF. This is
+#: informational, not damage: the tree is byte-different from the blob but
+#: semantically the same file, and there is no lone CR anywhere after
+#: normalisation and the line structure matches line for line.
+#:
+#: It exists so the verdict can be honest in both directions. The old code
+#: hashed the normalised bytes and reported MATCH, which hid real edits that
+#: normalisation happens to collapse. The first fix hashed RAW and reported
+#: DRIFT for everything, which cried wolf on 48 benign CRLF files -- a rule that
+#: cries wolf gets ignored, which is its own failure. This severity is the third
+#: option: RAW decides, normalisation explains, and "explained" is a state the
+#: verdict can act on rather than a verdict it has to choose between.
+SEV_EOL = "EOL_ONLY"
+
+#: Every severity this tool can report. Derived, never hand-maintained: a
+#: hand-kept list goes stale silently, and a guard built on a stale list fails
+#: on correct code while the thing it guards drifts.
+_ALL_SEVERITIES = frozenset({
+    SEV_CLEAN, SEV_DRIFT, SEV_ZEROED, SEV_DIAG, SEV_EVIDENCE,
+    SEV_CONTAINS_NUL, SEV_EOL,
+})
+
 #: Files that a test/gate run RE-EMITS with a fresh timestamp, so they differ
 #: from HEAD after every full-suite run. Exempt from the DRIFT verdict -- but only
 #: after the two damage checks still run on them, and only with the reason
@@ -194,6 +216,57 @@ def normalise_eol(data: bytes) -> bytes:
 
 def nul_count(data: bytes) -> int:
     return data.count(b"\x00")
+
+
+def _has_lone_cr(normalised: bytes) -> bool:
+    """Does any LF-free line still carry a CR? True means the normalisation
+    removed a real byte that remains visible as a bare CR."""
+    return any(b"\r" in line for line in normalised.split(b"\n"))
+
+
+def _selftest_twin_rel() -> str:
+    """Repo-relative path of the CRLF-twin probe. Under .workbuddy/scratch so
+    it is gitignored: a probe that flickers the tree dirty for a concurrent
+    agent reinstates the coupling this suite exists to remove. It must be
+    untracked for the test to be meaningful, and scratch is both untracked and
+    ignored."""
+    return ".workbuddy/scratch/inc002_selftest_crlf_twin.txt"
+
+
+def _selftest_twin_target() -> Path:
+    d = REPO / ".workbuddy" / "scratch"
+    d.mkdir(parents=True, exist_ok=True)
+    return d / "inc002_selftest_crlf_twin.txt"
+
+
+def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
+    """Is this difference *provably* nothing but CRLF-vs-LF?
+
+    "normalised hashes are equal" is NOT enough. Measured counterexample:
+
+        61 0d 0a 0d 62 0a   (a\\r\\n\\rb\\n)   -> 61 0a 0d 62 0a
+        61 0a 0d 62 0d 0a   (a\\n\\rb\\r\\n)   -> 61 0a 0d 62 0a
+
+    The two files have DIFFERENT structure (one has an empty line 2, the other
+    a bare-CR line 2), yet replace(b"\\r\\n", b"\\n") maps both to the same
+    bytes. So normalisation equality alone would label a real content
+    difference as an innocent line-ending artefact.
+
+    The gate that separates them is the lone CR. After normalisation, a file
+    that was genuinely only CRLF-vs-LF has no CR left outside a pair; the
+    counterexample still does, and that residue is the evidence.
+
+    Measured on GNU sed 4.9 / MSYS2, and re-derived by hand on the raw bytes.
+    """
+    if work == head:
+        return False
+    nw, nh = normalise_eol(work), normalise_eol(head)
+    if _sha(nw) != _sha(nh):
+        return False
+    if _has_lone_cr(nw) or _has_lone_cr(nh):
+        return False
+    # Structure must agree once normalised, line for line.
+    return nw.split(b"\n") == nh.split(b"\n")
 
 
 def head_bytes(path: str, rev: str = "HEAD") -> Optional[bytes]:
@@ -445,8 +518,25 @@ def check_one(rel: str, rev: str = "HEAD",
         rec["match"] = _sha(work) == _sha(hb)
         rec["mode"] = "binary-exact"
     else:
-        rec["match"] = _sha(normalise_eol(work)) == _sha(normalise_eol(hb))
-        rec["mode"] = "crlf-normalised"
+        # RAW decides, normalisation only explains.
+        #
+        # The previous form hashed the normalised bytes on both sides:
+        #     _sha(normalise_eol(work)) == _sha(normalise_eol(hb))
+        # and that judge is provably unsound. replace(b"\r\n", b"\n") is not
+        # injective -- measured, not modelled:
+        #     0d 0a 0a  ->  0a 0a
+        #     0a 0d 0a  ->  0a 0a
+        # Two files that differ in BOTH content and size class can therefore
+        # report MATCH, and MATCH is what silences the DRIFT verdict. So the
+        # normalisation collision does not merely lose information, it lets a
+        # real edit pass as clean.
+        #
+        # The rule that holds: a verdict must be reachable from RAW bytes.
+        # EOL class is real information, but it is evidence about a difference,
+        # not a licence to declare the difference absent.
+        rec["match"] = _sha(work) == _sha(hb)
+        rec["mode"] = "raw-exact"
+        rec["eol_only"] = _is_pure_eol_difference(work, hb)
 
     if rec["zeroed"]:
         pass  # already recorded above; do not overwrite with DRIFT
@@ -462,6 +552,22 @@ def check_one(rel: str, rev: str = "HEAD",
                 f"({EVIDENCE_REEMITTED[rel]}) -- not counted as DRIFT"
             )
         else:
+            if rec.get("eol_only"):
+                # PROVABLY nothing but CRLF-vs-LF, and PROVABLY not a
+                # normalisation collision (the lone-CR and line-structure gates
+                # are inside _is_pure_eol_difference). This is a difference the
+                # verdict must not report as an edit, so the branch that would
+                # otherwise emit DRIFT is skipped -- the field was previously
+                # written and never read, which is the "a guard that restates
+                # the code rather than testing it" shape: it recorded a fact no
+                # verdict depended on.
+                rec["severity"] = SEV_EOL
+                rec["notes"].append(
+                    "differs from HEAD only in CRLF-vs-LF, proven: no lone CR "
+                    "after normalisation and line structure identical -- not "
+                    "DRIFT, and not a normalisation collision"
+                )
+                return rec
             # Do NOT overwrite a NUL classification with DRIFT. A size-preserving
             # NUL punch is a DIFFERENT kind of finding from "content drifted",
             # and flattening it loses the byte offsets the operator needs. Keep
@@ -477,7 +583,7 @@ def check_one(rel: str, rev: str = "HEAD",
                     "normalisation -- a real edit, not a line-ending artefact"
                 )
             else:
-                rec["notes"].append("content differs from HEAD after EOL normalisation")
+                rec["notes"].append("content differs from HEAD; not a provable EOL-only difference")
     return rec
 
 
@@ -543,6 +649,99 @@ def selftest() -> int:
     crlf = b"line one\r\nline two\r\n"
     if _sha(normalise_eol(crlf)) != _sha(normalise_eol(lf)):
         fails.append("CRLF and LF did not normalise equal (shape b unresolved)")
+
+    # 1b. The VERDICT, not the predicate. Cases 1-3 above only ever call
+    # normalise_eol, so a revision could replace the whole classification path
+    # and they would stay green -- which is exactly what happened: the tree
+    # reported 48 benign CRLF files as DRIFT while this function passed, because
+    # every case here tests the predicate and none of them tests the decision.
+    # Measured: a guard that restates the code cannot detect what it guards.
+    if not _is_pure_eol_difference(crlf, lf):
+        fails.append(
+            "a proven CRLF-vs-LF twin was not classified as EOL_ONLY -- the "
+            "benign line-ending class regressed into DRIFT"
+        )
+    # And the negative of the same gate: normalisation COLLIDES on this pair
+    # (61 0d 0a 0d 62 0a and 61 0a 0d 62 0d 0a both -> 61 0a 0d 62 0a), so
+    # "normalised hashes are equal" is NOT a sufficient test. If this ever
+    # passes as eol_only, a real content difference is being washed clean.
+    if _is_pure_eol_difference(b"a\r\n\rb\n", b"a\n\rb\r\n"):
+        fails.append(
+            "a normalisation collision was accepted as EOL_ONLY -- a real "
+            "content difference would be laundered into a line-ending class"
+        )
+    if _is_pure_eol_difference(b"a\nb\n", b"a\nc\n"):
+        fails.append("a real content edit was classified as EOL_ONLY")
+    if _is_pure_eol_difference(lf, lf):
+        fails.append("identical bytes were classified as a difference")
+
+    # 1c. The eol_only FIELD must be reachable from the verdict, or it is a
+    # dead field and the cases above are decoration. Measured: negating the
+    # consumer (`if False and rec.get("eol_only")`) left this whole selftest
+    # PASS, which is the same class of blind spot as case 1b.
+    #
+    # The classification loop lives inside scan() and needs a real path plus a
+    # real HEAD blob, so it is not callable in isolation. What IS assertable
+    # without a repo is the contract the loop relies on: EOL_ONLY must be a
+    # severity that exists, must be inert for the exit code, and must be
+    # distinguishable from both CLEAN and DRIFT. If a future revision deletes
+    # the field or renames the constant, this fails instead of passing quietly.
+    # Derive the set instead of restating it: an earlier version listed the
+    # severities literally and went stale the moment CONTAINS_NUL was added, so
+    # the guard failed on correct code. Same shape as the is_not_clean tuple --
+    # a guard that re-lists what it guards cannot survive the list changing.
+    if SEV_EOL in _ALL_SEVERITIES - {SEV_EOL}:
+        fails.append("SEV_EOL aliases another severity -- EOL_ONLY is not distinct")
+    if len(_ALL_SEVERITIES) != len(set(_ALL_SEVERITIES)):
+        fails.append(f"duplicate severity strings: {sorted(_ALL_SEVERITIES)}")
+    if is_not_clean(SEV_EOL):
+        fails.append(
+            "EOL_ONLY drives the exit code -- a proven CRLF twin would fail the "
+            "gate, and a rule that cries wolf gets ignored"
+        )
+    if not is_not_clean(SEV_DRIFT):
+        fails.append("DRIFT is no longer gate-failing")
+
+    # 1c. The END-TO-END verdict, driven through check_one on a real tracked
+    #     file. Everything above tests the PREDICATE (_is_pure_eol_difference),
+    #     so deleting the branch that READS eol_only leaves the suite green --
+    #     verified by mutation: restoring the dead-field bug (the field written,
+    #     never consulted) passes this selftest at exit 0 while the tool reports
+    #     every pure-CRLF file in the tree as DRIFT. That is the same class as
+    #     the earlier constant-guard and bracket-slice failures: a guard wired to
+    #     the helper instead of to the decision.
+    #
+    #     The file is a scratch COPY, never a tracked product file. An earlier
+    #     revision of this suite zeroed a real source file and left it at 8639
+    #     NUL bytes -- the exact INC-002 shape, produced by the tool meant to
+    #     detect it. "The finally block restores it" is not a safety property.
+    _twin = _selftest_twin_target()
+    _twin_backup = _twin.read_bytes() if _twin.is_file() else None
+    try:
+        # LF in HEAD, pure CRLF in the worktree: identical content, host
+        # line-endings only. Must NOT be DRIFT.
+        _twin.write_bytes(b"line one\nline two\n")
+        _rec = check_one(_selftest_twin_rel(), preloaded=b"line one\r\nline two\r\n")
+        if _rec["severity"] == SEV_DRIFT:
+            fails.append(
+                "a pure CRLF-vs-LF twin was reported DRIFT by check_one -- the "
+                "eol_only branch is not consulted by the verdict"
+            )
+        if _rec["severity"] == SEV_ZEROED:
+            fails.append("a pure CRLF twin was reported ZEROED")
+        # And the negative, through the same door: a real edit must be DRIFT.
+        _twin.write_bytes(b"line one\nline TWO\n")
+        _rec2 = check_one(_selftest_twin_rel(), preloaded=b"line one\r\nline two\r\n")
+        if _rec2["severity"] != SEV_DRIFT:
+            fails.append(
+                f"a real content edit was reported {_rec2['severity']} through "
+                "check_one, expected DRIFT"
+            )
+    finally:
+        if _twin_backup is not None:
+            _twin.write_bytes(_twin_backup)
+        elif _twin.exists():
+            _twin.unlink()
 
     # 2. A real edit must NOT match.
     if _sha(normalise_eol(b"line one\n")) == _sha(normalise_eol(b"line ONE\n")):
