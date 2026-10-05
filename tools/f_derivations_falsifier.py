@@ -208,11 +208,29 @@ def scan_python(path: Path) -> list[dict]:
     silently re-flowed before tokenize ever sees it.
 
     That was measured here rather than assumed, because the obvious mitigation is
-    itself the bug weaver retracted from the INC-002 rule: `tr -d '\\r'` (or
+    itself a bug that was retracted from the INC-002 rule: `tr -d '\\r'` (or
     Python's `b.replace(b"\\r", b"")`) deletes EVERY CR, so it makes an in-band
     CR injection hash-identical to a benign CRLF file -- a false NEGATIVE, not a
-    labelling nit. Only line-ENDING CR may be stripped: `sed 's/\\r$//'` in
-    shell, `b.replace(b"\\r\\n", b"\\n")` in Python. This scanner strips nothing.
+    labelling nit.
+
+    Which alternative is correct has since been measured too, and the answer is
+    messier than "use sed". Exhaustive over {a, CR, LF} at lengths 1..3 (39
+    payloads), comparing pairs of EQUAL length and differing content -- the
+    defining shape of INC-002:
+
+        real `sed 's/\\r$//'`  masks 14 such pairs (size-preserving collisions)
+        b.replace(b"\\r\\n", b"\\n")  masks 2 of them:
+            b'\\r\\n\\n' vs b'\\n\\r\\n'   both -> b'\\n\\n'
+            b'\\n\\r\\n' vs b'\\r\\n\\n'   both -> b'\\n\\n'
+
+    So `replace` is STRICTLY BETTER than sed and is the right default, but it is
+    NOT the unique correct form -- do not write it up as one, or the next person
+    finds those 2 and re-runs this round.
+
+    More important for THIS file: neither form detects INC-002. Both are
+    line-ending normalisers. The NUL/zero-byte half is what actually catches
+    content destroyed at preserved size, which is why the explicit check below
+    is load-bearing rather than decorative. This scanner strips nothing at all.
 
     Universal-newline folding is safe HERE, and that is a measured result with a
     specific shape. In-band CR was tested at five placements: before the drive
