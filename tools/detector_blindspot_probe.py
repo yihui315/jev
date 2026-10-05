@@ -544,14 +544,36 @@ def _probe_reference_falsifier(base: Path, work: Path) -> Dict[str, Any]:
         'print("FREEZE CHECK: COMPLIANT (probe fixture stand-in, not the real gate)")\n'
         'sys.exit(0)\n', encoding="utf-8", newline="\n")
 
+    # The real tool, byte-for-byte, run as a subprocess with its output going
+    # to FILES. This one child used to use `capture_output=True` plus
+    # `(proc.stdout or "")` -- the exact pattern the briefing names as having
+    # read 4298 bytes of real output as 0 bytes in an earlier falsifier.
+    #
+    # Measured before changing it: on this host the pipe returned all 5022
+    # bytes for a 5022-byte child, so it was NOT losing bytes here and this is
+    # a discipline fix, not a bug fix. It is changed anyway, because the file
+    # header claims NO PIPES and one line quietly disagreed -- a claim that does
+    # not match the code is worse than either, since a reader checking the
+    # discipline would be told it holds when it does not.
+    dstdir = base / "work" / "child_reference_tool"
+    dstdir.mkdir(parents=True, exist_ok=True)
+    tool_out = dstdir / "tool_stdout.txt"
+    tool_err = dstdir / "tool_stderr.txt"
     src = child_source(
         "import subprocess, sys\n"
-        "proc = subprocess.run([sys.executable, sys.argv[3]],\n"
-        "                      capture_output=True, text=True, cwd=sys.argv[2])\n"
+        "argv = [sys.executable, sys.argv[3]]\n"
+        "with open(sys.argv[4], 'wb') as fo, open(sys.argv[5], 'wb') as fe:\n"
+        "    proc = subprocess.run(argv, stdout=fo, stderr=fe, cwd=sys.argv[2],\n"
+        "                          stdin=subprocess.DEVNULL)\n"
         "rc = proc.returncode\n"
-        "blob = (proc.stdout or '') + (proc.stderr or '')\n"
+        "with open(sys.argv[4], 'r', encoding='utf-8', errors='replace') as fh:\n"
+        "    blob = fh.read()\n"
+        "with open(sys.argv[5], 'r', encoding='utf-8', errors='replace') as fh:\n"
+        "    blob += fh.read()\n"
         "# GREEN is the defect: exit 0 while a tracked product file is destroyed.\n"
         "emit({'tool_exit': rc, 'green': rc == 0,\n"
+        "      'tool_stdout_bytes': len(open(sys.argv[4], 'rb').read()),\n"
+        "      'tool_stderr_bytes': len(open(sys.argv[5], 'rb').read()),\n"
         "      'mentions_unreadable': 'UNREADABLE' in blob,\n"
         "      'mentions_pass': 'FALSIFIER: PASS' in blob,\n"
         "      'error': None,\n"
@@ -560,7 +582,8 @@ def _probe_reference_falsifier(base: Path, work: Path) -> Dict[str, Any]:
         "      'tail': blob[-2500:]})\n"
     )
     rec = run_child(src, work, "reference", fixture=base,
-                    extra_argv=[str(base / "tools" / "f_derivations_falsifier.py")])
+                    extra_argv=[str(base / "tools" / "f_derivations_falsifier.py"),
+                                str(tool_out), str(tool_err)])
     rec["id"] = "REFERENCE_FALSIFIER_ALREADY_FIXED"
     rec["detector"] = "tools/f_derivations_falsifier.py"
     rec["cites"] = AUDIT[2]["cites"]
