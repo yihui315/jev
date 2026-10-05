@@ -1,0 +1,111 @@
+AEGIS ADJUDICATION OF THE INC-002 NORMATIVE CORRECTIONS
+========================================================================
+owner: aegis (Security / Secrets)   |  role: evidence-only, no gate signed
+scope: verify weaver's two normative corrections; audit my own artefacts;
+       adjudicate weaver's item 5 file list.
+
+RESULT 1 -- "the two halves are ORTHOGONAL, not mutual fallback": CONFIRMED
+------------------------------------------------------------------------
+Measured on this host, with the size-preserving attack shape:
+
+  in-band CR injection (real damage, ZERO NUL bytes, size unchanged)
+    zero check (s != z)      -> PASSES      <- its blind spot: no NUL exists
+    CRLF-normalised hash     -> DIFFER      <- only the hash catches this class
+    tr -d CR hash            -> MATCH       <- false negative, as established
+
+  NUL-class damage, one byte zeroed, size preserved
+    zero check (s != z)      -> FLAGS
+    CRLF-normalised hash     -> DIFFER
+
+So the two halves have DIFFERENT blind spots: the zero check cannot see CR
+damage (there is no NUL in it), and a normalisation cannot see a NUL that the
+zero check also cannot contextualise. "Mutual backup" is the wrong word and it
+is dangerous, because it implies one alone would do. For in-band CR injection
+ONLY the normalisation works. "Orthogonal" is correct.
+
+RESULT 2 -- "no NUL run-length threshold; the criterion is s != z": CONFIRMED
+------------------------------------------------------------------------
+Swept the count of zeroed bytes against the proposed `run >= 64` criterion,
+holding size constant (the stat-cache shape):
+
+  NULs=1   s!=z=True   run>=64=False   <- MISSED
+  NULs=3   s!=z=True   run>=64=False   <- MISSED
+  NULs=32  s!=z=True   run>=64=False   <- MISSED
+  NULs=63  s!=z=True   run>=64=False   <- MISSED
+  NULs=64  s!=z=True   run>=64=True
+
+The threshold misses every single-byte zeroing with size preserved -- which is
+precisely the shape a stat-cache forgery produces. A single zeroed byte is
+real corruption and the rule would call the file clean. `s != z` catches all of
+them. No threshold belongs in the normative criterion.
+
+RESULT 3 -- "immunity is not safety": CONFIRMED, and I had already said it
+------------------------------------------------------------------------
+A file with CR count 0 makes the two rules IDENTICAL BY CONSTRUCTION: tr -d is
+a no-op on it and sed is a no-op on it, so they cannot diverge and their
+agreement carries no information. This is the reason my earlier "the two rules
+agree on my three artefacts" result was never evidence of safety -- I said so
+at the time ("right by luck, not by correctness"). Confirming weaver reached
+the same conclusion independently is useful, but it is not a new finding on my
+side and should not be recorded as one.
+
+RESULT 4 -- my artefacts conform to the corrected criterion
+------------------------------------------------------------------------
+All four of my artefacts: NUL=0, not zeroed, lone_CR=0, CRLF-only MATCH against
+HEAD. For all four, "the rules can diverge here = NO" -- which per Result 3
+means their agreement is arithmetic, not evidence. Stated plainly so nobody
+downgrades a future mismatch on these files to "well, the tree looks clean".
+
+RESULT 5 -- weaver's item 5 file list: ONE entry is wrong
+------------------------------------------------------------------------
+I adjudicated by content, since the distinction that matters is "runnable
+recipe" versus "quoted to warn", not "does the string appear".
+
+  INC002_CRLF_HASH_NOTE.txt:41-42   LIVE DEFECT, still unfixed
+      hdiff() { git cat-file -p "HEAD:$1" | tr -d '\r' | sha256sum | ... }
+      owner: forge2. NOT-TRACKED, so `git log` will never show a fix.
+      This is the only genuinely live tr -d recipe left in the set.
+
+  FORGE_INCIDENT_001.md:21-23       CORRECT ALREADY -- weaver's entry is wrong
+      Lines 21-23 sit inside a fenced block headed `# ❌ 错误用法 2`, and line
+      26 carries a dated correction that reproduces the false negative and
+      names `sed 's/\r$//'` as the correct form. Marking it as a live defect
+      invites someone to delete the warning out of the document -- the same
+      mistake I declined last round with AEGIS_RENORM_CORRECTION.txt:7.
+      weaver's own line 252 reference also does not resolve to a tr -d recipe.
+
+  AEGIS_SHA_CORRECTION.txt          fixed in 85302ea
+  INC002_RULE_REVIEW.md             fixed in 981d216
+  AEGIS_RENORM_CORRECTION.txt       all occurrences are correct citations
+
+  Tracking status, via `git ls-files --error-unmatch` (not `git status`):
+      INC002_RULE_REVIEW.md    TRACKED
+      AEGIS_SHA_CORRECTION.txt TRACKED
+      INC002_CRLF_HASH_NOTE.txt   NOT-TRACKED
+      FORGE_INCIDENT_001.md       NOT-TRACKED
+
+MY OWN ERRORS IN THIS ROUND
+------------------------------------------------------------------------
+The first version of my adjudicator read line-by-line and reported
+FORGE_INCIDENT_001.md:22-23 as live defects. That was MY classifier being
+wrong, not the file: the ❌ marker is on the line ABOVE the commands, inside a
+fence, so a per-line test cannot see it. Had that gone out, someone would have
+been told to fix a correct warning. The classifier now evaluates warning
+CONTEXT (a window plus the enclosing fence header), and reports 0 live defects
+for that file. Same family as the earlier five: the check answers a question
+adjacent to the one being asked.
+
+Also fixed two bugs in my own orthogonality probe before trusting it: the CR
+sample originally APPENDED a byte (changing size, so it was not the stat-cache
+shape), and the NUL sweep ran past the end of a too-short sample.
+
+NOT SIGNED
+------------------------------------------------------------------------
+INC-002 is not closed. "Ruled out" requires an index-level stat-forgery negative
+control, and I do not sign that statement: measured, a file zeroed with its
+mtime restored makes `git diff --quiet` return EMPTY. HIDDEN=0 remains an
+observation, not a proof.
+
+No security verdict changed. security stays GO_WITH_CONDITIONS; K section
+stays 16/16 PASS. GPU hardware performance and Windows restart recovery remain
+NOT_MEASURED.
