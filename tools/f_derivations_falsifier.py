@@ -214,8 +214,29 @@ def scan_python(path: Path) -> list[dict]:
     escalated to UNREADABLE by the caller. None produced a silent CLEAN. If that
     ever stops being true, this docstring is where to look first.
     """
+    # NUL check FIRST, and explicitly, because relying on the tokenizer to catch
+    # NUL is relying on an accident.
+    #
+    # Measured: a NUL placed inside a COMMENT leaves the file perfectly valid
+    # Python -- it compiles, tokenize is happy, and zero drive literals are
+    # found. So the parse-failure path below does NOT catch that form, and a
+    # partially-zeroed (a') file whose NUL run lands in a comment would be
+    # reported CLEAN. INC-002 is documented as size-preserving, and the size it
+    # preserves can be preserved by a partial zeroing just as well as a total
+    # one. The strong signal is that the file contains NUL AT ALL, not that it
+    # fails to parse -- so that is what we test.
     try:
-        src = path.read_text(encoding="utf-8", errors="replace")
+        raw = path.read_bytes()
+    except OSError:
+        return []
+    if b"\x00" in raw:
+        nul = sum(1 for b in raw if b == 0)
+        return [{"file": path.name, "line": 0, "kind": "UNREADABLE",
+                 "text": "contains %d NUL byte(s) at unchanged size "
+                         "(zeroed/corrupt; the file may still parse, so a parse "
+                         "check alone would miss it)" % nul}]
+    try:
+        src = raw.decode("utf-8", errors="replace")
     except OSError:
         return []
     docs = _docstring_lines(src)
@@ -325,6 +346,15 @@ def scan_powershell(text: str, label: str) -> tuple[list[dict], list[dict]]:
 
 def scan_ps_file(path: Path) -> tuple[list[dict], list[dict]]:
     raw = path.read_bytes()
+    # Same NUL rule as scan_python, and for the same reason: PowerShell has no
+    # parser step here, so a NUL would flow straight through the lexer and the
+    # file would simply look like it had fewer literals. A NUL is the strong
+    # signal, so test for it directly rather than hoping a read fails.
+    if b"\x00" in raw:
+        nul = sum(1 for b in raw if b == 0)
+        return ([{"file": str(path), "line": 0, "kind": "UNREADABLE",
+                  "text": "contains %d NUL byte(s) at unchanged size "
+                          "(zeroed/corrupt)" % nul}], [])
     text = raw.decode("utf-8-sig", errors="replace")
     return scan_powershell(text, str(path))
 
