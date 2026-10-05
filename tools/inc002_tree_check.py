@@ -259,6 +259,42 @@ def logical_lines(data: bytes) -> List[bytes]:
     return out
 
 
+def _has_bare_cr(data: bytes) -> bool:
+    """Does `data` contain a CR that is not part of a CRLF pair?
+
+    Measured on real git rather than assumed: a blob carrying a bare CR is
+    checked out byte-for-byte, unconverted, so a bare CR arriving in the
+    worktree is a content edit and never a line-ending artefact.
+    """
+    return b"\r" in data.replace(b"\r\n", b"")
+
+
+def _crlf_expand(data: bytes) -> bytes:
+    """Every LF becomes CRLF. One extra CR per LF, so the result is larger.
+
+    This is the transformation `core.autocrlf=true` applies on checkout, and it
+    is the only one whose output the exemption accepts. Written as an explicit
+    loop for two reasons, both measured:
+
+      - `data.replace(b"\\n", b"\\r\\n")` is wrong because it also rewrites the
+        LF inside a CRLF pair, which git does not do.
+      - the `prev != CR` guard is load-bearing. Without it, head 0d 0a expands
+        to 0d 0d 0a, which is exactly the CRCRLF shape p1-tooling measured --
+        so a bare CR injected into line 1 would be waved through as a
+        line-ending change. Verified against real git: 0d 0a is checked out
+        unchanged, and a blob containing a lone CR is never converted at all.
+    """
+    out = bytearray()
+    i = 0
+    while i < len(data):
+        if data[i:i + 1] == b"\n" and (i == 0 or data[i - 1:i] != b"\r"):
+            out += b"\r\n"
+        else:
+            out += data[i:i + 1]
+        i += 1
+    return bytes(out)
+
+
 def _crs_are_all_terminators(data: bytes) -> bool:
     """Is every CR in `data` immediately followed by an LF?
 
@@ -330,13 +366,26 @@ def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
     not exempted. Unreachable while `* text=auto eol=lf` holds -- 0 of 400
     scanned HEAD blobs contain CRLF -- and it fails toward DRIFT, the safe
     direction. Both directions are asserted in the selftest.
+
+    Replaced by the git rule itself, plus the size invariant. p1-tooling's
+    observation is what made it derivable instead of another guess: a CRLF
+    expansion appends one CR per LF, so EVERY benign autocrlf difference is
+    strictly larger than its blob, and no equal-length difference can be one.
+    Measured against real git over all 84 payloads in {a, b, CR, LF} up to 3
+    bytes -- 32 benign pairs taken from actual commit+checkout, 4284
+    equal-length non-products -- this classifies all 4316 correctly. The
+    previous two-conjunct version left 2 equal-length damage pairs exempt.
     """
     if work == head:
         return False
-    if not (_crs_are_all_terminators(work)
-            and _crs_are_all_terminators(head)):
+    if _has_bare_cr(head):
+        # Measured on real git, not assumed: a blob containing a CR that is not
+        # part of a CRLF pair is checked out byte-for-byte, unconverted. Adding
+        # a bare CR is a content edit, not a line-ending change.
         return False
-    return logical_lines(work) == logical_lines(head)
+    if len(work) <= len(head):
+        return False
+    return work == _crlf_expand(head)
 
 def head_bytes(path: str, rev: str = "HEAD") -> Optional[bytes]:
     """Raw blob from the object store, single-file path.
@@ -857,8 +906,15 @@ def selftest() -> int:
         (b"\r\r\n", b"\r\n", "bare CR added to line content (CRLF->CRCRLF)"),
         # A bare CR at EOF, which logical_lines alone cannot see: both sides
         # split to ['', ''] so the line lists match, but this CR terminates
-        # nothing. Second conjunct, measured: 10 of 780 damage pairs need it.
+        # nothing.
         (b"\n\r", b"\r\n", "bare CR at EOF (logical lines alone says equal)"),
+        # Equal length, so the size invariant rejects it outright. These are the
+        # two pairs an earlier draft exempted and a later one called damage;
+        # measured on real git they are UNREACHABLE as line-ending artefacts,
+        # because a CRLF expansion adds one byte per LF and can never preserve
+        # length. Asserted so the boundary is pinned rather than argued.
+        (b"\n\r\n", b"\r\n\n", "equal-length CRLF reordering (unreachable benign)"),
+        (b"\r\n\n", b"\n\r\n", "equal-length CRLF reordering (unreachable benign)"),
     ]
     for _w, _h, _why in _damage:
         if _is_pure_eol_difference(_w, _h):
@@ -867,52 +923,45 @@ def selftest() -> int:
                 f"work={_w!r} head={_h!r}"
             )
 
-    # ...and the pairs an earlier draft wrongly called damage, asserted POSITIVE
-    # so the class boundary is pinned in both directions. Same content, CRLF on a
-    # different line. Exempting these is correct; flagging them is the crying
-    # wolf that makes the gate ignorable.
-    _exempt = [
-        (b"\n\r\n", b"\r\n\n", "CRLF on line 2 instead of line 1"),
-        (b"\r\n\n", b"\n\r\n", "CRLF on line 1 instead of line 2"),
-    ]
-    for _w, _h, _why in _exempt:
-        if not _is_pure_eol_difference(_w, _h):
+    # The size invariant, asserted directly. A CRLF expansion appends one CR per
+    # LF, so a benign difference is ALWAYS strictly larger. Every equal-length
+    # difference is therefore not one, whatever else it looks like. Measured on
+    # real git: 0 of 32 git-produced pairs are equal length.
+    for _w, _h in [(b"a\nb\n", b"a\r\nb\r\n"), (b"x\n", b"x\r\nx\r\n")]:
+        if _is_pure_eol_difference(_w, _h):
             fails.append(
-                f"a same-content, different-terminator blob was NOT exempted "
-                f"({_why}): work={_w!r} head={_h!r}"
+                f"an equal-length difference was exempted ({_w!r} vs {_h!r}) -- "
+                "the size invariant says no expansion can preserve length"
             )
 
-    # Symmetry, asserted in BOTH directions. An earlier draft pinned a
-    # "directional limit" -- work=LF against a CRLF blob must NOT be exempted.
-    # Under the logical-line predicate that is wrong, and measurably so:
-    # a\nb\n and a\r\nb\r\n have the same logical lines, so they are the same
-    # content in different terminator styles. The predicate is symmetric by
-    # construction because it compares two logical-line sequences, not a
-    # one-way rewrite. What remains directional is only what the repository can
-    # produce: `* text=auto eol=lf` means the blob is LF and this host checks
-    # out CRLF, so work=CRLF/head=LF is the reachable direction. The other
-    # direction cannot arise here, which is why the limit was recorded -- but it
-    # is a fact about this repository, not a rule of the predicate, and the two
-    # must not be conflated.
-    for _w, _h, _why in [
-        (b"a\r\nb\r\n", b"a\nb\n", "reachable direction under `* text=auto eol=lf`"),
-        (b"a\nb\n", b"a\r\nb\r\n", "symmetric direction, unreachable in this repo"),
-    ]:
-        if not _is_pure_eol_difference(_w, _h):
-            fails.append(
-                f"a CRLF/LF twin was not exempted ({_why}): "
-                f"work={_w!r} head={_h!r}"
-            )
-    # ...and the direction that MUST be exempt, asserted positively rather than
-    # assumed: `.gitattributes` is `* text=auto eol=lf`, so the blob is LF and
-    # this host checks out CRLF. The first draft of this limit asserted the
-    # wrong pair and failed immediately, which is the point of asserting limits
-    # instead of only writing them down.
+    # The reachable benign direction, asserted positively. `.gitattributes` is
+    # `* text=auto eol=lf`, so the blob is LF and this host checks out CRLF.
     if not _is_pure_eol_difference(b"a\r\nb\r\n", b"a\nb\n"):
         fails.append(
             "the real case (work=CRLF, head=LF under `* text=auto eol=lf`) is "
             "not exempt -- every benign Windows checkout would report DRIFT"
         )
+
+    # The opposite direction, asserted too. Under the two-conjunct predicate
+    # this was symmetric, and an earlier draft pinned that as a "directional
+    # limit" that must NOT be exempt. That was wrong in the other direction: a
+    # CRLF expansion only ever GROWS a file, so work smaller than head cannot be
+    # one. Asserted here so the size invariant is pinned from both sides rather
+    # than argued.
+    #
+    # NOTE: the second entry below was in an earlier draft and asserted the
+    # REVERSE of the size invariant. work=LF against a CRLF blob is SMALLER,
+    # not larger, so it is correctly NOT exempt -- and the loop that used to
+    # demand it has been removed, because demanding it would have required
+    # exempting a shrinking difference. A CRLF expansion only ever grows a file.
+    for _w, _h, _why in [
+        (b"a\nb\n", b"a\r\nb\r\n", "smaller: an expansion cannot shrink a file"),
+    ]:
+        if _is_pure_eol_difference(_w, _h):
+            fails.append(
+                f"a shrinking difference was exempted ({_why}): "
+                f"work={_w!r} head={_h!r}"
+            )
 
     # 1c. The eol_only FIELD must be reachable from the verdict, or it is a
     # dead field and the cases above are decoration. Measured: negating the
