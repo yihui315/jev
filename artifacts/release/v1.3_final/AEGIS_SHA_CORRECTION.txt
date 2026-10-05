@@ -1,0 +1,78 @@
+AEGIS EVIDENCE SHA CORRECTION
+========================================================================
+
+Reason: CRLF normalisation. See INC002_CRLF_HASH_NOTE.txt (forge2).
+Repo autocrlf setting: true
+
+WHAT I GOT WRONG
+------------------------------------------------------------------------
+The sha256 values I reported to team-lead earlier were computed with a bare
+sha256sum over the WORKTREE file. With core.autocrlf=true the worktree
+carries CRLF while the committed blob carries LF, so a bare worktree hash is
+NOT reproducible from a fresh checkout. Two further problems compounded it:
+  * SECURITY_FINAL.json was committed twice (20c037f, then 46ff531), so the
+    value I quoted described NEITHER final commit;
+  * the value was computed BEFORE the self-reference commit, so it was stale
+    on arrival.
+
+Nothing about the security FINDINGS changes. Only the digests were wrong.
+
+HOW TO RE-DERIVE (either is valid, say which you used)
+------------------------------------------------------------------------
+  committed artefact : git cat-file -p HEAD:<path> | sha256sum
+  worktree as-is     : sha256sum <path>
+  line-ending agnostic (either side may be CRLF or LF):
+      ndiff() { git cat-file -p "HEAD:$1" | tr -d '\r' | sha256sum | cut -d' ' -f1; }
+      nwork() { tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1; }
+
+MEASURED VALUES
+------------------------------------------------------------------------
+
+=== artifacts/release/v1.3_final/HOST_PREFLIGHT.json
+  worktree bytes            : 26938
+  worktree non-null bytes    : 26938
+  CR bytes in worktree      : 478
+  zeroed?                   : no (all bytes non-null)
+  worktree bare sha256      : d9340b015bb9ec16455966dc6bdb768aa233353873260d9c5871096793156343
+  COMMITTED blob bytes      : 26460
+  COMMITTED blob sha256     : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+  normalised (CR stripped)  :
+      worktree               : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+      HEAD                   : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+      normalised match       : True  (CRLF/LF difference only - content identical)
+  empty-string sha256       : e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  is this the empty sha?    : False
+
+  >> CITE THIS ONE: fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b  (committed blob, HEAD)
+
+
+=== artifacts/release/v1.3_final/SECURITY_FINAL.json
+  worktree bytes            : 22623
+  worktree non-null bytes    : 22623
+  CR bytes in worktree      : 306
+  zeroed?                   : no (all bytes non-null)
+  worktree bare sha256      : 46ce6e140a849e13883046cc1fc58a642e84b39846762f35480b1844bcf48672
+  COMMITTED blob bytes      : 22317
+  COMMITTED blob sha256     : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+  normalised (CR stripped)  :
+      worktree               : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+      HEAD                   : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+      normalised match       : True  (CRLF/LF difference only - content identical)
+  empty-string sha256       : e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  is this the empty sha?    : False
+
+  >> CITE THIS ONE: ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a  (committed blob, HEAD)
+
+NOTE ON THE FIRST ATTEMPT AT THIS FILE
+------------------------------------------------------------------------
+The first version of this note was produced by a PowerShell heredoc whose
+reads came back empty, so it recorded the sha256 of the empty string
+(e3b0c44298fc1c14...) for BOTH files. That is the same value a genuinely
+zeroed file produces -- the broken script emitted exactly the artefact
+INC-002 is about. It was caught by cross-checking against sha256sum, not by
+reading the file. Rewritten here with every value read explicitly.
+
+========================================================================
+VERIFIED: my evidence files are intact and non-zeroed at the time of writing.
+  HOST_PREFLIGHT.json  worktree sha256 d9340b015bb9ec16455966dc6bdb768aa233353873260d9c5871096793156343
+  SECURITY_FINAL.json  worktree sha256 46ce6e140a849e13883046cc1fc58a642e84b39846762f35480b1844bcf48672
