@@ -90,7 +90,7 @@ MEASURED VALUES
   empty-string sha256       : e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
   is this the empty sha?    : False
 
-  >> CITE THIS ONE: ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a  (committed blob, HEAD)
+  >> CITE THIS ONE: b182af35802fd33140553ebc87f10b387fe8e2457a23540904b4eb9e15f8801d  (committed blob, HEAD)
 
 NOTE ON THE FIRST ATTEMPT AT THIS FILE
 ------------------------------------------------------------------------
@@ -105,3 +105,36 @@ reading the file. Rewritten here with every value read explicitly.
 VERIFIED: my evidence files are intact and non-zeroed at the time of writing.
   HOST_PREFLIGHT.json  worktree sha256 d9340b015bb9ec16455966dc6bdb768aa233353873260d9c5871096793156343
   SECURITY_FINAL.json  worktree sha256 46ce6e140a849e13883046cc1fc58a642e84b39846762f35480b1844bcf48672
+
+
+RE-VERIFY THESE DIGESTS (they are only valid for the commit they were taken at)
+--------------------------------------------------------------------------
+This file cites committed digests. A digest is a fact about ONE commit: if the
+artefact is re-issued, the citation rots. That already happened once -- the
+SECURITY_FINAL.json value below was correct when written and stale after
+commits 30731bc and df22446 re-issued that file. So do not trust this document;
+recompute:
+
+      for f in HOST_PREFLIGHT SECURITY_FINAL; do
+        printf '%s  ' "$f"
+        git cat-file -p "HEAD:artifacts/release/v1.3_final/$f.json" \
+          | sed 's/\r$//' | sha256sum | cut -d' ' -f1
+      done
+
+Compare against the CITE lines above. If they differ, the artefact was
+re-issued and THIS DOCUMENT is the stale artefact -- re-derive and update it,
+rather than citing the value from here.
+
+Digest of each artefact as of the commit that last changed it:
+  HOST_PREFLIGHT.json      fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+  SECURITY_FINAL.json      b182af35802fd33140553ebc87f10b387fe8e2457a23540904b4eb9e15f8801d
+
+NOTE ON THE LINE-DENDING RULE
+--------------------------------------------------------------------------
+Normalisation is CRLF -> LF only (`sed 's/\r$//'`, or
+b.replace(b"\r\n", b"\n")). Never `tr -d '\r'`: it deletes EVERY CR, so an
+in-band CR injection normalises to a clean-looking file and the check reports
+MATCH on damaged content. Measured:
+    clean   'ab\r\n'    -> tr: 61 62 0a
+    damaged 'a\rb\r\n'  -> tr: 61 62 0a   MATCH  (damage hidden)
+                            -> sed: 61 0d 62 0a  DIFFER  (caught)

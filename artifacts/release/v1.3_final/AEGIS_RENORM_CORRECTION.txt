@@ -1,10 +1,39 @@
 AEGIS NORMALISATION CORRECTION
+========================================================================
+READ THIS FIRST: every `tr -d '\r'` string below is EVIDENCE OF A DEFECT,
+never a recipe. I actually ran that command and it produced a false MATCH.
+
+The correct normalisation, stated once so you need not infer it:
+
+      sed 's/\r$//'                              # shell
+      b.replace(b"\r\n", b"\n")                 # python
+
+Do NOT use any `tr -d '\r'` form quoted below. Rewriting those quotes into
+`sed 's/\r$//'` would make this document lie about its own history -- it is a
+record of a mistake, and the mistake is the content. The live, copy-pasteable
+recipe that genuinely needed fixing was in AEGIS_SHA_CORRECTION.txt:25-26,
+corrected in commit 85302ea with an inline DO NOT comment. This file has zero
+code fences and no shell lines; every `tr -d` below sits inside a sentence that
+names it as the wrong form, and lines 30-31 are the byte-level evidence that it
+is wrong.
+
 generated=2026-10-05T10:50:28.4505638+08:00
 reason=weaver corrected the INC-002 rule; tr -d '\r' is a FALSE NEGATIVE
 
 WHAT WAS WRONG
 --------------------------------------------------------------------------
 I verified my own three artefacts using  tr -d '\r'  and reported MATCH.
+      sed 's/\r$//'                              # shell
+      b.replace(b"\r\n", b"\n")                 # python
+
+Rewriting the `tr -d '\r'` mentions below into `sed 's/\r$//'` would make this
+document lie: it is a record of a mistake, and the mistake is the content. The
+live, copy-pasteable recipe that DID need fixing was in
+AEGIS_SHA_CORRECTION.txt:25-26; that one is corrected in commit 85302ea, and it
+now carries an inline DO NOT comment. This file contains no runnable recipe --
+it has zero code fences, and every `tr -d` below sits in a sentence that names
+it as the wrong form.
+
 weaver showed that rule deletes EVERY CR, not just the CRLF one, so an
 in-band CR injection normalises to the same bytes as a clean file.
 
