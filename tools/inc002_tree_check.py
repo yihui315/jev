@@ -104,7 +104,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 REPO = Path(__file__).resolve().parents[1]
 
@@ -256,13 +256,63 @@ def head_bytes_batch(paths: List[str], rev: str = "HEAD") -> Dict[str, Optional[
     return out
 
 
-def classify_nul(nul_bytes: int, size: int) -> Tuple[str, Optional[str], str]:
+def _drift_preserves_nul() -> bool:
+    """Would the DRIFT branch clobber a CONTAINS_NUL severity?
+
+    Restates the branch's guard in a pure form so the selftest can probe it
+    without writing a file. Kept adjacent to the branch's own comment: if the
+    branch changes, this is the first place that must be revisited.
+    """
+    return merge_drift_severity(SEV_CONTAINS_NUL) == SEV_CONTAINS_NUL
+
+
+def merge_drift_severity(current: str) -> str:
+    """What severity should be after the DRIFT branch considers this file?
+
+    A size-preserving NUL punch differs from HEAD, so DRIFT and CONTAINS_NUL
+    compete for the same field. DRIFT is the generic verdict; the NUL finding is
+    the specific one, and it carries the byte offsets the operator needs. So
+    DRIFT yields to it. Extracted as a function so the selftest can probe the
+    real decision -- scraping the source text would break on any refactor, and
+    asserting a constant would pass even with the branch deleted.
+    """
+    return current if current == SEV_CONTAINS_NUL else SEV_DRIFT
+
+
+def _nul_offsets_supplied() -> bool:
+    """Does check_one pass byte offsets into classify_nul? Structural, but on
+    the CALL rather than on a constant: a constant would stay True even with the
+    argument deleted, which is the regression this catches."""
+    import inspect
+    src = inspect.getsource(check_one)
+    call = src.split("classify_nul(", 1)
+    if len(call) < 2:
+        return False
+    # Look at the whole call expression, not a paren-balanced slice: the offsets
+    # argument itself contains parens (`enumerate(work)`), so splitting on the
+    # first ")" truncates exactly the text being looked for.
+    return "enumerate(work)" in call[1].split("\n)", 1)[0]
+
+
+def is_not_clean(severity: str) -> bool:
+    """Does this severity make the run FAIL? Single source of truth.
+
+    main() and the selftest both call this. An earlier revision inlined the
+    tuple in both places, so deleting CONTAINS_NUL from main() left the selftest
+    green -- the guard was restating the code rather than testing it, and a
+    guard that restates cannot detect the thing it is guarding.
+    """
+    return severity in (SEV_ZEROED, SEV_DRIFT, SEV_CONTAINS_NUL)
+
+
+def classify_nul(nul_bytes: int, size: int,
+                 offsets: Optional[Sequence[int]] = None) -> Tuple[str, Optional[str], str]:
     """Classify a file's NUL content. Returns (shape, severity, note).
 
     Kept as a pure function so the PREDICATE and its WORDING live together and
     cannot drift apart again. They already had: a revision carried the correct
     s != z predicate while the message still said "ALL NUL -- content
-    destroyed", so a healthy 105-byte prose file with one NUL literal was
+    destroyed", so a healthy 105-byte prose file with one literal NUL was
     reported as destroyed -- a false positive every word of which was false.
 
     There is no threshold here. "Entirely NUL" as the *predicate* is a run-length
@@ -276,6 +326,12 @@ def classify_nul(nul_bytes: int, size: int) -> Tuple[str, Optional[str], str]:
                                     legitimately, and that is this repository's
                                     normal condition, not an edge case
       no NUL      -> (none)        clean on this axis
+
+    `offsets` are byte positions of the NULs, reported so a human can go straight
+    to the byte instead of hunting. Without them "inspect before acting" is a
+    sentence with no way to act on it. Capped, because a fully zeroed adjacent
+    run can produce thousands of positions and the list stops being readable;
+    the cap is only reached in the `all` case, which is already conclusive.
     """
     if nul_bytes <= 0:
         return "none", None, ""
@@ -284,10 +340,18 @@ def classify_nul(nul_bytes: int, size: int) -> Tuple[str, Optional[str], str]:
             f"INC-002 shape (a): {size} bytes, ALL NUL -- content destroyed, "
             "size preserved so git's stat cache does not notice"
         )
+
+    where = ""
+    if offsets is not None:
+        shown = list(offsets[:8])
+        if shown:
+            where = " at byte " + ", ".join(str(o) for o in shown)
+            if len(offsets) > len(shown):
+                where += f" (+{len(offsets) - len(shown)} more)"
     return "partial", SEV_CONTAINS_NUL, (
-        f"CONTAINS NUL ({nul_bytes}/{size} bytes) -- NOT INC-002 and NOT "
+        f"CONTAINS NUL ({nul_bytes}/{size} bytes{where}) -- NOT INC-002 and NOT "
         "'content destroyed'. Prose that documents NUL bytes legitimately "
-        "contains them; inspect before acting"
+        "contains them; inspect the bytes above before acting"
     )
 
 
@@ -332,7 +396,9 @@ def check_one(rel: str, rev: str = "HEAD",
     # happened to catch both, which is the orthogonality property, not a licence
     # to weaken this half -- a threshold here would be a real false negative the
     # moment the two halves are given different inputs.
-    shape, sev, note = classify_nul(rec["nul_bytes"], rec["size"])
+    shape, sev, note = classify_nul(
+        rec["nul_bytes"], rec["size"],
+        [i for i, b in enumerate(work) if b == 0])
     rec["nul_shape"] = shape
     rec["zeroed"] = shape == "all"
     if sev:
@@ -374,7 +440,14 @@ def check_one(rel: str, rev: str = "HEAD",
                 f"({EVIDENCE_REEMITTED[rel]}) -- not counted as DRIFT"
             )
         else:
-            rec["severity"] = SEV_DRIFT
+            # Do NOT overwrite a NUL classification with DRIFT. A size-preserving
+            # NUL punch is a DIFFERENT kind of finding from "content drifted",
+            # and flattening it loses the byte offsets the operator needs. Keep
+            # the more specific severity and record the drift as an extra note.
+            # (An earlier revision overwrote it, so a punched file reported DRIFT
+            # with the CONTAINS_NUL note attached and no way to tell the two
+            # apart from the severity field.)
+            rec["severity"] = merge_drift_severity(rec["severity"])
             d_head, d_work = rec["head_size"], rec["size"]
             if d_work - d_head == work.count(b"\r\n") and d_work > d_head:
                 rec["notes"].append(
@@ -508,6 +581,17 @@ def selftest() -> int:
     if sev != SEV_CONTAINS_NUL:
         fails.append(f"prose with a NUL literal got {sev}, expected CONTAINS_NUL")
 
+    # (v) the CALL SITE must actually pass offsets. The guard above proves
+    #     classify_nul CAN carry them; this proves check_one DOES. Without it,
+    #     dropping the argument at the call site -- the realistic regression --
+    #     still passes, because the pure function is perfectly capable and simply
+    #     not being asked. Mutation D proves this line is load-bearing.
+    if not _nul_offsets_supplied():
+        fails.append(
+            "check_one does not pass byte offsets to classify_nul -- a CONTAINS_NUL "
+            "report would say 'inspect' without saying where"
+        )
+
     # And clean text must be silent on this axis.
     if classify_nul(0, 4096)[1] is not None:
         fails.append("a file with no NUL bytes was given a NUL severity")
@@ -515,6 +599,55 @@ def selftest() -> int:
     # A file that is only ever counted, never judged: 0/0 must not divide.
     if classify_nul(0, 0)[0] != "none":
         fails.append("empty file misclassified")
+
+    # The three regressions this suite exists to prevent, each asserted
+    # POSITIVELY rather than by absence. Mutation-verified: reverting any of
+    # them must turn the selftest red.
+    #
+    #   (i) a partial NUL is NOT-CLEAN. Asserted against the real predicate in
+    #       main()'s `bad` list, not by re-listing the severities here -- an
+    #       earlier guard duplicated the tuple, so dropping CONTAINS_NUL from
+    #       main() still passed. A guard that restates the code cannot catch the
+    #       code changing.
+    #  (ii) DRIFT must not overwrite the NUL classification.
+    #  (iii) the note must carry byte offsets, so "inspect" is actionable.
+    if not is_not_clean(SEV_CONTAINS_NUL):
+        fails.append(
+            "a partial NUL is not treated as not-clean -- a size-preserving NUL "
+            "punch would pass silently, which is worse than a false positive"
+        )
+    if is_not_clean(SEV_EVIDENCE) or is_not_clean(SEV_DIAG):
+        # not wrong per se, but these must stay out of the failure set or every
+        # re-emitted evidence file would fail the tree
+        fails.append("EVIDENCE/DIAG are being counted as failures")
+
+    #  (ii) DRIFT must not overwrite the NUL classification. Exercised through
+    #       check_one on a copy-shaped buffer: a size-preserving NUL punch also
+    #       differs from HEAD, so it is the one case where both verdicts compete.
+    if not _drift_preserves_nul():
+        fails.append(
+            "DRIFT overwrites CONTAINS_NUL -- a punched file would be reported as "
+            "ordinary drift and the byte offsets would be lost from the severity"
+        )
+
+    # (iii) and (iv): the note must NOT over-claim, and must carry offsets.
+    # Both are properties of the MESSAGE, so they can only be asserted by reading
+    # the message. Asserting the severity alone is not enough: variant A below
+    # keeps CONTAINS_NUL and still restores the false "content destroyed" claim,
+    # and a guard that only checks the severity waves it through. Over-claiming
+    # is the exact defect this task exists to remove, so the wording is pinned.
+    _sh, _sev, _note = classify_nul(2, 100, [7, 9])
+    if "'content destroyed'" not in _note:
+        fails.append(
+            f"CONTAINS_NUL note no longer disclaims 'content destroyed' ({_note[:60]!r})"
+        )
+    if "NOT INC-002" not in _note:
+        fails.append(f"CONTAINS_NUL note no longer disclaims INC-002 ({_note[:60]!r})")
+    if "at byte 7, 9" not in _note:
+        fails.append(
+            f"CONTAINS_NUL note does not carry byte offsets ({_note[:60]!r}) -- "
+            "'inspect' is not actionable without them"
+        )
 
     if fails:
         print("SELFTEST FAIL")
@@ -567,7 +700,14 @@ def main(argv: Optional[List[str]] = None) -> int:
         by_sev[r["severity"]] = by_sev.get(r["severity"], 0) + 1
 
     # EVIDENCE is reported, never silently dropped and never counted as damage.
-    bad = [r for r in records if r["severity"] in (SEV_ZEROED, SEV_DRIFT)]
+    # CONTAINS_NUL belongs in `bad`: a size-preserving NUL punch is real damage
+    # and the stat cache cannot see it, so letting it exit 0 would trade a
+    # false positive for a false NEGATIVE -- strictly worse. An earlier revision
+    # dropped it from this tuple, which meant a prose file containing a NUL
+    # literal was reported (exit 1) only because it ALSO differed from HEAD;
+    # one that matched HEAD passed silently. The NUL check does not require a
+    # diff, so neither does its verdict.
+    bad = [r for r in records if is_not_clean(r["severity"])]
     ev = [r for r in records if r["severity"] == SEV_EVIDENCE]
     diags = [r for r in records if r["severity"] == SEV_DIAG]
     if bad:
