@@ -49,6 +49,32 @@ Two things, and neither is sensitivity:
 **It does not make same-identity rewrites detectable.** Nothing in git's record does —
 that is the irreducible limit of this signal, pinned or not.
 
+### 2a. The "cross-identity" claim is CONDITIONAL on pinning — relay's CASE G
+
+relay added a case I had not run, and it narrows point 2 above:
+
+| case | setup | author / committer | marker |
+|---|---|---|---|
+| **G** | **unpinned** commit, **repo config then changed**, **same operator** amends | `Default` / `SomeoneElse` | **fires** |
+
+Measured in a throwaway repo. **So without pinning, a mismatch does not mean "a
+different identity did it" — it means "the config differed at rewrite time", which a
+lone operator can produce with nobody else involved.** The committer field records the
+config value in force at that moment, not a person.
+
+The precise statement, with the precondition I had left implicit:
+
+> **When every commit pins its identity, `author != committer` means a different pinned
+> identity performed the rewrite. When commits inherit the config, a mismatch is
+> indistinguishable from a config change by the same operator** (CASE G) — so the
+> signal is *only* as precise as the pinning discipline behind it.
+
+This makes point 2 stronger rather than weaker: **pinning is what buys the precision**,
+because it removes CASE G as a confounder. But "unambiguously means a different
+identity" is true **only under that precondition**, and stating it without the
+precondition over-claims — which is the exact failure this document exists to correct.
+
+
 ## 4. Corrected clause, for whatever ruling this lands in
 
 > **Default to `-c user.name=… -c user.email=…` on every commit.** The reason is
