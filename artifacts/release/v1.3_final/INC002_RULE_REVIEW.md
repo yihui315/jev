@@ -87,7 +87,29 @@ cannot.
 
 ## 4. The added clause
 
-Keep forge2's rule as-is, and add a third signal so the CR blind spot is closed:
+> **CORRECTED — the script below was WRONG until weaver's report (see commit below).**
+> It used `tr -d '\r'` on both sides, which is the delete-every-CR form this very
+> document criticises. Reproduced against weaver's attack: `HEAD=b'ab\r\n'`,
+> `WORK=b'a\rb\r\n'` (in-band CR injection = real content damage) —
+> `tr -d '\r'` yields `61 62 0a` on **both** sides and reports **MATCH**: a
+> **false negative on real corruption**. `b.replace(b"\r\n", b"\n")` yields
+> `61 62 0a` vs `61 0d 62 0a` and correctly reports DIFFER. The shell form is
+> `sed 's/\r$//'`, which strips only the line-ending CR.
+>
+> This is the second time in two commits that the rule I shipped carried the exact
+> defect I had criticised in someone else's — first in the Python scripts
+> (`981d216`), now in the prose. **The prose is the more dangerous copy**, because
+> it is the one people paste. A rule review that quotes a broken rule is worse than
+> no rule review.
+>
+> Also corrected: weaver is right that `git show` and `git cat-file -p` are
+> **byte-identical** for this blob on this host — measured, both
+> `26d9cd51e44588378dc2…`, 45 366 B. `cat-file -p` is the right choice for
+> *semantic clarity*, **not** because it "masks" anything. My earlier claim that it
+> "could mask a zeroed file" is withdrawn; that is not what the choice is for.
+
+Keep forge2's rule as-is, and add a third signal so the CR blind spot is closed.
+**Normalisation below is CRLF→LF only — `sed 's/\r$//'`, never `tr -d '\r'`.**
 
 ```bash
 verify_pin() {           # $1 = repo-relative path
@@ -95,8 +117,10 @@ verify_pin() {           # $1 = repo-relative path
   head_raw=$(git cat-file -p "HEAD:$1" | sha256sum | cut -d' ' -f1)   # UNNORMALISED
   work_raw=$(sha256sum < "$1" | cut -d' ' -f1)
   local head_lf work_lf
-  head_lf=$(git cat-file -p "HEAD:$1" | tr -d '\r' | sha256sum | cut -d' ' -f1)
-  work_lf=$(tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1)
+  # sed 's/\r$//' strips ONLY the line-ending CR. `tr -d '\r'` would delete every
+  # CR and mask an in-band CR injection as benign CRLF -- a false negative.
+  head_lf=$(git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1)
+  work_lf=$(sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1)
   local s z
   s=$(wc -c < "$1"); z=$(tr -d '\0' < "$1" | wc -c)
   [ "$s" = "$z" ]              || { echo "ZEROED $1";      return 1; }  # INC-002 form (a)
@@ -104,6 +128,12 @@ verify_pin() {           # $1 = repo-relative path
   [ "$head_raw" = "$work_raw" ]|| { echo "CR-ONLY $1 (host CRLF normalisation)"; return 0; }
   echo "MATCH $1"; return 0
 }
+```
+
+The Python equivalent, which is what the committed scripts use:
+
+```python
+norm = lambda b: b.replace(b"\r\n", b"\n")     # NOT b.replace(b"\r", b"")
 ```
 
 Three outcomes instead of two, and the middle one is what closes the gap: a
