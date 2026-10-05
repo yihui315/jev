@@ -335,18 +335,35 @@ def a8_pinned_files() -> List[str]:
     if end < 0:
         return []
     out: List[str] = []
+    # Names referenced but not resolvable to a path; surfaced, never dropped.
+    unresolved: List[str] = []
     for line in seg[:end].splitlines():
-        line = line.split("#", 1)[0].strip()
+        line = line.split("#", 1)[0].strip().rstrip(",")
         if not line:
             continue
-        # Each entry is a Python expression like
-        #     REPO_ROOT / "packages" / "jcc_core" / "core.py"
-        # Extract the quoted parts and join them; taking the whole line (an
-        # earlier draft did) yields a path with quotes and commas in it, which
-        # then "is not present in the worktree" for every entry.
+        # Each entry is a Python expression. Two shapes occur:
+        #     REPO_ROOT / "packages" / "jcc_core" / "core.py"     (inline path)
+        #     SHIPPED_CONFIG                                      (a bare name)
+        # The second shape is why _BASELINE_HASHES has TWELVE entries while a
+        # quoted-parts-only parse yields eleven. config/jcc.yaml is pinned via
+        # SHIPPED_CONFIG, and dropping it made "--a8-pins" report a clean 11/11
+        # while silently never checking one of the twelve -- a checker quietly
+        # covering less than it claims, which is the same class of defect this
+        # tool exists to catch. So a bare identifier is resolved through the
+        # module's own assignment and, if it cannot be resolved, recorded as
+        # unparsed rather than skipped in silence.
         parts = re.findall(r'"([^"]+)"', line)
         if parts:
             out.append("/".join(parts))
+            continue
+        if re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", line):
+            m = re.search(rf"^{line}\s*=\s*(.+)$", text, re.M)
+            if m:
+                quoted = re.findall(r'"([^"]+)"', m.group(1))
+                if quoted:
+                    out.append("/".join(quoted))
+                    continue
+            unresolved.append(line)
     return out
 
 
@@ -411,6 +428,26 @@ def selftest() -> int:
             fails.append(f"pristine file reported {rec3['severity']}, expected CLEAN")
     finally:
         target.write_bytes(original)
+
+    # 6. The A8 pin parser must not UNDER-report coverage.
+    #    _PROD_ARTIFACTS names one pinned file by bare identifier
+    #    (SHIPPED_CONFIG -> config/jcc.yaml) rather than an inline path, so a
+    #    quoted-parts-only parse drops it and reports a clean 11/11 while never
+    #    checking 1 of the 12. A checker that quietly covers less than it claims
+    #    is the same defect class this tool exists to catch, so the count and the
+    #    specific file are both pinned here. This guard was itself verified by
+    #    reverting the parser: the selftest must then FAIL.
+    pins = a8_pinned_files()
+    if len(pins) < 12:
+        fails.append(
+            f"A8 pin parser found {len(pins)} artifacts, expected >= 12 -- a "
+            "pinned file referenced by bare name is probably being skipped"
+        )
+    if "config/jcc.yaml" not in pins:
+        fails.append(
+            "config/jcc.yaml missing from the parsed pin set (it is referenced "
+            "via SHIPPED_CONFIG, not an inline quoted path)"
+        )
 
     if fails:
         print("SELFTEST FAIL")
