@@ -240,34 +240,45 @@ def _selftest_twin_target() -> Path:
 
 
 def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
-    """Is this difference *provably* nothing but CRLF-vs-LF?
+    """Is this difference PROVABLY nothing but CRLF-vs-LF? Raw bytes only.
 
-    "normalised hashes are equal" is NOT enough. Measured counterexample:
+    Measured, not modelled: exhaustive over all 1..3-byte payloads on {a, CR,
+    LF} finds exactly one unordered pair that is equal-length, different, and
+    identical after `replace(b"\r\n", b"\n")`:
 
-        61 0d 0a 0d 62 0a   (a\\r\\n\\rb\\n)   -> 61 0a 0d 62 0a
-        61 0a 0d 62 0d 0a   (a\\n\\rb\\r\\n)   -> 61 0a 0d 62 0a
+        b"\n\r\n"   vs   b"\r\n\n"      both normalise to b"\n\n"
 
-    The two files have DIFFERENT structure (one has an empty line 2, the other
-    a bare-CR line 2), yet replace(b"\\r\\n", b"\\n") maps both to the same
-    bytes. So normalisation equality alone would label a real content
-    difference as an innocent line-ending artefact.
+    Information is destroyed AT the normalisation step, so no check applied to
+    the normalised bytes can recover it. The previous implementation tested
+    "no lone CR after normalisation" and "line structure agrees after
+    normalisation" -- and both of those hold for this pair, because both sides
+    normalise to b"\n\n" and both split to [b"", b"", b""]. It therefore
+    returned True, laundering a real content difference into EOL_ONLY. Verified
+    against this function directly before the change.
 
-    The gate that separates them is the lone CR. After normalisation, a file
-    that was genuinely only CRLF-vs-LF has no CR left outside a pair; the
-    counterexample still does, and that residue is the evidence.
+    So the exemption is decided on RAW bytes, by asking whether one side is
+    literally the other with its line endings rewritten. There is no
+    normalisation in this function at all, which is the point: the earlier
+    design normalised first and asked questions afterwards, and the answer was
+    gone before the question was asked.
 
-    Measured on GNU sed 4.9 / MSYS2, and re-derived by hand on the raw bytes.
+    A token-sequence comparison was tried and rejected: every benign LF->CRLF
+    twin changes its token list ([LF] vs [CRLF]), so it flagged ordinary host
+    line-ending drift as damage (p1-tooling measured this, 25/25 false
+    positives).
+
+    KNOWN LIMIT, measured, not assumed: the second clause covers CRLF->LF only
+    where the LF side is a pure expansion of the other. A blob that itself
+    contains CRLF, checked out as LF, is NOT exempted by either clause. That
+    cannot occur in this repository -- `.gitattributes` says `* text=auto eol=lf`
+    and 0 of 400 scanned HEAD blobs contain CRLF -- but if that attribute is ever
+    relaxed, this returns False and such a file reports DRIFT. That is the
+    safe direction to fail: a false DRIFT is visible, a false EOL_ONLY is not.
     """
     if work == head:
         return False
-    nw, nh = normalise_eol(work), normalise_eol(head)
-    if _sha(nw) != _sha(nh):
-        return False
-    if _has_lone_cr(nw) or _has_lone_cr(nh):
-        return False
-    # Structure must agree once normalised, line for line.
-    return nw.split(b"\n") == nh.split(b"\n")
-
+    return (work == head.replace(b"\n", b"\r\n")
+            or head == work.replace(b"\r\n", b"\n"))
 
 def head_bytes(path: str, rev: str = "HEAD") -> Optional[bytes]:
     """Raw blob from the object store, single-file path.
@@ -675,6 +686,48 @@ def selftest() -> int:
     if _is_pure_eol_difference(lf, lf):
         fails.append("identical bytes were classified as a difference")
 
+    # 1d. The five damage classes, as ASSERTIONS rather than comments. The
+    #     normalisation collision existed in this file as a comment for several
+    #     rounds while --selftest passed at exit 0, because every case called the
+    #     predicate with pairs it did not think to check. A counterexample in a
+    #     comment is not coverage; it is a warning label.
+    _damage = [
+        (b"\n\r\n", b"\r\n\n", "normalisation collision, LF-leading"),
+        (b"\r\n\n", b"\n\r\n", "normalisation collision, CRLF-leading"),
+        (b"a\r\n\rb\n", b"a\n\rb\r\n", "lone-CR residue (the sed blind spot)"),
+        (b"abc\r\n", b"abd\r\n", "real content edit"),
+        (b"a\rb\r\n", b"ab\r\n", "in-band CR injection"),
+        (b"\x00\x00\r\n", b"ab\r\n", "NUL punch alongside CRLF"),
+    ]
+    for _w, _h, _why in _damage:
+        if _is_pure_eol_difference(_w, _h):
+            fails.append(
+                f"damage was classified as a pure EOL difference ({_why}): "
+                f"work={_w!r} head={_h!r}"
+            )
+
+    # The KNOWN LIMIT, pinned rather than merely documented: the predicate is
+    # directional. A CRLF blob checked out as LF is NOT exempted. It cannot
+    # occur while `* text=auto eol=lf` holds (0 of 400 scanned HEAD blobs
+    # contain CRLF), and it fails toward DRIFT, which is the safe direction. But
+    # a limit that only lives in a docstring is one refactor away from being
+    # rediscovered as a bug, so it is asserted here too.
+    if _is_pure_eol_difference(b"a\nb\n", b"a\r\nb\r\n"):
+        fails.append(
+            "work=LF against a CRLF blob is now exempt -- if that was intended, "
+            "document it; if not, the predicate widened past its stated limit"
+        )
+    # ...and the direction that MUST be exempt, asserted positively rather than
+    # assumed: `.gitattributes` is `* text=auto eol=lf`, so the blob is LF and
+    # this host checks out CRLF. The first draft of this limit asserted the
+    # wrong pair and failed immediately, which is the point of asserting limits
+    # instead of only writing them down.
+    if not _is_pure_eol_difference(b"a\r\nb\r\n", b"a\nb\n"):
+        fails.append(
+            "the real case (work=CRLF, head=LF under `* text=auto eol=lf`) is "
+            "not exempt -- every benign Windows checkout would report DRIFT"
+        )
+
     # 1c. The eol_only FIELD must be reachable from the verdict, or it is a
     # dead field and the cases above are decoration. Measured: negating the
     # consumer (`if False and rec.get("eol_only")`) left this whole selftest
@@ -720,8 +773,15 @@ def selftest() -> int:
     try:
         # LF in HEAD, pure CRLF in the worktree: identical content, host
         # line-endings only. Must NOT be DRIFT.
-        _twin.write_bytes(b"line one\nline two\n")
-        _rec = check_one(_selftest_twin_rel(), preloaded=b"line one\r\nline two\r\n")
+        # Operands in the order git actually produces them. `.gitattributes`
+        # says `* text=auto eol=lf`, so the BLOB is LF and a Windows checkout
+        # is CRLF: work = CRLF, head = LF. An earlier version of this case had
+        # them the other way round and passed only because the old predicate
+        # was symmetric; the moment the predicate became directional it failed,
+        # which is the correct outcome -- the case was asserting a shape this
+        # repository cannot produce.
+        _twin.write_bytes(b"line one\r\nline two\r\n")
+        _rec = check_one(_selftest_twin_rel(), preloaded=b"line one\nline two\n")
         if _rec["severity"] == SEV_DRIFT:
             fails.append(
                 "a pure CRLF-vs-LF twin was reported DRIFT by check_one -- the "
@@ -730,8 +790,8 @@ def selftest() -> int:
         if _rec["severity"] == SEV_ZEROED:
             fails.append("a pure CRLF twin was reported ZEROED")
         # And the negative, through the same door: a real edit must be DRIFT.
-        _twin.write_bytes(b"line one\nline TWO\n")
-        _rec2 = check_one(_selftest_twin_rel(), preloaded=b"line one\r\nline two\r\n")
+        _twin.write_bytes(b"line one\r\nline TWO\r\n")
+        _rec2 = check_one(_selftest_twin_rel(), preloaded=b"line one\nline two\n")
         if _rec2["severity"] != SEV_DRIFT:
             fails.append(
                 f"a real content edit was reported {_rec2['severity']} through "
