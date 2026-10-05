@@ -132,6 +132,59 @@ def main() -> int:
                "projection + navigation + status suites pass")
 
     # 3. structural: the projection and scene have NO write path
+    #
+    # NEGATIVE EXISTENCE ASSERTION -- THIS COMES FIRST, AND IT COMES FIRST ON
+    # PURPOSE.
+    #
+    # Everything below is a FEATURE COUNT: count the forbidden tokens, and if
+    # there are none, declare that the plane has no write path. That inference
+    # is only sound while the file still HAS content. INC-002 replaced a tracked
+    # file's bytes with NULs and left its size -- and therefore git's stat
+    # cache -- intact; a file with no tokens produces no matches, so a
+    # count-the-features check reports "no write path" about a file that no
+    # longer exists as source. Measured on a size-preserving-zeroed fixture
+    # (tools/detector_blindspot_probe.py): this check returned ok=true with
+    # zeroed inputs.
+    #
+    # So the sources must be shown to EXIST as source before their contents are
+    # allowed to imply anything. Refusing is not optional here: "I read an empty
+    # file and found no write path" is not a weaker claim, it is a false one.
+    #
+    # Thresholds are deliberately far below any real source file, so this can
+    # only fire on a file whose content has actually been removed.
+    MIN_SOURCE_BYTES = 32
+    _unreadable: List[str] = []
+    for _label, _rel in (("projection", "src/store/domainWorld.ts"),
+                         ("scene", "src/scene/OperationalWorld.tsx"),
+                         ("navigation", "src/app/navigation.ts")):
+        _p = APP / _rel
+        try:
+            _raw = _p.read_bytes()
+        except OSError as exc:
+            _unreadable.append("%s (%s): cannot read: %s" % (_label, _rel, exc))
+            continue
+        if len(_raw) < MIN_SOURCE_BYTES:
+            _unreadable.append(
+                "%s (%s): %d bytes on disk, below the %d-byte floor -- content "
+                "has been removed (zeroed or truncated), so nothing can be "
+                "concluded from it" % (_label, _rel, len(_raw), MIN_SOURCE_BYTES))
+            continue
+        if b"\x00" in _raw:
+            _unreadable.append(
+                "%s (%s): contains NUL bytes -- INC-002 signature (content "
+                "replaced, size preserved)" % (_label, _rel))
+            continue
+        # A source file must also carry SOME non-whitespace text. A file of the
+        # right size made entirely of spaces is the same class of damage.
+        if not _raw.decode("utf-8", "replace").strip():
+            _unreadable.append("%s (%s): no non-whitespace content" % (_label, _rel))
+
+    checks.add("SOURCES_ARE_READABLE_SOURCE",
+               not _unreadable,
+               {"unreadable": _unreadable, "min_bytes": MIN_SOURCE_BYTES},
+               "every file this gate reasons about still holds real source; an "
+               "unreadable or emptied file is UNKNOWN, never compliant")
+
     world_src = (APP / "src" / "store" / "domainWorld.ts").read_text(encoding="utf-8")
     scene_src = (APP / "src" / "scene" / "OperationalWorld.tsx").read_text(encoding="utf-8")
     forbidden = re.compile(r"\bfetch\s*\(|\bPOST\b|X-JCC-Token|\.createProject\s*\(|"
@@ -139,9 +192,16 @@ def main() -> int:
                            r"\.addArtifact\s*\(")
     w_hits = forbidden.findall(world_src)
     s_hits = forbidden.findall(scene_src)
+    # `and not _unreadable` is load-bearing, not belt-and-braces. A count of
+    # zero forbidden tokens is only evidence of a clean file when there WAS a
+    # file to count. Without this term the check reports "no write path" on
+    # precisely the input where it has no right to an opinion, and the gate's
+    # overall red would rest entirely on the assertion above -- which is
+    # correct, but would leave this check individually lying.
     checks.add("WORLD_HAS_NO_WRITE_PATH",
-               not w_hits and not s_hits,
-               {"domainWorld": w_hits, "scene": s_hits},
+               not w_hits and not s_hits and not _unreadable,
+               {"domainWorld": w_hits, "scene": s_hits,
+                "unreadable_sources": _unreadable},
                "neither the projection nor the scene can mutate domain state")
 
     # 4. domainWorld.ts imports the API client TYPE-ONLY
