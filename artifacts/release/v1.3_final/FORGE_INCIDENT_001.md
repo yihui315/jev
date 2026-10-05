@@ -16,8 +16,9 @@
 > **正确写法**（裁定 #21 的规范：只剥 CRLF，保留带内 CR）：
 > ```
 > python: b.replace(b"\r\n", b"\n")   <- 注意不是 b.replace(b"\r", b"")
-> shell : sed 's/\r$//'               <- 见下方「我自己的第二次撤回」
 > ```
+> **shell 一律用 `python -c` 的字节形式**（见正文 recipe），或直接用
+> `tools/inc002_tree_check.py`。**不要用任何 sed 形式**——理由见下方第三次订正。
 >
 > ### ⚠️ 我自己的第二次撤回（2026-10-05，rulings-fix）—— 上一版订正也是错的
 >
@@ -46,14 +47,31 @@
 > printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
 > ```
 >
-> **本文件统一回到 `sed 's/\r$//'`，即prism-3dui 最初的形式** —— 那个判断是对的。
-> 我原来的「9/9 一致」是**读取器的功劳，不是脚本的功劳**；把功劳记给脚本是错的。
+> **本文件一度回到 `sed 's/\r$//'`（prism-3dui 最初的形式）—— 那是第二次撤回，
+> 也已被 weaver 的同长度用例推翻。**
 >
-> **仍然成立的开放条件**：本机 MSYS 读取器 + `s/\r$//` 会叠加剥掉最多两个 CR，
-> 所以 `ab\r\r\n` 这一形态在本机被判 MATCH，而 python 规范判 DIFFER。
-> 要在本机抓住该形态，**不要换sed 脚本**，用 python 形式或
-> `tools/inc002_tree_check.py`（按字节读，与宿主无关）。
-> **owner: team-lead**，作为未闭合条件跟踪。
+> ### ⚠️ 第三次订正（2026-10-05，weaver提出 / rulings-fix 实测）：`s/\r$//` 同样不可用
+>
+> prism-3dui 最初的判断方向是对的（`tr -d '\r'` 必须撤回），但他推荐的替代形式
+> `s/\r$//` **对同为长度的 CRLF/LF 重排会漏报**。实测（两侧都列出来）：
+> ```
+> HEAD = 0d 0a  ("\r\n")   WORK = 0a 0d  ("\n\r")    两侧同为 2 字节
+>   sed 's/\r$//'  -> 0a      / 0a        SAME    => 漏报
+>   sed ''         -> 0a      / 0a 0d     DIFFER  => 抓到
+>   字节规则        -> 0a      / 0a 0d     DIFFER  => 抓到
+> HEAD = 61 0d 0a          WORK = 61 0a 0d          两侧同为 3 字节
+>   sed 's/\r$//'  -> 61 0a   / 61 0a     SAME    => 漏报
+> HEAD = 61 0d 0a 62       WORK = 61 0a 62 0d       两侧同为 4 字节
+>   sed 's/\r$//'  -> 61 0a 62 / 61 0a 62  SAME    => 漏报
+> ```
+> **「变换前后长度相同」正是 INC-002 的定义形态**，所以 `s/\r$//` 在任何宿主上
+> 都不能当判据。
+>
+> **对 prism 那句「本机没有任何 sed 脚本能对该形态正确」的精确化**：太强了。
+> no-op 对照证明**本机 `sed ''`（空脚本）已等于规范规则，9/9 形态成立**
+> ——因为本机读取器顺手做了 CRLF→LF。但那是**本机凑巧**，在 POSIX 上是 no-op，
+> 不可移植。**所以结论不是「换个更好的 sed」，而是「sed 不可用，用字节规则」**
+> （正文 recipe 已改为 `python -c` 字节形式，8/8 实测通过）。
 >
 > **被撤回的原文一律保留并标注，不删除** —— 删除会让后来者以为该问题从未存在。
 > 规范正本在 `ORION_ADJUDICATIONS.md` 裁定 #21，**本文不另立规范**。
@@ -105,10 +123,15 @@ rh=$(git cat-file -p "HEAD:$f" | sha256sum | cut -d' ' -f1)
 rw=$(sha256sum "$f" | cut -d' ' -f1)
 [ "$rh" = "$rw" ] && echo "IDENTICAL (raw)"        # 强结论：逐字节相同
 # 仅当 RAW DIFFER 时，才用【只去 CRLF 的 CR】的归一化来分辨是 smudge 还是真损坏
-# 用 sed 's/\r$//'（只去行尾 CR），不要用 tr -d '\r'（删掉每一个 CR）
-[ "$(git cat-file -p "HEAD:$f" | sed 's/\r$//' | sha256sum | cut -d' ' -f1)" \
-= "$(sed 's/\r$//' < "$f" | sha256sum | cut -d' ' -f1)" ] \
-  && echo "EOL-ONLY (CRLF smudge, 无内容损坏)" || echo "REAL DIFFER"
+# 不要用 tr -d '\r'（删掉每一个 CR），也不要用任何 sed 形式（见上方横幅：
+# sed 对同为长度的 CRLF/LF 重排会漏报，且本机读取器会额外改字节）。
+# 用按字节读的规范规则，不 spawn sed，因此不受宿主 sed 读取器影响。
+norm() { python -c 'import sys;sys.stdout.buffer.write(
+           sys.stdin.buffer.read().replace(b"\r\n",b"\n"))'; }
+[ "$(git cat-file -p "HEAD:$f" | norm | sha256sum | cut -d' ' -f1)" \
+= "$(norm < "$f" | sha256sum | cut -d' ' -f1)" ] \
+  && echo "NORMALISED EQUAL -> 人工复核（归一化是可能有损投影，不能单独定案）" \
+  || echo "RAW 已 DIFFER 且归一后仍不同 -> 真实差异"
 ```
 
 **为什么 RAW 优先**：RAW 相等是**逐字节相同**的强结论，不需要任何"归一化是安全的"
@@ -218,6 +241,52 @@ s=$(wc -c < "$f"); z=$(tr -d '\0' < "$f" | wc -c)
 ```
 
 **§2.4 已实测**：本文涉及的三个文件非零字节检查全部 OK。
+
+---
+
+## 0.5 【2026-10-05 第三次订正】成对折叠**也不是**无盲区 —— 只有 RAW 是
+
+> **本节推翻 §0 里"正确形式 = 成对折叠"的暗示。**
+> 我穷举了 1..3 字节空间（字母表 `{a, CR, LF}`，39 个 payload，
+> 390 个"等长且内容不同"的配对），**运行真实 GNU sed**（不是 Python 复刻）：
+>
+> ```
+> sed 's/\r$//'      HAS 6 COLLISION(S)     <- weaver 报 14（版本/取样差异，方向一致）
+>       0d 0a     vs 0a 0d
+>       61 0d 0a  vs 61 0a 0d
+> sed 's/\r\n/\n/g'  HAS 1 COLLISION(S)     <- §0 推荐的"正确形式"
+>       0d 0a 0a  vs 0a 0d 0a
+> py replace(CRLF,LF) HAS 1                  <- 全体共识的"唯一推荐"
+>       0d 0a 0a  vs 0a 0d 0a
+> raw bytes          SAFE by construction   <- 无变换
+> ```
+>
+> **那个碰撞是真实的，且形状正是 INC-002 的定义性形态：**
+> ```
+> a = 0d 0a 0a   (CRLF LF)      len 3
+> b = 0a 0d 0a   (LF CRLF)      len 3
+> replace(CRLF,LF):  a -> 0a 0a   b -> 0a 0a   SAME  -> 假阴性
+> raw bytes:         a != b                 DIFFER -> 正确抓到
+> ```
+> **两者都是良构行尾**（`CRLF LF` vs `LF CRLF`），**只差顺序**。
+> 任何"按 CRLF 对折叠"的实现都会把它们折成同一结果。
+
+### 因此本文件的最终表述（三次订正后）
+
+> **唯一无盲区的判据是 RAW 逐字节相等**——不做任何变换，等价即结论。
+> **任何归一化都有盲区，只是大小不同**：
+> `tr -d '\r'` 丢全部 CR；`s/\r$//` 丢每行除最后一个外的 CR；
+> **成对折叠丢 CRLF/LF 的"顺序"信息**。
+> **归一化只能用于【把 RAW DIFFER 分类为"EOL-only 还是真损坏"】，
+> 绝不能用于【判定 MATCH】。顺序颠倒即为 fail-open。**
+
+**这条把问题从"公式"改成了"顺序"**：
+先 RAW 相等（无损失）→ 差则用归一化**只做分类**，不产出 MATCH 结论。
+**我前三轮之所以反复被纠正，正因为我一直在找"正确的归一化公式"，
+而正确答案是：归一化根本不该参与相等性判定。**
+
+> **注**：本节与 §0 的更正并存。§0 的"RAW 优先"建议是对的，
+> 但它**没有说明归一化仍有盲区**，所以我自己在 §2.4 引用它时是**过度自信**的。
 
 ---
 
