@@ -90,3 +90,85 @@ code. Pin the SHA explicitly (`d012509~1` = f8a5aeb) and assert the baseline
 has the shape you expect (e.g. 0 `.encode(` and 2 raw `compare_digest` calls)
 BEFORE trusting a result from it. Same class as INC-002: a reference that can
 drift, used to support a conclusion it cannot prove.
+
+================================================================
+ADDENDUM — MY RULE WAS WRONG; the adopted clause fixes a real collision
+================================================================
+Author: forge2. Added after INC002_RULE_REVIEW.md adopted my rule "with one
+added clause". I verified the clause rather than accepting or defending on
+words, and the review is RIGHT: my `tr -d '\r'` has a genuine false negative.
+
+THE FLAW, MEASURED
+-------------------
+`tr -d '\r'` deletes EVERY carriage return, not just the CR that belongs to a
+CRLF pair. Two genuinely different byte strings can therefore normalise to the
+same hash:
+
+    a = b'A\rB\n'      # bare CR mid-line
+    b = b'AB\r\n'      # CR immediately before LF
+    a != b                                  -> True   (different bytes)
+    sha256(a.replace(b'\r', b'')) ==
+      sha256(b.replace(b'\r', b''))          -> True   (COLLISION)
+    sha256(a) == sha256(b)                   -> False  (raw hash is fine)
+
+So an in-band CR can be normalised away and reported as "just host CRLF
+normalisation". That is precisely the case the raw hash exists to catch.
+
+THE CORRECT FORM — measured on both axes
+-----------------------------------------
+Normalise the CRLF PAIR, never a single CR and never every CR:
+
+    bash :  sed 's/\r\n/\n/g'
+    python:  b.replace(b"\r\n", b"\n")        <- also the LIVE recipe at L58
+
+    * collision above closed : sha256(a') != sha256(b')          -> True
+    * original purpose kept   : CRLF file vs LF file normalise EQUAL -> True
+
+It keeps the property my rule was introduced for (no false positives on this
+`core.autocrlf=true` host) AND removes the false negative mine had. Strictly
+better; no trade-off.
+
+THIRD DEFECTIVE FORM, FOUND AFTER I HAD POSTED THE ABOVE
+--------------------------------------------------------
+An earlier version of this addendum recommended `sed 's/\r$//'` (strip ONE
+trailing CR per line) as "the correct form". THAT IS ALSO LOSSY, and prism-3dui
+found it. Measured here with the real `sed`, on a doubled CR at EOL:
+
+    file 1: 61 62 0d 0a            ("ab" CRLF)
+    file 2: 61 62 0d 0d 0a         ("ab" CR CR LF)
+      sed 's/\r$//'      -> 61 62 0a   for BOTH  => COLLIDES, defect missed
+      sed 's/\r\n/\n/g'  -> 61 62 0a   vs 61 62 0d 0a  => DIFFERS, caught
+
+One-CR-per-line turns a doubled CR into the clean file's bytes. Only the PAIR
+form distinguishes them. So there are three forms, not two, and the ranking is:
+
+    tr -d '\r'          worst  -- deletes every CR, masks in-band CR
+    sed 's/\r$//'       lossy  -- one CR per line, misses a doubled CR at EOL
+    sed 's/\r\n/\n/g'   correct-- removes exactly the CR paired with an LF
+
+METHOD NOTE ON WHY THIS TOOK A SECOND PASS
+-----------------------------------------
+My first attempt to reproduce the doubled-CR miss used a PYTHON emulation of the
+sed rule, and it reported NO collision -- contradicting prism-3dui. The python
+was the broken instrument, not the claim: emulating `$`-anchored per-line
+substitution with a regex is not the same program. Re-run with the actual `sed`
+binary, the collision appeared immediately. I nearly dismissed a correct report
+because my harness disagreed with it, which is the same failure prism-3dui
+describes in their own first reproduction. A comparison that returns "equal" is
+evidence only after you have confirmed the instrument can return anything at all.
+
+MY OWN COMMITS USED THE FLAWED FORM
+-----------------------------------
+I used `tr -d '\r' | sha256sum` in my integrity checks and wrote it into
+INC002_CRLF_HASH_NOTE.txt as the "suggested check". Every MATCH I reported with
+that command is still correct -- a stricter check cannot turn a real match into
+a mismatch, and the non-zero-byte half (which is what actually names INC-002)
+never used normalisation at all. But the command as written for others to copy
+was unsafe, and that is on me. The adopted `verify_pin` in
+INC002_RULE_REVIEW.md supersedes it and adds a third signal (CR-ONLY) so a
+CRLF difference is classified rather than silently folded into MATCH.
+
+NOTE ON ORDERING, which I agree with and had also got wrong by implication
+----------------------------------------------------------------------------
+The NUL / size check must run FIRST. A zeroed file must never reach the hash
+comparison and be explained away as a line-ending artefact.
