@@ -109,7 +109,30 @@ cannot.
 > "could mask a zeroed file" is withdrawn; that is not what the choice is for.
 
 Keep forge2's rule as-is, and add a third signal so the CR blind spot is closed.
-**Normalisation below is CRLF→LF only — `sed 's/\r$//'`, never `tr -d '\r'`.**
+**Normalisation below is CRLF→LF only — `python3 -c`, never `tr -d '\r'`, and never
+`sed 's/\r$//'`.**
+
+> **`sed 's/\r$//'` IS NOT EQUIVALENT, and I recommended it here until weaver measured
+> the real binary.** Real GNU sed 4.9 has a **size-preserving blind spot**: it operates
+> line-wise, so `CR LF` and `LF CR` are distinct inputs that both normalise to `LF`.
+> Measured, invoking the real `sed` with exact bytes:
+>
+> | HEAD | worktree | size | real `sed` | `replace(CRLF,LF)` |
+> |---|---|---|---|---|
+> | `0d 0a` | `0a 0d` | 2 = 2 | **MATCH — masked** | DIFFER ✅ |
+> | `61 0d 0a` | `61 0a 0d` | 3 = 3 | **MATCH — masked** | DIFFER ✅ |
+> | `0d 0d 0a` | `0d 0a 0d` | 3 = 3 | **MATCH — masked** | DIFFER ✅ |
+>
+> Exhaustive over `{a, CR, LF}^1..2` (12 payloads): **2 size-preserving distinct pairs
+> masked by real `sed`, 0 masked by `replace`.** Every masked pair is
+> size-preserving with different content — **precisely the INC-002 shape.**
+>
+> **I propagated this error twice**: first endorsing `tr -d '\r'`, then "correcting" it
+> to `sed 's/\r$//'` and shipping the shell form in this file. Both were wrong, and the
+> second was worse because it *looked* verified — I had reasoned about equivalence
+> instead of running the tool. **The only form I will now put in a document is
+> `b.replace(b"\r\n", b"\n")`, or the shell equivalent below, and the shell equivalent
+> is `python3`, not `sed`.**
 
 ```bash
 verify_pin() {           # $1 = repo-relative path
@@ -117,10 +140,12 @@ verify_pin() {           # $1 = repo-relative path
   head_raw=$(git cat-file -p "HEAD:$1" | sha256sum | cut -d' ' -f1)   # UNNORMALISED
   work_raw=$(sha256sum < "$1" | cut -d' ' -f1)
   local head_lf work_lf
-  # sed 's/\r$//' strips ONLY the line-ending CR. `tr -d '\r'` would delete every
-  # CR and mask an in-band CR injection as benign CRLF -- a false negative.
-  head_lf=$(git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1)
-  work_lf=$(sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1)
+  # CRLF -> LF ONLY. `tr -d '\r'` deletes every CR; `sed 's/\r$//'` is line-wise and
+  # masks size-preserving CR rearrangements (measured, see above). python3 does the
+  # same byte-level replace as the Python form, with no line semantics.
+  crlf_to_lf() { python3 -c 'import sys;sys.stdout.buffer.write(sys.stdin.buffer.read().replace(b"\r\n",b"\n"))'; }
+  head_lf=$(git cat-file -p "HEAD:$1" | crlf_to_lf | sha256sum | cut -d' ' -f1)
+  work_lf=$(crlf_to_lf < "$1" | sha256sum | cut -d' ' -f1)
   local s z
   s=$(wc -c < "$1"); z=$(tr -d '\0' < "$1" | wc -c)
   [ "$s" = "$z" ]              || { echo "ZEROED $1";      return 1; }  # INC-002 form (a)
@@ -128,6 +153,14 @@ verify_pin() {           # $1 = repo-relative path
   [ "$head_raw" = "$work_raw" ]|| { echo "CR-ONLY $1 (host CRLF normalisation)"; return 0; }
   echo "MATCH $1"; return 0
 }
+```
+
+If `python3` is unavailable, use the **Windows-native** form, which has the same
+byte-level semantics on this host:
+
+```powershell
+function crlf_to_lf { [Console]::OpenStandardInput().ReadToEnd() `
+  .Replace("`r`n", "`n") | Write-Host -NoNewline }
 ```
 
 The Python equivalent, which is what the committed scripts use:
