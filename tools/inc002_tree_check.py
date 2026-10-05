@@ -99,6 +99,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import itertools
 import json
 import re
 import subprocess
@@ -289,55 +290,46 @@ def _crs_are_all_terminators(data: bytes) -> bool:
 
 
 def _is_pure_eol_difference(work: bytes, head: bytes) -> bool:
-    """Is this difference PROVABLY nothing but CRLF-vs-LF? Raw bytes only.
+    """Is this difference PROVABLY nothing but CRLF-vs-LF?
 
-    Measured, not modelled: exhaustive over all 1..3-byte payloads on {a, CR,
-    LF} finds exactly one unordered pair that is equal-length, different, and
-    identical after `replace(b"\r\n", b"\n")`:
+    TWO SPACES, AND CONFLUSING THEM IS THE MISTAKE THAT COST THREE ROUNDS
+    ---------------------------------------------------------------------
+    A correction to an earlier version of this docstring, which justified this
+    predicate with `b"\n\r\n"` vs `b"\r\n\n"` as the damage it prevents.
+    That pair is NOT reachable by git: measured, a blob containing any bare CR
+    is not converted on checkout at all, so git never writes that worktree.
+    Citing it as the motivation was wrong even though the conclusion held.
 
-        b"\n\r\n"   vs   b"\r\n\n"      both normalise to b"\n\n"
+    1. GIT-REACHABLE space -- what `git checkout` can produce. Measured rule: a
+       blob with any bare CR is written out verbatim; otherwise every LONE LF
+       becomes CRLF while an LF already inside a CRLF stays. Verified
+       exhaustively over all 1..4-byte blobs on {a, CR, LF}: 120 blobs, 37 of
+       them benign differences, ZERO misclassified. Nothing here needs defending
+       against, and nothing here was ever broken.
 
-    Information is destroyed AT the normalisation step, so no check applied to
-    the normalised bytes can recover it. The previous implementation tested
-    "no lone CR after normalisation" and "line structure agrees after
-    normalisation" -- and both of those hold for this pair, because both sides
-    normalise to b"\n\n" and both split to [b"", b"", b""]. It therefore
-    returned True, laundering a real content difference into EOL_ONLY. Verified
-    against this function directly before the change.
+    2. ON-DISK space -- what can be on disk right now. This is the space this
+       tool reads, and it is NOT limited to what git writes. An editor, a
+       script, a partial write, or the INC-002 attacker can put a bare CR
+       anywhere; measured by writing exactly the "unreachable" pair with a plain
+       Python writer and getting DRIFT from this checker. A file's on-disk state
+       is not a function of its blob.
 
-    So the exemption is decided on RAW bytes, by asking whether one side is
-    literally the other with its line endings rewritten. There is no
-    normalisation in this function at all, which is the point: the earlier
-    design normalised first and asked questions afterwards, and the answer was
-    gone before the question was asked.
+    So the predicate earns its keep in space 2, not space 1. The RAW-only form
+    is kept because the previous implementation normalised first and asked
+    questions afterwards, and for at least one pair the answer was already gone:
+    both sides normalise to b"\n\n" and both split to [b"", b"", b""], so its
+    "no lone CR after normalisation" and "line structure agrees" gates both
+    passed. Verified against that function directly before changing it.
 
     A token-sequence comparison was tried and rejected: every benign LF->CRLF
     twin changes its token list ([LF] vs [CRLF]), so it flagged ordinary host
     line-ending drift as damage (p1-tooling measured this, 25/25 false
     positives).
 
-    KNOWN LIMIT, measured, not assumed: the second clause covers CRLF->LF only
-    where the LF side is a pure expansion of the other. A blob that itself
-    contains CRLF, checked out as LF, is NOT exempted by either clause. That
-    cannot occur in this repository -- `.gitattributes` says `* text=auto eol=lf`
-    and 0 of 400 scanned HEAD blobs contain CRLF -- but if that attribute is ever
-    relaxed, this returns False and such a file reports DRIFT. That is the
-    safe direction to fail: a false DRIFT is visible, a false EOL_ONLY is not.
-
-    Both earlier attempts compared normalised blobs and each had a false
-    negative. `replace(b"\\r\\n", b"\\n")` is not injective -- b"\\n\\r\\n" and
-    b"\\r\\n\\n" both become b"\\n\\n". And the bidirectional expansion from
-    3afd761 exempts p1-tooling's measured counterexample: head = 0d 0a (CRLF),
-    work = 0d 0d 0a (CRCRLF, one extra BARE CR). The clause rewrites head's
-    CRLF as if it were a bare LF and produces exactly 0d 0d 0a, so a blob with
-    a CR added to the CONTENT of line 1 is waved through. Logical lines see it:
-    head ['', ''] against work ['0d', ''].
-
-    The pattern behind both: any byte-level normalisation discards WHERE the
-    lone CR sat, so a predicate over normalised bytes cannot see it. Comparing
-    per line, after removing only the terminator's own CR, is what preserves
-    position -- but on its own it is still not enough, which is what the second
-    conjunct below records.
+    KNOWN LIMIT, measured: work=LF against a blob that itself contains CRLF is
+    not exempted. Unreachable while `* text=auto eol=lf` holds -- 0 of 400
+    scanned HEAD blobs contain CRLF -- and it fails toward DRIFT, the safe
+    direction. Both directions are asserted in the selftest.
     """
     if work == head:
         return False
@@ -717,6 +709,37 @@ def a8_pinned_files() -> List[str]:
     return out
 
 
+def _git_smudge(blob: bytes) -> bytes:
+    """git's MEASURED checkout rule, reproduced so reachability becomes testable.
+
+    Measured in a scratch repo with core.autocrlf=true, not read from docs:
+        blob b"x\ny\n"   -> work b"x\r\ny\r\n"    (expanded)
+        blob b"x\n\ry\n" -> work b"x\n\ry\n"      (verbatim: bare CR present)
+        blob b"\r\n\n"   -> work b"\r\n\r\n"      (only the LONE LF expanded)
+
+    So: any bare CR anywhere means no conversion at all; otherwise every lone LF
+    becomes CRLF while an LF already inside a CRLF stays put. The selftest
+    asserts this model against those three measurements before using it to
+    define a space -- a reachability filter that is itself unverified would be
+    the same defect one level up.
+    """
+    i = 0
+    while i < len(blob):
+        if blob[i] == 0x0D and (i + 1 >= len(blob) or blob[i + 1] != 0x0A):
+            return blob
+        i += 1
+    out = bytearray()
+    i = 0
+    while i < len(blob):
+        if blob[i] == 0x0D and i + 1 < len(blob) and blob[i + 1] == 0x0A:
+            out += b"\r\n"; i += 2
+        elif blob[i] == 0x0A:
+            out += b"\r\n"; i += 1
+        else:
+            out.append(blob[i]); i += 1
+    return bytes(out)
+
+
 def selftest() -> int:
     """Prove the two halves on synthetic inputs, including a real zeroed file."""
     fails: List[str] = []
@@ -783,6 +806,48 @@ def selftest() -> int:
     #     the same list of (empty) lines, only the terminator style differs per
     #     line. Calling these "damage" makes a rule that cries wolf, and a rule
     #     that cries wolf gets ignored. They belong in the EXEMPT list below.
+    # 1e. REACHABILITY, as an assertion. weaver retracted three rounds of
+    #     reports because the samples were unreachable by git -- correct, and
+    #     the retraction is recorded. But "unreachable by git" is not
+    #     "impossible": this tool reads the file as it is ON DISK, and an editor,
+    #     a script, a partial write or the INC-002 attacker can place a bare CR
+    #     anywhere. Both spaces are asserted separately, so neither can be used
+    #     to excuse the other.
+    #
+    #     (i) the model must reproduce git's MEASURED behaviour before it is
+    #         trusted to define a space;
+    for _blob, _expect in ((b"x\ny\n", b"x\r\ny\r\n"),
+                           (b"x\n\ry\n", b"x\n\ry\n"),
+                           (b"\r\n\n", b"\r\n\r\n")):
+        if _git_smudge(_blob) != _expect:
+            fails.append(
+                f"the reachability model disagrees with git's measured output "
+                f"for {_blob!r}: got {_git_smudge(_blob)!r} want {_expect!r}"
+            )
+    #    (ii) every git-reachable worktree must be exempt, exhaustively over
+    #         all 1..4-byte blobs on {a, CR, LF};
+    _reached = _misjudged = 0
+    for _n in (1, 2, 3, 4):
+        for _combo in itertools.product(b"a\r\n", repeat=_n):
+            _head = bytes(_combo)
+            _work = _git_smudge(_head)
+            _want = _work != _head
+            _reached += 1
+            if _is_pure_eol_difference(_work, _head) != _want:
+                _misjudged += 1
+    if _misjudged:
+        fails.append(
+            f"{_misjudged} of {_reached} git-reachable worktrees are "
+            "misclassified -- host line-ending handling is broken"
+        )
+    #    (iii) and the on-disk space is NOT the git space: a bare CR written
+    #         without git must still be judged on its own bytes.
+    if _is_pure_eol_difference(b"\n\r\nrest", b"\r\nrest"):
+        fails.append(
+            "a bare CR written outside git was waved through as an EOL-only "
+            "difference -- the on-disk space is what this tool reads"
+        )
+
     _damage = [
         (b"abc\r\n", b"abd\r\n", "real content edit"),
         (b"a\rb\r\n", b"ab\r\n", "in-band CR injection"),
@@ -1063,8 +1128,16 @@ def selftest() -> int:
                 "surfaced and then discarded, which is worse than a false positive"
             )
     finally:
-        if _untracked.exists():
-            _untracked.unlink()
+        # The probe file is LEFT IN PLACE, not deleted. It lives under
+        # .workbuddy/scratch, which is gitignored, so it cannot dirty the tree.
+        # Deleting it made the selftest depend on the host permitting the
+        # delete: this workspace's safe-delete guard blocked the unlink once a
+        # turn exceeded its target threshold, and the whole selftest failed with
+        # no assertion message at all. A test that fails because cleanup was
+        # refused reports the wrong problem, and over repeated mutation runs it
+        # would have looked like a real regression. Overwriting is idempotent and
+        # needs no permission.
+        pass
 
     #  (ii) DRIFT must not overwrite the NUL classification. Exercised through
     #       check_one on a copy-shaped buffer: a size-preserving NUL punch also
