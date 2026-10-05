@@ -127,6 +127,14 @@ ADJUDICATED_EXCEPTIONS: tuple[tuple[str, str, str], ...] = (
      "explains, and CONTROL_MARKER is the string the negative control injects. "
      "The literals are the specification of what must be detected.",
      "p1-tooling (self)"),
+    ("tools/f_derivations_selftest.py",
+     "the self-test's own fixtures. Case 7 writes b'X = \"F:/jev\"' because a "
+     "plain drive literal is the POSITIVE control -- if the detector stopped "
+     "finding it, the suite would pass while measuring nothing. Case 8 writes "
+     "a CR-split variant to prove that shape is correctly NOT reported. These "
+     "literals are the inputs, not defects; rewriting them would delete the "
+     "assertion.",
+     "p1-tooling (self)"),
 )
 
 # Non-Python, non-PowerShell files carry no live code we execute, and their

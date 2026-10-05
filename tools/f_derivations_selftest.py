@@ -63,6 +63,21 @@ def mutate(src: bytes, anchor: bytes, repl: bytes) -> bytes:
     return out
 
 
+# NEVER mutate a tracked file to run a test. Measured in this repository, not
+# theorised: `tools/inc002_tree_check.py --selftest` wrote its "healthy prose
+# containing one NUL literal" sample straight into
+# `integrations/_common/jcc_emit.py`, which left that tracked product file at
+# 8639 NUL bytes in a 8639-byte body -- INC-002 shape (a), manufactured by the
+# very tool that detects it. A second run truncated it to 0 bytes. A `finally:
+# write_bytes(original)` is best-effort, not a guarantee: one restore here
+# silently no-opped, and a read racing the window saw an empty file.
+#
+# So every mutation in THIS file happens on a copy under a tempdir, and the
+# originals are only ever read. If a future case needs a file inside REPO, the
+# pattern is: copy to tmpdir, point the scanner at the copy, and assert the
+# original is untouched afterwards -- never write to the original at all.
+
+
 def _tokenize_rejects(raw: bytes) -> bool:
     """Does the tokenizer refuse this source? (The honesty check below.)"""
     try:
