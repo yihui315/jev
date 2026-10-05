@@ -206,13 +206,25 @@ def scan_python(path: Path) -> list[dict]:
     labelling nit. Only line-ENDING CR may be stripped: `sed 's/\\r$//'` in
     shell, `b.replace(b"\\r\\n", b"\\n")` in Python. This scanner strips nothing.
 
-    Universal-newline folding is nevertheless safe HERE, and that is an
-    empirical result rather than a guarantee: every in-band CR placement was
-    tested (before the drive letter, between drive and colon, between colon and
-    slash, inside an f-string, and in an adjacent comment). Each one either
-    leaves the literal intact and gets reported, or breaks the parse and is
-    escalated to UNREADABLE by the caller. None produced a silent CLEAN. If that
-    ever stops being true, this docstring is where to look first.
+    Universal-newline folding is safe HERE, and that is a measured result with a
+    specific shape. In-band CR was tested at five placements: before the drive
+    letter, between drive and colon, between colon and slash, after the closing
+    quote, and in an adjacent comment. On every one, the RAW BYTES already
+    contain no drive path under DRIVE_RE, because the CR splits `F:` away from
+    `/jev`. So there is nothing for this gate to report, and reporting CLEAN is
+    correct rather than a miss.
+
+    That is a statement about THIS gate's subject, not about corruption. A CR
+    that splits a literal is real damage, but detecting damage-as-such is the
+    job of the NUL check below and of the tree-level CR normalisation rule
+    elsewhere -- not of a drive-literal counter. The two concerns are
+    orthogonal, and conflating them is how a gate ends up claiming coverage it
+    does not have.
+
+    The dataset above is discriminating, not vacuous: in each of those five
+    rows the raw bytes and the folded text genuinely differ, so a method that
+    stripped in-band CR and one that did not would disagree. Agreement here
+    would have proved nothing; divergence is what makes the result meaningful.
     """
     # NUL check FIRST, and explicitly, because relying on the tokenizer to catch
     # NUL is relying on an accident.
@@ -225,6 +237,14 @@ def scan_python(path: Path) -> list[dict]:
     # preserves can be preserved by a partial zeroing just as well as a total
     # one. The strong signal is that the file contains NUL AT ALL, not that it
     # fails to parse -- so that is what we test.
+    #
+    # The test is deliberately `b"\x00" in raw`, i.e. exactly `s != z` (total
+    # byte count vs non-NUL byte count), with NO run-length or count threshold.
+    # A "longest NUL run >= 64" rule was proposed and is wrong here: it PASSES a
+    # file with 1, 2 or 3 NULs at preserved size, and a single zeroed byte at
+    # unchanged size is exactly the stat-cache attack shape. Measured on this
+    # file: 1/2/3/10/25 NULs at size 29 all flag, where a run>=64 rule reports
+    # clean. Do not "optimise" this into a threshold.
     try:
         raw = path.read_bytes()
     except OSError:
