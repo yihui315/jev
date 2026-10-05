@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import os
 import re
+import atexit
 import subprocess
 import sys
 import tempfile
@@ -1040,6 +1041,73 @@ def check_no_regression_in_existing_suites() -> None:
 # --------------------------------------------------------------------------- #
 # main
 # --------------------------------------------------------------------------- #
+def _remove_child_script_quietly(path: Path) -> None:
+    """Delete the stand-in child script, and never raise.
+
+    Two guards, so a bug in the caller cannot turn cleanup into deleting
+    something else: the name must be exactly ours, and the path must be the
+    repo root (never a directory). Silently ignored failures are deliberate --
+    a teardown must not mask the result it is reporting.
+    """
+    try:
+        if path.name != CHILD_SCRIPT.name or path.parent != REPO:
+            return
+        if not path.is_file():
+            return
+        path.unlink()
+    except OSError:
+        pass
+
+
+def check_child_script_ownership() -> None:
+    """The child script is owned by exactly ONE run, and the owner must be this one.
+
+    REPLACES a check that was wrong twice, and the reasons are worth keeping.
+
+    v1 asserted the file is ABSENT. That made the negative-control CHILD red,
+    because the parent creates the file before spawning it -- the child found
+    the parent's live file and called it residue.
+
+    v2 asked relative to who is running: a child must find it PRESENT, a
+    top-level run expects it present too. That was still wrong, for a reason
+    neither version had considered: `main()` runs `check_restored_and_green`,
+    which re-invokes the suite with JCC_CR003_CHILD=1 but WITHOUT JCC_CR003_NEGCTL,
+    and that grandchild's `finally` UNLINKS the file. So by the time any check
+    that runs LATE observes it, the parent's file can legitimately be gone, and
+    every absolute expectation is a coin flip on run order.
+
+    So this case asserts the only property that is actually invariant: the file
+    present in the tree belongs to the run that created it, identified by the
+    content my own constant defines. It therefore checks that IF the file exists,
+    it is MINE -- a leftover from an interrupted run is byte-identical too, so
+    this cannot flag that, and it does not claim to. Catching residue is the
+    job of the atexit unlink plus a human glance at `git status`; a case that
+    cannot distinguish the two should not pretend to.
+
+    What this DOES catch, measurably: a file at that path with FOREIGN content
+    -- someone else's script, or a real module that would be executed by the
+    stand-in template. That is the destructive direction, and it is checkable.
+    """
+    if not CHILD_SCRIPT.exists():
+        record(
+            "ANY_CHILD_SCRIPT_PRESENT_IS_OURS_NOT_A_FOREIGN_FILE", True,
+            "%s absent at this point in the run. Expected in some interleavings: "
+            "main() writes it, and check_restored_and_green's grandchild unlinks "
+            "it on exit, so its presence is run-order dependent by design. "
+            "Nothing foreign was found, which is the property being asserted."
+            % CHILD_SCRIPT.name,
+        )
+        return
+    found = CHILD_SCRIPT.read_text(encoding="utf-8", errors="replace")
+    record(
+        "ANY_CHILD_SCRIPT_PRESENT_IS_OURS_NOT_A_FOREIGN_FILE",
+        found == CHILD_BODY,
+        "%s exists with content %r; this suite only ever writes %r. Foreign "
+        "content here would mean the stand-in launch template executed someone "
+        "else's file." % (CHILD_SCRIPT.name, found[:60], CHILD_BODY[:60]),
+    )
+
+
 def main() -> int:
     # A child re-invocation (from the negative control) runs everything EXCEPT
     # the control itself, or the control would recurse without end.
@@ -1057,9 +1125,24 @@ def main() -> int:
     # The stand-in child script must exist before any launcher is built, and MUST
     # be removed afterwards however this run ends -- a falsifier that leaves a
     # stray file in the repository it is auditing is its own defect.
+    #
+    # WHY atexit AND NOT ONLY `finally`. The `finally` below runs on every
+    # ordinary path, including an exception, but NOT on SIGKILL / taskkill /F --
+    # and a `finally` that claims "however this run ends" is a claim the language
+    # does not keep. Measured consequence: an abandoned `_cr003_child.py` was
+    # found in the repo root 57 minutes after a run that had been interrupted,
+    # with 26 bytes of `print('CR003_CHILD_RAN')` and no owner.
+    #
+    # atexit covers what finally cannot: it runs on normal interpreter shutdown,
+    # including after an unhandled SystemExit. It still cannot survive SIGKILL,
+    # so the honest claim is "removed on every path the interpreter controls",
+    # and `check_child_script_is_not_left_behind` measures that rather than
+    # asserting it.
     CHILD_SCRIPT.write_text(CHILD_BODY, encoding="utf-8")
+    atexit.register(_remove_child_script_quietly, CHILD_SCRIPT)
     try:
         check_is_inside_is_actually_called()
+        check_child_script_ownership()
         check_helper_implementation_was_not_rewritten()
         check_traversal_and_crossdrive_roots_are_refused()
         check_out_of_scope_message_is_actionable()
