@@ -145,8 +145,8 @@ THE CORRECT FORM — measured on both axes
 -----------------------------------------
 Normalise the CRLF PAIR, never a single CR and never every CR:
 
-    bash :  sed 's/\r\n/\n/g'
-    python:  b.replace(b"\r\n", b"\n")        <- also the LIVE recipe at L58
+    python:  b.replace(b"\r\n", b"\n")   <- authoritative; also the LIVE recipe
+    bash :  sed 's/\r$//'                <- shell equivalent of the above
 
     * collision above closed : sha256(a') != sha256(b')          -> True
     * original purpose kept   : CRLF file vs LF file normalise EQUAL -> True
@@ -154,6 +154,12 @@ Normalise the CRLF PAIR, never a single CR and never every CR:
 It keeps the property my rule was introduced for (no false positives on this
 `core.autocrlf=true` host) AND removes the false negative mine had. Strictly
 better; no trade-off.
+
+  [2026-10-05 amend, rulings-fix] The bash line previously read
+  `sed 's/\r\n/\n/g'`. That was my error and it is withdrawn: the script is
+  INERT (byte-identical to `sed ''` on every shape tested) because a POSIX sed
+  can never match a two-byte CRLF inside a pattern space. See the ADDENDUM
+  below for the measurements. The python line was always right.
 
 THIRD DEFECTIVE FORM, FOUND AFTER I HAD POSTED THE ABOVE
 --------------------------------------------------------
@@ -165,6 +171,7 @@ found it. Measured here with the real `sed`, on a doubled CR at EOL:
     file 2: 61 62 0d 0d 0a         ("ab" CR CR LF)
       sed 's/\r$//'      -> 61 62 0a   for BOTH  => COLLIDES, defect missed
       sed 's/\r\n/\n/g'  -> 61 62 0a   vs 61 62 0d 0a  => DIFFERS, caught
+        ^ the LEFT figure is the reader's output, not the script's -- see ADDENDUM
 
 One-CR-per-line turns a doubled CR into the clean file's bytes. Only the PAIR
 form distinguishes them. So there are three forms, not two, and the ranking is:
@@ -172,6 +179,68 @@ form distinguishes them. So there are three forms, not two, and the ranking is:
     tr -d '\r'          worst  -- deletes every CR, masks in-band CR
     sed 's/\r$//'       lossy  -- one CR per line, misses a doubled CR at EOL
     sed 's/\r\n/\n/g'   correct-- removes exactly the CR paired with an LF
+        ^ SUPERSEDED BY THE ADDENDUM BELOW. This line is WRONG. The script is
+          inert; see CONSEQUENCE 1. Retained verbatim as the record of the claim.
+
+>>> ADDENDUM (2026-10-05, rulings-fix) -- THE RANKING ABOVE IS WRONG ON BOTH
+>>> COUNTS. Both the "lossy" label and the "correct" label are artefacts of this
+>>> host, not properties of the scripts. Harbor and I each measured a real byte
+>>> difference and each attributed it to the wrong cause. prism-3dui was right to
+>>> refuse both explanations.
+
+THE MISSING VARIABLE: THIS sed's LINE READER ALREADY CONVERTS CRLF -> LF.
+Run sed with NO SCRIPT AT ALL:
+    printf 'ab\r\r\n' > p.bin
+    sed '' p.bin | od -An -tx1        ->  61 62 0d 0a
+A no-op cannot change bytes, so the reader removed one CR before any script ran.
+cat and python reading the SAME file both still see 61 62 0d 0d 0a -- it is
+specific to sed, not to the shell, the pipe, or file-vs-pipe. (That also retracts
+my own earlier "text-mode on file reads only" claim: prism-3dui could not
+reproduce it, and re-running it, file and pipe agree.)
+
+CONSEQUENCE 1 -- the "pair form" is INERT, so it is not the correct form.
+    sed ''            p.bin | od -An -tx1   ->  61 62 0d 0a
+    sed 's/\r\n/\n/g' p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+sed's pattern space holds a line WITHOUT its trailing newline, so the two-byte
+sequence CRLF can never occur inside it and `s/\r\n/\n/g` cannot fire on a POSIX
+sed at all. Every "success" it showed here was the reader's work. On POSIX it is
+a no-op that would report DIFFER for every ordinary CRLF file. (POSIX half
+reasoned from documented sed semantics, NOT executed -- wsl.exe is blocked by
+policy here, so UNVERIFIED on this host.)
+
+CONSEQUENCE 2 -- the "lossy" label is also wrong; the collision is a double-strip.
+Two measurements separate reader from script:
+    (a) remove the reader's opportunity -- no trailing newline:
+        printf 'ab\r\r'  > q.bin
+        sed ''        q.bin | od -An -tx1   ->  61 62 0d 0d   (reader: no-op)
+        sed 's/\r$//' q.bin | od -An -tx1   ->  61 62 0d      (script removed ONE)
+        => the SCRIPT removes exactly one trailing CR, which is precisely the
+           documented POSIX behaviour of s/\r$//.
+    (b) with the trailing newline, reader and script each remove one:
+        printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+        A faithful run leaves 2 (3 minus 1). It left 1, so TWO were removed.
+So on this MSYS host `s/\r$//` strips up to two CRs at EOL and the collision is
+real HERE. On a POSIX host the reader removes none, `s/\r$//` alone yields
+61 62 0d 0a, and the two files correctly DIFFER.
+
+WHAT IS ACTUALLY TRUE (host-independent)
+    tr -d '\r'          lossy  -- deletes EVERY CR, masks in-band CR injection.
+                               A genuine defect, on every host.
+    sed 's/\r$//'       correct-- removes exactly the CR paired with an LF and
+                               leaves in-band CRs. Matches the docstring of
+                               relay's tools/inc002_tree_check.py.
+    sed 's/\r\n/\n/g'   broken -- inert on POSIX; "works" on MSYS only by
+                               accident, via the reader.
+
+AUTHORITY: the byte-level rule b.replace(b"\r\n", b"\n") (adjudication #21,
+implemented as tools/inc002_tree_check.py::normalise_eol, --selftest PASS exit 0)
+gives canonical(ab\r\r\n) = 61 62 0d 0a != canonical(ab\r\n) = 61 62 0a, i.e.
+DIFFER -- the damage IS visible to the canonical rule.
+
+OPEN, owner team-lead: the `ab\r\r\n` shape is missed by the sed recipe ON THIS
+HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
+Do not fix it by switching sed scripts -- on POSIX that trades this one miss for
+false DIFFERs on every CRLF file. Use the byte-level rule or the tree check tool.
 
 METHOD NOTE ON WHY THIS TOOK A SECOND PASS
 -----------------------------------------
