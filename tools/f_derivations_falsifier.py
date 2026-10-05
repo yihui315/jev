@@ -98,6 +98,11 @@ ADJUDICATED_EXCEPTIONS: tuple[tuple[str, str, str], ...] = (
      "CR-003 containment falsifier: 'D:/jev/../etc' and 'Z:/somewhere/else' are "
      "the traversal and cross-drive probes. _is_inside() must refuse them.",
      "relay (author of CR-003)"),
+    ("packages/jcc_core/tests/test_project_scope_v1_3.py",
+     "RISK-1 write-entry containment test: the same _is_inside() probes "
+     "('D:/jev/../etc', 'Z:/somewhere/else'). Its own docstring says a rewrite "
+     "would make 'the cases above measure the rewrite rather than the wiring'.",
+     "forge2 (RISK-1 author)"),
     ("tools/port_watch.py",
      "selftest() -- 'exercised directly on synthetic inputs', cases are "
      "'D:/jev/config/jcc.yaml'->GREEN and 'D:/jev/runtime/jcc-v1.3/jcc.db'->"
@@ -113,6 +118,15 @@ ADJUDICATED_EXCEPTIONS: tuple[tuple[str, str, str], ...] = (
      "report PROSE: a fenced code block showing an operator the stop command. It "
      "is emitted text, never executed, and ROOT is already derived at L16.",
      "team-lead (report wording, not runtime)"),
+    # This file necessarily NAMES the literals it hunts: the exception table
+    # quotes them, and the negative control injects one. A detector that flagged
+    # its own rulebook would be unusable, and worse, it would train a reader to
+    # ignore it. The literals here are the SPECIFICATION, not the defect.
+    ("tools/f_derivations_falsifier.py",
+     "this file: the ADJUDICATED_EXCEPTIONS table quotes the bad values it "
+     "explains, and CONTROL_MARKER is the string the negative control injects. "
+     "The literals are the specification of what must be detected.",
+     "p1-tooling (self)"),
 )
 
 # Non-Python, non-PowerShell files carry no live code we execute, and their

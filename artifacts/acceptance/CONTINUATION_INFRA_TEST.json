@@ -14,16 +14,16 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_a_step_may_not_declare_the_project_complete",
       "node_id": "tools/tests/test_continuation_infra.py::test_a_step_may_not_declare_the_project_complete",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_atomic_write_is_atomic_and_leaves_no_temp_file",
       "node_id": "tools/tests/test_continuation_infra.py::test_atomic_write_is_atomic_and_leaves_no_temp_file",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "FAILED during: call",
@@ -56,10 +56,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_controller_selftest_is_green",
       "node_id": "tools/tests/test_continuation_infra.py::test_controller_selftest_is_green",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -74,34 +74,34 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_exit_zero_without_evidence_is_not_progress",
       "node_id": "tools/tests/test_continuation_infra.py::test_exit_zero_without_evidence_is_not_progress",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_final01_step_declares_an_artifact_and_a_judge",
       "node_id": "tools/tests/test_continuation_infra.py::test_final01_step_declares_an_artifact_and_a_judge",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_final12_refuses_a_missing_or_red_control_plane_proof",
       "node_id": "tools/tests/test_continuation_infra.py::test_final12_refuses_a_missing_or_red_control_plane_proof",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_gate_judge_refuses_a_verdict_it_should_not_accept",
       "node_id": "tools/tests/test_continuation_infra.py::test_gate_judge_refuses_a_verdict_it_should_not_accept",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_new_jcc_scheduled_task_accepts_an_empty_argument_list",
       "node_id": "tools/tests/test_continuation_infra.py::test_new_jcc_scheduled_task_accepts_an_empty_argument_list",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -110,10 +110,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_no_step_declares_its_run_descriptor_as_its_result",
       "node_id": "tools/tests/test_continuation_infra.py::test_no_step_declares_its_run_descriptor_as_its_result",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -122,28 +122,28 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_only_one_controller_can_hold_the_lock",
       "node_id": "tools/tests/test_continuation_infra.py::test_only_one_controller_can_hold_the_lock",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_pid_liveness_is_by_handle_not_by_name",
       "node_id": "tools/tests/test_continuation_infra.py::test_pid_liveness_is_by_handle_not_by_name",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_publish_then_verify_is_a_fixed_point_and_still_refusable",
       "node_id": "tools/tests/test_continuation_infra.py::test_publish_then_verify_is_a_fixed_point_and_still_refusable",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_saving_state_keeps_the_previous_generation",
       "node_id": "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -182,10 +182,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_soak_judge_refuses_a_red_or_unclean_soak",
       "node_id": "tools/tests/test_continuation_infra.py::test_soak_judge_refuses_a_red_or_unclean_soak",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -194,22 +194,22 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_controller_reconciles_recorded_evidence_before_selecting_work",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_controller_reconciles_recorded_evidence_before_selecting_work",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: setup",
+      "detail": "passed",
       "name": "test_the_infra_judge_refuses_the_ways_this_step_could_fake_a_pass",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_infra_judge_refuses_the_ways_this_step_could_fake_a_pass",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_infra_runner_selftest_is_green",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_infra_runner_selftest_is_green",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -224,16 +224,16 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_operator_hold_tool_refuses_a_hold_that_cannot_expire",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_operator_hold_tool_refuses_a_hold_that_cannot_expire",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_project_run_gate_selftest_is_green",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_project_run_gate_selftest_is_green",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "FAILED during: call",
@@ -242,16 +242,16 @@
       "ok": false
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_release_publisher_selftest_is_green",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_release_publisher_selftest_is_green",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_shipped_launcher_starts_a_python_that_outlives_the_call",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -284,10 +284,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
       "node_id": "tools/tests/test_doctor_next_hint.py::test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -632,10 +632,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_every_input_the_pipeline_needs_is_committed_at_head",
       "node_id": "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -908,10 +908,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: call",
       "name": "test_a_missing_record_becomes_degraded_not_verified",
       "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_a_missing_record_becomes_degraded_not_verified",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -932,10 +932,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_check_mode_reports_the_matrix_is_current",
       "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_reports_the_matrix_is_current",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -956,10 +956,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: call",
       "name": "test_telemetry_verification_includes_resolved_identity",
       "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_telemetry_verification_includes_resolved_identity",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -998,10 +998,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_matrix_agrees_with_the_probe_evidence_on_disk",
       "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_agrees_with_the_probe_evidence_on_disk",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -1028,10 +1028,10 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_check_mode_reports_the_artifacts_are_current",
       "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_check_mode_reports_the_artifacts_are_current",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -1460,28 +1460,28 @@
       "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_jev_check_still_observes_the_environment[JCC_CONTROL_TOKEN]",
       "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_CONTROL_TOKEN]",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_jev_check_still_observes_the_environment[JCC_DIRECTIVE_SIGNING_KEY]",
       "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_DIRECTIVE_SIGNING_KEY]",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_jev_check_still_observes_the_environment[JEV_API_KEY]",
       "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JEV_API_KEY]",
-      "ok": false
+      "ok": true
     },
     {
-      "detail": "FAILED during: call",
+      "detail": "passed",
       "name": "test_the_jev_credential_state_is_unchanged_by_the_e2e_fixture_lifecycle",
       "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_credential_state_is_unchanged_by_the_e2e_fixture_lifecycle",
-      "ok": false
+      "ok": true
     },
     {
       "detail": "passed",
@@ -1490,7 +1490,7 @@
       "ok": true
     }
   ],
-  "failed": 39,
+  "failed": 11,
   "node_ids": [
     "tools/tests/test_continuation_infra.py::test_a_narrowed_run_does_not_rewrite_the_suite_verdict",
     "tools/tests/test_continuation_infra.py::test_a_powershell_crash_is_never_read_as_a_verdict",
@@ -1743,7 +1743,7 @@
   ],
   "ok": false,
   "passed": false,
-  "passed_count": 209,
+  "passed_count": 237,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -1754,5 +1754,5 @@
   },
   "schema": "jcc-continuation-infra/1",
   "status": "FAIL",
-  "verdict": "209/248 infrastructure test(s) passed"
+  "verdict": "237/248 infrastructure test(s) passed"
 }

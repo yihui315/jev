@@ -36,7 +36,7 @@ def store(tmp_path):
 def _seed(store, projects: int, missions_each: int):
     ids = []
     for i in range(projects):
-        p = store.create_project(name="P%d" % i, root_path=r"F:\jev")
+        p = store.create_project(name="P%d" % i, root_path=str(ROOT))
         ids.append(p.project_id)
         for j in range(missions_each):
             store.create_mission(project_id=p.project_id, title="M%d-%d" % (i, j),

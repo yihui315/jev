@@ -32,14 +32,58 @@ foreach ($line in ($doctorOut -split "`r?`n")) {
     }
 }
 
+# Read the port state back out of DOCTOR'S OWN section-6 detail line.
+#
+# WHY THIS EXISTS. The python test used to assert that the printed `next:` hint
+# was always the OURS hint, because whoever wrote it snapshotted a host where the
+# service happened to be UP ("pid 9952, port 4778") and froze that transient
+# state into the test's premise. On a host where nothing is listening, doctor
+# correctly prints the FREE hint, so the assertion -- not the doctor -- was
+# wrong.
+#
+# So do NOT re-measure the port here. Re-measuring would be a SECOND opinion:
+# it could disagree with the measurement doctor already made, and the test would
+# then be comparing two different worlds. Instead we take doctor's own report of
+# what it measured and require the printed hint to be the hint for THAT state.
+# The premise is now a live measurement by construction, in every state, with
+# nothing spawned and nothing skipped.
+$doctorD6 = ''
+$doctorD6Pid = 0
+foreach ($line in ($doctorOut -split "`r?`n")) {
+    $t = $line.Trim()
+    if ($t -match 'measured:\s*no LISTENING socket') {
+        $doctorD6 = $t
+        break
+    }
+    if ($t -match 'measured:\s*listener owned by OUR pid\s+(\d+)') {
+        $doctorD6 = $t
+        break
+    }
+    if ($t -match 'measured:\s*LISTENING held by foreign pid\s+(\d+)') {
+        $doctorD6 = $t
+        $doctorD6Pid = [int]$Matches[1]
+        break
+    }
+}
+
+# The FOREIGN hint embeds the owning pid, so the probe's fixed-pid 9999 sample
+# cannot stand in for the real one. Compute the hint for the pid doctor named.
+$foreignForDoctorPid = ''
+if ($doctorD6Pid -gt 0) {
+    $foreignForDoctorPid = Get-JccNextHint -PortState 'FOREIGN' -ForeignPid $doctorD6Pid
+}
+
 $report = [ordered]@{
-    schema              = 'jcc-next-hint-probe/1'
-    ours                = $ours
-    free                = $free
-    foreign             = $foreign
-    foreign_pid_used    = 9999
-    doctor_exit         = $doctorExit
-    doctor_next_printed = $doctorNext
+    schema                = 'jcc-next-hint-probe/2'
+    ours                  = $ours
+    free                  = $free
+    foreign               = $foreign
+    foreign_pid_used      = 9999
+    doctor_exit           = $doctorExit
+    doctor_next_printed   = $doctorNext
+    doctor_d6_measured    = $doctorD6
+    doctor_d6_foreign_pid = $doctorD6Pid
+    foreign_for_doctor_pid = $foreignForDoctorPid
 }
 $json = $report | ConvertTo-Json -Depth 4
 if ($OutPath) {

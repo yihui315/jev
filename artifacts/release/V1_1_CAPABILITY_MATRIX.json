@@ -15,13 +15,13 @@
   },
   "agents": {
     "claude": {
-      "adapter_self_status": "CONNECTED",
+      "adapter_self_status": "UNVERIFIED",
       "adapter_state": "UNVERIFIED",
       "capabilities": {
         "approval": {
-          "reason": "mechanism present in the environment but not exercisable: Claude Code carries a file-declared permission model in C:\\Users\\Administrator\\.claude\\settings.local.json (permissions block present, 1 rule group(s)); ClaudeAdapter exposes no approval callable and no live session was available to exercise it",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on ClaudeAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no approval interface, and the fail-closed dry-run produced \"no attribute matching ('approve', 'deny', 'permission', 'approval', 'grant') on ClaudeAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "cancel": {
           "reason": "no such surface: the only public callables on ClaudeAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no cancel interface, and the fail-closed dry-run produced \"no attribute matching ('cancel', 'abort', 'terminate', 'kill') on ClaudeAdapter\"",
@@ -49,17 +49,9 @@
           "status": "UNSUPPORTED"
         },
         "telemetry": {
-          "evidence": {
-            "envelope_schema_ok": true,
-            "envelope_session_id_present": true,
-            "probe_mode": "live",
-            "record_exists": true,
-            "record_path": "C:\\Users\\Administrator\\.claude\\projects\\D--------digital-human-studio\\d19e2af6-ab99-420a-b046-b243b501ad9b.jsonl",
-            "record_source": "live"
-          },
-          "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=claude-d940b7d0dd8cbed5e7f781c0, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.claude\\projects\\D--------digital-human-studio\\d19e2af6-ab99-420a-b046-b243b501ad9b.jsonl",
-          "reported_status": "VERIFIED",
-          "status": "VERIFIED"
+          "reason": "no live record found at the adapter's native path (C:\\Users\\Administrator\\.claude\\projects); normalize() was NOT exercised against host data",
+          "reported_status": "UNVERIFIED",
+          "status": "UNVERIFIED"
         },
         "verify": {
           "reason": "no such surface: the only public callables on ClaudeAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on ClaudeAdapter\"",
@@ -67,30 +59,30 @@
           "status": "UNSUPPORTED"
         }
       },
-      "config_path": "C:\\Users\\Administrator\\.claude\\settings.json",
+      "config_path": null,
       "discovery_actuation_enabled": false,
       "hook_schema_kind": "claude-hooks",
-      "installed": true,
-      "probe_evidence_digest": "sha256:c0c248e023a030997e8d98f8a81b7f67558d893d2665f5310a2986cc2f31ab3f",
+      "installed": false,
+      "probe_evidence_digest": "sha256:bb2ffaaa3a348fa415ce206d8208123f75228b0135173bf319dd5bb368ee84db",
       "probe_evidence_file": "artifacts/acceptance/adapter_capability/claude.json",
       "probe_reported_status": "UNVERIFIED",
       "public_callables_on_adapter": [],
       "status_counts": {
         "DEGRADED": 0,
-        "UNSUPPORTED": 6,
+        "UNSUPPORTED": 7,
         "UNVERIFIED": 1,
-        "VERIFIED": 1
+        "VERIFIED": 0
       },
-      "version": "2.1.196"
+      "version": null
     },
     "codex": {
-      "adapter_self_status": "DEGRADED",
-      "adapter_state": "DEGRADED",
+      "adapter_self_status": "UNVERIFIED",
+      "adapter_state": "UNVERIFIED",
       "capabilities": {
         "approval": {
-          "reason": "mechanism present in the environment but not exercisable: the installed codex binary (C:\\Users\\Administrator\\AppData\\Local\\OpenAI\\Codex\\bin\\codex.exe) contains the native hook strings PermissionRequest, ConfiguredHookMatcherGroup (read-only byte scan, no execution, no API call); CodexAdapter itself exposes no approval callable and app_server_steering is False -> no path to exercise it here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no approval interface, and the fail-closed dry-run produced \"no attribute matching ('approve', 'deny', 'permission', 'approval', 'grant') on CodexAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "cancel": {
           "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no cancel interface, and the fail-closed dry-run produced \"no attribute matching ('cancel', 'abort', 'terminate', 'kill') on CodexAdapter\"",
@@ -118,17 +110,9 @@
           "status": "UNSUPPORTED"
         },
         "telemetry": {
-          "evidence": {
-            "envelope_schema_ok": true,
-            "envelope_session_id_present": true,
-            "probe_mode": "live",
-            "record_exists": true,
-            "record_path": "C:\\Users\\Administrator\\.codex\\sessions\\2026\\08\\03\\rollout-2026-08-03T10-21-45-019fc56d-581d-7721-bad8-0fdbb8b90562.jsonl",
-            "record_source": "live"
-          },
-          "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=codex-4771e8e556e7051533ad8873, event_type=EventType.SESSION_START) at C:\\Users\\Administrator\\.codex\\sessions\\2026\\08\\03\\rollout-2026-08-03T10-21-45-019fc56d-581d-7721-bad8-0fdbb8b90562.jsonl",
-          "reported_status": "VERIFIED",
-          "status": "VERIFIED"
+          "reason": "no live record found at the adapter's native path (C:\\Users\\Administrator\\.codex\\sessions); normalize() was NOT exercised against host data",
+          "reported_status": "UNVERIFIED",
+          "status": "UNVERIFIED"
         },
         "verify": {
           "reason": "no such surface: the only public callables on CodexAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on CodexAdapter\"",
@@ -136,68 +120,60 @@
           "status": "UNSUPPORTED"
         }
       },
-      "config_path": "C:\\Users\\Administrator\\.codex\\config.toml",
+      "config_path": null,
       "discovery_actuation_enabled": false,
       "hook_schema_kind": "codex-native-hooks+notify",
-      "installed": true,
-      "probe_evidence_digest": "sha256:5973aa4b6f1568bf38d2189199152f28e714209e1e949be2c67ebcbbf434007c",
+      "installed": false,
+      "probe_evidence_digest": "sha256:c8b5ede45d4d773f940b52962a74ed0e187a6b3aa5d1c8d84ca3d96e1008d1da",
       "probe_evidence_file": "artifacts/acceptance/adapter_capability/codex.json",
       "probe_reported_status": "UNVERIFIED",
       "public_callables_on_adapter": [],
       "status_counts": {
         "DEGRADED": 0,
-        "UNSUPPORTED": 6,
+        "UNSUPPORTED": 7,
         "UNVERIFIED": 1,
-        "VERIFIED": 1
+        "VERIFIED": 0
       },
-      "version": "0.137.0"
+      "version": null
     },
     "hermes": {
-      "adapter_self_status": "CONNECTED",
+      "adapter_self_status": "UNVERIFIED",
       "adapter_state": "UNVERIFIED",
       "capabilities": {
         "approval": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no approval interface, and the fail-closed dry-run produced \"no attribute matching ('approve', 'deny', 'permission', 'approval', 'grant') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "cancel": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no cancel interface, and the fail-closed dry-run produced \"no attribute matching ('cancel', 'abort', 'terminate', 'kill') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "pause": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no pause interface, and the fail-closed dry-run produced \"no attribute matching ('pause', 'halt', 'suspend', 'freeze') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "retry": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no retry interface, and the fail-closed dry-run produced \"no attribute matching ('retry', 'replay', 'redrive', 'resume') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "session_message": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no session_message interface, and the fail-closed dry-run produced \"no attribute matching ('send_message', 'post_message', 'message', 'prompt', 'speak') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "steer": {
-          "reason": "mechanism present in the environment but not exercisable: the Hermes gateway/hook engine is installed on this host (config.yaml present, gateway_state kind='hermes-gateway'), the documented transport is the official outbound hook, but C:\\Users\\Administrator\\.hermes\\hooks does not exist; the adapter's public API is probe/discover/normalize only -> not exercisable here",
-          "reported_status": "UNVERIFIED",
-          "status": "UNVERIFIED"
+          "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no steer interface, and the fail-closed dry-run produced \"no attribute matching ('steer', 'inject', 'instruct', 'redirect', 'redirect') on HermesAdapter\"",
+          "reported_status": "UNSUPPORTED",
+          "status": "UNSUPPORTED"
         },
         "telemetry": {
-          "evidence": {
-            "envelope_schema_ok": true,
-            "envelope_session_id_present": true,
-            "probe_mode": "live",
-            "record_exists": true,
-            "record_path": "C:\\Users\\Administrator\\.hermes\\gateway_state.json",
-            "record_source": "live"
-          },
-          "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=hermes-ac1dae71f6f5ba5764cddecf, event_type=EventType.HEARTBEAT) at C:\\Users\\Administrator\\.hermes\\gateway_state.json",
-          "reported_status": "VERIFIED",
-          "status": "VERIFIED"
+          "reason": "no live record found at the adapter's native path (C:\\Users\\Administrator\\.hermes\\gateway_state.json); normalize() was NOT exercised against host data",
+          "reported_status": "UNVERIFIED",
+          "status": "UNVERIFIED"
         },
         "verify": {
           "reason": "no such surface: the only public callables on HermesAdapter are probe/discover/normalize (public=[]); the ABC AgentAdapter declares no verify interface, and the fail-closed dry-run produced \"no attribute matching ('verify', 'attest', 'recheck', 'recheck', 'prove') on HermesAdapter\"",
@@ -205,21 +181,21 @@
           "status": "UNSUPPORTED"
         }
       },
-      "config_path": "C:\\Users\\Administrator\\.hermes\\config.yaml",
+      "config_path": null,
       "discovery_actuation_enabled": false,
       "hook_schema_kind": "hermes-hooks",
-      "installed": true,
-      "probe_evidence_digest": "sha256:f63592e92a90c0effc5dea116f670927d90e95c612b1293605227b7bb61977cb",
+      "installed": false,
+      "probe_evidence_digest": "sha256:5c146363e533e933af77a6fa6657c0431817e64c3a448b0979368075258ab9ea",
       "probe_evidence_file": "artifacts/acceptance/adapter_capability/hermes.json",
       "probe_reported_status": "UNVERIFIED",
       "public_callables_on_adapter": [],
       "status_counts": {
         "DEGRADED": 0,
-        "UNSUPPORTED": 1,
-        "UNVERIFIED": 6,
-        "VERIFIED": 1
+        "UNSUPPORTED": 7,
+        "UNVERIFIED": 1,
+        "VERIFIED": 0
       },
-      "version": "Hermes Agent v0.4.0 (2026.3.18)"
+      "version": null
     },
     "workbuddy": {
       "adapter_self_status": "CONNECTED",
@@ -261,10 +237,10 @@
             "envelope_session_id_present": true,
             "probe_mode": "live",
             "record_exists": true,
-            "record_path": "C:\\Users\\Administrator\\.workbuddy\\sessions\\21552.json",
+            "record_path": "C:\\Users\\Administrator\\.workbuddy\\sessions\\8008.json",
             "record_source": "live"
           },
-          "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-fa8802a4f2ddc9eaca1599f8, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\21552.json",
+          "reason": "live record normalized by normalize() into a valid AEPEnvelope (event_id=workbuddy-f3fcadf87a1a3ed9d17136d0, event_type=EventType.UNKNOWN) at C:\\Users\\Administrator\\.workbuddy\\sessions\\8008.json",
           "reported_status": "VERIFIED",
           "status": "VERIFIED"
         },
@@ -278,7 +254,7 @@
       "discovery_actuation_enabled": false,
       "hook_schema_kind": "codebuddy-hooks",
       "installed": true,
-      "probe_evidence_digest": "sha256:152e4f4bf8151ea1b42cd0ac3aeb238e971b1c733fe7e4b31b9c765b936f1b56",
+      "probe_evidence_digest": "sha256:a69b96604137828db1dd90323230c925f2247789692be14c9be56899ff312b66",
       "probe_evidence_file": "artifacts/acceptance/adapter_capability/workbuddy.json",
       "probe_reported_status": "UNSUPPORTED",
       "public_callables_on_adapter": [],
@@ -307,7 +283,7 @@
     "No digest of a live record file is recorded: those files are append-only, so a digest would change every run and the check would be ignored.",
     "probe_evidence_digest hashes the NORMALISED evidence (volatile keys stripped), which is why it is stable across runs."
   ],
-  "generated_at": "2026-09-27T06:34:35Z",
+  "generated_at": "2026-10-04T09:55:15Z",
   "probe": {
     "evidence_dir": "artifacts/acceptance/adapter_capability",
     "measurement": "read-only probe; never pauses, steers or cancels a real agent",
@@ -319,8 +295,8 @@
     "claude",
     "hermes"
   ],
-  "repo_branch": "feature/jcc-v1.1-activation",
-  "repo_head": "351cc1c050459c5f60ae75ca3ce0cbb8e2761ae7",
+  "repo_branch": "release/jcc-v1.3-final",
+  "repo_head": "01cfb6a9c81a1da016fac93008cb8e786cc0cfd1",
   "schema": "jcc-v1.1-capability-matrix/1",
   "section": "\u00a710",
   "vocabulary": [

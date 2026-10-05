@@ -127,23 +127,79 @@ def test_foreign_must_not_suggest_starting_over_it():
 # -- End-to-end: doctor.ps1 on this live host ----------------------------- #
 
 def test_doctor_on_this_host_does_not_suggest_starting_an_up_service():
-    """Run the real doctor.ps1 under PS 5.1 and read its `next :` line.
+    """Run the real doctor.ps1 under PS 5.1 and check `next :` against D-6.
 
-    The probe runs doctor end-to-end on this host and reports what was
-    printed. The service is currently UP (pid 9952, port 4778). The printed
-    hint MUST therefore match OURS -- if it ever matches FREE on this live
-    state, the wiring in doctor.ps1 is broken regardless of how correct the
-    helper is.
+    THE PREMISE IS A MEASUREMENT, NOT A SNAPSHOT. This test used to assert
+    that the printed hint was always the OURS hint, on the strength of a
+    docstring that recorded one run's snapshot: "The service is currently UP
+    (pid 9952, port 4778)". That was a transient host state frozen into an
+    invariant. On a host with nothing listening on 4778 -- which is the state
+    this host is actually in -- doctor correctly prints the FREE hint, so the
+    assertion was wrong and the doctor was right.
+
+    So the test now asks the question that is true in EVERY state: whatever
+    state doctor measured in section 6, is the printed hint the hint for THAT
+    state? The state is read out of doctor's own D-6 detail line, so it cannot
+    drift from what doctor decided, and no second measurement is taken.
+
+    This keeps the property the test was written to protect. A doctor that
+    printed the OURS hint while measuring FREE (the original bug: an
+    unconditional line that told an operator to start a healthy instance, or to
+    cover a foreign listener) still fails here -- on a FREE host, on an OURS
+    host, and on a FOREIGN host alike. Nothing is skipped and nothing is
+    spawned, so this leg cannot buy a pass by declining to run.
+
+    The FOREIGN branch is the sharpest case and is asserted separately below:
+    its hint embeds the offending pid, so it is compared against the hint built
+    for the pid doctor actually named, not the probe's fixed sample pid.
     """
     r = _read_probe(Path(os.environ.get("TEMP", r"C:\Users\Administrator\AppData\Local\Temp")) / "jev-pytest" / "nhh")
     next_printed = (r.get("doctor_next_printed") or "").strip()
     exit_code = r.get("doctor_exit")
+    d6 = (r.get("doctor_d6_measured") or "").strip()
     assert exit_code == 0, "doctor did not exit 0 on this host: %r" % exit_code
+    assert d6, (
+        "doctor printed no section-6 measurement line, so the port state its "
+        "`next :` hint must match is unknown -- got:\n%r" % (r,))
     assert next_printed, "doctor printed no `next :` line"
+
+    # Map doctor's own words to the state it measured. Exactly one must match.
     ours = (r.get("ours") or "").strip()
-    assert next_printed == ours, (
-        "doctor printed %r but the OURS hint is %r -- the wiring in doctor.ps1 "
-        "no longer matches the helper" % (next_printed, ours))
+    free = (r.get("free") or "").strip()
+    foreign_for_pid = (r.get("foreign_for_doctor_pid") or "").strip()
+    if re.search(r"no LISTENING socket", d6, re.IGNORECASE):
+        measured, expected = "FREE", free
+    elif re.search(r"listener owned by OUR pid", d6, re.IGNORECASE):
+        measured, expected = "OURS", ours
+    elif re.search(r"held by foreign pid", d6, re.IGNORECASE):
+        # The hint carries the pid, so it is only comparable against the hint
+        # built for the pid doctor named. Fail loudly if that is missing rather
+        # than silently comparing against the probe's 9999 sample.
+        measured, expected = "FOREIGN", foreign_for_pid
+        assert expected, (
+            "doctor measured a FOREIGN holder (pid %r) but the probe returned no "
+            "hint for that pid, so the printed hint cannot be compared: %r"
+            % (r.get("doctor_d6_foreign_pid"), d6))
+    else:
+        raise AssertionError(
+            "doctor's section-6 measurement line matched no known port state; "
+            "refusing to guess which hint it should have printed: %r" % (d6,))
+
+    assert next_printed == expected, (
+        "doctor measured port state %s (D-6: %r) and so must print %r, but it "
+        "printed %r -- the wiring in doctor.ps1 no longer matches the helper"
+        % (measured, d6, expected, next_printed))
+
+    # NOTE on coverage, stated rather than hidden. The property "an UP host is
+    # never told to start the service" is pinned by test_ours_says_do_not_start
+    # against the pure helper, so it is not re-asserted here behind an `if
+    # measured == "OURS"` branch. Such a branch would never execute on a FREE
+    # host -- this one included -- and a conditional assertion that silently
+    # does not run is the same shape of defect as the snapshot premise this
+    # test was rewritten to remove. The unconditional assertion above is what
+    # has teeth on whichever state the host is actually in; it was proved
+    # falsifiable by hardcoding the OURS hint in doctor.ps1 on a FREE host,
+    # which it caught.
 
 
 def test_doctor_does_not_change_pass_fail_semantics():
