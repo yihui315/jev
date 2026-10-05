@@ -19,13 +19,26 @@ distinction that matters is:
   (a) size UNCHANGED, content zeroed   -> INC-002. Real damage.
   (b) size CHANGED, content identical  -> ordinary CRLF/LF. NOT damage.
 
-Both halves are required, and neither alone localises the incident:
+THE TWO HALVES ARE ORTHOGONAL, NOT COMPLEMENTARY
+-------------------------------------------------
+Each half has its OWN blind spot, and they are not the same shape:
 
-  1. CR-normalised content hash  -- separates (a)/(b) from real edits. A zeroed
-     file still hashes *something*, so this alone cannot name INC-002.
-  2. non-zero-byte check         -- what actually names it: bytes-on-disk vs
-     bytes-after-stripping-NULs. A file that is 8639 bytes of NUL has s == z
-     FALSE, and git diff will happily call that "Bin 8639 -> 8639 bytes".
+  * the NUL half is blind to CR-class damage -- an in-band CR injection
+    contains no NUL at all, so the zero check passes it;
+  * the CR-normalised hash half is blind to NUL-class damage that
+    normalisation cannot see, because a zeroed or NUL-punched file still
+    hashes *something*.
+
+So do not describe these as mutually backing each other up. "Complementary"
+implies redundancy, and redundancy implies one half alone might do -- it cannot.
+For in-band CR injection, the hash half is the ONLY thing that catches it. They
+are orthogonal signals, and both are required:
+
+  1. CR-normalised content hash  -- separates real edits and CR-class damage
+     from benign line-ending differences.
+  2. non-zero-byte check (s != z) -- names the NUL class. A file that is 8639
+     bytes of NUL has s == z FALSE, and git diff will happily call that
+     "Bin 8639 -> 8639 bytes". No run-length threshold: see check_one().
 
 ONE DEVIATION FROM forge2's NOTE, AND IT IS DELIBERATE
 ------------------------------------------------------
@@ -259,7 +272,18 @@ def check_one(rel: str, rev: str = "HEAD",
     # a diagnostic. (Ordering matters -- an earlier draft returned SANDBOX_DIAG
     # here for an untracked target and the selftest caught that the zeroing
     # detection was never actually being exercised.)
-    rec["zeroed"] = rec["nul_bytes"] > 0 and rec["nul_bytes"] == len(work)
+    #
+    # The predicate is s != z -- "the file contains at least one NUL byte" --
+    # with NO run-length or count threshold. An earlier draft used
+    # ``nul_bytes == len(work)``, i.e. "entirely NUL", which is a threshold
+    # wearing a predicate's clothes: it passed a single-NUL, size-preserving
+    # edit, and that is precisely the shape the stat cache cannot see. Measured
+    # before the fix: 1 NUL and 3 NULs with size held both reported
+    # zeroed=False where s != z reports FLAGGED. The CR-normalised hash half
+    # happened to catch both, which is the orthogonality property, not a licence
+    # to weaken this half -- a threshold here would be a real false negative the
+    # moment the two halves are given different inputs.
+    rec["zeroed"] = rec["nul_bytes"] > 0
     if rec["zeroed"]:
         rec["severity"] = SEV_ZEROED
         rec["notes"].append(
@@ -428,6 +452,42 @@ def selftest() -> int:
             fails.append(f"pristine file reported {rec3['severity']}, expected CLEAN")
     finally:
         target.write_bytes(original)
+
+    # 6. The NUL half must use s != z with NO threshold. "entirely NUL" is a
+    #    run-length threshold in disguise: it passes a single-NUL, size-preserving
+    #    edit, which is exactly the shape git's stat cache cannot see.
+    #
+    #    This MUST exercise check_one, not nul_count. An earlier version of this
+    #    guard tested the helper, and a mutation of the predicate in check_one
+    #    still passed it -- a guard wired to the wrong symbol. Verified by
+    #    mutation: reverting the predicate makes this fail.
+    target_rel = "integrations/_common/jcc_emit.py"
+    target = REPO / target_rel
+    original = target.read_bytes()
+    try:
+        for n_nul in (1, 2, 3, 64):
+            punched = original.replace(b"\n", b"\x00" * n_nul + b"\n", 1)
+            if len(punched) != len(original):
+                # keep the size identical, which is the whole point of the shape
+                punched = original[:10] + b"\x00" * n_nul + original[10 + n_nul:]
+            target.write_bytes(punched)
+            rec = check_one(target_rel)
+            if rec["severity"] != SEV_ZEROED:
+                fails.append(
+                    f"a {n_nul}-byte NUL punch with size preserved was reported "
+                    f"{rec['severity']}, expected ZEROED -- the predicate must be "
+                    "s != z, not a count/run-length threshold"
+                )
+                break
+    finally:
+        target.write_bytes(original)
+
+    # And ordinary text must not trip it.
+    target.write_bytes(b"ordinary text, no NUL bytes at all\n" * 20)
+    rec = check_one(target_rel)
+    if rec["severity"] == SEV_ZEROED:
+        fails.append("NUL half false-positives on ordinary text")
+    target.write_bytes(original)
 
     # 6. The A8 pin parser must not UNDER-report coverage.
     #    _PROD_ARTIFACTS names one pinned file by bare identifier
