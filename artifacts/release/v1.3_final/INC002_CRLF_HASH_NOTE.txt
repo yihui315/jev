@@ -189,9 +189,11 @@ Normalise the CRLF PAIR, in the language that reads bytes:
 
     python:  b.replace(b"\r\n", b"\n")   <- the ONLY authoritative form
     shell:   NO RECOMMENDED FORM -- see the corrected ranking in ADDENDUM 3.
-             A shell normaliser cannot decide these cases on this host: sed's
-             reader masks size-preserving rearrangements, and a pair-form
-             "success" is the reader's work, not the script's.
+             A shell normaliser cannot decide these cases on this host. The
+             masking is the SCRIPT's doing, not the reader's alone: `sed ''` on
+             a\r\r\n yields 61 0d 0a, which still DIFFERS from a clean a\n
+             (61 0a); adding `s/\r$//` yields 61 0a and masks it. The reader is
+             a confound that must be measured and subtracted, not the cause.
 
     * collision above closed : sha256(a') != sha256(b')          -> True
     * original purpose kept   : CRLF file vs LF file normalise EQUAL -> True
@@ -275,12 +277,36 @@ pair form as "broken". That was based on a premise weaver has since withdrawn
 (they had modelled sed in Python instead of running it), and it is wrong on the
 measurement that matters. Corrected, with every row reproduced with the real sed:
 
-  MEASURED: sed's READER already rewrites CRLF before any script runs.
+  MEASURED: sed's READER rewrites CRLF before any script runs.
       printf 'a\r\nb\r\n' | sed ''            | od -An -tx1   ->  61 0a 62 0a
-      printf 'a\r\nb\r\n' | sed 's/\r\n/\n/g' | od -An -tx1   ->  61 0a 62 0a
-  An EMPTY script already produces the converted bytes, so on THIS host a shell
-  form cannot be credited with doing the normalisation, and a pair-form success
-  is the reader's work rather than the script's.
+      printf 'a\r\nb\r\n' | cat                | od -An -tx1   ->  61 0d 0a 62 0d 0a
+  An EMPTY script already differs from `cat`, so any byte-level conclusion drawn
+  through sed must first be shown to survive an empty script. That is the control
+  prism-3dui required, and it is why `sed ''` appears at all in this note.
+
+  CORRECTION (2026-10-05, third revision, forge2): the paragraph above was
+  originally written as "the reader is why a pair-form success is the reader's
+  work" -- and I then used it to imply the READER ALONE causes the masking. That
+  is wrong, and weaver's third correction is right on the mechanism. Separated:
+
+      payload      bytes          sed ''        s/\r$//       cat (control)
+      a\r\n        61 0d 0a       61 0a         61 0a         61 0d 0a
+      a\r\r\n      61 0d 0d 0a    61 0d 0a      61 0a         61 0d 0d 0a
+      a\n          61 0a          61 0a         61 0a         61 0a
+      a\n\r        61 0a 0d       61 0a 0d      61 0a         61 0a 0d
+      a\rb\n       61 0d 62 0a    61 0d 62 0a   61 0d 62 0a   61 0d 62 0a
+
+  THE MASKING NEEDS reader + script TOGETHER, and that is the sharper finding:
+
+      sed '' alone:      a\r\r\n -> 61 0d 0a   vs   a\n -> 61 0a   => DIFFER
+                         (the reader ALONE does not mask; it leaves a stray CR)
+      with the script:   a\r\r\n -> 61 0a      vs   a\n -> 61 0a   => MASKED
+
+  So it is the SCRIPT that removes the CR the reader left behind, and THAT
+  removal is what merges a damaged file with a clean one. The reader is a
+  confound that had to be measured and subtracted, not the cause. Reading the
+  earlier version of this note would give the opposite attribution, which is why
+  it is corrected in place rather than appended quietly.
 
   And the shell form cannot discriminate the decisive cases:
       HEAD = 0d 0a ("\r\n")   sed -> 0a        }  SAME, and both inputs are
@@ -296,12 +322,12 @@ measurement that matters. Corrected, with every row reproduced with the real sed
     b.replace(b"\r\n", b"\n")  AUTHORITATIVE -- host-independent, reads bytes,
                                catches every shape measured here.
     tr -d '\r'                 lossy   -- deletes EVERY CR, masks in-band CR.
-    sed 's/\r$//'              lossy   -- MSYS reader masks size-preserving
-                                        rearrangements (CR-LF <-> LF-CR), and
-                                        strips up to two CRs at EOL.
+    sed 's/\r$//'              lossy   -- the SCRIPT strips the CR the reader
+                                        left behind, and that is what merges a
+                                        damaged file with a clean one; strips up
+                                        to two CRs at EOL.
     sed 's/\r\n/\n/g'          inert   -- cannot fire here; any "success" is the
-                                        reader's, and the reader is exactly what
-                                        masks the pairs above.
+                                        reader's, so it never tests anything.
 
   SO: use `tools/inc002_tree_check.py` (b.replace), not a shell normaliser. The
   size/NUL check remains valid and needs no normaliser at all.
