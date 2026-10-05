@@ -1512,7 +1512,7 @@ binary file matches nothing          ← 0 命中
 **NUL 让 grep 把文件当二进制，只报「binary file matches nothing」。**
 **而本轮所有人用来判缺陷的正是 grep。**
 
-**即：本轮反复出现的那类误判——「grep 说没变/没命中/不��定」——
+**即：本轮反复出现的那类误判——「grep 说没变/没命中/不一定」——
 在一个真损坏文件上会给出「一切正常」。**
 
 ### 关键二：它被自己写的判据抓到
@@ -2646,4 +2646,87 @@ weaver 在撤回三轮指控后提出这一组，**主理人逐条采纳**——
 **但我仍然违反了自己写下的规则**（试错两轮才转向推导）。
 **规则写进裁定不等于被遵守**——weaver 的规则 10 从提出到现在，
 **被违反的次数是它被引用的次数。**
+
+---
+
+## 裁定 #51 · Phase 2 收敛；`release_truth` 的 `head` 字段是自指，不可满足
+
+### Phase 2 实际达成（`6b4591d`，2026-10-05 14:33）
+
+```
+release_truth.py --check        ->  CHECK CLEAN   verdict=PASS   exit 0
+product_freeze_sha              =  b369cd7776ae9ed57ec2acb292998855f5f54679
+                                   （由 git 推导，非人工填写）
+release_truth.py --selftest     ->  PASS 9/9（判别力仍在）
+inc002_tree_check --a8-pins     ->  12/12 CLEAN
+inc002_tree_check --selftest    ->  PASS
+```
+
+**冻结阻塞已清除。** 过程与主理人犯的错一并记录，因为它们同源。
+
+### 阻塞是怎么解掉的
+
+| # | 文件 | 处置 | 依据 |
+|---|---|---|---|
+| 1 | `tools/wal_falsifier` 输出路径 | 移出冻结产品路径到 `runtime/_verify_wal/` | 裁定 #44 R3 |
+| 2 | `tools/wal_falsify_result.json` | 删除（昨天运行的旧产物，mtime 10-04） | 零引用、零 NUL、代码已不再写它 |
+| 3 | `tools/inc002_index_control.py` | **入库** `f58b80b` | prism-3dui：3-in-10 是对磁盘上不存在的版本的测量 |
+| 4 | 4 份 metric-verify 规范文档 | 入库 `27d1993` | 阻塞源，且是本仓唯一权威的规范载体 |
+| 5 | `docs/P3_P4_SPEC.md` 的 3 个 U+FFFD | 修 `b369cd7` | agent 审计别的任务时发现并上报 |
+
+### 三件我必须记下的错
+
+**（1）我连续三轮在删除上失败而未察觉。**
+`rm -f` 两次被 SIGTERM 截断；第三次改用 PowerShell 报 DELETED，
+**但切换目录未生效**，那次「成功」不可信。
+**最终以 bash 复核为准**（确认 GONE）。
+
+> **一个删除动作的「成功」输出，本身需要复核。** 与「一个测试的通过输出」同级。
+
+**（2）我派出的 agent 判定 12 处 F 盘引用全为历史记述、零处需改，与我的预设相反。**
+独立核实后确认**它是对的**：`AGENTS.md:4` 已写明 D 盘为 rule 1 唯一根，
+而全部 12 处都在**逐字引用他人文件内容**的语境
+（`CONSISTENCY_MAP.md:107` 引用 `freeze_check.py:40` 的 `ROOT = Path(r"F:/jev")`）。
+**改掉它们会让引用失真，等于伪造证据。**
+
+**（3）U+FFFD 揭示了零字节检查的一个盲区（agent 发现，我已修）。**
+`docs/P3_P4_SPEC.md:69` 有 3 个 `ef bf bd`（U+FFFD 替换字符），本该是破折号。
+**NUL=0 查不出这类损坏**——该文件通过了我这一轮所有 NUL 检查。
+
+> **「NUL=0」不等于「文本完好」。** 前者是「未被清零」，后者是「字节可解码且语义正确」。
+> **本轮我在零字节检查上投入的全部努力，对这一类损坏完全无效。**
+> 这不是检查写错了，是**「检查通过」被当成了「文件完好」**——
+> 与我推翻裁定 #38 时犯的错同型：**持有正确的测量，推出它不支撑的结论。**
+
+### 剩余 3 条 STALE 的性质
+
+| 项 | 性质 | owner |
+|---|---|---|
+| `dirty_evidence_paths` | 他人正在改 `artifacts/acceptance/` | 非我 ownership |
+| `dirty_paths` | 同上，含 `artifacts/release/legs/` | 同上 |
+| `head` | **自指**，见下 | 需设计裁定 |
+
+### 裁定：`head` 字段不可满足，须改语义
+
+`--emit` 把 `head` 写成**当时的 HEAD**，而该 commit 随后包含了这个归档本身：
+
+```
+emit 时 HEAD    = b369cd7  ->  归档记录 head = b369cd7
+提交归档后 HEAD = 6b4591d  ->  --check 报 head 不符
+再 emit -> 再次提交 -> 再次不符
+```
+
+**这是自指方程，解是「归档不记录自己所在的 commit」。**
+
+**裁定（三选一）**：
+1. `head` 改为记录 **`last_product_commit`**（产品提交），排除归档自身；—— **推荐**
+2. 归档改记 `sha256` 而非 git sha，彻底脱离自指。
+3. 接受该字段永久失配，在 `--check` 中显式排除并说明理由。
+
+**主理人裁定 1**：这份文档的用途是**证明产品未被偷改**，
+而 `RELEASE_TRUTH.json` **本身是产物不是产品**。
+`last_product_commit` 与 `product_freeze_sha` 已正确记录产品位置，
+`head` 字段与之重复且自指，**是冗余字段**。
+
+**本条不代改 `release_truth.py`**——改判据语义属产品代码变更，须先有反例测试。
 
