@@ -66,7 +66,7 @@ launcher, agents, raw, config_path, config_is_explicit
 - `.env` 为空 → 该字段为 `false`
 - 设置非空 token → `true`（用 `subprocess` 起子进程注入环境变量验证，
   **不要在当前进程里改 `os.environ`**）
-- **health 响应体任何位置都不得出现 token 值** —��� 加断言
+- **health 响应体任何位置都不得出现 token 值** ——— 加断言
 
 ### 2.5 commit message 必须写入的安全性推理
 > health 本身是**开放 GET**（既有设计，安全成员已实测 27 条 mutating 路由的隔离方式）。
