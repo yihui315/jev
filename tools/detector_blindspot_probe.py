@@ -91,9 +91,36 @@ from typing import Any, Callable, Dict, List, Optional, Tuple
 ROOT = Path(__file__).resolve().parents[1]
 PY = sys.executable
 
-#: The audit table. ``unpatched`` is a faithful transcription of the cited lines
-#: in each detector, kept here so the negative control cannot drift away from
-#: the thing it is a control for. Each entry names the file the detector reads.
+#: The audit table. Each entry names the file the detector reads, and names the
+#: ``unpatched`` control that stands in for its pre-fix decision rule.
+#:
+#: AN HONEST WORDING CORRECTION, because the first version of this comment
+#: claimed each transcription was "a faithful transcription of the cited lines",
+#: and for one of the three that was not true.
+#:
+#: ``reference_unpatched`` is a BARE DRIVE-LITERAL COUNT. The real
+#: f_derivations_falsifier has never been a bare count: since well before
+#: 74255f8 it has been token-level and docstring-aware, and it has always
+#: detected an unparseable file. What 74255f8 actually changed is that the
+#: detected condition STOPPED BEING DIAGNOSTIC AND BECAME A REFUSAL -- before
+#: it, a zeroed file produced a TOKENIZE_ERROR record that main() counted as
+#: neither violation nor unreadable, so the run still printed FALSIFIER: PASS.
+#: Verified against `git show 74255f8^`: the TOKENIZE_ERROR catch clause and its
+#: record both predate that commit.
+#:
+#: So ``reference_unpatched`` models no historical version of the tool. It is a
+#: CARICATURE -- a weaker detector than any the repo has shipped -- and calling
+#: it a transcription overstates what it is.
+#:
+#: Why keep it, and why it is still sound for its actual job: the control's
+#: question is "does a count-only detector go green on destroyed bytes?" That
+#: question is about the SHAPE, not about any specific revision, and a weaker
+#: detector is the right instrument for it -- a caricature that goes green
+#: proves the shape is sufficient to produce a false green. The verdict for
+#: every detector in this file comes from the REAL code in a subprocess
+#: (`run_patched`), never from these functions; `_classify` does not reference
+#: them. Mutation-tested: forcing any of the three controls RED makes the probe
+#: exit 2 with a FATAL, so a red control cannot hide behind a green verdict.
 AUDIT: Tuple[Dict[str, Any], ...] = (
     {
         "id": "WAVE6_WORLD_HAS_NO_WRITE_PATH",
@@ -175,10 +202,20 @@ def docs_unpatched(root: Path) -> Tuple[bool, str]:
 
 
 def reference_unpatched(root: Path) -> Tuple[bool, str]:
-    """The PRE-74255f8 shape of f_derivations_falsifier: count literals only.
+    """A bare drive-literal count -- a CARICATURE, not a historical revision.
 
-    Kept so the probe demonstrates the contrast: the same fixture that makes
-    this transcription green is refused by the real, fixed tool.
+    Read the AUDIT table comment before trusting this as a model of anything.
+    Short version: the real falsifier has always been token-level and has
+    always detected an unparseable file. It went green on a zeroed file because
+    the detection was DIAGNOSTIC rather than a REFUSAL, not because it lacked
+    the check. So this function is deliberately weaker than any shipped
+    revision, and its only job is to answer one question about a SHAPE:
+
+        does "count a feature and pass on zero" go green on destroyed bytes?
+
+    It does. That is the point, and it is why the probe's contrast is real:
+    the same fixture that makes this caricature green is refused by the actual
+    tool, running as a subprocess, with a stated reason.
     """
     drive_re = re.compile(r"(?<![A-Za-z0-9_])([A-Za-z]):[\\/]")
     mod = root / "product" / "mod.py"
