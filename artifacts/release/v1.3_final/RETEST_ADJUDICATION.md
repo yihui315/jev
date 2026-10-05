@@ -299,6 +299,25 @@ this scrub only removes provably-empty lines.
 exit=1
 ```
 
+**Provenance for the digest above** (added per the record rule: any sha256 must name
+its source and the tree it was taken from). This is a **FILE** digest, not a git
+blob, so `git cat-file -p` does not apply:
+* source: `runtime/logs/stable-runtime-boot.jsonl`, read directly off disk
+* command: `sha256sum < runtime/logs/stable-runtime-boot.jsonl`
+* size: 943 062 bytes
+* taken before the CR-H4 repair, at commit `9108ade` era, on `core.autocrlf=true`
+* reproduce: the file has since been repaired, so the AFTER state is recorded in
+  `artifacts/release/v1.3_final/CR_H4_DONE.json` (`before_sha256` is the same value,
+  and `sidecar_backup` holds the pre-repair bytes verbatim)
+
+Note the line indexes differ from the ones in `CR_H4_DONE.json` (3886/3924/4203/
+4214/4234 here vs 3887/3925/4204/4215/4235 there). **Cause, verified rather than
+guessed:** `tools/cr_h4_beacon_scrub.py:46` uses `enumerate(raw.split(b"\n"))` with no
+`start=`, so it reports **0-based** indexes, while `CR_H4_DONE` (my repair script)
+enumerates from 1. The offset is exactly +1 on all five, consistent with that and
+with nothing else. I first wrote "the tool's own header line" as the explanation,
+which was a guess and wrong; the two index sets are otherwise the same five lines.
+
 The tool removes a line only when it is 100% NUL bytes. There are none, so it
 changed nothing. Deleting the 3 type-1 lines would have destroyed three real
 beacon records; had I trusted my own earlier write-up instead of measuring, that is
