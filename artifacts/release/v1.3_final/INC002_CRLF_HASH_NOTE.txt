@@ -67,24 +67,40 @@ SUGGESTED CHECK (both halves are required)
     # one. Proof -- 3 CRs in, 1 left out (a correct run leaves 2):
     #     printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
     #
-    # SETTLED FORM (what adjudication #21 actually specifies, and what
+    # SETTLED FORM (what adjudication #21 specifies, and what
     # tools/inc002_tree_check.py implements):
     #     python : b.replace(b"\r\n", b"\n")
     #     NOT b.replace(b"\r", b"")  -- same defect as tr -d '\r'.
-    # The shell form below is correct on a POSIX sed and, per the measurement
-    # above, is what this repo's own MSYS host actually uses today. Do not
-    # "simplify" it to the CRLF-pair form: that form is a no-off on POSIX.
-    hdiff() { git cat-file -p "HEAD:$1" | sed 's/\r$//' | sha256sum | cut -d' ' -f1; }
-    hwork() { sed 's/\r$//' < "$1" | sha256sum | cut -d' ' -f1; }
-    [ "$(hdiff "$f")" = "$(hwork "$f")" ] && echo MATCH || echo DIFFER
-
-    # HOST CAVEAT, still open: on this MSYS build sed's reader already converts a
-    # trailing CRLF, so the two steps compose to strip up to TWO CRs at EOL. The
-    # measured consequence is limited to the shape "a\r\r\n", which this host
-    # reports as MATCH where canonical python says DIFFER. If that shape must be
-    # caught here, do not reach for a different sed script -- use the python form
-    # or tools/inc002_tree_check.py, which read bytes and are host-independent.
-    # Owner: team-lead. Tracked as an open condition, not a closed defect.
+    #
+    # NO SHELL FORM IS RECOMMENDED ANY MORE, and the line that used to stand here
+    # was wrong. It read:
+    #
+    #     hdiff() { ... | sed 's/\r$//' | ... }
+    #     "The shell form below is correct ... Do not 'simplify' it to the
+    #      CRLF-pair form: that form is a no-off on POSIX."
+    #
+    # That "do not simplify" advice was built on a false premise and pointed
+    # readers straight at a size-preserving blind spot. weaver withdrew the
+    # equivalence claim that motivated it (see ADDENDUM 3), and the real sed on
+    # this host does the following to two DIFFERENT, SAME-LENGTH inputs:
+    #
+    #     HEAD = 0d 0a ("\r\n")  ->  0a
+    #     work = 0a 0d ("\n\r")  ->  0a        sed: SAME  => MASKS the change
+    #     HEAD = 61 0d 0a        ->  61 0a
+    #     work = 61 0a 0d        ->  61 0a      sed: SAME  => MASKS the change
+    #
+    # `replace(CRLF,LF)` gives 0a vs 0a 0d, i.e. DIFFER, correctly. Both masked
+    # pairs are the SAME LENGTH before and after, which is precisely INC-002's
+    # defining shape -- so a shell-side sed cannot be the deciding instrument
+    # here, on this host, in any script form.
+    #
+    # USE THIS INSTEAD (host-independent, reads bytes):
+    #     tools/inc002_tree_check.py, which uses b.replace(b"\r\n", b"\n")
+    #
+    # A size-preserving CHECK is still required and is unaffected -- it reads
+    # size and NUL directly, no normaliser involved:
+    #     s=$(wc -c < "$1"); z=$(tr -d '\0' < "$1" | wc -c)
+    #     [ "$s" = "$z" ] || echo "ZEROED $1"
 
   -- note `git cat-file -p`, NOT `git show`: this was long given as the reason
      `cat-file` is safer. That reason is WITHDRAWN -- both return byte-identical
@@ -143,10 +159,13 @@ normalisation". That is precisely the case the raw hash exists to catch.
 
 THE CORRECT FORM — measured on both axes
 -----------------------------------------
-Normalise the CRLF PAIR, never a single CR and never every CR:
+Normalise the CRLF PAIR, in the language that reads bytes:
 
-    python:  b.replace(b"\r\n", b"\n")   <- authoritative; also the LIVE recipe
-    bash :  sed 's/\r$//'                <- shell equivalent of the above
+    python:  b.replace(b"\r\n", b"\n")   <- the ONLY authoritative form
+    shell:   NO RECOMMENDED FORM -- see the corrected ranking in ADDENDUM 3.
+             A shell normaliser cannot decide these cases on this host: sed's
+             reader masks size-preserving rearrangements, and a pair-form
+             "success" is the reader's work, not the script's.
 
     * collision above closed : sha256(a') != sha256(b')          -> True
     * original purpose kept   : CRLF file vs LF file normalise EQUAL -> True
@@ -223,19 +242,43 @@ So on this MSYS host `s/\r$//` strips up to two CRs at EOL and the collision is
 real HERE. On a POSIX host the reader removes none, `s/\r$//` alone yields
 61 62 0d 0a, and the two files correctly DIFFER.
 
-WHAT IS ACTUALLY TRUE (host-independent)
-    tr -d '\r'          lossy  -- deletes EVERY CR, masks in-band CR injection.
-                               A genuine defect, on every host.
-    sed 's/\r$//'       correct-- removes exactly the CR paired with an LF and
-                               leaves in-band CRs. Matches the docstring of
-                               relay's tools/inc002_tree_check.py.
-    sed 's/\r\n/\n/g'   broken -- inert on POSIX; "works" on MSYS only by
-                               accident, via the reader.
+WHAT IS ACTUALLY TRUE (corrected 2026-10-05, forge2)
+------------------------------------------------------
+The previous version of this block ranked `sed 's/\r$//'` as "correct" and the
+pair form as "broken". That was based on a premise weaver has since withdrawn
+(they had modelled sed in Python instead of running it), and it is wrong on the
+measurement that matters. Corrected, with every row reproduced with the real sed:
 
-AUTHORITY: the byte-level rule b.replace(b"\r\n", b"\n") (adjudication #21,
-implemented as tools/inc002_tree_check.py::normalise_eol, --selftest PASS exit 0)
-gives canonical(ab\r\r\n) = 61 62 0d 0a != canonical(ab\r\n) = 61 62 0a, i.e.
-DIFFER -- the damage IS visible to the canonical rule.
+  MEASURED: sed's READER already rewrites CRLF before any script runs.
+      printf 'a\r\nb\r\n' | sed ''            | od -An -tx1   ->  61 0a 62 0a
+      printf 'a\r\nb\r\n' | sed 's/\r\n/\n/g' | od -An -tx1   ->  61 0a 62 0a
+  An EMPTY script already produces the converted bytes, so on THIS host a shell
+  form cannot be credited with doing the normalisation, and a pair-form success
+  is the reader's work rather than the script's.
+
+  And the shell form cannot discriminate the decisive cases:
+      HEAD = 0d 0a ("\r\n")   sed -> 0a        }  SAME, and both inputs are
+      work = 0a 0d ("\n\r")   sed -> 0a        }  2 bytes: SIZE-PRESERVING
+      HEAD = 61 0d 0a         sed -> 61 0a     }  SAME, and both are 3 bytes
+      work = 61 0a 0d         sed -> 61 0a     }
+  `b.replace(b"\r\n", b"\n")` gives 0a vs 0a 0d and 61 0a vs 61 0a 0d, i.e.
+  DIFFER -- correctly. A blind spot that hides SAME-LENGTH, DIFFERENT-content
+  changes is INC-002's defining shape, so it disqualifies the instrument, not
+  just the script.
+
+  RANKING
+    b.replace(b"\r\n", b"\n")  AUTHORITATIVE -- host-independent, reads bytes,
+                               catches every shape measured here.
+    tr -d '\r'                 lossy   -- deletes EVERY CR, masks in-band CR.
+    sed 's/\r$//'              lossy   -- MSYS reader masks size-preserving
+                                        rearrangements (CR-LF <-> LF-CR), and
+                                        strips up to two CRs at EOL.
+    sed 's/\r\n/\n/g'          inert   -- cannot fire here; any "success" is the
+                                        reader's, and the reader is exactly what
+                                        masks the pairs above.
+
+  SO: use `tools/inc002_tree_check.py` (b.replace), not a shell normaliser. The
+  size/NUL check remains valid and needs no normaliser at all.
 
 OPEN, owner team-lead: the `ab\r\r\n` shape is missed by the sed recipe ON THIS
 HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
