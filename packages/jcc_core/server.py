@@ -36,7 +36,7 @@ from typing import Optional
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request, WebSocket, WebSocketDisconnect, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import ValidationError
 
 from .core import CoreEngine
@@ -53,6 +53,12 @@ logger = logging.getLogger("jcc.server")
 #:
 #: ``/ws`` is deliberately NOT here: it is a WebSocket route, not a GET, and it
 #: is token-gated like any mutating endpoint.
+#: Every provider id the Model & API centre knows about. A literal so the
+#: routes can validate an id WITHOUT importing the registry (which would
+#: pull in the secret store on a read path).
+_PROVIDER_IDS = ("typesafe_jev", "minimax", "qwen_coding_plan_cn", "deepseek", "custom")
+
+
 OPEN_GET_ENDPOINTS = (
     "/api/health",
     "/api/sessions",
@@ -92,6 +98,18 @@ OPEN_GET_ENDPOINTS = (
     "/api/v1/domain/counts",
     # v1.3 Wave 7 — connection verification (one connection with provenance)
     "/api/v1/domain/connections/{cid}",
+    # Jev (TypeSafe System One) reachability. Open because it is a STATUS read:
+    # it reports whether a credential exists, never the credential, and it
+    # mutates nothing. The decision endpoint below is deliberately NOT here.
+    "/api/v1/domain/jev/health",
+    # Model & API centre. Open because a STATUS read: these report WHETHER a
+    # credential exists and at most four characters of it. No secret value
+    # crosses this boundary, and nothing here mutates. The write routes
+    # (credentials / probe / live / model-routing PATCH) are token-gated.
+    "/api/v1/providers",
+    "/api/v1/providers/{pid}",
+    "/api/v1/providers/{pid}/models",
+    "/api/v1/model-routing",
 )
 
 #: Server-side truth for which agents a Mission may actually be launched
@@ -572,6 +590,495 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             "project_scope": scope_report(roots=_allowed_roots()),
         }
 
+    # ------------------------------------------------------------------ #
+    # Jev (TypeSafe System One) — the VENDOR decision model.
+    #
+    # NAMING: `JEV` is this product. `Jev` is TypeSafe's model. These routes
+    # speak only about the latter, and the executor they choose is then run by
+    # the former.
+    #
+    # The executor selection lives HERE, on the server, and nowhere else. The
+    # browser is a transport: it may ask, and it must render whatever comes back
+    # — including "nobody decided". It may not pick an executor itself, because a
+    # hardcoded client-side default behind a label that says 「JEV 自动选择」 tells
+    # the user the system chose when nothing did.
+    # ------------------------------------------------------------------ #
+
+    @app.get("/api/v1/domain/jev/health")
+    def jev_health():
+        """Vendor-model reachability. Read-only; safe without a credential.
+
+        The state vocabulary is the five-value one from ``jev_api``: a real
+        provider with no key is ``REAL_AUTH_MISSING``, never ``MOCK`` — nothing is
+        mocking anything, and reporting a stand-in would hide a one-environment-
+        variable fix behind a word that means "we are answering from a script".
+
+        The credential comes from the REGISTRY, i.e. from the DPAPI store. It
+        used to be read straight out of the environment here, which meant a key
+        saved through the settings page was invisible to this route and to the
+        mission path: the settings page said 「已连接」 while the executor decision
+        reported "JEV_API_KEY is not set". One source, not two.
+        """
+        client = _provider_registry().jev()
+        return {"schema": "jcc/jev-health/1", **client.health()}
+
+    @app.post("/api/v1/domain/jev/select-executor")
+    def jev_select_executor(body: dict,
+                            _token: bool = Depends(require_control_token)):
+        """Ask the vendor model which executor to run. Server-side, once.
+
+        The response is the decision object verbatim, including ``source`` and
+        ``provider_state``. When the vendor model cannot answer, the response
+        says so (``source="undecided"`` or ``"fallback"``) and names the reason;
+        it never contains a substituted executor presented as a Jev choice.
+        """
+        from .providers.jev_api import (
+            KNOWN_EXECUTORS,
+            decide_executor,
+        )
+
+        # From the REGISTRY, so the credential is the one the operator saved in
+        # the settings page (DPAPI) and the client is the same object the rest
+        # of the product uses. This route used to read os.environ["JEV_API_KEY"]
+        # directly, so a key saved through the UI was invisible here and the
+        # mission path answered "JEV_API_KEY is not set" while the settings page
+        # showed 「已连接」 — two credential sources, two different truths.
+        client = _provider_registry().jev()
+        task = str(body.get("task") or "")
+        decision = decide_executor(
+            client,
+            task=task,
+            project_root=str(body.get("project_root") or ""),
+            task_type=str(body.get("task_type") or "general"),
+            available_executors=body.get("available_executors") or list(KNOWN_EXECUTORS),
+            risk_context=body.get("risk_context") or {},
+            executor_health=body.get("executor_health") or {},
+            capabilities=body.get("capabilities") or {},
+            fallback_executor=body.get("fallback_executor"),
+        )
+        # A STABLE id for this decision, minted here.
+        #
+        # The vendor's own `x-request-id` header is absent often enough that a
+        # binding keyed on it would silently degrade to None — and then every
+        # decision would share the same empty key, so an approval for one task
+        # would appear to authorise another. The id below is derived from the
+        # decision's CONTENT, which is what actually has to stay the same: the
+        # executor, whether it is safe, the confidence and the task.
+        import hashlib as _hl
+
+        material = "|".join([
+            str(decision.executor), str(decision.safe_to_execute),
+            f"{float(decision.confidence):.4f}", task,
+        ])
+        decision_id = "jevd_" + _hl.sha256(material.encode("utf-8")).hexdigest()[:24]
+        out = decision.as_dict()
+        out["jev_decision_id"] = decision_id
+        # Kept for the vendor's own correlation when it does send one.
+        out["provider_request_id"] = decision.request_id
+        return {"schema": "jcc/jev-executor-decision/1", **out}
+
+    # ------------------------------------------------------------------ #
+    # Human approval
+    #
+    # A Jev decision below the automatic-execution threshold must stop here. The
+    # browser's only move is to ASK for an approval id; the SERVER decides whether
+    # that approval is real, bound and unused. Letting the page set
+    # ``safe_to_execute`` would look like a confirmation while being an unaudited,
+    # unbound, replayable bypass — one click on a harmless question would
+    # otherwise authorise a deployment.
+    # ------------------------------------------------------------------ #
+
+    def _approval_store():
+        from .approvals import ApprovalStore
+
+        store = getattr(app.state, "_approval_store", None)
+        if store is None:
+            store = ApprovalStore(config.state_store_db_path)
+            app.state._approval_store = store
+        return store
+
+    def _record_approval_audit(entry: Dict[str, Any]) -> None:
+        """Surface the approval on the state store's own audit surface.
+
+        The approval table IS the audit record: it holds who confirmed what,
+        when, and against which decision, and it is queried by
+        :meth:`ApprovalStore.list_for_decision`. Writing a second copy into the
+        mission audit tape would be a duplicate that can drift from this one.
+        """
+        logger.info("human_approval recorded: %s", entry.get("approval_id"))
+
+    @app.post("/api/v1/domain/jev/request-approval")
+    def jev_request_approval(body: dict,
+                             _token: bool = Depends(require_control_token)):
+        """Step 1: ask what approving THIS decision would look like.
+
+        Returns a short-lived, single-use id bound to the decision, the task, the
+        executor and the model. It authorises nothing on its own.
+        """
+        from .approvals import ApprovalError, task_fingerprint
+
+        decision_id = str(body.get("jev_decision_id") or body.get("decision_id") or "")
+        task = str(body.get("task") or "")
+        executor = str(body.get("executor") or "")
+        if not decision_id or not task or not executor:
+            raise HTTPException(
+                status_code=422,
+                detail="jev_decision_id、task 与 executor 均为必填",
+            )
+        ap = _approval_store().issue(
+            jev_decision_id=decision_id,
+            task=task,
+            executor=executor,
+            project_root=body.get("project_root"),
+            provider=body.get("provider"),
+            model=body.get("model"),
+            confidence=body.get("confidence"),
+            reason=body.get("reason"),
+            confirmed_by=str(body.get("confirmed_by") or "user"),
+        )
+        return {
+            "schema": "jcc/human-approval-requested/1",
+            "approval_id": ap.approval_id,
+            "task_hash": ap.task_hash,
+            "expires_at": ap.expires_at,
+            "ttl_s": int(ap.expires_at - ap.confirmed_at),
+            # Echoed so the UI can show WHAT is being approved, not just an id.
+            "executor": ap.executor,
+            "provider": ap.provider,
+            "model": ap.model,
+            "confidence": ap.confidence,
+            "reason": ap.reason,
+        }
+
+    @app.post("/api/v1/domain/jev/confirm")
+    def jev_confirm(body: dict, _token: bool = Depends(require_control_token)):
+        """Step 2: the human clicked 确认并继续. Record it, then authorise.
+
+        Every binding is re-derived server-side from the decision and the task the
+        SERVER holds, never from the request body, so a client cannot widen its
+        own approval.
+        """
+        from .approvals import ApprovalError
+
+        approval_id = str(body.get("approval_id") or "")
+        if not approval_id:
+            raise HTTPException(status_code=422, detail="approval_id 必填")
+        if body.get("human_confirmed") is not True:
+            # A confirmation that did not say so is not a confirmation.
+            raise HTTPException(
+                status_code=422, detail="human_confirmed 必须为 true 才会继续执行"
+            )
+        try:
+            ap = _approval_store().verify_and_consume(
+                approval_id,
+                jev_decision_id=str(body.get("jev_decision_id") or ""),
+                task=str(body.get("task") or ""),
+                executor=str(body.get("executor") or ""),
+                project_root=body.get("project_root"),
+                provider=body.get("provider"),
+                model=body.get("model"),
+            )
+        except ApprovalError as e:
+            # 409, not 400: the request was well-formed and the approval is
+            # unusable. A 400 would invite a retry that could not succeed.
+            raise HTTPException(status_code=409, detail=e.code) from None
+
+        _record_approval_audit(ap.record_for_audit())
+        return {
+            "schema": "jcc/human-approval-confirmed/1",
+            "approval": ap.record_for_audit(),
+            # The executor to use from here. It comes from the APPROVAL, not from
+            # the request, so a confirmed run executes exactly what was approved.
+            "executor": ap.executor,
+            "provider": ap.provider,
+            "model": ap.model,
+            "state": "HUMAN_APPROVED",
+        }
+
+    @app.post("/api/v1/domain/jev/cancel")
+    def jev_cancel(body: dict, _token: bool = Depends(require_control_token)):
+        """The human chose 取消. Burn the approval so it cannot be used later."""
+        from .approvals import ApprovalError
+
+        approval_id = str(body.get("approval_id") or "")
+        if not approval_id:
+            raise HTTPException(status_code=422, detail="approval_id 必填")
+        store = _approval_store()
+        ap = store.get(approval_id)
+        if ap is not None:
+            store.mark_cancelled(approval_id)
+            _record_approval_audit({**ap.record_for_audit(), "outcome": "CANCELLED"})
+        return {"schema": "jcc/human-approval-cancelled/1", "state": "CANCELLED"}
+
+    # ------------------------------------------------------------------ #
+    # Model & API centre
+    #
+    # Lets an operator connect a provider from the settings page instead of by
+    # editing Windows environment variables.
+    #
+    # SECRET BOUNDARY, restated because it is the whole point of this block:
+    #   * a credential arrives over HTTP from localhost and is encrypted with
+    #     DPAPI before it touches disk;
+    #   * NO response here can contain a secret — the only things served are
+    #     `configured` and `last4`;
+    #   * every write below depends on `require_control_token`, so there is no
+    #     unauthenticated path to install a key.
+    # ------------------------------------------------------------------ #
+
+    def _provider_registry():
+        """The process-wide registry.
+
+        Built lazily and cached on the app so the SecretStore is constructed once
+        and the DPAPI cache survives between requests — rebuilding it per request
+        would re-open the credential file on every settings-page poll.
+        """
+        from .provider_registry import ProviderRegistry
+        from .secret_store import SecretStore
+        from .verification_store import VerificationStore
+
+        reg = getattr(app.state, "_provider_registry", None)
+        if reg is None:
+            store = SecretStore(_provider_credentials_path())
+            # A real verification used to live only in process memory, so a
+            # provider that demonstrably worked came back as 「已配置 · 待验证」
+            # after every refresh and every restart. Same database as everything
+            # else, holding outcomes only — never a key or a header.
+            vstore = VerificationStore(config.state_store_db_path)
+            reg = ProviderRegistry(store, verification_store=vstore)
+            app.state._provider_registry = reg
+            app.state._secret_store = store
+        return reg
+
+    def _ever_verified(reg) -> bool:
+        """Did this provider ever complete a REAL request? Fail-closed."""
+        def lookup(pid: str) -> bool:
+            rec = reg._restored(pid)
+            return bool(rec.get("restored") and (
+                rec.get("stored_generation_verified")
+                or rec.get("stored_decision_verified")
+            ))
+        return lookup
+
+    def _provider_credentials_path() -> str:
+        """Where the encrypted credentials live.
+
+        Under the runtime directory, never in the repo. A credentials file that
+        is one `git add` away from being committed is not a secret store.
+        """
+        import os as _os
+
+        root = _os.environ.get("JCC_PROVIDER_CREDENTIALS")
+        if root:
+            return root
+        base = _os.path.join(config.state_store_db_path, "..", "providers")
+        return _os.path.abspath(base)
+
+    @app.get("/api/v1/providers")
+    def providers_list():
+        """Every provider card. Read-only; safe without a token.
+
+        Open because it is a status read: it reports WHETHER a credential exists
+        and, at most, four characters of it. It never returns a secret and never
+        mutates anything.
+        """
+        return _provider_registry().health()
+
+    @app.get("/api/v1/providers/{pid}")
+    def providers_get(pid: str):
+        reg = _provider_registry()
+        for card in reg.health()["providers"]:
+            if card["id"] == pid:
+                return card
+        raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+
+    @app.post("/api/v1/providers/{pid}/credentials")
+    def providers_set_credentials(pid: str, body: dict,
+                                  _token: bool = Depends(require_control_token)):
+        """Store one credential, then probe and discover.
+
+        The probe is part of the save on purpose: an operator who pastes a key
+        wants to know immediately whether it works, and a separate click is how a
+        broken key gets left configured for a week.
+
+        The response contains `configured` and `last4` only. The submitted value
+        is never echoed — not even on success.
+        """
+        reg = _provider_registry()
+        if pid not in _PROVIDER_IDS:
+            raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+        secret = str(body.get("api_key") or "")
+        if not secret.strip():
+            raise HTTPException(status_code=422, detail="api_key is required")
+        # A remembered pass belongs to the credential that earned it. Saving a
+        # DIFFERENT key makes the old proof a claim about a key that is no longer
+        # configured, so it is dropped rather than carried forward.
+        reg.forget_verification(pid)
+        try:
+            reg._store.set_secret(pid, secret)
+        except Exception as e:  # noqa: BLE001 - surfaced as 500 without the secret
+            raise HTTPException(status_code=500, detail=f"无法保存凭据：{e}") from None
+        # Non-secret settings may arrive with the key (plan type, base url, model).
+        for key in ("base_url", "model", "display_name", "api_style",
+                    "reasoning_effort", "timeout_s"):
+            if body.get(key) is not None:
+                reg.set_override(pid, **{key: body[key]})
+        reg.invalidate(pid)
+        card = reg.probe(pid)
+        return {
+            "schema": "jcc/provider-credential-saved/1",
+            "credential": reg._store.describe(pid),
+            "probe": card,
+        }
+
+    @app.delete("/api/v1/providers/{pid}/credentials")
+    def providers_delete_credentials(pid: str,
+                                    _token: bool = Depends(require_control_token)):
+        """Remove one credential. The key is not returned before or after."""
+        reg = _provider_registry()
+        if pid not in _PROVIDER_IDS:
+            raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+        removed = reg._store.delete_secret(pid)
+        reg.invalidate(pid)
+        # No credential means nothing to have verified.
+        reg.forget_verification(pid)
+        return {"schema": "jcc/provider-credential-deleted/1",
+                "provider": pid, "removed": removed,
+                "credential": reg._store.describe(pid)}
+
+    @app.post("/api/v1/providers/{pid}/probe")
+    def providers_probe(pid: str, body: dict,
+                        _token: bool = Depends(require_control_token)):
+        """Reachability check. Makes no paid request.
+
+        Token-gated even though it is a read, because it is a network call the
+        operator triggered and there is no reason for an unauthenticated caller
+        to be able to make the host talk to third parties.
+        """
+        reg = _provider_registry()
+        if pid not in _PROVIDER_IDS:
+            raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+        return {"schema": "jcc/provider-probe/1", **reg.probe(pid)}
+
+    @app.post("/api/v1/providers/{pid}/live")
+    def providers_live(pid: str, body: dict,
+                       _token: bool = Depends(require_control_token)):
+        """A minimal REAL generation. This SPENDS a token.
+
+        Kept off the probe route precisely so a settings page refresh cannot
+        start charging the operator. The prompt is fixed and tiny.
+        """
+        reg = _provider_registry()
+        if pid not in _PROVIDER_IDS:
+            raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+        return {"schema": "jcc/provider-live/1",
+                **reg.live_call(pid, str(body.get("prompt") or "ping"))}
+
+    @app.get("/api/v1/providers/{pid}/models")
+    def providers_models(pid: str):
+        """Model ids for one provider.
+
+        Discovery failures fall back to the declared preset, and the response
+        says which happened via `source` — a preset presented as a discovery
+        result would be a fabricated capability list.
+        """
+        reg = _provider_registry()
+        if pid not in _PROVIDER_IDS:
+            raise HTTPException(status_code=404, detail=f"unknown provider {pid!r}")
+        if pid == "typesafe_jev":
+            h = reg.jev().health()
+            return {"provider": pid, "models": list(h.get("models") or []),
+                    "source": "discovery" if h.get("models") else "preset"}
+        p = reg.get(pid)
+        if p is None:
+            return {"provider": pid, "models": [], "source": "unconfigured"}
+        discovered = p.supports_model_discovery and p.has_credential()
+        models = p.models()
+        return {"provider": pid, "models": models,
+                "source": "discovery" if discovered and models else "preset"}
+
+    @app.patch("/api/v1/model-routing")
+    def model_routing_patch(body: dict,
+                            _token: bool = Depends(require_control_token)):
+        """Update non-secret routing configuration.
+
+        Only non-secret fields. A caller cannot use this route to install a key;
+        that is the credentials route, and keeping them apart means a future
+        change to one does not silently widen the other.
+        """
+        reg = _provider_registry()
+        applied = {}
+        for pid, values in (body.get("providers") or {}).items():
+            if not isinstance(values, dict):
+                continue
+            allowed = {"base_url", "model", "display_name", "api_style",
+                       "reasoning_effort", "timeout_s"}
+            clean = {k: v for k, v in values.items() if k in allowed and v is not None}
+            if clean:
+                reg.set_override(pid, **clean)
+                applied[pid] = clean
+        chain = body.get("chain")
+        if isinstance(chain, list):
+            applied["chain"] = [str(c) for c in chain]
+            app.state._model_chain = [str(c) for c in chain]
+        return {"schema": "jcc/model-routing/1", "applied": applied,
+                "providers": reg.health()["providers"]}
+
+    @app.get("/api/v1/model-routing")
+    def model_routing_get():
+        """Current routing configuration and the live routing table."""
+        reg = _provider_registry()
+        from .model_router import BAND_CHAIN_HEAD, DEFAULT_CHAIN, TASK_BANDS
+
+        chain = list(getattr(app.state, "_model_chain", list(DEFAULT_CHAIN)))
+        return {
+            "schema": "jcc/model-routing/1",
+            "chain": chain,
+            "band_heads": dict(BAND_CHAIN_HEAD),
+            "task_bands": dict(TASK_BANDS),
+            "overrides": {pid: reg.overrides(pid) for pid in _PROVIDER_IDS},
+        }
+
+    @app.post("/api/v1/domain/route")
+    def domain_route(body: dict, _token: bool = Depends(require_control_token)):
+        """Route one task: executor + execution model + verification model.
+
+        Returns an EMPTY decision (empty model, empty chain, a reason) when no
+        provider is usable. That is the honest answer and the UI must render it
+        as "nothing was chosen" rather than substituting a default.
+        """
+        from .model_router import DEFAULT_CHAIN, ModelRouter, RouteRequest
+
+        reg = _provider_registry()
+        chain = list(getattr(app.state, "_model_chain", list(DEFAULT_CHAIN)))
+        # Feed the router the persisted verification evidence. A provider with no
+        # model list reports DISCOVERY_UNSUPPORTED from its cheap health read
+        # forever, so without this the router would exclude every such provider
+        # permanently — including ones that had demonstrably answered.
+        router = ModelRouter(
+            reg.generation_providers(), chain=chain, jev_decider=reg.jev(),
+            verification_lookup=_ever_verified(reg),
+        )
+        req = RouteRequest(
+            task=str(body.get("task") or ""),
+            task_type=str(body.get("task_type") or "general"),
+            band=body.get("band"),
+            context_size=int(body.get("context_size") or 0),
+            complexity=str(body.get("complexity") or "medium"),
+            risk=str(body.get("risk") or "low"),
+            required_capabilities=tuple(body.get("required_capabilities") or ()),
+            provider_health=dict(body.get("provider_health") or {}),
+            cost_preference=str(body.get("cost_preference") or "balanced"),
+            latency_preference=str(body.get("latency_preference") or "balanced"),
+            preferred_model=body.get("preferred_model"),
+            preferred_provider=body.get("preferred_provider"),
+        )
+        decision = router.route(
+            req,
+            executors=tuple(body.get("executors") or ("workbuddy", "codex", "claude", "hermes")),
+            executor_health=dict(body.get("executor_health") or {}),
+        )
+        return {"schema": "jcc/route-decision/1", **decision.as_dict()}
+
     @app.get("/api/v1/domain/counts")
     def domain_counts():
         """UNCAPPED domain totals — the read that makes a bounded list honest.
@@ -969,6 +1476,27 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
         sessions = list_sessions()
         cap = capture_launch_event()
         from .workbuddy_launch import liveness
+        # v1.3 FINAL — production execution routes through the AUTHENTICATED
+        # WorkBuddy daemon (WBIPC). Probe it for real: alive + authenticated is a
+        # measurement; the agent-run capability is the honest gate for whether a
+        # model-backed native workload can actually start. We never fall back to
+        # an unauthenticated isolated serve, and we never scan ambient sessions.
+        daemon_state = {"ok": False, "alive": False, "authenticated": False,
+                        "agent_run_capability": None}
+        try:
+            from .workbuddy_daemon import WorkBuddyDaemonAdapter
+            cfg = os.environ.get("WORKBUDDY_CONFIG_DIR") or os.path.join(
+                os.path.expanduser("~"), ".workbuddy")
+            st = WorkBuddyDaemonAdapter(config_dir=cfg).probe()
+            daemon_state = {
+                "ok": st.alive and st.authenticated and bool(st.agent_run_capability),
+                "alive": st.alive,
+                "authenticated": st.authenticated,
+                "agent_run_capability": st.agent_run_capability,
+                "pipe_count": len(st.pipes),
+            }
+        except Exception as exc:  # probe never actuates; report the failure
+            daemon_state["error"] = str(exc)[:160]
         return {
             "schema": "jcc/v1.3-launch-probe/1",
             "launchable_agents": list(LAUNCHABLE_AGENTS_SERVER),
@@ -991,9 +1519,114 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
                 ],
                 "source": cap.get("source"),
             },
+            # FINAL DAEMON INTEGRATION — the authenticated daemon is the
+            # production execution transport. Its agent-run capability is the
+            # real gate; without it, launches fail closed (no model auth).
+            "daemon": daemon_state,
             # This probe never actuates; state it so a UI cannot imply otherwise.
             "actuation": False,
         }
+
+    def _native_supervisor():
+        """The process-wide supervisor for mission-scoped native workloads.
+
+        One instance, not one per request: the supervisor owns the workload's
+        lifetime and a supervisor created inside a request handler would die with
+        the request — which is the very coupling being removed.
+        """
+        from .native_supervisor import NativeLaunchSupervisor
+
+        sup = getattr(app.state, "_native_supervisor", None)
+        if sup is None:
+            sup = NativeLaunchSupervisor(
+                out_dir=str(_runtime_dir / "native"),
+                session_probe=_live_sessions,
+                # Every transition is written back to the mission, so the row is
+                # the single place a reader looks — and so a FAILED workload
+                # leaves a code and a stage rather than a bare status.
+                on_update=_apply_native_update,
+            )
+            app.state._native_supervisor = sup
+        return sup
+
+    def _apply_native_update(w) -> None:
+        """Mirror a supervisor transition onto the mission row."""
+        from .domain import MissionStatus
+
+        try:
+            store = domain
+        except Exception:  # noqa: BLE001
+            return
+        try:
+            status = {
+                "SPAWNED": MissionStatus.STARTING,
+                "NATIVE_STARTED": MissionStatus.RUNNING,
+                "RUNNING": MissionStatus.RUNNING,
+                "COMPLETED": MissionStatus.COMPLETED,
+                "FAILED": MissionStatus.FAILED,
+            }.get(w.launch_status)
+            if status is None:
+                return
+            current = store.get_mission(w.mission_id)
+            if current is None:
+                return
+            if current.status == status:
+                return
+            # Refused transitions must not be forced: the machine is the
+            # authority on what a mission may become.
+            store.transition_mission(
+                w.mission_id, status,
+                reason="native launch %s" % w.launch_status,
+                attention_reason=w.failure_message if w.failure_message else None,
+            )
+            if w.failure_code:
+                store.mark_mission_failed(
+                    w.mission_id,
+                    failure_code=w.failure_code,
+                    failure_stage=w.failure_stage or "WORKBUDDY_LAUNCH",
+                    failure_message=w.failure_message or "",
+                )
+        except Exception:  # noqa: BLE001 - supervision must not die on a write
+            logger.warning("could not apply native update for %s", w.mission_id)
+
+    def _live_sessions() -> list:
+        """Current WorkBuddy sessions, for RECOVERY only.
+
+        Never used to decide that a launch succeeded — see native_launch's module
+        docstring for what went wrong when that was the case.
+        """
+        try:
+            from .workbuddy_launch import list_sessions
+            return list(list_sessions())
+        except Exception:  # noqa: BLE001
+            return []
+
+    def _mark_launch_failure(mid: str, code: str, detail: str) -> None:
+        """Persist WHY a launch was refused, on the mission row itself.
+
+        A mission that reads `FAILED` with nothing else is undiagnosable: during
+        release acceptance five of them sat in exactly that state and the only
+        clue was an absent launch journal.
+
+        Declared BEFORE the route on purpose. A helper placed between a decorator
+        and its function is read as the handler — which is how a first attempt at
+        this ended up answering every launch with 422 for a missing `query.code`.
+        """
+        try:
+            domain.mark_mission_failed(
+                mid, failure_code=str(code)[:120],
+                failure_stage="WORKBUDDY_LAUNCH",
+                failure_message=str(detail)[:2000],
+            )
+        except Exception:  # noqa: BLE001 - observability must not mask the cause
+            logger.warning("could not record launch failure for %s", mid)
+
+    def _record_native_launch(mid: str, native: Dict[str, Any]) -> None:
+        """Bind the mission to the workload that was actually started."""
+        try:
+            domain.attach_session(mid, str(native.get("correlation_id") or ""))
+        except Exception:  # noqa: BLE001
+            logger.warning("could not attach native session to %s", mid)
 
     @app.post("/api/v1/domain/missions/{mid}/launch")
     def domain_launch_mission(mid: str, body: dict,
@@ -1021,7 +1654,66 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
 
         event = body.get("event")
         capture = body.get("capture", True)
-        if event is None and capture:
+        # An explicitly supplied event is the caller's own — used by tests and by
+        # a host that already started the workload itself. It is the ONLY path on
+        # which a caller-supplied event counts.
+        if event is not None:
+            pass
+        elif body.get("native"):
+            # MISSION-SCOPED NATIVE LAUNCH — ASYNCHRONOUS.
+            #
+            # This returns 202 as soon as the process is spawned. It deliberately
+            # does NOT wait for the workload: a headless run reads, writes and
+            # exits, which outlasts an HTTP request, and the earlier synchronous
+            # version left missions stuck in STARTING with the client timing out
+            # and no verdict either way.
+            #
+            # The answer says STARTING because that is the truth. A pid is
+            # returned so an operator can look at it, not so the caller can wait
+            # on it; a pid proves a process started and nothing more.
+            from .native_supervisor import NativeLaunchSupervisor
+
+            # MEASURED: the route used to take ~30s wall clock for work that is
+            # one spawn. Rather than guess, every stage is timed and reported in
+            # the response, so the next regression names its own stage instead
+            # of being absorbed into a bigger timeout. Monotonic, because a wall
+            # clock adjustment mid-request would produce a negative duration.
+            _t = [("route_enter", time.perf_counter())]
+            sup = _native_supervisor()
+            _t.append(("supervisor_ready", time.perf_counter()))
+            run = domain.create_run(mid, "workbuddy")
+            _t.append(("create_run", time.perf_counter()))
+            payload = sup.start(
+                mission_id=mid,
+                jcc_run_id=run.run_id,
+                project_root=str(body.get("cwd") or mission.working_directory or ""),
+                task=str(mission.goal or ""),
+                model=str(body.get("model") or ""),
+            )
+            _t.append(("spawn_and_register", time.perf_counter()))
+            # Each entry is (stage, elapsed since the previous stage); the stage
+            # label is the key, never a tuple, or the response cannot be encoded.
+            payload["timings_ms"] = {
+                _t[i][0]: round((_t[i][1] - _t[i - 1][1]) * 1000, 2)
+                for i in range(1, len(_t))
+            }
+            payload["total_ms"] = round((_t[-1][1] - _t[0][1]) * 1000, 2)
+            status_code = 202 if payload.get("launch_status") in (
+                "STARTING", "SPAWNED") else 409
+            if status_code == 409:
+                _mark_launch_failure(mid, payload.get("failure_code") or "WORKBUDDY_NATIVE_NOT_STARTED",
+                                    payload.get("failure_message") or "")
+                return JSONResponse(
+                    status_code=409,
+                    content={"schema": "jcc/native-launch/1", **payload},
+                )
+            return JSONResponse(
+                status_code=202,
+                content={"schema": "jcc/native-launch/1", "launch_status": "STARTING",
+                         **payload},
+            )
+        elif capture:
+            from .native_launch import verify_attached_session
             from .workbuddy_launch import capture_launch_event
 
             cap = capture_launch_event(cwd=body.get("cwd") or mission.working_directory or None)
@@ -1033,6 +1725,28 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
                     detail={"code": cap.get("reason"), "detail": cap.get("detail"),
                             "observed": cap.get("observed"),
                             "sessions_dir": cap.get("sessions_dir")},
+                )
+            # ATTACHING is allowed; ATTACHING AS PROOF OF LAUNCH IS NOT.
+            #
+            # A captured session must belong to this mission's root and must not
+            # predate this launch. Without these two checks the host's busiest
+            # unrelated session was accepted as this mission's workload, and the
+            # mission reported `ok=True` having produced nothing.
+            requested_root = str(body.get("cwd") or mission.working_directory or "")
+            mismatch = verify_attached_session(
+                session=cap.get("observed") or {},
+                project_root=requested_root,
+                launch_requested_at=time.time(),
+            )
+            if mismatch:
+                _mark_launch_failure(
+                    mid, mismatch.split(":", 1)[0], mismatch)
+                raise HTTPException(
+                    status_code=409,
+                    detail={"code": mismatch.split(":", 1)[0], "detail": mismatch,
+                            "observed": cap.get("observed"),
+                            "note": "ambient capture is observation only; "
+                                    "use native=true to start a mission-scoped workload"},
                 )
             event = cap["event"]
             body = dict(body)
