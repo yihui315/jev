@@ -1,0 +1,40 @@
+{
+  "schema": "jcc/simulation-acceptance/1",
+  "generated_at": "2026-10-08T00:32:22Z",
+  "mode": "SIMULATED-PROVEN",
+  "honest_note": "The native protocol feed (ACP/SSE for the --serve adapter, NDJSON for the supervisor) is SIMULATED. The adapters, event mapping, id separation, state machine and timing chain exercised here are the REAL shipped code. Real-native execution remains BLOCKED by the host: the WorkBuddy daemon exposes no external, credential-free agent-run capability (DaemonAgentRunUnsupported).",
+  "simulated_proven_gates": [
+    "native_event_mapping_excludes_heartbeat_health",
+    "three_identity_separation",
+    "serve_adapter_completion",
+    "supervisor_state_machine_spawned_to_completed",
+    "artifact_provenance",
+    "t0_t6_causal_timing_chain_monotonic"
+  ],
+  "serve_result": {
+    "ok": true,
+    "completed": true,
+    "native_event_count": 4,
+    "session_id": "sess-SIM-001",
+    "timings_present": [
+      "T0_launch_requested_at",
+      "T1_serve_request_sent_at",
+      "T2_workload_created_at",
+      "T3_workload_started_at",
+      "T4_first_native_event_at",
+      "T5_artifact_created_at",
+      "T6_workload_completed_at"
+    ]
+  },
+  "supervisor_result": {
+    "launch_status": "COMPLETED",
+    "native_event_count": 5,
+    "workbuddy_workload_id": "wb-SIM-002",
+    "artifact_exists": true
+  },
+  "real_but_blocked_gates": [
+    "workbuddy_native_launch_verified (host agent-run capability absent)",
+    "live_sse_verified (requires real workload)",
+    "deliverable_provenance_verified (requires real workload)"
+  ]
+}

@@ -315,15 +315,23 @@ class NativeLaunchSupervisor:
             events = self._read_events(stdout_path)
             for payload in events[seen_bytes:]:
                 kind = map_cli_event(payload)
-                if kind and not native_seen:
+                # Liveness (heartbeat/health/poll) is deliberately excluded: a
+                # process being alive is not a process working. Only REAL work
+                # enters the native timeline.
+                if not kind:
+                    continue
+                ev_time = time.time()
+                # First native event: mark the workload started and stamp the
+                # cause. Subsequent events are appended too — the timeline must
+                # reflect the full workload, not just its opening move.
+                if not native_seen:
                     native_seen = True
-                    now = time.time()
-                    w.first_native_event_at = now
+                    w.first_native_event_at = ev_time
                     if w.workload_started_at is None:
-                        w.workload_started_at = now
+                        w.workload_started_at = ev_time
                     if w.launch_status in ("SPAWNED", "STARTING"):
                         w.launch_status = "NATIVE_STARTED"
-                    w.native_events.append({"kind": kind, "at": now})
+                w.native_events.append({"kind": kind, "at": ev_time})
             seen_bytes = len(events)
 
             # A workload id, when the CLI reports one. Never our own run id.
