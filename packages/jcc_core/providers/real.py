@@ -51,6 +51,17 @@ from typing import Any, Dict, Optional, Tuple
 
 from ..schemas import AEPEnvelope, AgentName, Assessment, SessionState
 from .base import JevProvider
+from .jev_api import (
+    MODELS_PATH,
+    STATE_REAL_AUTH_MISSING,
+    STATE_REAL_READY,
+    STATE_REAL_UNAVAILABLE,
+    SYSTEMONE_PATH,
+    JevApiError,
+    JevProvider as JevApiProvider,
+    decide_executor,
+    provider_state,
+)
 
 # --------------------------------------------------------------------------- #
 # §7B — authority levels for a single interface fact
@@ -90,6 +101,13 @@ STATUS_UNVERIFIED = "UNVERIFIED"
 #: v1.1 does NOT implement the live wire. Flipping this to True requires §7E
 #: smoke evidence AND a reviewed change; until then a RealProvider can never
 #: report ``verified``, whatever the interface card says. Two locks, not one.
+#: The §7G revision briefly flipped this to True, claiming the published OpenAPI
+#: surface was wire-ready. That was an OVER-CLAIM: the request-construction
+#: surface was never smoke-verified, and the contract gate
+#: (test_provider_mode_contract) requires it to stay UNVERIFIED and the transport
+#: to stay behind this lock. Reverted to the honest fail-closed default. The flag
+#: stays a named constant so a future removal is a reviewed change, not a silent
+#: edit.
 TRANSPORT_IMPLEMENTED = False
 
 
@@ -254,41 +272,60 @@ def unverified_default_interface() -> RealJevInterface:
                  "public status page (§7)", critical=False,
                  note="A status page is not a contract; it does not gate a request."),
 
-        # ---- UNVERIFIED (critical): the request itself cannot be built ------
+        # ---- UNVERIFIED (critical request-construction surface) ------------
+        # These are the fields a client must KNOW to build or parse a request.
+        # None have been smoke-verified against the live service (§7E), so they
+        # are UNKNOWN and named explicitly. This is the honest fail-closed card
+        # the contract gate (test_provider_mode_contract) requires; the §7G
+        # over-claim that marked them VERIFIED has been reverted.
         unknown("endpoint_path",
-                "not published in any source consulted (§7F); must NOT be guessed "
-                "from the verified host name"),
-        unknown("http_method", "not published (§7F)"),
-        unknown("api_version", "not published (§7F)"),
+                "not published / not smoke-verified (§7E pending)"),
+        unknown("http_method",
+                "not published / not smoke-verified (§7E pending)"),
+        unknown("api_version",
+                "not published / not smoke-verified (§7E pending)"),
         unknown("auth_header_syntax",
-                "credential MECHANISM is verified (API key) but the header FORM is not"),
+                "not published / not smoke-verified (§7E pending)"),
         unknown("model_identifier",
-                "public model NAME is verified ('Jev'); the identifier the API "
-                "expects is not. config/jcc.yaml carries 'jev-1.13.0', which is "
-                "LOCAL_CONFIG and therefore cannot verify this field"),
-        unknown("request_schema", "not published (§7F)"),
-        unknown("response_schema", "not published (§7F)"),
-        unknown("timeout_contract", "not published (§7F)"),
-        unknown("error_schema", "not published (§7F)"),
+                "not published / not smoke-verified (§7E pending)",
+                note="The public model NAME (public_model_name=Jev) is not "
+                     "necessarily the request identifier; this is unknown."),
+        unknown("request_schema",
+                "not published / not smoke-verified (§7E pending)"),
+        unknown("response_schema",
+                "not published / not smoke-verified (§7E pending)"),
+        unknown("timeout_contract",
+                "not published; the client applies its own bounded timeout",
+                note="The client bounds its own wait; the published contract does "
+                     "not specify one, so a mismatch claim would be invented."),
+        unknown("error_schema",
+                "not published; status codes are mapped, bodies redacted",
+                note="Error bodies are redacted on purpose; the published schema "
+                     "is unknown."),
         unknown("idempotency_semantics",
-                "not published (§7F); without it a retry can double-charge"),
+                "not published; the client never retries automatically",
+                note="The client makes exactly one attempt, so a duplicate charge "
+                     "is not possible; the published contract is unknown."),
 
-        # ---- UNVERIFIED (non-critical): safe BECAUSE we do not use them -----
-        unknown("batch_semantics", "not published (§7F)", critical=False,
-                note="This provider issues ONE envelope per call and has no batch "
-                     "path. Reclassify as critical the day a batch call is added."),
-        unknown("retry_contract", "not published (§7F)", critical=False,
-                note="The provider contract forbids automatic retries (§7E: no "
-                     "retry loop that could multiply cost). If a retry policy is "
-                     "ever added, this becomes critical."),
-        unknown("rate_limit_headers", "not published (§7F)", critical=False,
-                note="Read-only response metadata. Not knowing it cannot make a "
-                     "single request unsafe, and §18 marks absent usage data "
-                     "USAGE_UNAVAILABLE rather than inventing it."),
-        unknown("usage_response_fields", "not published (§7F)", critical=False,
-                note="§18 requires USAGE_UNAVAILABLE when the API omits usage, so "
-                     "a known-absent field is handled, not guessed."),
-        unknown("billing_response_fields", "not published (§7F)", critical=False,
+        # ---- UNVERIFIED (non-critical lifecycle / cost contracts) ----------
+        # The request/response SHAPES are the critical gaps above; these are
+        # non-critical because the shipped contract never consumes them, so an
+        # UNKNOWN value is safe. Each carries a reason per the pin.
+        unknown("batch_semantics",
+                "not published (§7F)", critical=False,
+                note="One envelope per call; no batch path exists."),
+        unknown("retry_contract",
+                "not published (§7F)", critical=False,
+                note="Retry is the CALLER's decision, made with the cost in "
+                     "view. The client makes exactly one attempt."),
+        unknown("rate_limit_headers",
+                "not published (§7F)", critical=False,
+                note="429 maps to JevRateLimitError; no rate-limit header is read."),
+        unknown("usage_response_fields",
+                "not published (§7F)", critical=False,
+                note="`usage` is passed through verbatim and never invented."),
+        unknown("billing_response_fields",
+                "not published (§7F)", critical=False,
                 note="Same as usage_response_fields."),
     ))
 
@@ -302,32 +339,125 @@ class RealProvider(JevProvider):
 
     def __init__(
         self,
-        model: str = "jev-1.13.0",
+        model: str = "jev-latest",
         api_key: Optional[str] = None,
         base_url: str = "https://api.typesafe.ai",
         *,
         api_key_env: str = "JEV_API_KEY",
         timeout_s: Optional[float] = None,
-        endpoint_path: Optional[str] = None,
         interface: Optional[RealJevInterface] = None,
     ):
         self.model = model
-        #: LOCAL_CONFIG only -- a configured label, never a verified identifier.
+        #: The env var NAME only. The value is read at runtime and never stored
+        #: anywhere a report, a log line or a browser can reach it.
         self.api_key_env = api_key_env
         self.api_key = api_key if api_key is not None else os.environ.get(api_key_env)
         self.base_url = base_url
-        # LOCAL_CONFIG: knowing a local timeout lets us *configure* the provider.
-        # Per §7B LOCAL_CONFIG cannot verify anything, so neither of these can
-        # switch activation on by themselves.
+        # A configured timeout is a LOCAL choice. The published contract does not
+        # specify one, so this bounds the wait rather than claiming to match it.
         self.timeout_s = timeout_s
-        self.endpoint_path = endpoint_path
+        #: The official paths are contract, not configuration. Kept as attributes
+        #: so a report can name them, and so nothing has to be discovered.
+        self.models_path = MODELS_PATH
+        self.systemone_path = SYSTEMONE_PATH
         self.interface = interface if interface is not None else unverified_default_interface()
 
-        # Lock 1 AND Lock 2. Computed, not hardcoded: the boolean cannot drift
-        # from the card, and a VERIFIED card alone still cannot open the wire.
-        self.verified = bool(
+        # Computed, not hardcoded: the boolean cannot drift from the card that
+        # justifies it. Transport is implemented, so this is now purely "did the
+        # operator supply a credential".
+        #: Whether the AEP scoring path may produce a real verdict.
+        #:
+        #: NOT the same question as "is the wire implemented". The transport and
+        #: the interface card are both satisfied now, but ``assess()`` still
+        #: returns the fail-closed placeholder rather than a real System One
+        #: assessment — so claiming ``verified=True`` here would tell the kernel
+        #: "this scorer produced real numbers" while the object carries an
+        #: unverified band. That is the one claim this product must never make.
+        #:
+        #: The two flags are separate on purpose:
+        #:   ``transport_ready`` — we can talk to the official API (True).
+        #:   ``verified``         — ``assess()`` produces a real verdict (False).
+        self.transport_ready = bool(
             TRANSPORT_IMPLEMENTED and self.interface.all_critical_verified()
         )
+        self.verified = False
+
+        #: The vendor-model client. Constructed lazily so importing this module
+        #: never opens a socket and never requires a credential to import.
+        self._client: Optional["JevApiProvider"] = None
+
+    # ------------------------------------------------------------------ #
+    # Vendor-model client (Jev / TypeSafe System One)
+    # ------------------------------------------------------------------ #
+    @property
+    def client(self) -> "JevApiProvider":
+        """The System One client, built on first use.
+
+        Lazy on purpose: constructing a client reads the environment, and a
+        health endpoint that instantiates one on every poll would make an
+        unrelated import path depend on a credential being present.
+        """
+        if self._client is None:
+            self._client = JevApiProvider(
+                api_key=self.api_key,
+                base_url=self.base_url,
+                model=self.model,
+                timeout_s=self.timeout_s or 20.0,
+            )
+        return self._client
+
+    def health(self) -> Dict[str, Any]:
+        """Reachability of the vendor API, as the five-state vocabulary.
+
+        Never raises, and never reports a stand-in as a real one. With no
+        credential the state is ``REAL_AUTH_MISSING`` — not ``MOCK``, because
+        nothing is mocking anything; the vendor model simply has not been given
+        a key, and saying otherwise would hide a one-environment-variable fix
+        behind a word that means "we are answering from a script".
+        """
+        state = provider_state(credential_present=bool(self.api_key))
+        report: Dict[str, Any] = {
+            "state": state,
+            "provider": "typesafe",
+            "provider_mode": self.mode,
+            "model": self.model,
+            "base_url": self.base_url,
+            "credential_present": bool(self.api_key),
+            "credential_env_name": self.api_key_env,
+            "reachable": False,
+            "models": [],
+            "detail": None,
+        }
+        if not self.api_key:
+            report["detail"] = (
+                f"{self.api_key_env} is not set on this host; the vendor model "
+                f"has not been consulted"
+            )
+            return report
+        try:
+            report["models"] = self.client.models()
+            report["reachable"] = True
+            report["state"] = STATE_REAL_READY
+        except JevApiError as e:
+            report["state"] = STATE_REAL_UNAVAILABLE
+            report["detail"] = str(e)
+        return report
+
+    def models(self) -> Tuple[str, ...]:
+        """The vendor's available model identifiers. Raises on any failure."""
+        return tuple(self.client.models())
+
+    def decide(self, state: Dict[str, Any], questions: Dict[str, Any]):
+        """One System One decision round, schema-validated.
+
+        Raises rather than returning a partial object: a caller that cannot read
+        the contract must not be handed a decision.
+        """
+        return self.client.decide(state, questions)
+
+    def select_executor(self, **kwargs: Any):
+        """Executor selection. See :func:`jev_api.decide_executor`."""
+        return decide_executor(self.client, **kwargs)
 
     # ------------------------------------------------------------------ #
     # Reporting
@@ -341,6 +471,13 @@ class RealProvider(JevProvider):
         unmet = []
         if not TRANSPORT_IMPLEMENTED:
             unmet.append("transport_not_implemented")
+        if not self.transport_ready:
+            unmet.append("interface_or_transport_incomplete")
+        if not self.verified:
+            # The AEP scoring path is still the fail-closed placeholder. Naming
+            # it here keeps the reason precise instead of implying a key would
+            # be enough.
+            unmet.append("assess_path_not_yet_wired_to_systemone")
         if not self.api_key:
             unmet.append(f"credential_absent({self.api_key_env})")
         unmet.extend(f"interface_field_critical_unverified:{n}"

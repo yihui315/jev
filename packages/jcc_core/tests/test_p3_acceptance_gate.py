@@ -282,6 +282,16 @@ A8_FROZEN_AT = (
     "    the pin moves only because server.py gained the route.\n"
     "    NON-ACTUATION IS UNCHANGED: counts() issues four COUNT queries and returns four integers.\n"
     "    See docs/v1_3/WAVE_9_3_NO_SILENT_TRUNCATION.md.\n"
+    "RE-BASELINED for the FINAL PRODUCT UNBLOCK §12 (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e\n"
+    "      -> new 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b\n"
+    "    commit 4d6cef1 \"WorkBuddyDaemonAdapter — production routing to authenticated\n"
+    "    daemon (WBIPC)\" added the Jev vendor-model decision surface and the Model &\n"
+    "    API centre writes (all POST, all token-gated). The change was committed to\n"
+    "    HEAD before this re-baseline and the A11 exact POST set was reviewed and\n"
+    "    updated to match (no open mutating surface was introduced). Re-baselined\n"
+    "    with old->new + reason, as required by the A8 contract.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
@@ -301,7 +311,7 @@ _BASELINE_HASHES = {
     "packages/jcc_core/run.py":
         "2ad72804ffff4470de57b35c6011e14cd9e094954e37367e82097defd590eb09",  # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit 3af548b): the CR-002 guard now normalises the configured port with int() before comparing it to GREEN_PROTECTED_PORT, so a QUOTED `port: '4778'` can no longer bypass it ('4778' != 4778 used to let a product instance bind the baseline port and answer /api/health with 200). Independently found by metric-verify and reproduced here before the fix. # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit ac1ef4a): DEFAULT_CONFIG_PATH now names config/jcc-v1.3.yaml (port 4779) and check_green_port_ownership() refuses a product instance on the GREEN baseline port 4778, judged by the config file loaded -- not by the port value, which would be circular. # old: 0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035
     "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27. # RE-BASELINED v1.3 (Wave 9.3): GET /api/v1/domain/counts (open, uncapped totals) so a BOUNDED list read can be compared against the real domain size; OPEN_GET_ENDPOINTS 27->28.
-        "68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e",  # RE-BASELINED v1.3 (P3/P4 CR-H5+CR-H6, 2026-10-05, commits 590ecf3 + d012509): /api/health reports control_token_configured as a bool without ever echoing the token; BOTH hmac.compare_digest sites (require_control_token and the WebSocket ws_endpoint) compare encoded bytes, so a non-ASCII token is refused instead of raising TypeError.
+        "64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b",  # RE-BASELINED v1.3 (P3/P4 CR-H5+CR-H6, 2026-10-05, commits 590ecf3 + d012509): /api/health reports control_token_configured as a bool without ever echoing the token; BOTH hmac.compare_digest sites (require_control_token and the WebSocket ws_endpoint) compare encoded bytes, so a non-ASCII token is refused instead of raising TypeError. # RE-BASELINED (FINAL PRODUCT UNBLOCK §12): commit 4d6cef1 "WorkBuddyDaemonAdapter — production routing to authenticated daemon (WBIPC)" added the Jev vendor-model decision surface (/api/v1/domain/jev/{select-executor,request-approval,confirm,cancel}) and the Model & API centre writes (/api/v1/providers/{pid}/{credentials,probe,live}) plus /api/v1/domain/route — all POST and all token-gated. server.py moved; A11's exact POST set was reviewed and updated to match (see test_A11_no_new_inbound_surface). old 68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e -> new 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b.
     "packages/jcc_core/config.py":  # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit ac1ef4a): adds GREEN_PROTECTED_PORT, GREEN_CONFIG_PATH and is_green_config(); default config path moves off the GREEN baseline port. # old: ae749b5bb74951af4e0072e15ed1bbaf33d12294a8a11efe68588a78d546e4be  # A8 re-baseline (2026-10-04, repo-relocation): the absolute F:/jev literals for DEFAULT_CONFIG_PATH / state_store_db_path are replaced by REPO_ROOT derived from __file__, plus a _resolve_db_path() that anchors a relative db_path to the repo root. Behaviour is unchanged for an absolute path (honoured verbatim) and for a relative one (now repo-anchored instead of CWD-anchored). # old: af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f
         "7ae533feb55869cd798a26ec2aee946a3dacab2350218f12e9d2f742c81ccd8b",  # RE-BASELINED v1.3 (RISK-1, 2026-10-05, commit 590ecf3): allowed_project_roots plus effective_allowed_roots(); an empty project_scope_base now falls back to the derived repo root instead of resolving against the process CWD, which had made a correctly configured instance refuse every project root.
     "packages/supervisor/sentinel.py":
@@ -747,6 +757,26 @@ def test_A11_no_new_inbound_surface(live):
         #   * launch-commit is the only route in the product that spawns.
         "/api/v1/domain/missions/{mid}/launch-request",
         "/api/v1/domain/missions/{mid}/launch-commit",
+        # REVIEWED EDIT (A11, FINAL PRODUCT UNBLOCK §12) — commit 4d6cef1
+        # "WorkBuddyDaemonAdapter — production routing to authenticated daemon"
+        # added the Jev (TypeSafe vendor-model) decision surface and the Model &
+        # API centre. Every route below is POST and sits behind
+        # ``require_control_token`` (verified directly above against the route
+        # decorators): none of them is an open mutating surface.
+        #   * Jev vendor-model decision (server-side executor selection so the
+        #     browser cannot hardcode a default behind "JEV 自动选择"):
+        "/api/v1/domain/jev/select-executor",
+        "/api/v1/domain/jev/request-approval",
+        "/api/v1/domain/jev/confirm",
+        "/api/v1/domain/jev/cancel",
+        #   * Model & API centre writes (credential store / probe / live) — all
+        #     token-gated; the corresponding open reads are GET and enumerated in
+        #     OPEN_GET_ENDPOINTS, never here:
+        "/api/v1/providers/{pid}/credentials",
+        "/api/v1/providers/{pid}/probe",
+        "/api/v1/providers/{pid}/live",
+        #   * One-shot task routing (executor + execution model + verify model):
+        "/api/v1/domain/route",
     }
     assert post_paths == expected, {
         "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),
