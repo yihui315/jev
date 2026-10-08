@@ -416,6 +416,15 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
     def health():
         provider = engine.provider
         requested_mode = (config.jev.provider or "mock").upper()
+        # The PRODUCTION provider reality — the SINGLE fact source shared with
+        # the Provider Center and the mission runtime (the §final-decision
+        # wiring-drift fix). Derived from ProviderRegistry (credential PRESENCE
+        # + a PERSISTED verification, NO live call). When the production registry
+        # is genuinely real, it wins; otherwise the legacy scorer mode is
+        # reported unchanged, so the §7D anti-impersonation contract — a
+        # mock / replay / disabled scorer must never read as REAL — is preserved.
+        prod = _production_provider_facts()
+        prod_real = prod["provider_registry_is_real"]
         return {
             "status": "ok",
             "jev_provider": provider.name,
@@ -426,10 +435,23 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             # faked by editing a document -- and `provider_is_real` is the
             # single bit a UI badge may key off, which is what makes
             # "mock dressed up as real" impossible to render.
-            "provider_mode": getattr(provider, "mode", "UNKNOWN"),
-            "provider_verified": bool(getattr(provider, "verified", False)),
-            "provider_activation_state": activation_state_for_requested(
-                requested_mode, provider
+            #
+            # FINAL DECISION: the production decision + generation providers live
+            # in ProviderRegistry (DPAPI SecretStore + VerificationStore). When
+            # THAT registry is real, /api/health reports REAL — one runtime, one
+            # fact source. The engine.scorer (engine.provider) is the LEGACY
+            # scorer only (marked LEGACY_NOT_PRODUCTION in providers/real.py) and
+            # is never presented as the production provider.
+            "provider_mode": (
+                prod["provider_registry_mode"] if prod_real
+                else getattr(provider, "mode", "UNKNOWN")
+            ),
+            "provider_verified": (
+                prod_real or bool(getattr(provider, "verified", False))
+            ),
+            "provider_activation_state": (
+                "ACTIVE" if prod_real
+                else activation_state_for_requested(requested_mode, provider)
             ),
             # The CONFIGURED mode, kept separate on purpose: when `real` is
             # requested but the key/flag is missing, the effective provider is
@@ -437,7 +459,13 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             # operator's deliberate choice and a fail-closed fallback look
             # identical, and those need opposite responses.
             "provider_requested_mode": requested_mode,
-            "provider_is_real": bool(getattr(provider, "is_real", False)),
+            "provider_is_real": (
+                prod_real or bool(getattr(provider, "is_real", False))
+            ),
+            # The production fact source, reported explicitly. legacy_scorer_not_
+            # production documents that engine.provider is the LEGACY scorer, not
+            # the production decision/generation provider. See providers/real.py.
+            "production_provider": prod,
             # ----------------------------------------------------------------- #
             "actuation_enabled": engine.actuator.enabled,
             "policy_version": config.policy.version,
@@ -872,6 +900,53 @@ def create_app(engine: CoreEngine, config) -> FastAPI:
             return root
         base = _os.path.join(config.state_store_db_path, "..", "providers")
         return _os.path.abspath(base)
+
+    def _production_provider_facts() -> dict:
+        """The SINGLE production fact source, shared by /api/health AND the
+        Provider Center — they must report the same reality (the §final-decision
+        wiring-drift fix).
+
+        Derived from the SAME ProviderRegistry the settings page builds, so the
+        home page, the mission runtime and this health endpoint cannot disagree.
+        It reports credential PRESENCE (SecretStore.describe — never a secret)
+        and a PERSISTED verification (VerificationStore.restore). It makes NO
+        live network call, so /api/health stays fast: a fresh probe / live-call
+        is the operator's "测试连接" button, not a status read.
+
+        When the production registry is genuinely real (both Jev and MiniMax
+        configured AND persistently verified), ``provider_registry_is_real`` is
+        True. Otherwise it reports NOT_CONFIGURED / STALE_VERIFIED honestly — it
+        never invents a pass.
+        """
+        reg = _provider_registry()
+        per: dict = {}
+        for pid in ("typesafe_jev", "minimax"):
+            cred = reg._store.describe(pid)
+            restored = reg._restored(pid)
+            per[pid] = {
+                "configured": bool(cred.get("configured")),
+                "credential_source": cred.get("source"),
+                "last4": cred.get("last4"),
+                "verification_restored": bool(restored.get("restored")),
+                "verification_source": restored.get("verification_source"),
+                "last_verified_at": restored.get("last_verified_at"),
+                "last_verified_model": restored.get("last_verified_model"),
+            }
+        both_configured = all(per[p]["configured"] for p in per)
+        both_verified = all(per[p]["verification_restored"] for p in per)
+        if both_configured and both_verified:
+            mode, is_real = "REAL", True
+        elif both_configured:
+            mode, is_real = "STALE_VERIFIED", False
+        else:
+            mode, is_real = "NOT_CONFIGURED", False
+        return {
+            "source": "ProviderRegistry",
+            "legacy_scorer_not_production": True,
+            "provider_registry_mode": mode,
+            "provider_registry_is_real": is_real,
+            "providers": per,
+        }
 
     @app.get("/api/v1/providers")
     def providers_list():

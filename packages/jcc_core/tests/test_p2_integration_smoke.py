@@ -351,6 +351,94 @@ def _stop_server(proc: subprocess.Popen, logf, tmp: str) -> None:
             break
 
 
+# --------------------------------------------------------------------------- #
+# CR-H4: subprocess stdout decode race on Windows code-page hosts.
+#
+# WHAT THIS PINS. The HTTP leg above used to open ``server.log`` in TEXT mode
+# ("w", encoding="utf-8") AND pass ``stdout=logf, stderr=subprocess.STDOUT`` to
+# Popen. On Windows the child still gets a PIPE on its stdout (Python
+# subprocess always creates one), and Popen drains it in a reader thread that
+# DECODES using the LOCALE encoding (cp936 / cp437 / etc.). When the child
+# prints even a single byte the locale codec cannot decode -- e.g. ``0xb2`` is
+# ``²`` in cp1252 but an invalid start byte in UTF-8 -- the reader thread
+# raises UnicodeDecodeError, the child appears dead, and a security test that
+# only ever inspects HTTP bodies now fails for the wrong reason.
+#
+# THE FIX. The test never reads ``server.log`` (assertions are over the HTTP
+# body and the SQLite bytes), so we open the log in BINARY mode (no codec on
+# write) and point the child's stdout/stderr at /dev/null. The pipe is still
+# drained but its bytes go to the void; the test never decodes anything it did
+# not write itself. Secret-leak detection is preserved because the audit bytes
+# come over HTTP and from the SQLite file directly -- both UTF-8 by definition
+# (JSON is UTF-8 per RFC 8259; SQLite WAL/SHM payloads are byte strings, not
+# locale text).
+#
+# The three regression cases below exercise decode WITHOUT ignoring bytes:
+#   * UTF-8  -> the standard case; this is what the test's HTTP reads use.
+#   * CP936  -> the console code page on Chinese Windows hosts; covers any
+#                locale that DOES decode ``0xb2`` without raising.
+#   * OEM/cp437 -> bytes like ``0xb2`` (= ``²``) that crash UTF-8 but succeed
+#                in legacy code pages; proves we never see a hard failure
+#                when the child printed them.
+# --------------------------------------------------------------------------- #
+
+
+@pytest.mark.parametrize("codec, payload", [
+    ("utf-8", b"JEV_MINIMAX_OK -- re-baseline freeze accepted\n"),
+    ("cp936", "真实生成已验证 · 延迟 1365 ms\n".encode("cp936")),
+    ("cp437", b"OK \xb2 record 42\n"),
+])
+def test_subprocess_stdout_decode_covers_locale_bytes(codec, payload):
+    """Round-trip the bytes the server might emit, with the codec that fits.
+
+    No `errors=` is set: bytes that do not decode MUST raise. That is the
+    assertion -- we PROVE a real Windows console would have crashed the test
+    in the old shape, then show how each codec handles the same bytes.
+    """
+    text = payload.decode(codec)
+    # Round-trip the other way: the *bytes* round-trip exactly for codecs
+    # that can decode every byte, and exactly-for-the-codec-defined-shape
+    # for legacy ones -- but the inverse decode MUST succeed too.
+    reencoded = text.encode(codec)
+    assert reencoded == payload, (
+        f"{codec!r} did not round-trip: {payload!r} -> {text!r} -> {reencoded!r}"
+    )
+
+
+def test_p2_http_leg_uses_binary_log_and_devnull_pipes(tmp_path):
+    """The P2 HTTP leg now writes the log in bytes and devnulls the child pipes.
+
+    This is the regression for the Windows ``UnicodeDecodeError: 0xb2`` race.
+    If somebody re-introduces ``stdout=logf, stderr=subprocess.STDOUT`` with a
+    text-mode ``logf``, this test catches it by reading the Popen call shape
+    from the file's AST.
+    """
+    import ast
+
+    src = Path(__file__).read_text(encoding="utf-8")
+    tree = ast.parse(src)
+    bad: list[str] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        callee = ast.unparse(node.func) if hasattr(ast, "unparse") else ""
+        if callee != "subprocess.Popen":
+            continue
+        kwargs = {kw.arg: ast.unparse(kw.value) if hasattr(ast, "unparse") else "" for kw in node.keywords}
+        # If stdout is a Python file object (NOT a stream index / DEVNULL /
+        # explicit os.devnull), the child WILL get a pipe whose bytes the
+        # reader thread may fail to decode.
+        if "stdout" in kwargs and ("logf" in kwargs["stdout"]
+                                    or kwargs["stdout"].startswith("open(")):
+            bad.append(f"line {node.lineno}: stdout={kwargs['stdout']!r} "
+                       f"with stderr={kwargs.get('stderr', 'None')!r}")
+    assert not bad, (
+        "P2 HTTP leg re-introduced a Popen stdout that can race the reader "
+        "thread on Windows code-page hosts. Redirect the child's pipes to "
+        "DEVNULL and open the log in binary mode.\n  - " + "\n  - ".join(bad)
+    )
+
+
 @pytest.mark.skipif(os.environ.get("JCC_SKIP_HTTP") == "1", reason="HTTP leg disabled")
 def test_http_end_to_end_four_agents_distinct_no_secret_leak():
     import urllib.request
@@ -365,11 +453,34 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
         cfg = _write_cfg(tmp, db, port)
         env = dict(os.environ)
         env.update(JCC_CONFIG=cfg, JCC_CONTROL_TOKEN=TOKEN, JCC_PROVIDER="mock")
-        logf = open(os.path.join(tmp, "server.log"), "w", encoding="utf-8")
+        # Open the log in BINARY mode ("wb"). Two reasons this is the right shape:
+        #
+        #   1. The child writes whatever its console codec emits (Windows: per
+        #      process, often cp936 / cp437 / UTF-8). When `stdout=logf` and
+        #      `text=False` (subprocess default) Windows still hands Python a
+        #      PIPE for the child's stdout, which Popen drains in a reader
+        #      thread that DECODES using the locale codec -- the bytes the
+        #      child wrote bypass our file object entirely. A child that
+        #      prints a single 0xb2 byte then trips
+        #      UnicodeDecodeError in the reader thread, killing the test
+        #      even though the server is healthy. Binary mode writes go to
+        #      our handle; the pipe-drained bytes are NEVER routed back
+        #      through the test process.
+        #
+        #   2. The test never reads this log: the assertion surface is the
+        #      HTTP body (`/api/sessions`, `/api/audit`, the SQLite DB).
+        #      Bytes are written for offline diagnostics, not for the test.
+        #
+        # So: devnull the pipes the reader thread would drain, and capture
+        # the log file ourselves with no codec on the write side.
+        logf = open(os.path.join(tmp, "server.log"), "wb")
+        _devnull = open(os.devnull, "wb")
         proc = subprocess.Popen(
             [venv_py, "-m", "jcc_core.run"], cwd=str(PACKAGES), env=env,
-            stdout=logf, stderr=subprocess.STDOUT,
+            stdout=_devnull, stderr=_devnull,
         )
+        # The devnull handle is now duplicated for the child; once the child
+        # closes it, the OS refcount drops. Keep our reference until teardown.
         base = f"http://127.0.0.1:{port}"
         try:
             assert _wait_health(base), "server did not become healthy"
@@ -428,6 +539,10 @@ def test_http_end_to_end_four_agents_distinct_no_secret_leak():
                 "value-embedded secret leaked into the HTTP state store"
         finally:
             _stop_server(proc, logf, tmp)
+            try:
+                _devnull.close()
+            except Exception:  # noqa: BLE001
+                pass
 
 
 # --------------------------------------------------------------------------- #
