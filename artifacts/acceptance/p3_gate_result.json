@@ -9,7 +9,7 @@
         "old_sha": "64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b",
         "new_sha": "5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b",
         "reason": "production runtime wiring unification: /api/health derives provider_mode / provider_is_real / provider_verified / provider_activation_state from a new _production_provider_facts() helper that reads the SAME ProviderRegistry the Provider Center and the mission runtime read; the §final-decision contract that one production runtime = one fact source. Legacy engine scorer remains the fall-back only, marked LEGACY_NOT_PRODUCTION in providers/real.py (§7D anti-impersonation preserved). Jev probe now persists DECISION_VERIFIED symmetrically with GENERATION_VERIFIED. ProviderRegistry gained a per-process _live_verified map so the card reads CONNECTED after a real completion in THIS process and STALE_VERIFIED after restart (from the persisted VerificationStore). NO new endpoint was added; OPEN_GET_ENDPOINTS is unchanged at 28; A11's exact POST set is unchanged. Re-baselined with old->new + reason in the SAME freeze commit that froze the SHA, as required by the A8 contract.",
-        "commit": "<filled-in-after-commit-below>",
+        "commit": "69746d0edcb9cdbae5f132a8fc4a8544a2f06cfd",
         "branch": "release/jcc-v1.3-final"
       }
     },
