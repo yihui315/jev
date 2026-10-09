@@ -89,6 +89,18 @@ SIG_PREFIX = "sha256="
 #: the design input's ``JCC_DIRECTIVE_KEY`` is superseded).
 DEFAULT_KEY_ENV = "JCC_DIRECTIVE_SIGNING_KEY"
 
+#: Machine-local signing key file. When the env var above is absent, the key is
+#: resolved from THIS file so a key placed here by release tooling makes the
+#: launch control plane able to mint signed directives on this host without every
+#: launch having to set the env var ("本机 signing key"). The path lives under the
+#: SAME private runtime dir the DPAPI secret store uses (``~/.jcc``), never under
+#: the repo, a config file, the database, or the log. The env var still wins when
+#: present, so an explicit operator override is never silently overridden by the
+#: file. This fallback applies ONLY to the default env name; a caller that names a
+#: specific env var has opted into explicit configuration and gets no fallback.
+DEFAULT_KEY_FILE = os.path.join(
+    os.path.expanduser("~"), ".jcc", "jcc_directive_signing_key")
+
 #: Tolerated clock skew for "not yet valid"; expired is not skewed (fail-closed).
 DEFAULT_CLOCK_SKEW_S = 30.0
 
@@ -156,17 +168,45 @@ VERIFICATION_CHECK_ORDER: Tuple[str, ...] = INTEGRITY_CHECK_ORDER + EFFECT_CHECK
 def load_signing_key(env_name: str = DEFAULT_KEY_ENV) -> Optional[bytes]:
     """Return the HMAC key as ``bytes``, or ``None`` when unset/blank.
 
+    Resolution order (highest precedence first):
+
+    1. **Explicit env var.** The env var named by ``env_name`` wins when present;
+       a key present but empty/whitespace is treated as absent — an empty HMAC key
+       is not a key. This keeps an operator override authoritative.
+    2. **Machine-local key file** (``DEFAULT_KEY_FILE``, only for the default env
+       name). When the env var is absent, the key is read from
+       ``~/.jcc/jcc_directive_signing_key`` — the same private runtime dir the
+       DPAPI secret store uses. This is what makes a "本机 signing key" placed
+       there usable by the launch control plane on this host without every launch
+       having to export the env var.
+
     ``None`` is a first-class, *honest* outcome: the caller records
     ``signed=False, signature_status="unavailable:no_key"`` rather than inventing
-    a fake signature. A key present but empty/whitespace is treated as absent —
-    an empty HMAC key is not a key.
+    a fake signature. The key is NEVER read from ``config/jcc.yaml``, the
+    database, or the log, and is never returned into a log line or an API
+    response.
     """
     if not isinstance(env_name, str) or not env_name:
         raise TypeError(f"env_name must be a non-empty str, got {env_name!r}")
-    raw = os.environ.get(env_name)
-    if raw is None or raw.strip() == "":
-        return None
-    return raw.encode("utf-8")
+    # 1. explicit env override (highest precedence)
+    if env_name in os.environ:
+        raw = os.environ[env_name]
+        if raw is None or raw.strip() == "":
+            return None
+        return raw.encode("utf-8")
+    # 2. machine-local key file fallback — ONLY for the default env name, because
+    #    the file IS the default machine key. A caller that names a specific env
+    #    var has opted into explicit configuration and gets no fallback.
+    if env_name == DEFAULT_KEY_ENV:
+        try:
+            if os.path.isfile(DEFAULT_KEY_FILE):
+                with open(DEFAULT_KEY_FILE, encoding="utf-8") as _fh:
+                    _data = _fh.read().strip()
+                if _data:
+                    return _data.encode("utf-8")
+        except Exception:  # noqa: BLE001 -- a key we cannot read is "absent"
+            pass
+    return None
 
 
 # --------------------------------------------------------------------------- #

@@ -232,11 +232,25 @@ def test_sign_refuses_empty_key():
         S.sign_directive(_directive(), b"")
 
 
-def test_load_signing_key_absent_is_none(monkeypatch):
+def test_load_signing_key_absent_is_none(monkeypatch, tmp_path):
     monkeypatch.delenv("JCC_DIRECTIVE_SIGNING_KEY", raising=False)
+    # Neutralise the machine-local key file fallback so the test verifies the true
+    # "no env AND no file" contract (the default file exists on release hosts).
+    monkeypatch.setattr(S, "DEFAULT_KEY_FILE", str(tmp_path / "no_machine_key"))
     assert S.load_signing_key() is None
     monkeypatch.setenv("JCC_DIRECTIVE_SIGNING_KEY", "   ")
     assert S.load_signing_key() is None
+
+
+def test_load_signing_key_reads_machine_file_when_env_absent(monkeypatch, tmp_path):
+    """A machine-local key file at DEFAULT_KEY_FILE is resolved when the env var
+    is absent (the "本机 signing key" path that makes the launch control plane
+    able to mint signed directives on this host)."""
+    monkeypatch.delenv("JCC_DIRECTIVE_SIGNING_KEY", raising=False)
+    key_file = tmp_path / "jcc_directive_signing_key"
+    key_file.write_text("0123456789abcdef" * 4, encoding="utf-8")
+    monkeypatch.setattr(S, "DEFAULT_KEY_FILE", str(key_file))
+    assert S.load_signing_key() == (b"0123456789abcdef" * 4)
 
 
 def test_load_signing_key_present_is_bytes(monkeypatch):

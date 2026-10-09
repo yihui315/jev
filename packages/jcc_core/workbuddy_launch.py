@@ -187,6 +187,17 @@ def capture_launch_event(*, cwd: Optional[str] = None) -> Dict[str, Any]:
     Returns ``{"ok": True, "event": {...}, "source": {...}}`` on success, or
     ``{"ok": False, "reason": ..., "detail": ...}`` when no live session exists.
     The caller (the mission runtime) must not proceed on ``ok == False``.
+
+    SCOPE STRICTNESS (B4). When a ``cwd`` is requested, the captured session MUST
+    actually belong to that cwd. ``find_live_session`` treats ``cwd`` as a
+    *preference* and would otherwise fall back to the freshest live session in a
+    DIFFERENT tree -- which is exactly the scope escape the launch template's
+    ``--add-dir`` / ``cwd`` binding is meant to prevent: a launch would be bound
+    to a directory the WorkBuddy process never ran in, and the AEP event would
+    claim work happened where it did not. Refuse with
+    ``WORKBUDDY_SESSION_SCOPE_MISMATCH`` rather than mis-scope. Callers that do
+    not pass ``cwd`` keep the preference behaviour (no scope is requested, so no
+    scope can be violated).
     """
     rec = find_live_session(cwd=cwd)
     if rec is None:
@@ -200,6 +211,26 @@ def capture_launch_event(*, cwd: Optional[str] = None) -> Dict[str, Any]:
                 "detail": "found %d session(s), none live" % len(sessions),
                 "sessions_dir": str(sessions_dir()),
                 "session_count": len(sessions), "observed": states}
+
+    # B4 -- strict cwd scope. Requested cwd has no live session of its own, so
+    # the only live session we could capture is scoped to a DIFFERENT directory.
+    if cwd is not None:
+        rec_cwd = str(rec.get("cwd") or "")
+        if rec_cwd.lower() != str(cwd).lower():
+            return {
+                "ok": False,
+                "reason": "WORKBUDDY_SESSION_SCOPE_MISMATCH",
+                "detail": (
+                    "requested cwd=%r has no live WorkBuddy session; the only "
+                    "live session is scoped to cwd=%r, so capturing it would "
+                    "mis-bind a launch to a directory it never ran in"
+                    % (cwd, rec.get("cwd"))),
+                "sessions_dir": str(sessions_dir()),
+                "requested_cwd": cwd,
+                "captured_cwd": rec.get("cwd"),
+                "session_id": rec.get("sessionId"),
+                "liveness": liveness(rec),
+            }
 
     # The event handed to the adapter is the REAL record, tagged so the adapter
     # takes the session-file normalisation branch instead of the hook branch.
