@@ -2,6 +2,8 @@
   "task": "#46 P3 acceptance gate (harbor)",
   "ran_at": "2026-10-09T00:00:00+00:00",
   "head": "5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b (server.py on-disk sha256 at freeze commit; CRLF normalized per test_A8 EOL rule)",
+  "freeze_commit_git_blob": "bf7709e5b60125276b448e9ba46fd9c01dbe3ff8",
+  "freeze_post_record_commit": "cf08b25b50d042c5d6119fbfde7a776f252ea366",
   "dirty": true,
   "a8_rebaseline": {
     "files": {
@@ -16,7 +18,7 @@
     "fixtures_updated": {
       "packages/jcc_core/tests/test_p3_acceptance_gate.py": [
         "A8_FROZEN_AT banner: appended PRODUCTION RUNTIME WIRING UNIFICATION re-baseline entry with old->new + reason",
-        "_BASELINE_HASHES['packages/jcc_core/server.py']: 64cc0a21.. -> bf7709e5.."
+        "_BASELINE_HASHES['packages/jcc_core/server.py']: 64cc0a21.. -> 5c6c159d.."
       ]
     }
   },
