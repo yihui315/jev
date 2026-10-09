@@ -280,3 +280,46 @@ def test_launch_event_with_a_secret_is_redacted_before_ingest(stack):
         blob += str(e)
     # The adapter's evidence bundle carries the url; the raw secret must not.
     assert "sk-live-DEADBEEF0123456789" not in blob
+
+
+class TestLaunchWalksFromWhereverTheMissionIs:
+    """
+    MEASURED during release acceptance: the launch failed with
+
+        illegal mission transition STARTING -> READY; allowed from STARTING:
+        ['RUNNING', 'FAILED', 'CANCELLED']
+
+    The UI transitions a mission to STARTING *before* calling launch, so a walker
+    that always demanded READY first asked for a transition the state machine
+    rightly refuses. The launch then reported a transition error that named
+    neither the cause nor the place, and the mission sat at FAILED with no
+    explanation.
+
+    The walk must therefore start from ANY legal position.
+    """
+
+    def _mission_at(self, domain, status):
+        m = domain.create_mission(project_id=domain.create_project(
+            "p", root_path="D:/jev").project_id, title="t", goal="g")
+        # Walk it legally up to `status` so the fixture is itself valid.
+        for target in (MissionStatus.READY, MissionStatus.STARTING, MissionStatus.RUNNING):
+            domain.transition_mission(m.mission_id, target, reason="setup")
+            if target == status:
+                break
+        return domain.get_mission(m.mission_id)
+
+    def test_rank_orders_the_launch_path(self):
+        from jcc_core.mission_runtime import _STATUS_RANK, LAUNCH_SEQUENCE
+        ranks = [_STATUS_RANK[s] for s in LAUNCH_SEQUENCE]
+        assert ranks == sorted(ranks), "LAUNCH_SEQUENCE must be ranked in order"
+        assert _STATUS_RANK[MissionStatus.DRAFT] < _STATUS_RANK[MissionStatus.READY]
+
+    def test_starting_is_past_ready_so_ready_is_skipped(self):
+        from jcc_core.mission_runtime import _STATUS_RANK
+        assert _STATUS_RANK[MissionStatus.STARTING] > _STATUS_RANK[MissionStatus.READY]
+
+    def test_draft_is_not_past_ready(self):
+        """A fresh mission must still walk the WHOLE sequence, or a DRAFT mission
+        could reach RUNNING without ever being READY."""
+        from jcc_core.mission_runtime import _STATUS_RANK
+        assert _STATUS_RANK[MissionStatus.DRAFT] < _STATUS_RANK[MissionStatus.READY]

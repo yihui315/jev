@@ -36,7 +36,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import random
 import socket
+import sqlite3
 import threading
 import time
 from typing import Any, Dict, Optional, Tuple
@@ -117,6 +119,70 @@ def _hash(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
+#: Writers are serialised by SQLite's own write lock, so contention is expected
+#: rather than exceptional — 8 threads appending 25 records each took ~40s and
+#: still lost the race three times. ``busy_timeout`` alone was not enough: a
+#: connection opened with ``isolation_level=None`` starts in autocommit, and
+#: SQLite's busy handler is bypassed for the implicit transaction that
+#: ``BEGIN IMMEDIATE`` opens, so a peer holding the lock surfaces
+#: ``database is locked`` immediately no matter how long the timeout is.
+#:
+#: So the wait is done here instead: bounded attempts with jittered backoff,
+#: and a rollback between them so a failed BEGIN leaves no open transaction that
+#: would make the next attempt raise "cannot start a transaction within a
+#: transaction". Every attempt re-runs the whole read-modify-write, which is
+#: what keeps the chain single: the tail is only ever read under the lock.
+_BUSY_TIMEOUT_MS = 30_000
+_WRITE_ATTEMPTS = 60
+_WRITE_BACKOFF_BASE_S = 0.01
+_WRITE_BACKOFF_CAP_S = 0.25
+
+
+def _is_busy(exc: BaseException) -> bool:
+    """SQLite contention, as opposed to a real error we must not retry."""
+    text = str(exc).lower()
+    return "locked" in text or "busy" in text
+
+
+def _begin_immediate(conn) -> None:
+    """Take the write lock, waiting for a peer rather than failing the append.
+
+    ``BEGIN IMMEDIATE`` must stay the FIRST statement on the connection — that
+    ordering is what makes the tail read atomic — so ``busy_timeout`` is not set
+    up front. It is set on the first *contended* attempt instead, which both
+    keeps the ordering invariant and gives SQLite's own internal waits (the tail
+    ``SELECT`` can also block) a chance to back off.
+
+    Dropping the entry on contention is the one thing this module must never do:
+    a gap in the tape is indistinguishable from tampering.
+    """
+    for attempt in range(_WRITE_ATTEMPTS):
+        try:
+            conn.execute("BEGIN IMMEDIATE")
+            return
+        except sqlite3.OperationalError as exc:
+            if not _is_busy(exc) or attempt == _WRITE_ATTEMPTS - 1:
+                raise
+            if attempt == 0:
+                try:
+                    conn.execute("PRAGMA busy_timeout=%d" % _BUSY_TIMEOUT_MS)
+                except sqlite3.Error:
+                    pass
+            # Jitter keeps N peers from re-colliding in lockstep; the cap keeps
+            # the total wait bounded so a wedged writer surfaces as an error
+            # instead of an unbounded hang.
+            delay = min(
+                _WRITE_BACKOFF_CAP_S,
+                _WRITE_BACKOFF_BASE_S * (2 ** min(attempt, 5)),
+            )
+            time.sleep(delay * (0.5 + random.random() * 0.5))
+            try:
+                if conn.in_transaction:
+                    conn.rollback()
+            except sqlite3.Error:
+                pass
+
+
 def append_audit(
     conn,
     *,
@@ -153,7 +219,7 @@ def append_audit(
     the tail read, so the fork window is closed there too.
     """
     if not conn.in_transaction:
-        conn.execute("BEGIN IMMEDIATE")
+        _begin_immediate(conn)
     conn.execute(_WRITER_DDL)
     conn.execute(
         _WRITER_UPSERT,

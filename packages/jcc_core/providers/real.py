@@ -42,6 +42,16 @@ ESCALATE. Those two must stay distinguishable.
 """
 from __future__ import annotations
 
+#: §7D / FINAL DECISION — this module is the LEGACY JEV scorer abstraction.
+#: The production decision + generation providers live in
+#: ``jcc_core.provider_registry.ProviderRegistry`` (backed by the DPAPI
+#: SecretStore), which is the single source of truth the Provider Center and
+#: ``/api/health``'s ``production_provider`` block read. This legacy scorer is
+#: NOT the production provider and must never be reported as REAL. Its
+#: fail-closed contract (``TRANSPORT_IMPLEMENTED = False`` and the ten critical
+#: UNVERIFIED gaps) is intentionally preserved — see FINAL DECISION rule #10.
+LEGACY_NOT_PRODUCTION = True
+
 import hashlib
 import json
 import os

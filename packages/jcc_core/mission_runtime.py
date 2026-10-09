@@ -69,6 +69,20 @@ LAUNCH_SEQUENCE: List[MissionStatus] = [
     MissionStatus.RUNNING,
 ]
 
+#: How far along the launch path a status is. Used to decide whether a stage can
+#: be SKIPPED (already past it) or must be ENTERED (not yet reached).
+#:
+#: Only the launch path is ranked. A status outside it ranks 0, so a mission in
+#: DRAFT still walks the whole sequence, and a mission in an unexpected state
+#: still gets its first legal transition attempted rather than being silently
+#: treated as further along than it is.
+_STATUS_RANK: Dict[MissionStatus, int] = {
+    MissionStatus.DRAFT: 0,
+    MissionStatus.READY: 1,
+    MissionStatus.STARTING: 2,
+    MissionStatus.RUNNING: 3,
+}
+
 #: Which agents the product can actually launch today. The mission studio reads
 #: the same fact from the frontend; this constant is the server-side truth.
 LAUNCHABLE_AGENTS = ("workbuddy",)
@@ -210,6 +224,17 @@ class MissionRuntime:
 
 
         # -- step 3: walk the state machine, one legal step at a time -------- #
+        #
+        # The walk must be able to start from a position the CALLER left it in.
+        # The UI transitions a mission to STARTING before calling launch, so a
+        # walker that always demanded READY first asked for `STARTING -> READY`,
+        # which the machine rightly refuses; the launch then failed with a
+        # transition error and the mission sat at FAILED unexplained.
+        #
+        # Only the IMMEDIATE predecessor is skipped, never an arbitrary earlier
+        # stage. Skipping "anything already past this target" would also wave
+        # through a relaunch of a RUNNING mission, and refusing a relaunch is a
+        # deliberate part of the contract.
         for target in LAUNCH_SEQUENCE:
             current = self.domain.get_mission(mission_id)
             if current is None:  # pragma: no cover -- deleted mid-launch
@@ -218,6 +243,13 @@ class MissionRuntime:
                 result["steps"].append(
                     {"step": "transition:%s" % target.value, "ok": True,
                      "detail": "already at %s" % target.value})
+                continue
+            if _STATUS_RANK.get(current.status, 0) == _STATUS_RANK.get(target, 0) + 1:
+                result["steps"].append(
+                    {"step": "transition:%s" % target.value, "ok": True,
+                     "detail": "skipped: caller already advanced to %s"
+                               % current.status.value})
+                continue
                 continue
             try:
                 self.domain.transition_mission(
@@ -334,6 +366,56 @@ class MissionRuntime:
                     mission_id, MissionStatus.DRAFT,
                     reason="launch failed: %s" % detail)
         except Exception:  # noqa: BLE001 -- a refused cleanup must not mask the cause
+            pass
+        # Persist WHY, separately from the state change.
+        #
+        # `transition_mission` records a reason string that the UI shows once and
+        # then loses; the mission row itself kept only `status = FAILED`. Five
+        # such missions were undiagnosable during release acceptance — the only
+        # clue was an absent launch journal. So the detail is stored ON the
+        # mission, classified into a stage and a code, sanitised because a launch
+        # error can quote a command line that contains a token.
+        self._record_failure(mission_id, detail)
+
+    def _record_failure(self, mission_id: str, detail: Any) -> None:
+        """Store a structured, sanitised explanation on the mission itself.
+
+        The stage and code come from the DETAIL, not from a guess at the call
+        site: the same handler sees a boundary refusal, a missing executable and a
+        subprocess error, and "it failed" is useless for all three.
+        """
+        from .providers.generation import redact
+
+        text = "" if detail is None else str(detail)
+        # The provider secrets are not in scope here, so a generic redaction
+        # pattern is used: any long opaque token, and any Authorization header.
+        safe = redact(text, None)
+        for marker, code in (
+            ("not in the allowed", "PROJECT_ROOT_OUT_OF_SCOPE"),
+            ("outside the boundary", "PROJECT_ROOT_OUT_OF_SCOPE"),
+            ("ROOT_OUT_OF_SCOPE", "PROJECT_ROOT_OUT_OF_SCOPE"),
+            ("No such file", "EXECUTABLE_NOT_FOUND"),
+            ("FileNotFoundError", "EXECUTABLE_NOT_FOUND"),
+            ("PermissionError", "PERMISSION_DENIED"),
+            ("Access is denied", "PERMISSION_DENIED"),
+            ("not recognized", "EXECUTABLE_NOT_FOUND"),
+            ("timed out", "TIMEOUT"),
+            ("401", "AUTH_FAILED"),
+            ("403", "AUTH_FAILED"),
+            ("429", "RATE_LIMITED"),
+        ):
+            if marker in text:
+                break
+        else:
+            code = "LAUNCH_FAILED"
+        try:
+            self.domain.mark_mission_failed(
+                mission_id,
+                failure_code=code,
+                failure_stage="WORKBUDDY_LAUNCH",
+                failure_message=safe,
+            )
+        except Exception:  # noqa: BLE001 -- observability must not mask the cause
             pass
 
     def _has_other_live_run(self, mission_id: str, *, excluding: str) -> bool:

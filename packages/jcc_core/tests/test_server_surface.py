@@ -116,6 +116,19 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/v1/domain/counts",
         "/api/v1/domain/projects",
         "/api/v1/domain/projects/{pid}",
+        # Jev (TypeSafe System One) reachability. Open for the same reason: it
+        # reports WHETHER a credential exists, never its value, and mutates
+        # nothing. The executor-DECISION route is token-gated and is deliberately
+        # absent from this list.
+        "/api/v1/domain/jev/health",
+        # Model & API centre. Open for the same reason: a STATUS read reporting
+        # WHETHER a credential exists (plus last4) and never a value. The
+        # credential write, probe, live-call and routing-PATCH routes are all
+        # token-gated and deliberately absent from this list.
+        "/api/v1/providers",
+        "/api/v1/providers/{pid}",
+        "/api/v1/providers/{pid}/models",
+        "/api/v1/model-routing",
         "/api/v1/domain/missions",
         "/api/v1/domain/missions/{mid}",
         "/api/v1/domain/missions/{mid}/timeline",

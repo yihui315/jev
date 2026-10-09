@@ -170,14 +170,40 @@ def _cli_script() -> Optional[str]:
 
 
 def _node_runtime() -> Optional[str]:
-    """A node runtime able to run the CLI (>= 18.20.8, per the CLI's own check)."""
-    cands = [
-        Path(r"C:\Users\Administrator\.workbuddy\binaries\node\versions\22.22.2-3\node.exe"),
-        Path(r"C:\Users\Administrator\.workbuddy\binaries\node\versions\24.14.0\node.exe"),
-    ]
-    for p in cands:
-        if p.is_file():
-            return str(p)
+    """A node runtime able to run the CLI (>= 18.20.8, per the CLI's own check).
+
+    DISCOVERED, NOT PINNED. This used to list two hard-coded version directories
+    and fall back to `which node`; the pinned one was `22.22.2-3`, which no longer
+    exists on this host (it is now `22.22.2-6`). Every native launch therefore
+    failed to resolve a runtime and the mission died with no workload at all.
+
+    A pinned patch version is a promise the host will keep, and this one was
+    broken. The directory is now SCANNED, newest first, so a runtime upgrade
+    cannot silently disable native execution. The PATH fallback stays last,
+    because a system node may be older than the CLI's minimum.
+    """
+    import re as _re
+
+    roots: List[Path] = []
+    if os.name == "nt":
+        base = Path(os.path.expanduser("~")) / ".workbuddy" / "binaries" / "node" / "versions"
+        if base.is_dir():
+            for entry in base.iterdir():
+                exe = entry / "node.exe"
+                if exe.is_file():
+                    # "current" is a symlink/junction to a version dir; prefer a
+                    # real version so the reported path is stable.
+                    roots.append(exe)
+    else:
+        roots.append(Path("/usr/bin/node"))
+
+    def _version(p: Path) -> tuple:
+        m = _re.search(r"(\d+)\.(\d+)\.(\d+)", str(p.parent.name))
+        return tuple(int(g) for g in m.groups()) if m else (0, 0, 0)
+
+    for exe in sorted(roots, key=_version, reverse=True):
+        if exe.is_file():
+            return str(exe)
     return shutil.which("node")
 
 

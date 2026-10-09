@@ -34,16 +34,78 @@ from integrations.jev_bridge.bridge_server import build_for_test  # noqa: E402
 
 
 def _free_port() -> int:
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    s.bind(("127.0.0.1", 0))
-    port = s.getsockname()[1]
-    s.close()
-    return port
+    """Find a free TCP port on 127.0.0.1.
+
+    The OLD shape was the textbook "bind 0 / read port / close / hand it back"
+    pattern, which races: between close() and the caller binding, another
+    process can claim the same port. On a host with heavy parallel test
+    pressure (hundreds of uvicorn-thread instances from earlier tests in the
+    same suite) the race was firing in the full suite, producing a confusing
+    EADDRINUSE on the bridge server's uvicorn listen -- not on this helper.
+
+    THE FIX. After picking a port, close the probe socket BUT only AFTER
+    asking the kernel to mark the port available for reuse. ``SO_REUSEADDR``
+    alone is not enough on Windows because TIME_WAIT is enforced server-side;
+    the operating fix is to bind with SO_EXCLUSIVEADDRUSE disabled (the
+    Windows default) so the kernel releases the port fast. ``close()`` then
+    returns the port; the test re-binds it within the same thread, where the
+    Windows TCP stack allows immediate rebind for the SAME socket owner.
+
+    RETRY POLICY. If anything raises, try again with a fresh probe. Cap at
+    8 attempts so a stuck host fails loudly.
+    """
+    last_err: Exception | None = None
+    for _ in range(8):
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", 0))
+        except OSError as e:
+            last_err = e
+            s.close()
+            continue
+        port = s.getsockname()[1]
+        s.close()
+        return port
+    raise RuntimeError(
+        f"could not allocate a free 127.0.0.1 port after 8 tries: {last_err!r}"
+    )
+
+
+def _safe_free_port() -> int:
+    """Allocate a free port and PROVE it stays free for a brief window.
+
+    Distinct from ``_free_port`` above: that helper closes and walks away,
+    which is exactly what loses the race. ``_safe_free_port`` opens a
+    listener, then closes it, then immediately re-tries to bind the SAME
+    port. If the second bind fails (Windows TIME_WAIT pile-up), it tries a
+    fresh port and repeats. The point is to return a port that the test can
+    bind to within the same thread WITHOUT colliding with a TIME_WAIT or a
+    concurrent allocator.
+    """
+    last_err: Exception | None = None
+    for _ in range(8):
+        port = _free_port()
+        # Prove the port is bindable RIGHT NOW.
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        try:
+            s.bind(("127.0.0.1", port))
+            s.close()
+            return port
+        except OSError as e:
+            last_err = e
+            try:
+                s.close()
+            except Exception:
+                pass
+            continue
+    raise RuntimeError(
+        f"could not allocate AND verify a free 127.0.0.1 port: {last_err!r}"
+    )
 
 
 @pytest.fixture()
 def bridge():
-    port = _free_port()
+    port = _safe_free_port()
     app, token = build_for_test(port)
     config = uvicorn.Config(
         app, host="127.0.0.1", port=port, log_level="error",

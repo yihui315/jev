@@ -223,6 +223,21 @@ class Mission(BaseModel):
     status: MissionStatus = MissionStatus.DRAFT
     attention_kind: Optional[AttentionKind] = None
     attention_reason: Optional[str] = None
+    # WHY a mission failed, and where.
+    #
+    # A bare `status = FAILED` is not diagnosable: during release acceptance five
+    # missions sat at FAILED with no reason, no stage and no code, and the only
+    # way to learn anything was to notice that the launch journal had not been
+    # written to. That is a failure mode being invisible, which is the same as a
+    # failure mode being absent as far as an operator is concerned.
+    #
+    # `failure_message` is SANITISED before it is written (see the redaction in
+    # mission_runtime), because a launch error can quote a command line, and a
+    # command line can quote a token.
+    failure_code: Optional[str] = None
+    failure_stage: Optional[str] = None
+    failure_message: Optional[str] = None
+    failed_at: Optional[float] = None
     created_at: float = Field(default_factory=_now)
     updated_at: float = Field(default_factory=_now)
     started_at: Optional[float] = None
@@ -484,6 +499,20 @@ class DomainStore:
             conn = self._conn()
             try:
                 conn.executescript(DOMAIN_SCHEMA)
+                # `CREATE TABLE IF NOT EXISTS` does NOT add a column to a table
+                # that already exists, so an installation created before the
+                # failure-detail columns existed would silently keep the old
+                # shape and every failure would stay unexplained. Migrations
+                # belong next to the schema, not in a deploy note.
+                existing = {r[1] for r in conn.execute("PRAGMA table_info(missions)")}
+                for col, decl in (
+                    ("failure_code", "TEXT"),
+                    ("failure_stage", "TEXT"),
+                    ("failure_message", "TEXT"),
+                    ("failed_at", "REAL"),
+                ):
+                    if col not in existing:
+                        conn.execute(f"ALTER TABLE missions ADD COLUMN {col} {decl}")
                 conn.commit()
             finally:
                 conn.close()
@@ -562,12 +591,15 @@ class DomainStore:
                     "INSERT INTO missions (mission_id, project_id, title, goal, agent, "
                     "connection_ref, working_directory, context, permissions, "
                     "budget_units, status, attention_kind, attention_reason, "
+                    "failure_code, failure_stage, failure_message, failed_at, "
                     "created_at, updated_at, started_at, finished_at, session_id) "
-                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
                     (m.mission_id, m.project_id, m.title, m.goal, m.agent,
                      m.connection_ref, m.working_directory, m.context,
                      json.dumps(m.permissions), m.budget_units, m.status.value,
-                     None, None, m.created_at, m.updated_at, None, None, None),
+                     None, None,
+                     m.failure_code, m.failure_stage, m.failure_message, m.failed_at,
+                     m.created_at, m.updated_at, None, None, None),
                 )
                 conn.execute(
                     "INSERT INTO mission_events (mission_id, timestamp, from_status, "
@@ -632,12 +664,44 @@ class DomainStore:
             status=d.get("status") or MissionStatus.DRAFT.value,
             attention_kind=d.get("attention_kind"),
             attention_reason=d.get("attention_reason"),
+            failure_code=d.get("failure_code"),
+            failure_stage=d.get("failure_stage"),
+            failure_message=d.get("failure_message"),
+            failed_at=d.get("failed_at"),
             created_at=float(d.get("created_at") or 0.0),
             updated_at=float(d.get("updated_at") or 0.0),
             started_at=d.get("started_at"),
             finished_at=d.get("finished_at"),
             session_id=d.get("session_id"),
         )
+
+    def mark_mission_failed(self, mission_id: str, *,
+                            failure_code: str, failure_stage: str,
+                            failure_message: str) -> Optional[Mission]:
+        """Record WHY a mission failed, without changing its state.
+
+        Separate from :meth:`transition_mission` on purpose. The state change is a
+        state-machine decision and may be refused; the reason must survive
+        regardless, because a mission stuck at FAILED with no explanation is the
+        case where the operator has nothing to act on. A missing failure record
+        must therefore never raise.
+        """
+        with self._lock:
+            conn = self._conn()
+            try:
+                cur = conn.execute(
+                    "UPDATE missions SET failure_code = ?, failure_stage = ?,"
+                    " failure_message = ?, failed_at = ?, updated_at = ?"
+                    " WHERE mission_id = ?",
+                    (failure_code, failure_stage, failure_message[:2000],
+                     _now(), _now(), mission_id),
+                )
+                conn.commit()
+            except Exception:  # noqa: BLE001 - observability is best effort
+                return None
+            finally:
+                conn.close()
+        return self.get_mission(mission_id)
 
     def transition_mission(self, mission_id: str, to: MissionStatus, *,
                            reason: str = "",
