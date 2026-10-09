@@ -1,0 +1,330 @@
+{
+  "blocker_count": 14,
+  "blockers": [
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "SANDBOX_CERTIFICATION.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\SANDBOX_CERTIFICATION.json)",
+      "gates_forced_false": [
+        [
+          "sandbox_certified",
+          "product_implementation_complete"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_SANDBOX",
+      "next_deterministic_action": "Produce SANDBOX_CERTIFICATION.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "HOST_ACCEPTANCE.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\HOST_ACCEPTANCE.json)",
+      "gates_forced_false": [
+        [
+          "host_activated"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_HOST_ACCEPTANCE",
+      "next_deterministic_action": "Produce HOST_ACCEPTANCE.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "PRODUCT_FREEZE.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\PRODUCT_FREEZE.json)",
+      "gates_forced_false": [
+        [
+          "product_freeze_valid"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_PRODUCT_FREEZE",
+      "next_deterministic_action": "Produce PRODUCT_FREEZE.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "MANIFEST.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\MANIFEST.json)",
+      "gates_forced_false": [
+        [
+          "manifest_clean"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_MANIFEST",
+      "next_deterministic_action": "Produce MANIFEST.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "HOST_RUNTIME.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\HOST_RUNTIME.json)",
+      "gates_forced_false": [
+        [
+          "durable_runtime_verified"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_HOST_RUNTIME",
+      "next_deterministic_action": "Produce HOST_RUNTIME.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "WORKBUDDY_CAUSAL_LAUNCH.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\WORKBUDDY_CAUSAL_LAUNCH.json)",
+      "gates_forced_false": [
+        [
+          "workbuddy_native_launch_verified"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_WORKBUDDY",
+      "next_deterministic_action": "Produce WORKBUDDY_CAUSAL_LAUNCH.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "LIVE_MISSION.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\LIVE_MISSION.json)",
+      "gates_forced_false": [
+        [
+          "live_sse_verified",
+          "deliverable_provenance_verified"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_LIVE_MISSION",
+      "next_deterministic_action": "Produce LIVE_MISSION.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "LIVE_3D.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\LIVE_3D.json)",
+      "gates_forced_false": [
+        [
+          "live_3d_verified"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_LIVE_3D",
+      "next_deterministic_action": "Produce LIVE_3D.json, then re-run this tool."
+    },
+    {
+      "class": "EVIDENCE",
+      "detail": "The release claims a fact this document was supposed to establish, and the document is not there to establish it. Absence is recorded as absence: it is not read as a pass.",
+      "exact_evidence": "GPU_PERFORMANCE.json (file not found at D:\\jev\\artifacts\\release\\v1.3_final\\GPU_PERFORMANCE.json)",
+      "gates_forced_false": [
+        [
+          "hardware_perf_verified"
+        ]
+      ],
+      "id": "EVIDENCE_ABSENT_GPU",
+      "next_deterministic_action": "Produce GPU_PERFORMANCE.json, then re-run this tool."
+    },
+    {
+      "class": "PROVENANCE",
+      "detail": "This evidence was measured at another commit, so it describes code that is no longer the code. A verdict that aggregates it is asserting something about a tree nobody shipped.",
+      "exact_evidence": "SECURITY_FINAL.json.head=ac1ef4a6a9dd vs HEAD=46ff531730e4",
+      "gates_forced_false": [
+        [
+          "security"
+        ]
+      ],
+      "id": "STALE_HEAD_SECURITY",
+      "next_deterministic_action": "Re-run the producing gate at HEAD 46ff531730e4, or re-freeze."
+    },
+    {
+      "class": "PROVENANCE",
+      "detail": "This evidence was measured at another commit, so it describes code that is no longer the code. A verdict that aggregates it is asserting something about a tree nobody shipped.",
+      "exact_evidence": "RELEASE_TRUTH.json.head=88ff8a8e6007 vs HEAD=46ff531730e4",
+      "gates_forced_false": [
+        [
+          "product_freeze_valid",
+          "git_clean"
+        ]
+      ],
+      "id": "STALE_HEAD_RELEASE_TRUTH",
+      "next_deterministic_action": "Re-run the producing gate at HEAD 46ff531730e4, or re-freeze."
+    },
+    {
+      "class": "PROVENANCE",
+      "detail": "This evidence was measured at another commit, so it describes code that is no longer the code. A verdict that aggregates it is asserting something about a tree nobody shipped.",
+      "exact_evidence": "HOST_PREFLIGHT.json.head=05715da68794 vs HEAD=46ff531730e4",
+      "gates_forced_false": [
+        [
+          "host_activated",
+          "green_untouched"
+        ]
+      ],
+      "id": "STALE_HEAD_HOST_PREFLIGHT",
+      "next_deterministic_action": "Re-run the producing gate at HEAD 46ff531730e4, or re-freeze."
+    },
+    {
+      "class": "SECURITY",
+      "detail": "Directive K requires SECURITY=GO before the release loop may close. Any other value, including an absent one, blocks it.",
+      "exact_evidence": "SECURITY_FINAL.json verdict='GO_WITH_CONDITIONS'",
+      "gates_forced_false": [
+        "security",
+        "final_release"
+      ],
+      "id": "SECURITY_NOT_GO",
+      "next_deterministic_action": "Resolve the security gate's findings and re-run it."
+    },
+    {
+      "class": "PROVENANCE",
+      "detail": "Uncommitted bytes mean the tree that was measured is not the tree on disk, so no evidence here describes what would actually ship.",
+      "exact_evidence": "git status --porcelain reports DIRTY",
+      "gates_forced_false": [
+        "git_clean",
+        "manifest_clean",
+        "product_freeze_valid"
+      ],
+      "id": "WORKTREE_NOT_CLEAN",
+      "next_deterministic_action": "Commit or revert the outstanding changes, then re-run the gates."
+    }
+  ],
+  "deliverable_provenance_verified": false,
+  "durable_runtime_verified": false,
+  "final_release": false,
+  "generated_at": "2026-10-04T10:31:07.709007+00:00",
+  "generated_by": "tools/jcc_final_verdict.py",
+  "git_clean": false,
+  "green_untouched": false,
+  "hard_gates": [
+    "product_implementation_complete",
+    "sandbox_certified",
+    "product_freeze_valid",
+    "workbuddy_native_launch_verified",
+    "live_sse_verified",
+    "live_3d_verified",
+    "deliverable_provenance_verified",
+    "durable_runtime_verified",
+    "green_untouched",
+    "manifest_clean",
+    "git_clean",
+    "host_activated",
+    "hardware_perf_verified"
+  ],
+  "hardware_perf_verified": false,
+  "head": "46ff531730e431e76fb9458ff86b8ece0d7031b3",
+  "host_activated": false,
+  "host_activation_pending": true,
+  "inputs": [
+    {
+      "error": null,
+      "file": "SANDBOX_CERTIFICATION.json",
+      "head": null,
+      "key": "sandbox",
+      "present": false,
+      "required_by_directive": true
+    },
+    {
+      "error": null,
+      "file": "HOST_ACCEPTANCE.json",
+      "head": null,
+      "key": "host_acceptance",
+      "present": false,
+      "required_by_directive": true
+    },
+    {
+      "error": null,
+      "file": "PRODUCT_FREEZE.json",
+      "head": null,
+      "key": "product_freeze",
+      "present": false,
+      "required_by_directive": true
+    },
+    {
+      "error": null,
+      "file": "MANIFEST.json",
+      "head": null,
+      "key": "manifest",
+      "present": false,
+      "required_by_directive": true
+    },
+    {
+      "error": null,
+      "file": "SECURITY_FINAL.json",
+      "head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
+      "key": "security",
+      "present": true,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "HOST_RUNTIME.json",
+      "head": null,
+      "key": "host_runtime",
+      "present": false,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "WORKBUDDY_CAUSAL_LAUNCH.json",
+      "head": null,
+      "key": "workbuddy",
+      "present": false,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "LIVE_MISSION.json",
+      "head": null,
+      "key": "live_mission",
+      "present": false,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "LIVE_3D.json",
+      "head": null,
+      "key": "live_3d",
+      "present": false,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "GPU_PERFORMANCE.json",
+      "head": null,
+      "key": "gpu",
+      "present": false,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "RELEASE_TRUTH.json",
+      "head": "88ff8a8e60070a1a4d6a0162cf1325e3ed5e0c0e",
+      "key": "release_truth",
+      "present": true,
+      "required_by_directive": false
+    },
+    {
+      "error": null,
+      "file": "HOST_PREFLIGHT.json",
+      "head": "05715da68794eff374703467f00de0871a44d65a",
+      "key": "host_preflight",
+      "present": true,
+      "required_by_directive": false
+    }
+  ],
+  "jcc_product_edition": "INCOMPLETE",
+  "jev_project_run": "FAIL",
+  "live_3d_verified": false,
+  "live_sse_verified": false,
+  "manifest_clean": false,
+  "open_gates": [
+    "deliverable_provenance_verified",
+    "durable_runtime_verified",
+    "git_clean",
+    "green_untouched",
+    "hardware_perf_verified",
+    "host_activated",
+    "live_3d_verified",
+    "live_sse_verified",
+    "manifest_clean",
+    "product_freeze_valid",
+    "product_implementation_complete",
+    "sandbox_certified",
+    "workbuddy_native_launch_verified"
+  ],
+  "product_freeze_valid": false,
+  "product_implementation_complete": false,
+  "project_complete": false,
+  "read_only": true,
+  "repo_root": "D:\\jev",
+  "sandbox_certified": false,
+  "schema": "jcc/final-verdict/1",
+  "security": "GO_WITH_CONDITIONS",
+  "workbuddy_native_launch_verified": false,
+  "worktree": "DIRTY"
+}

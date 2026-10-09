@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "sidecar": "EV-11a",
+  "generator": "scripts/emit_release_evidence.py",
+  "commit": "fbeafb2",
+  "frozen_at": "fbeafb2",
+  "tool": "emit_release_evidence.py (manifest generation, two-run)",
+  "entries_count": 12,
+  "reproducible": true,
+  "run1": {
+    "ran_at": "2026-10-05T10:20:10+08:00",
+    "basetemp": null,
+    "manifest_sha256": "cf537009abd6962c88bbae1a17963b449bfa2a044095ad0092b55da53909946f"
+  },
+  "run2": {
+    "ran_at": "2026-10-05T10:20:10+08:00",
+    "basetemp": null,
+    "manifest_sha256": "cf537009abd6962c88bbae1a17963b449bfa2a044095ad0092b55da53909946f"
+  },
+  "note": "ran_at/basetemp are run-time fields stripped from the main manifest record (ADR-0009 EV-11). Both runs at the same commit produced an identical sha256."
+}
