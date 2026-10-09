@@ -14,15 +14,28 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: false,
-    // three.js is ~1MB and is only needed on the World/Graph surfaces. Split it
-    // into its own chunk so the product views (Home, Missions, Studio…) load
-    // without paying for the renderer.
     rollupOptions: {
       output: {
+        /**
+         * WHY THERE IS NO `three` ENTRY HERE
+         * ----------------------------------
+         * v1.2 named three.js as a manual chunk. That produced a separate
+         * `three-*.js` file, but the MAIN chunk still held a static
+         * `import … from "./three-*.js"`, so the browser preloaded it from
+         * index.html and the home page paid ~250 kB gzip for a renderer it never
+         * draws. Naming a chunk does not make it lazy.
+         *
+         * Three.js is now genuinely lazy: `App.tsx` reaches the 3D surfaces only
+         * through `React.lazy(() => import("./scene/…"))`, so Rollup puts every
+         * three-dependent module in the async chunk graph on its own. Leaving
+         * `manualChunks` unset for three is what keeps it out of the entry
+         * chunk's static imports — the split has to come from the import graph,
+         * not from a chunk name.
+         *
+         * Radix/cmdk are still named explicitly: they are small, shared by the
+         * entry, and a stable name makes them cacheable across releases.
+         */
         manualChunks: (id) => {
-          if (id.includes("node_modules/three") || id.includes("@react-three")) {
-            return "three";
-          }
           if (id.includes("node_modules/@radix-ui") || id.includes("node_modules/cmdk")) {
             return "radix";
           }

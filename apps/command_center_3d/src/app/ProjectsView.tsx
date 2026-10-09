@@ -18,6 +18,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../ui
 import { EmptyState, InlineError, Skeleton } from "../ui/Feedback";
 import { cn } from "../ui/cn";
 import { missionTone, toneVariant } from "../app/status";
+import { isWithinAllowedRoots } from "../app/projectRoot";
 import { fmtRelative, type DomainApi, type Mission, type Project, type ProjectDetail } from "../app/domainApi";
 
 export function ProjectsView({
@@ -27,6 +28,8 @@ export function ProjectsView({
   error,
   onNewMission,
   onRefresh,
+  allowedRoots,
+  onCreateProject,
 }: {
   api: DomainApi;
   projects: Project[];
@@ -34,11 +37,65 @@ export function ProjectsView({
   error: string | null;
   onNewMission: () => void;
   onRefresh: () => void;
+  /**
+   * The roots the backend authorised. The create form only ever offers one of
+   * these — a project cannot be created outside the boundary, so the input is
+   * not a free-text field but a choice among roots the server published.
+   */
+  allowedRoots: string[];
+  /** Create a project at an authorised root. Returns the project or null. */
+  onCreateProject: (name: string, rootPath: string) => Promise<Project | null>;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [detail, setDetail] = useState<ProjectDetail | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
+  // --- create-project form (boundary-constrained) ---
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  // Pre-filled from the home page's 「选择 <root>」 when it hands one over.
+  const [newRoot, setNewRoot] = useState<string>(() => {
+    try {
+      const handed = sessionStorage.getItem("jev.project.createRoot");
+      if (handed) {
+        sessionStorage.removeItem("jev.project.createRoot");
+        return handed;
+      }
+    } catch {
+      /* storage unavailable */
+    }
+    return "";
+  });
+  const [createBusy, setCreateBusy] = useState(false);
+  const [createError, setCreateError] = useState<string | null>(null);
+
+  /**
+   * Create at the chosen root.
+   *
+   * The root is validated against `allowedRoots` HERE as well, not left to the
+   * server. That is deliberate: the server's 422 is a JSON contract, and the
+   * user should not have to read one to learn they typed a path the boundary
+   * rejects. The server still validates — this only moves the first, cheap
+   * rejection to where the sentence can be written.
+   */
+  async function submitCreate() {
+    const root = newRoot.trim();
+    if (!root || !newName.trim()) return;
+    if (!allowedRoots.some((a) => isWithinAllowedRoots(root, [a]))) {
+      setCreateError("只能在后端允许的工作区范围内创建项目。");
+      return;
+    }
+    setCreateBusy(true);
+    setCreateError(null);
+    const created = await onCreateProject(newName.trim(), root);
+    setCreateBusy(false);
+    if (!created) {
+      setCreateError("创建失败，请检查控制令牌与目录是否存在。");
+      return;
+    }
+    setCreating(false);
+    setNewName("");
+  }
 
   async function toggle(p: Project) {
     if (openId === p.project_id) {
@@ -81,6 +138,100 @@ export function ProjectsView({
         </div>
 
         {error && <InlineError message={error} />}
+
+        {/* --- create at an authorised root -------------------------------
+            This is the way OUT when every recorded project is stale. The root
+            input is a CHOICE among backend-published roots, not free text, so a
+            project cannot be created outside the boundary by construction. */}
+        {allowedRoots.length > 0 ? (
+          <div className="rounded-lg border border-border bg-card p-4">
+            {creating ? (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="t-section text-foreground">新建项目</h3>
+                  <button
+                    type="button"
+                    onClick={() => setCreating(false)}
+                    className="rounded-md border border-border px-2.5 py-1 t-meta text-foreground transition-colors hover:bg-accent"
+                  >
+                    取消
+                  </button>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <div className="min-w-[200px] flex-1">
+                    <label htmlFor="np-name" className="mb-1 block t-meta text-muted-foreground">
+                      项目名称
+                    </label>
+                    <input
+                      id="np-name"
+                      type="text"
+                      value={newName}
+                      onChange={(e) => setNewName(e.target.value)}
+                      placeholder="例如：JEV"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-[14px] text-foreground outline-none placeholder:text-muted-foreground/70 focus-visible:border-ring"
+                    />
+                  </div>
+                  <div className="min-w-[200px] flex-1">
+                    <label htmlFor="np-root" className="mb-1 block t-meta text-muted-foreground">
+                      项目目录（仅限允许范围）
+                    </label>
+                    <select
+                      id="np-root"
+                      value={newRoot}
+                      onChange={(e) => setNewRoot(e.target.value)}
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-[13px] text-foreground outline-none focus-visible:border-ring"
+                    >
+                      <option value="">请选择目录</option>
+                      {allowedRoots.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                {createError ? (
+                  <p className="t-body text-destructive" role="alert">
+                    {createError}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  onClick={() => void submitCreate()}
+                  disabled={createBusy || !newName.trim() || !newRoot.trim()}
+                  className={
+                    createBusy || !newName.trim() || !newRoot.trim()
+                      ? "cursor-not-allowed rounded-md bg-muted px-4 py-2 text-[14px] text-muted-foreground"
+                      : "rounded-md bg-primary px-4 py-2 text-[14px] font-medium text-primary-foreground transition-colors hover:brightness-110"
+                  }
+                >
+                  {createBusy ? "正在创建…" : "创建项目"}
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="t-section text-foreground">新建项目</h3>
+                  <p className="mt-0.5 t-meta text-muted-foreground">
+                    允许的工作区范围：{allowedRoots.join("、")}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setCreating(true);
+                    setNewRoot(allowedRoots[0] ?? "");
+                    setCreateError(null);
+                  }}
+                  className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-[14px] text-foreground transition-colors hover:bg-accent"
+                >
+                  <FolderPlus className="h-4 w-4" aria-hidden="true" />
+                  新建项目
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
 
         {loading && projects.length === 0 ? (
           <div className="space-y-2">

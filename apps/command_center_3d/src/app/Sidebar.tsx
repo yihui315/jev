@@ -2,22 +2,30 @@
  * Sidebar — the product navigation rail.
  *
  * Reads its entries from the single `navigation.ts` registry, so it can never
- * drift from the ⌘K palette or the mobile drawer. The attention count is passed
- * in (not fetched here) because the app shell owns the one poll that produces
- * it — a second fetch inside the sidebar would be a second source of truth.
+ * drift from the command palette. In Simple Mode it renders exactly four
+ * entries; Expert Mode adds the engineering surfaces underneath, visually
+ * separated, so the professional capability is one toggle away rather than
+ * deleted.
+ *
+ * The attention count is passed in (not fetched here) because the app shell owns
+ * the one poll that produces it — a second fetch inside the sidebar would be a
+ * second source of truth.
  */
 import { AlertTriangle, Command as CommandIcon, X } from "lucide-react";
-import {
-  NAV_GROUPS,
-  navItemsInGroup,
-  type NavGroup,
-  type ViewMode,
-} from "../app/navigation";
+import { NAV_GROUPS, navItemsInGroup, type NavGroup, type ViewMode } from "../app/navigation";
 import { cn } from "../ui/cn";
 import { Badge } from "../ui/Badge";
 
+/** Group headings, in the user's language. */
+const GROUP_LABEL: Record<NavGroup, string> = {
+  Main: "",
+  Work: "任务相关",
+  System: "高级",
+};
+
 export function Sidebar({
   view,
+  expert,
   onSelect,
   attentionCount,
   attentionUnknown,
@@ -27,6 +35,7 @@ export function Sidebar({
   className,
 }: {
   view: ViewMode;
+  expert: boolean;
   onSelect: (v: ViewMode) => void;
   attentionCount: number | null;
   attentionUnknown: boolean;
@@ -35,113 +44,121 @@ export function Sidebar({
   onCloseMobile: () => void;
   className?: string;
 }) {
+  // A group with nothing visible in the current mode is not rendered at all —
+  // an empty "高级" heading in Simple Mode would imply missing functionality.
+  const groups = NAV_GROUPS.map((g) => ({ group: g, items: navItemsInGroup(g, expert) })).filter(
+    (g) => g.items.some((n) => n.inSidebar),
+  );
+
   return (
     <>
-      {/* Mobile scrim */}
       <div
         className={cn(
-          "fixed inset-0 z-30 bg-black/60 lg:hidden",
-          mobileOpen ? "block" : "hidden",
+          "fixed inset-0 z-30 bg-black/60 transition-opacity lg:hidden",
+          mobileOpen ? "opacity-100" : "pointer-events-none opacity-0",
         )}
         onClick={onCloseMobile}
         aria-hidden="true"
       />
       <nav
-        aria-label="Product navigation"
+        aria-label="产品导航"
         className={cn(
           "z-40 flex h-full w-60 shrink-0 flex-col border-r border-border bg-card",
-          // Off-canvas below lg, pinned from lg up.
           "fixed lg:static",
           mobileOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0",
           "transition-transform duration-200 ease-out",
           className,
         )}
       >
-        <div className="flex items-center justify-between gap-2 border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between gap-2 px-5 py-5">
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-foreground">
-              JEV Command Center
+            <div className="truncate text-[15px] font-semibold tracking-tight text-foreground">
+              JEV
             </div>
-            <div className="truncate text-[10px] uppercase tracking-wider text-muted-foreground">
-              AI Work OS · v1.3
-            </div>
+            <div className="truncate t-meta text-muted-foreground">AI 工作系统</div>
           </div>
           <button
             onClick={onCloseMobile}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent lg:hidden"
-            aria-label="Close navigation"
+            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent lg:hidden"
+            aria-label="关闭导航"
           >
             <X className="h-4 w-4" />
           </button>
         </div>
 
-        <div className="px-3 pt-3">
+        <div className="px-4 pb-2">
           <button
             onClick={onOpenPalette}
-            className="flex w-full items-center gap-2 rounded-md border border-border bg-background/50 px-2.5 py-1.5 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-            aria-label="Open command palette"
+            className="flex w-full items-center gap-2 rounded-md border border-border bg-background/40 px-2.5 py-2 t-meta text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+            aria-label="打开命令面板"
           >
-            <CommandIcon className="h-3.5 w-3.5" />
-            <span className="flex-1 text-left">Command palette</span>
-            <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">
-              ⌘K
-            </kbd>
+            <CommandIcon className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="flex-1 text-left">命令面板</span>
+            <kbd className="rounded border border-border px-1 py-0.5 text-[10px]">⌘K</kbd>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto px-2 py-3">
-          {NAV_GROUPS.map((group: NavGroup) => (
-            <div key={group} className="mb-3">
-              <div className="px-2 py-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                {group}
-              </div>
-              <ul className="space-y-0.5">
-                {navItemsInGroup(group)
-                  .filter((n) => n.inSidebar)
-                  .map((item) => {
-                    const Icon = item.icon;
-                    const active = view === item.id;
-                    const isAttention = item.id === "needs-attention";
-                    return (
-                      <li key={item.id}>
-                        <button
-                          onClick={() => {
-                            onSelect(item.id);
-                            onCloseMobile();
-                          }}
-                          title={item.description}
-                          aria-current={active ? "page" : undefined}
-                          className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-2.5 py-2 text-left text-sm transition-colors",
-                            active
-                              ? "bg-accent text-accent-foreground"
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-                          )}
-                        >
-                          <Icon
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          {groups.map(({ group, items }) => {
+            const heading = GROUP_LABEL[group];
+            return (
+              <div key={group} className={cn(group !== "Main" && "mt-5")}>
+                {heading ? (
+                  <div className="px-2.5 pb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground/70">
+                    {heading}
+                  </div>
+                ) : null}
+                <ul className="space-y-0.5">
+                  {items
+                    .filter((n) => n.inSidebar)
+                    .map((item) => {
+                      const Icon = item.icon;
+                      const active = view === item.id;
+                      const isAttention = item.id === "needs-attention";
+                      return (
+                        <li key={item.id}>
+                          <button
+                            onClick={() => {
+                              onSelect(item.id);
+                              onCloseMobile();
+                            }}
+                            title={item.description}
+                            aria-current={active ? "page" : undefined}
                             className={cn(
-                              "h-4 w-4 shrink-0",
-                              active ? "text-primary" : "text-muted-foreground",
+                              "flex w-full items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] transition-colors",
+                              active
+                                ? "bg-primary-soft font-medium text-foreground"
+                                : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                             )}
-                          />
-                          <span className="flex-1 truncate">{item.label}</span>
-                          {isAttention ? (
-                            <AttentionCountBadge
-                              count={attentionCount}
-                              unknown={attentionUnknown}
+                          >
+                            <Icon
+                              className={cn(
+                                "h-4 w-4 shrink-0",
+                                active ? "text-primary" : "text-muted-foreground",
+                              )}
+                              aria-hidden="true"
                             />
-                          ) : null}
-                        </button>
-                      </li>
-                    );
-                  })}
-              </ul>
-            </div>
-          ))}
+                            <span className="flex-1 truncate">
+                              {expert ? item.label : item.labelZh}
+                            </span>
+                            {isAttention ? (
+                              <AttentionCountBadge
+                                count={attentionCount}
+                                unknown={attentionUnknown}
+                              />
+                            ) : null}
+                          </button>
+                        </li>
+                      );
+                    })}
+                </ul>
+              </div>
+            );
+          })}
         </div>
 
-        <div className="border-t border-border px-4 py-2 text-[10px] text-muted-foreground">
-          Loopback only · actuation disabled
+        <div className="border-t border-border px-5 py-3 t-meta text-muted-foreground/80">
+          {expert ? "Loopback only · actuation disabled" : "仅本机运行"}
         </div>
       </nav>
     </>
@@ -164,15 +181,15 @@ function AttentionCountBadge({
 }) {
   if (unknown || count == null) {
     return (
-      <Badge variant="unknown" aria-label="Attention count unknown" title="Attention count unavailable">
+      <Badge variant="unknown" aria-label="待确认数量未知" title="无法获取待确认数量">
         ?
       </Badge>
     );
   }
   if (count === 0) return null;
   return (
-    <Badge variant="warn" aria-label={`${count} items need attention`}>
-      <AlertTriangle className="h-3 w-3" />
+    <Badge variant="warn" aria-label={`${count} 项需要确认`}>
+      <AlertTriangle className="h-3 w-3" aria-hidden="true" />
       {count}
     </Badge>
   );

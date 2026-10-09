@@ -1,412 +1,216 @@
 /**
- * HomeView — the product first screen (Wave 2).
+ * HomeView — the simplest page in the product.
  *
- * Five counters + the Needs Attention list, all read from
- * `GET /api/v1/domain/home`. Nothing on this screen is computed client-side:
- * the server owns the counts, and the UI renders "—" when a value is not
- * available rather than inventing a zero.
+ * THE ACCEPTANCE TEST FOR THIS FILE
+ * --------------------------------
+ * Someone who has never seen JEV opens it and must know, in about ten seconds:
  *
- * The primary action is New Mission, because launching work is the product's
- * reason to exist.
+ *   1. what this thing does      → the headline and sub-line
+ *   2. how to start              → one input and one button
+ *   3. what happened recently    → the task list at the bottom
+ *
+ * Everything else is deliberately absent. No counters, no policy version, no
+ * actuation flag, no 3D, no connection matrix. A user does not need any of it to
+ * decide what to do next, and showing it is what made the old Home feel like a
+ * dashboard instead of a product.
+ *
+ * The status indicator in the header is the only chrome, and it is one word wide
+ * until clicked.
  */
-import {
-  Activity,
-  AlertTriangle,
-  Boxes,
-  CheckCircle2,
-  FolderKanban,
-  PlayCircle,
-  Plus,
-  RefreshCw,
-} from "lucide-react";
-import type { LucideIcon } from "lucide-react";
-import { Button } from "../ui/Button";
-import { Badge } from "../ui/Badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "../ui/Card";
-import { EmptyState, InlineError, Skeleton } from "../ui/Feedback";
-import { cn } from "../ui/cn";
-import { attentionLabel, attentionTone, toneVariant } from "../app/status";
-import { fmtRelative, type AttentionItem, type HomeSummary } from "../app/domainApi";
-import type { SceneState } from "../store/sceneMap";
+import { useMemo } from "react";
+import { PageBody } from "../components/AppShell";
+import { EmptyState, ErrorState, LoadingState } from "../components/States";
+import { RecentTaskCard } from "./RecentTaskCard";
+import { ProjectGate } from "./ProjectGate";
+import { TaskComposer, type ComposerSubmitState } from "./TaskComposer";
+import { ConfirmationCard } from "./ConfirmationCard";
+import type { ExecutorDecision } from "./TaskComposer";
+import type { Mission, Project } from "./domainApi";
 
-export interface HomeData {
-  summary: HomeSummary | null;
-  error: string | null;
-  loading: boolean;
-  lastLoadedAt: number | null;
-}
+/** How many recent tasks the home page lists. */
+const RECENT_LIMIT = 6;
 
 export function HomeView({
-  data,
-  scene,
-  onNewMission,
-  onGotoMissions,
-  onGotoAttention,
-  onGotoDeliverables,
-  onGotoProjects,
+  missions,
+  projects,
+  usableProjects,
+  blockedProjects,
+  allowedRoots,
+  missionsLoading,
+  missionsError,
+  selectedProject,
+  onSelectProject,
+  executor,
+  onSelectExecutor,
+  onSubmit,
+  composerState,
+  onOpenTask,
+  onOpenSettings,
+  onOpenProjects,
+  onUseSuggestedRoot,
   onRefresh,
+  jevDecision,
+  pendingGoal,
+  pendingProvider,
+  pendingModel,
+  controlToken,
+  onApproved,
+  onCancelled,
 }: {
-  data: HomeData;
-  scene: SceneState;
-  onNewMission: () => void;
-  onGotoMissions: () => void;
-  onGotoAttention: () => void;
-  onGotoDeliverables: () => void;
-  onGotoProjects: () => void;
+  missions: Mission[];
+  projects: Project[];
+  /** Projects inside the backend's boundary. */
+  usableProjects: Project[];
+  /** Projects whose recorded root is outside it, with the reason. */
+  blockedProjects: Array<{ project: Project; reason: string }>;
+  /** The roots the backend authorised. */
+  allowedRoots: string[];
+  missionsLoading: boolean;
+  missionsError: string | null;
+  selectedProject: Project | null;
+  onSelectProject: (p: Project) => void;
+  executor: string;
+  onSelectExecutor: (a: string) => void;
+  onSubmit: (goal: string) => void;
+  composerState: ComposerSubmitState;
+  onOpenTask: (missionId: string) => void;
+  onOpenSettings: () => void;
+  onOpenProjects: () => void;
+  /**
+   * Adopt a root the BACKEND authorised (always `allowedRoots[0]`).
+   *
+   * The handler selects the usable project that already sits on that root. If no
+   * project does, it goes to the projects page to create one — it never invents
+   * a path and never rewrites the expired one.
+   */
+  onUseSuggestedRoot: (root: string) => void;
   onRefresh: () => void;
+  /** Jev's decision, when it needs a human before anything runs. */
+  jevDecision: ExecutorDecision | null;
+  /** The goal the decision was made about, so the card can bind to it. */
+  pendingGoal: string;
+  pendingProvider: string | null;
+  pendingModel: string | null;
+  controlToken: string;
+  onApproved: (executor: string) => void;
+  onCancelled: () => void;
 }) {
-  const s = data.summary;
+  /**
+   * The recent list.
+   *
+   * Sorted by real `updated_at` (the server's clock, not the browser's), and
+   * capped. A task that is still running is kept at the top regardless of its
+   * timestamp: the thing happening right now is the thing the user came to see.
+   */
+  const recent = useMemo(() => {
+    const running = missions.filter(
+      (m) => m.status === "RUNNING" || m.status === "STARTING" || m.status === "VERIFYING",
+    );
+    const rest = missions
+      .filter((m) => m.status !== "RUNNING" && m.status !== "STARTING" && m.status !== "VERIFYING")
+      .sort((a, b) => (b.updated_at ?? 0) - (a.updated_at ?? 0));
+    return [...running, ...rest].slice(0, RECENT_LIMIT);
+  }, [missions]);
 
   return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl space-y-5 p-5">
-        {/* ---- Hero / primary CTA ---- */}
-        <div className="flex flex-wrap items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold text-foreground">
-              Mission Control
-            </h2>
-            <p className="mt-0.5 text-xs text-muted-foreground">
-              {s
-                ? `${s.active_projects} project${s.active_projects === 1 ? "" : "s"} · ${s.running_missions} running · ${s.needs_attention} needing attention`
-                : "Loading workspace state…"}
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onRefresh}>
-              <RefreshCw className="h-3.5 w-3.5" />
-              Refresh
-            </Button>
-            <Button size="sm" onClick={onNewMission} data-testid="home-new-mission">
-              <Plus className="h-3.5 w-3.5" />
-              New Mission
-            </Button>
-          </div>
-        </div>
+    <PageBody>
+      {/* --- the one question ------------------------------------------- */}
+      <section className="pt-6 lg:pt-12">
+        <h1 className="t-hero text-foreground">告诉 JEV 你想完成什么。</h1>
+        <p className="mt-3 max-w-2xl t-body text-muted-foreground">
+          JEV 会分析任务、制定计划、选择合适的执行器并监督完成。
+        </p>
+      </section>
 
-        {data.error && (
-          <InlineError message={`Home summary unavailable — ${data.error}`} />
-        )}
+      {/* --- the one action -------------------------------------------- */}
+      <section className="mt-8 max-w-3xl">
+        <TaskComposer
+          projects={projects}
+          usableProjects={usableProjects}
+          blockedProjects={blockedProjects}
+          allowedRoots={allowedRoots}
+          selectedProject={selectedProject}
+          onSelectProject={onSelectProject}
+          executor={executor}
+          onSelectExecutor={onSelectExecutor}
+          onSubmit={onSubmit}
+          state={composerState}
+          onOpenSettings={onOpenSettings}
+        />
+      </section>
 
-        {/* ---- Five counters ---- */}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-5">
-          <StatCard
-            icon={FolderKanban}
-            label="Active Projects"
-            value={s?.active_projects}
-            loading={data.loading}
-            onClick={onGotoProjects}
-            testId="stat-active-projects"
+      {/* The confirmation card, when Jev's decision needs a person.
+          Rendered beside the composer rather than in place of it: the goal text
+          is still on screen, so the operator confirms the thing they can read. */}
+      {jevDecision && jevDecision.needs_confirmation ? (
+        <section className="mt-6 max-w-3xl">
+          <ConfirmationCard
+            decision={jevDecision}
+            task={pendingGoal}
+            projectRoot={selectedProject?.root_path ?? ""}
+            provider={pendingProvider}
+            model={pendingModel}
+            controlToken={controlToken}
+            onApproved={onApproved}
+            onCancelled={onCancelled}
           />
-          <StatCard
-            icon={PlayCircle}
-            label="Running Missions"
-            value={s?.running_missions}
-            loading={data.loading}
-            tone="live"
-            onClick={onGotoMissions}
-            testId="stat-running-missions"
-          />
-          <StatCard
-            icon={AlertTriangle}
-            label="Needs Attention"
-            value={s?.needs_attention}
-            loading={data.loading}
-            tone={(s?.needs_attention ?? 0) > 0 ? "warn" : undefined}
-            onClick={onGotoAttention}
-            testId="stat-needs-attention"
-          />
-          <StatCard
-            icon={Boxes}
-            label="Accepted deliverables"
-            value={s?.deliverables?.verified}
-            loading={data.loading}
-            onClick={onGotoDeliverables}
-            testId="stat-deliverables"
-            hint={
-              s && s.deliverables
-                ? s.deliverables.produced > 0
-                  ? `${s.deliverables.produced} awaiting review`
-                  : "all reviewed"
-                : undefined
-            }
-          />
-          <StatCard
-            icon={CheckCircle2}
-            label="Completed"
-            value={s?.completed_missions}
-            loading={data.loading}
-            tone="ok"
-            onClick={onGotoMissions}
-            testId="stat-completed"
-          />
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          {/* ---- Needs attention ---- */}
-          <Card className="lg:col-span-2">
-            <CardHeader className="flex-row items-center justify-between space-y-0">
-              <div>
-                <CardTitle className="flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-status-warn" />
-                  Needs Attention
-                </CardTitle>
-                <CardDescription>
-                  Work the system has stopped on, waiting for a human decision
-                </CardDescription>
-              </div>
-              <Button variant="ghost" size="sm" onClick={onGotoAttention}>
-                Open inbox
-              </Button>
-            </CardHeader>
-            <CardContent>
-              {data.loading && !s ? (
-                <div className="space-y-2">
-                  <Skeleton className="h-10 w-full" />
-                  <Skeleton className="h-10 w-full" />
-                </div>
-              ) : !s ? (
-                <EmptyState
-                  icon={AlertTriangle}
-                  title="Attention list unavailable"
-                  detail="The domain API did not return a home summary. Nothing is being assumed here — the count is unknown, not zero."
-                  action={
-                    <Button variant="outline" size="sm" onClick={onRefresh}>
-                      Retry
-                    </Button>
-                  }
-                />
-              ) : s.attention_items.length === 0 ? (
-                <EmptyState
-                  icon={CheckCircle2}
-                  title="Nothing needs you right now"
-                  detail="No mission is blocked, escalated or awaiting an approval."
-                />
-              ) : (
-                <ul className="divide-y divide-border">
-                  {s.attention_items.map((it) => (
-                    <AttentionRow key={it.mission_id} item={it} onOpen={onGotoAttention} />
-                  ))}
-                </ul>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ---- System health ---- */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Activity className="h-4 w-4 text-status-info" />
-                System Health
-              </CardTitle>
-              <CardDescription>Live control-plane facts</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-2.5 text-xs">
-              <HealthRow
-                label="Transport"
-                value={scene.connection}
-                variant={
-                  scene.connection === "LIVE"
-                    ? "live"
-                    : scene.connection === "OFFLINE"
-                      ? "danger"
-                      : scene.connection === "POLLING"
-                        ? "info"
-                        : "warn"
-                }
-              />
-              <HealthRow
-                label="Provider"
-                value={scene.core?.providerName ?? "UNKNOWN"}
-                variant={scene.core ? "info" : "unknown"}
-                hint={
-                  scene.core
-                    ? `${scene.core.providerMode}${scene.core.providerVerified ? " · verified" : ""}`
-                    : "no scene loaded"
-                }
-              />
-              <HealthRow
-                label="Policy"
-                value={scene.core?.policyVersion ?? "UNKNOWN"}
-                variant={scene.core ? "info" : "unknown"}
-              />
-              <HealthRow
-                label="Audit chain"
-                value={
-                  scene.auditChainIntact === null
-                    ? "UNKNOWN"
-                    : scene.auditChainIntact
-                      ? "INTACT"
-                      : "BROKEN"
-                }
-                variant={
-                  scene.auditChainIntact === null
-                    ? "unknown"
-                    : scene.auditChainIntact
-                      ? "ok"
-                      : "danger"
-                }
-              />
-              <HealthRow
-                label="Actuation"
-                value={s ? (s.actuation_enabled ? "ENABLED" : "DISABLED") : "UNKNOWN"}
-                variant={s ? (s.actuation_enabled ? "danger" : "ok") : "unknown"}
-                hint="fail-closed build"
-              />
-              <HealthRow
-                label="Scope"
-                value={s?.localhost_only ? "LOCALHOST" : "UNKNOWN"}
-                variant={s?.localhost_only ? "info" : "unknown"}
-              />
-              {/* RISK-1 spec 10 — the project-root boundary, shown rather than
-                  implied.
-                  An operator who cannot see WHICH roots are allowed cannot act on
-                  a refusal; they can only retry. And the count is rendered from
-                  the server's list, never from a value the UI derived, because a
-                  client-side notion of "the workspace" is exactly the kind of
-                  assumption this control exists to remove. Absent field renders
-                  UNKNOWN (never "none"), matching the honesty rule the rest of
-                  this panel follows. */}
-              <HealthRow
-                label="Project roots"
-                value={
-                  !s?.project_scope
-                    ? "UNKNOWN"
-                    : s.project_scope.allowed_project_roots.length === 0
-                      ? "NONE (fail-closed)"
-                      : `${s.project_scope.allowed_project_roots.length} allowed`
-                }
-                variant={
-                  !s?.project_scope
-                    ? "unknown"
-                    : s.project_scope.allowed_project_roots.length === 0
-                      ? "danger"
-                      : "ok"
-                }
-                hint={
-                  s?.project_scope?.allowed_project_roots?.join("  ·  ") ??
-                  "server did not report a boundary"
-                }
-              />
-              <div className="pt-1 text-[10px] text-muted-foreground">
-                Last loaded:{" "}
-                {data.lastLoadedAt ? fmtRelative(Math.floor(data.lastLoadedAt / 1000)) : "—"}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({
-  icon: Icon,
-  label,
-  value,
-  loading,
-  tone,
-  onClick,
-  testId,
-  hint,
-}: {
-  icon: LucideIcon;
-  label: string;
-  value: number | undefined;
-  loading: boolean;
-  tone?: NonNullable<React.ComponentProps<typeof Badge>["variant"]>;
-  onClick: () => void;
-  testId: string;
-  hint?: string;
-}) {
-  const known = value !== undefined && value !== null;
-  return (
-    <button
-      onClick={onClick}
-      data-testid={testId}
-      className={cn(
-        "group rounded-lg border border-border bg-card p-4 text-left transition-colors",
-        "hover:border-primary/50 hover:bg-accent/40",
-      )}
-    >
-      <div className="flex items-center justify-between">
-        <span className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
-          {label}
-        </span>
-        <Icon className="h-4 w-4 text-muted-foreground group-hover:text-primary" />
-      </div>
-      <div className="mt-2">
-        {loading && !known ? (
-          <Skeleton className="h-7 w-12" />
-        ) : known ? (
-          <span
-            className={cn(
-              "text-2xl font-semibold tabular-nums",
-              tone === "warn" ? "text-status-warn" : "text-foreground",
-            )}
-          >
-            {value}
-          </span>
-        ) : (
-          // Unknown is rendered as an explicit dash, never as a zero.
-          <span className="text-2xl font-semibold text-status-unknown" title="Not available">
-            —
-          </span>
-        )}
-      </div>
-      {hint && known ? (
-        <div className="mt-0.5 text-[10px] text-muted-foreground">{hint}</div>
+        </section>
       ) : null}
-    </button>
-  );
-}
 
-function AttentionRow({ item, onOpen }: { item: AttentionItem; onOpen: () => void }) {
-  return (
-    <li className="flex items-center gap-3 py-2.5">
-      <Badge variant={toneVariant(attentionTone(item.kind ?? ""))}>
-        {attentionLabel(item.kind ?? "UNKNOWN")}
-      </Badge>
-      <div className="min-w-0 flex-1">
-        <div className="truncate text-sm text-foreground">{item.title}</div>
-        <div className="truncate text-[11px] text-muted-foreground">
-          {item.reason || "no reason recorded"}
+      {/* --- an expired project, explained rather than vanished ------------
+          A project whose root is outside the backend's boundary is still listed
+          by the API, so hiding it would make it look deleted. The card says what
+          happened, what the boundary is, and offers the one root the server
+          authorised. There is no F: → D: substitution: the button navigates to a
+          root the BACKEND published. */}
+      {blockedProjects.length > 0 ? (
+        <section className="mt-6 max-w-3xl">
+          <ProjectGate
+            verdict={{
+              ok: false,
+              code: "ROOT_OUT_OF_SCOPE",
+              reason: `${blockedProjects.length} 个项目的目录不在允许范围内。`,
+            }}
+            currentRoot={blockedProjects[0].project.root_path}
+            allowedRoots={allowedRoots}
+            onUseSuggested={onUseSuggestedRoot}
+            onReselect={onOpenProjects}
+          />
+        </section>
+      ) : null}
+
+      {/* --- what happened recently ------------------------------------ */}
+      <section className="mt-14">
+        <div className="mb-4 flex items-baseline justify-between gap-3">
+          <h2 className="t-section text-foreground">最近任务</h2>
+          {recent.length > 0 ? (
+            <span className="t-meta text-muted-foreground">
+              {missions.length > RECENT_LIMIT
+                ? `显示最近 ${RECENT_LIMIT} 个，共 ${missions.length} 个`
+                : `共 ${missions.length} 个`}
+            </span>
+          ) : null}
         </div>
-      </div>
-      <span className="shrink-0 text-[10px] text-muted-foreground">
-        {fmtRelative(item.updated_at)}
-      </span>
-      <Button variant="ghost" size="sm" onClick={onOpen}>
-        Review
-      </Button>
-    </li>
-  );
-}
 
-function HealthRow({
-  label,
-  value,
-  variant,
-  hint,
-}: {
-  label: string;
-  value: string;
-  variant: NonNullable<React.ComponentProps<typeof Badge>["variant"]>;
-  hint?: string;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-2">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="flex items-center gap-1.5">
-        {hint ? <span className="text-[10px] text-muted-foreground">{hint}</span> : null}
-        <Badge variant={variant}>{value}</Badge>
-      </span>
-    </div>
+        {missionsLoading && missions.length === 0 ? (
+          <LoadingState label="正在读取任务…" />
+        ) : missionsError && missions.length === 0 ? (
+          <ErrorState title="无法读取任务列表" detail={missionsError} onRetry={onRefresh} />
+        ) : recent.length === 0 ? (
+          <EmptyState
+            title="还没有任务"
+            hint="在上方描述你的第一个任务，JEV 会自动完成分析、规划与执行。"
+          />
+        ) : (
+          <ul className="grid gap-2.5 sm:grid-cols-2">
+            {recent.map((m) => (
+              <li key={m.mission_id}>
+                <RecentTaskCard mission={m} onOpen={() => onOpenTask(m.mission_id)} />
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </PageBody>
   );
 }

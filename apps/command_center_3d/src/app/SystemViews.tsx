@@ -307,95 +307,13 @@ function Fact({ label, value, mono }: { label: string; value: string; mono?: boo
 
 // ---------------------------------------------------------------------------
 // Settings
+//
+// MOVED to `./app/SettingsView.tsx`. The settings surface was rebuilt as a
+// seven-section page (通用 / 执行代理 / 模型 / 连接 / 安全 / 系统 / 高级) so
+// that a normal user finds what they need without reading a token field, while
+// every professional control stayed reachable one section deeper. Re-exported
+// here so existing imports keep resolving.
 // ---------------------------------------------------------------------------
 
-export function SettingsView({
-  controlToken,
-  onControlToken,
-  theme,
-  onTheme,
-  base,
-}: {
-  controlToken: string;
-  onControlToken: (v: string) => void;
-  theme: "dark" | "light";
-  onTheme: (t: "dark" | "light") => void;
-  base: string;
-}) {
-  const [showToken, setShowToken] = useState(false);
+export { SettingsView } from "./SettingsView";
 
-  return (
-    <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-4 p-5">
-        <h2 className="text-lg font-semibold text-foreground">Settings</h2>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings2 className="h-4 w-4 text-muted-foreground" />
-              Appearance
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Label htmlFor="theme-select">Theme</Label>
-            <Select
-              id="theme-select"
-              value={theme}
-              onChange={(e) => onTheme(e.target.value as "dark" | "light")}
-            >
-              <option value="dark">Dark (operator)</option>
-              <option value="light">Light</option>
-            </Select>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Control token</CardTitle>
-            <CardDescription>
-              Required for every mutating call. Held in memory for this tab only —
-              never written to localStorage, a cookie, the URL or a log.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <div className="flex items-center gap-2">
-              <Badge variant={controlToken ? "ok" : "unknown"}>
-                {controlToken ? "set" : "not set"}
-              </Badge>
-              <Button variant="outline" size="sm" onClick={() => setShowToken((s) => !s)}>
-                {showToken ? "Hide" : "Reveal"}
-              </Button>
-              <Button variant="ghost" size="sm" onClick={() => onControlToken("")}>
-                Clear
-              </Button>
-            </div>
-            <div className="rounded-md border border-border bg-background/60 px-3 py-2 font-mono text-[11px] text-muted-foreground">
-              {controlToken
-                ? showToken
-                  ? controlToken
-                  : "•".repeat(Math.min(controlToken.length, 40))
-                : "— none —"}
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              Set it from the top bar. The server reads it from its
-              <code className="mx-1 font-mono">JCC_CONTROL_TOKEN</code> environment variable.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Data source</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs">
-            <Fact label="API base" value={base} mono />
-            <p className="text-[11px] text-muted-foreground">
-              Override with <code className="font-mono">VITE_API_BASE</code> at build time.
-              The protected GREEN instance on 4778 is never contacted by this UI.
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
-  );
-}

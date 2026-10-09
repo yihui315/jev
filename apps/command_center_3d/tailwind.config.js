@@ -21,10 +21,12 @@ export default {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         background: "hsl(var(--background))",
+        surface: "hsl(var(--surface))",
         foreground: "hsl(var(--foreground))",
         primary: {
           DEFAULT: "hsl(var(--primary))",
           foreground: "hsl(var(--primary-foreground))",
+          soft: "hsl(var(--primary-soft))",
         },
         secondary: {
           DEFAULT: "hsl(var(--secondary))",
@@ -50,6 +52,7 @@ export default {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        "border-strong": "hsl(var(--border-strong))",
         /** Semantic status colours. These carry the honesty rules:
          *  `unknown` is grey, never green -- a state we cannot observe must
          *  never render as a healthy one. */
@@ -63,9 +66,18 @@ export default {
         },
       },
       borderRadius: {
+        xl: "var(--radius-lg)",
         lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        md: "calc(var(--radius) - 4px)",
+        sm: "calc(var(--radius) - 6px)",
+      },
+      boxShadow: {
+        card: "var(--shadow-card)",
+        pop: "var(--shadow-pop)",
+      },
+      fontSize: {
+        // 12px is the floor. Nothing in the product renders smaller than meta.
+        meta: ["0.8125rem", { lineHeight: "1.5" }],
       },
       fontFamily: {
         sans: ["var(--font-sans)"],

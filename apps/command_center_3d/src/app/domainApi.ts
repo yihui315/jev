@@ -44,8 +44,13 @@ async function request<T>(
   try {
     const headers: Record<string, string> = {};
     if (body !== undefined) headers["Content-Type"] = "application/json";
-    // Token travels in a header only. Never in the URL, never persisted.
-    if (token) headers["X-JCC-Token"] = token;
+    // Token travels in headers only. Never in the URL, never persisted.
+    //
+    // Both forms are sent because the control plane accepts either and a proxy
+    // in front of the port may read only one. Constructed by the SAME helper the
+    // rest of the app uses, so a change to the header contract is a one-line
+    // edit rather than a hunt through six call sites.
+    Object.assign(headers, authHeaders(token ?? ""));
     const res = await fetch(base + path, {
       method,
       headers,
@@ -921,3 +926,4 @@ export function fmtBytes(n: number | null | undefined): string {
   }
   return `${v.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
 }
+import { authHeaders } from "../lib/authorizedFetch";

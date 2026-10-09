@@ -2,12 +2,15 @@ import { describe, it, expect } from "vitest";
 import {
   NAV_ITEMS,
   NAV_GROUPS,
+  PRIMARY_VIEWS,
   VIEW_IDS,
   coerceView,
+  isAdvanced,
   isLegacyView,
   navItem,
   navItemsInGroup,
   navLabel,
+  needs3D,
   showsInspectorRail,
 } from "./navigation";
 
@@ -59,9 +62,56 @@ describe("navigation registry", () => {
     }
   });
 
-  it("groups only contain declared items", () => {
-    const grouped = NAV_GROUPS.flatMap((g) => navItemsInGroup(g).map((n) => n.id));
+  it("groups only contain declared items (expert mode shows every group)", () => {
+    const grouped = NAV_GROUPS.flatMap((g) => navItemsInGroup(g, true).map((n) => n.id));
     expect(grouped.sort()).toEqual([...VIEW_IDS].sort());
+  });
+
+  it("exposes exactly four primary sidebar entries, in order", () => {
+    // The whole product to a new user: 首页 / 任务 / 项目 / 设置.
+    expect(PRIMARY_VIEWS).toEqual(["home", "missions", "projects", "settings"]);
+  });
+
+  it("hides advanced surfaces in simple mode but keeps every one in expert mode", () => {
+    // Simplicity is a VISIBILITY decision, never a capability one: an advanced
+    // view must still exist in the registry, or Expert Mode could not restore it.
+    for (const n of NAV_ITEMS) {
+      if (n.visibility === "advanced") {
+        expect(isAdvanced(n.id)).toBe(true);
+        expect(navItemsInGroup(n.group, true).map((x) => x.id)).toContain(n.id);
+        expect(navItemsInGroup(n.group, false).map((x) => x.id)).not.toContain(n.id);
+      } else {
+        expect(isAdvanced(n.id)).toBe(false);
+      }
+    }
+  });
+
+  it("marks only the two 3D views as needing the Three.js engine", () => {
+    // The home page must never pull the 3D engine into its bundle.
+    expect(needs3D("world")).toBe(true);
+    expect(needs3D("engine-world")).toBe(true);
+    for (const v of VIEW_IDS) {
+      if (v !== "world" && v !== "engine-world") {
+        expect(needs3D(v)).toBe(false);
+      }
+    }
+  });
+
+  it("speaks Chinese in simple mode and keeps engineering names in expert mode", () => {
+    // The plain-language surface and the engineering surface are the SAME view
+    // with two labels; `missions` is the id, 任务 what a user calls it, Tasks
+    // what the engineering console calls it.
+    expect(navLabel("missions", false)).toBe("任务");
+    expect(navLabel("missions", true)).toBe("Tasks");
+    expect(navLabel("home", false)).toBe("首页");
+    expect(navLabel("projects", false)).toBe("项目");
+    expect(navLabel("settings", false)).toBe("设置");
+    // Every view must have BOTH labels, so no mode can show a raw id.
+    for (const v of VIEW_IDS) {
+      expect(navLabel(v, false).length).toBeGreaterThan(0);
+      expect(navLabel(v, true).length).toBeGreaterThan(0);
+      expect(navLabel(v, false)).not.toBe(v);
+    }
   });
 
   it("coerces an unknown view to the fallback rather than trusting it", () => {
@@ -75,7 +125,7 @@ describe("navigation registry", () => {
 
   it("labels every view", () => {
     for (const v of VIEW_IDS) {
-      expect(navLabel(v)).toBe(navItem(v)?.label);
+      expect(navLabel(v, true)).toBe(navItem(v)?.label);
     }
   });
 
