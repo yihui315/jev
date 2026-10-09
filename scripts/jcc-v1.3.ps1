@@ -810,22 +810,60 @@ function Invoke-V13Up {
     }
 
     # --- summary ------------------------------------------------------------ #
-    $apiHealthy = (Get-V13ApiHealth -Port $ApiPort).Ok
+    $apiHealthRaw = Get-V13ApiHealth -Port $ApiPort
+    $apiHealthy = $apiHealthRaw.Ok
     $uiHealthy = (Get-V13UiHealth -Port $UiPort).Ok
     $apiOwn = Test-JccOwnership -Paths $Paths -Port $ApiPort -Root $Root
     $uiOwn = Test-V13UiOwnership -Port $UiPort
     $greenOk = ($green.State -eq 'UP (protected, untouched)')
 
+    # --- control-token assertion ------------------------------------------- #
+    # WHY THIS IS A GATE AND NOT A LINE OF OUTPUT
+    # ------------------------------------------
+    # The API reads JCC_CONTROL_TOKEN from ITS OWN environment at start-up, and
+    # the launcher passes its own session environment through. So a launcher
+    # invoked from a session without the variable starts a service whose /api/health
+    # answers 200 and whose every mutating route answers 403. That is the correct
+    # fail-closed behaviour of the CONTROL PLANE, but it is a broken LAUNCH: the
+    # operator gets a green health check and a UI where nothing can be saved.
+    #
+    # That state is indistinguishable from "working" unless something checks, so
+    # the launcher checks. `up` refuses to report UP without it, because a
+    # half-usable stack reported as fully up is how a settings page ends up
+    # mysteriously refusing every credential.
+    #
+    # The token VALUE is never read or printed here — only the boolean the server
+    # already publishes on an open endpoint.
+    $controlTokenOk = $false
+    if ($apiHealthy) {
+        try {
+            # Read the flag the server already publishes on an OPEN endpoint. The
+            # token VALUE is never touched here — only this boolean.
+            $raw = Invoke-RestMethod -Uri ('http://127.0.0.1:' + $ApiPort + '/api/health') -TimeoutSec 5
+            $controlTokenOk = [bool]$raw.control_token_configured
+            if (-not $controlTokenOk) {
+                $script:V13Warnings += '  control token : the API started WITHOUT a token, so every mutating route will answer 403.'
+                $script:V13Warnings += '                   launch the API from a session that has JCC_CONTROL_TOKEN set, then re-run -Action up.'
+            }
+        } catch {
+            $controlTokenOk = $false
+            $script:V13Warnings += '  control token : could not be read from /api/health (' + $_.Exception.Message + ')'
+        }
+    } else {
+        $script:V13Warnings += '  control token : API is not healthy, so the gate was not evaluated'
+    }
+
     Write-Output ''
     Write-Output 'summary'
     Write-Output ('  API http 200      : ' + $apiHealthy)
+    Write-Output ('  control token    : ' + $controlTokenOk + '  (mutating routes are gated on it)')
     Write-Output ('  API ownership     : ' + $apiOwn.Ok + '  ' + $apiOwn.Reason)
     Write-Output ('  UI  http 200      : ' + $uiHealthy)
     Write-Output ('  UI  ownership     : ' + $uiOwn.Ok + '  ' + $uiOwn.Reason)
     Write-Output ('  GREEN protected   : ' + $greenOk)
     foreach ($w in @($script:V13Warnings)) { Write-Output ('  ' + $w) }
 
-    if ($apiHealthy -and $uiHealthy -and $apiOwn.Ok -and $uiOwn.Ok -and $greenOk) {
+    if ($apiHealthy -and $uiHealthy -and $apiOwn.Ok -and $uiOwn.Ok -and $greenOk -and $controlTokenOk) {
         Write-Output ''
         Write-Output 'RESULT: UP (v1.3) -- API + Visual UI verified, GREEN protected'
         Write-Output ('  open      : http://127.0.0.1:' + $UiPort + '/')
@@ -837,6 +875,12 @@ function Invoke-V13Up {
 
     Write-Output ''
     Write-Output 'RESULT: NOT FULLY UP -- see the summary above. Nothing was signalled by this script.'
+    if ($apiHealthy -and -not $controlTokenOk) {
+        Write-Output '  CAUSE     : the control plane is up but UNGATED. Every mutating route answers 403,'
+        Write-Output '              so the UI will load and every save will fail. This is fail-closed'
+        Write-Output '              behaviour, not a crash -- but it is not a usable deployment.'
+        Write-Output '  fix       : start the API from a session where JCC_CONTROL_TOKEN is set, then re-run -Action up.'
+    }
     Write-Output ('  diagnose  : .\scripts\jcc-v1.3.ps1 -Action doctor')
     Write-Output ('  stop      : .\scripts\jcc-v1.3.ps1 -Action down')
     $script:V13Code = 4
