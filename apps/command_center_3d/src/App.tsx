@@ -52,6 +52,8 @@ import { useDomain } from "./app/useDomain";
 import { probeSystem } from "./app/systemService";
 import { startTask, STEP_LABEL, type TaskStep } from "./app/taskService";
 import { useControlTokenVerification } from "./lib/authorizedFetch";
+import { fetchAutoControlToken } from "./lib/autoToken";
+import { humanizeProviderError } from "./lib/humanizeProviderError";
 import {
   AGENT_OPTIONS,
   AUTO_EXECUTOR,
@@ -133,6 +135,23 @@ export function App() {
   const [view, setView] = useState<ViewMode>(route.view);
   const [activeMission, setActiveMission] = useState<string | null>(route.missionId);
   const [controlToken, setControlToken] = useState("");
+  /**
+   * Auto-configure the control token when the SPA server was started with one.
+   * Memory-only: the fetched value goes into React state -- never localStorage,
+   * a cookie, the URL or a log. A server that does not serve one simply leaves
+   * the field empty and the operator is prompted exactly as before.
+   */
+  useEffect(() => {
+    const ac = new AbortController();
+    let cancelled = false;
+    void fetchAutoControlToken(ac.signal).then((token) => {
+      if (!cancelled && token) setControlToken(token);
+    });
+    return () => {
+      cancelled = true;
+      ac.abort();
+    };
+  }, []);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [mobileNavOpen, setMobileNavOpen] = useState(false);
   const [theme, setTheme] = useState<"dark" | "light">(readTheme);
@@ -407,7 +426,7 @@ export function App() {
               busy: false,
               activeStep: null,
               error:
-                decision?.reason ??
+                humanizeProviderError(decision?.reason) ||
                 "Jev 未能决定使用哪个执行器，任务未创建。请稍后重试或手动指定执行器。",
               missingCredential: decision?.provider_state === "REAL_AUTH_MISSING",
             });

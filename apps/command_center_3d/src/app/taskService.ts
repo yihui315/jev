@@ -31,6 +31,7 @@ import {
   type LaunchResult,
   type Mission,
   type Project,
+  humanizeLaunchRejection,
 } from "./domainApi";
 
 /** The four backend steps, in the order the product performs them. */
@@ -246,16 +247,24 @@ export async function startTask(
   // This is the call that actually starts work. Its `classification` is the
   // child's own verdict: a run that started and then failed to authenticate
   // comes back AUTH_REQUIRED and must NOT be shown as a running task.
+  //
+  // Use `native: true` (mission-scoped spawn) rather than the default
+  // `capture: true` (attach to a live operator session). Capture requires a live
+  // WorkBuddy session whose cwd MATCHES the project dir; in this environment the
+  // operator session runs in the workspace, so capture always 409s with
+  // WORKBUDDY_SESSION_SCOPE_MISMATCH. Native spawn launches a real workload in
+  // the project dir and is what "execute this task" actually means.
   const launch: ApiResult<LaunchResult> = await api.launchMission(token, mission.mission_id, {
-    capture: true,
+    native: true,
   });
   if (!launch.ok || !launch.data) {
     steps.push(report("launch", false, launch.status, launch.error));
+    const humanized = humanizeLaunchRejection(launch.error);
     return finish(
       false,
       mission,
       false,
-      explain(launch.status, launch.error, "launch"),
+      humanized || explain(launch.status, launch.error, "launch"),
       null,
       isMissingCredential(launch.error, launch.status),
     );
@@ -289,6 +298,8 @@ export async function startTask(
 }
 
 function classifyLaunchFailure(data: LaunchResult): string {
+  const humanized = humanizeLaunchRejection(data.error);
+  if (humanized) return humanized;
   const auth = /auth|login|unauthor|token|401/i.test(data.error ?? "");
   if (auth) {
     return "执行代理需要登录授权，任务已创建但尚未运行。请在「设置 → 执行代理」中完成认证。";

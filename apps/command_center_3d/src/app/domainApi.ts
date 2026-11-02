@@ -529,6 +529,63 @@ export function asProjectRootRejection(error: string | null): ProjectRootRejecti
   };
 }
 
+/**
+ * Wave-launch — a refused REAL-agent launch, parsed out of the 409 detail.
+ *
+ * The launch route refuses with a structured `{code, detail, ...}` body (see
+ * `workbuddy_launch.py` and `server.py`). `code` is what the UI must branch on:
+ * `WORKBUDDY_SESSION_SCOPE_MISMATCH` ("no live session in the project dir") and
+ * `WORKBUDDY_NATIVE_NOT_STARTED` ("spawn was attempted but did not come up") are
+ * opposite instructions, and collapsing them into one generic error is how an
+ * operator ends up re-reading the same raw JSON and learns nothing.
+ *
+ * Returns null for every other failure (401, 403, network, 500, a plain-string
+ * detail) so the caller keeps its existing `explain()` handling instead of
+ * mislabelling an auth failure as a launch-scope problem.
+ */
+export function humanizeLaunchRejection(error: string | null | undefined): string | null {
+  if (!error) return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(error);
+  } catch {
+    return null; // a plain-string detail from some other endpoint
+  }
+  if (!parsed || typeof parsed !== "object") return null;
+  const top = parsed as Record<string, unknown>;
+  const code = typeof top.code === "string" ? top.code : "";
+  if (!code) return null;
+  const detail = typeof top.detail === "string" ? top.detail : "";
+
+  if (code === "WORKBUDDY_SESSION_SCOPE_MISMATCH") {
+    const req =
+      typeof top.requested_cwd === "string" && top.requested_cwd
+        ? top.requested_cwd
+        : "";
+    const got =
+      typeof top.captured_cwd === "string" && top.captured_cwd
+        ? top.captured_cwd
+        : "";
+    const scopeNote = got ? `当前活会话作用域为 ${got}。` : "";
+    return (
+      `没有作用域为 ${req || "该项目目录"} 的活 WorkBuddy 会话。${scopeNote}` +
+      `「挂接模式」(capture) 拒绝把启动误绑到会话从未运行过的目录。` +
+      `改走「原生启动」(native) 即可在 ${req || "该项目目录"} 拉起一个 mission 级工作负载；` +
+      `或在该目录下运行 WorkBuddy 后重试挂接。`
+    );
+  }
+  if (code === "WORKBUDDY_NATIVE_NOT_STARTED") {
+    return `原生启动已尝试但未成功拉起工作负载：${detail || "未见进程启动"}。请检查 WorkBuddy 可执行文件与主机激活状态后重试。`;
+  }
+  if (code === "no_live_workbuddy_session") {
+    return "未发现任何活 WorkBuddy 会话，无法挂接。请先启动 WorkBuddy，或在「原生启动」模式下重试。";
+  }
+  if (code === "no_workbuddy_session") {
+    return "会话目录下没有任何 WorkBuddy 会话记录。请先启动 WorkBuddy，或在「原生启动」模式下重试。";
+  }
+  return null; // fall through to the generic explain()
+}
+
 /** RISK-1 — the four refusals, each with the instruction the operator needs.
  *
  * Kept as DATA with one entry per code, because these are four different
@@ -837,7 +894,12 @@ export class DomainApi {
   launchMission(
     token: string,
     mid: string,
-    body: { capture?: boolean; cwd?: string; event?: Record<string, unknown> } = {},
+    body: {
+      capture?: boolean;
+      native?: boolean;
+      cwd?: string;
+      event?: Record<string, unknown>;
+    } = {},
   ) {
     return request<LaunchResult>(
       this.base, "POST", `/api/v1/domain/missions/${encodeURIComponent(mid)}/launch`,

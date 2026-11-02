@@ -38,6 +38,7 @@ import { PageBody, PageHeader } from "../components/AppShell";
 import { LoadingState } from "../components/States";
 import { cn } from "../ui/cn";
 import { API_BASE, authorizedFetch, openFetch } from "../lib/authorizedFetch";
+import { humanizeProviderError } from "../lib/humanizeProviderError";
 
 /**
  * The seven provider states, in the product's language.
@@ -922,25 +923,15 @@ function ProviderRow({
 function humanDetail(card: ProviderCard): string {
   const d = String(card.detail ?? "");
   if (!d) return "";
-  if (/NOT_CONFIGURED|未配置 API Key/.test(d)) {
-    return "尚未配置 API Key。点击「配置」粘贴 Key 后即可连接。";
-  }
-  if (/AUTH_FAILED|HTTP 401|HTTP 403|Invalid or missing/.test(d)) {
-    return "API Key 无效或已失效，请重新配置。";
-  }
+  // Cross-cutting shapes (regional block, auth, rate-limit, server errors) are
+  // normalised in ONE place — see lib/humanizeProviderError. Fall through to the
+  // Provider-Center-specific shapes from the test-connection flow below.
+  const shared = humanizeProviderError(d);
+  if (shared) return shared;
   if (/DISCOVERY_UNSUPPORTED|不提供 \/models|不提供模型列表/.test(d)) {
     // Not a fault: the account is fine, the vendor just does not publish a
     // model list. Saying so plainly stops a needless debugging session.
     return "该 Provider 不提供模型列表接口（这不是故障）。真实生成可用时状态为「已连接」。";
-  }
-  if (/HTTP 429|rate.?limit/i.test(d)) {
-    return "请求被限流，请稍后重试。";
-  }
-  if (/HTTP 5\d\d/.test(d)) {
-    return "服务端返回错误，Provider 暂时不可用。请稍后重试。";
-  }
-  if (/HTTP 404/.test(d)) {
-    return "该端点不存在。可在高级设置中确认 Base URL 与模型 ID。";
   }
   if (/尚未验证真实生成/.test(d)) {
     return "凭据有效、模型列表可读。点击「测试连接」完成一次真实生成验证后才能显示为「已连接」。";

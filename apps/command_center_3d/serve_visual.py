@@ -24,6 +24,21 @@ CONTRACT (unchanged from the v1.2 server, so every operator script keeps working
     inside the dist root, else the request falls back to index.html.
   * no control token is held here; no secrets; it never touches GREEN 4778.
 
+OPTIONAL AUTO CONTROL TOKEN (off by default)
+--------------------------------------------
+Set ``JCC_UI_AUTO_TOKEN=1`` **and** ``JCC_CONTROL_TOKEN=<token>`` to have this
+server answer ``GET /api/config`` with that token, so the UI can auto-fill the
+control-token field instead of the operator pasting it (see
+``src/lib/autoToken.ts``). Rationale and limits:
+
+  * it is OPT-IN -- with the flag unset the endpoint reports ``None`` and nothing
+    about the shipped behaviour changes;
+  * the token is never written into ``dist/`` (a build artifact) or into browser
+    storage, only handed to a page that this loopback-only server just served;
+  * this is defensible only because the product is loopback-only and
+    single-operator: it must stay that way, and the flag must stay off in any
+    deployment that is not.
+
 Usage:
   python serve_visual.py [--host 127.0.0.1] [--port 4780] [--dist <dir>]
 """
@@ -66,7 +81,7 @@ def _safe_target(dist: Path, rel: str) -> Path | None:
     return candidate if candidate.is_file() else None
 
 
-def build_app(dist_dir: str, port: int) -> Starlette:
+def build_app(dist_dir: str, port: int, auto_token: str | None = None) -> Starlette:
     dist = Path(dist_dir).resolve()
     index = dist / "index.html"
 
@@ -78,6 +93,15 @@ def build_app(dist_dir: str, port: int) -> Starlette:
             "port": port,
             "dist": str(dist),
         })
+
+    async def config(_request):
+        """Report the auto control token, or ``null`` when the feature is off.
+
+        ``None`` is the honest answer whenever the operator did not opt in, so a
+        client cannot tell "disabled" from "this server is older" -- and does not
+        need to, because both mean the same thing: prompt the human.
+        """
+        return JSONResponse({"controlToken": auto_token})
 
     async def spa(request):
         """Serve a real file, else fall back to the SPA shell."""
@@ -93,7 +117,9 @@ def build_app(dist_dir: str, port: int) -> Starlette:
     routes = [
         Route("/health", health),
         Route("/api/health", health),
-        # Catch-all LAST: Starlette matches in order, so the two routes above win.
+        # Auto control token (opt-in). Same origin as the SPA, so no CORS entry.
+        Route("/api/config", config),
+        # Catch-all LAST: Starlette matches in order, so the routes above win.
         Route("/{path:path}", spa),
     ]
     return Starlette(routes=routes, debug=False)
@@ -119,12 +145,26 @@ def main(argv: list[str] | None = None) -> int:
 
     import uvicorn
 
-    app = build_app(ns.dist, ns.port)
+    # OPT-IN: serve the control token only when explicitly enabled. Default off,
+    # so the shipped behaviour is unchanged.
+    auto_on = os.environ.get("JCC_UI_AUTO_TOKEN", "") == "1"
+    if auto_on:
+        auto_token = os.environ.get("JCC_CONTROL_TOKEN") or None
+    else:
+        auto_token = None
+    if auto_on and not auto_token:
+        sys.stderr.write(
+            "[visual-ui] JCC_UI_AUTO_TOKEN=1 but JCC_CONTROL_TOKEN is unset; "
+            "/api/config will report no token\n")
+
+    app = build_app(ns.dist, ns.port, auto_token)
     sys.stderr.write(
         "[visual-ui] JCC v1.3 Visual Command Center -> http://%s:%d/\n"
         "[visual-ui] runtime: uvicorn (ASGI); serving dist: %s\n"
-        "[visual-ui] loopback only; no control token held; does NOT touch GREEN 4778\n"
-        % (ns.host, ns.port, ns.dist))
+        "[visual-ui] loopback only; does NOT touch GREEN 4778\n"
+        "[visual-ui] auto control token: %s\n"
+        % (ns.host, ns.port, ns.dist,
+           "ON (from JCC_CONTROL_TOKEN)" if auto_token else "off"))
     sys.stderr.flush()
 
     uvicorn.run(app, host=ns.host, port=ns.port, log_level="warning")
