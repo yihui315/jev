@@ -18,7 +18,16 @@ results. Re-running it over the same source yields the same bytes.
 
 Run:
 
-    F:/jev/.venv/Scripts/python -m control_ui.acceptance
+    cd F:/jev && PYTHONPATH=F:/jev/apps F:/jev/.venv/Scripts/python -m control_ui.acceptance
+
+The ``cwd`` and the ``PYTHONPATH`` are both load-bearing and were missing from
+this docstring: ``fixtures`` is a namespace package at the repository root, so
+``import fixtures.demo.load`` only resolves when the root is on ``sys.path``.
+Running the module from ``F:/jev/apps`` (the cwd the *server* docstring names)
+fails with ``ModuleNotFoundError: No module named 'fixtures'``. This is exactly
+what ``tools/continuation/regenerate_surfaces.py`` does -- it runs every producer
+with ``cwd=ROOT`` and ``PYTHONPATH=ROOT;ROOT/apps;ROOT/packages`` -- so the
+documented command above and the gate's own caller now agree.
 """
 from __future__ import annotations
 

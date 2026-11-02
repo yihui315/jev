@@ -1,0 +1,45 @@
+{
+  "generated_at": "unknown",
+  "repo_root": "D:\\jev",
+  "repo_root_exists": true,
+  "git": {
+    "toplevel": "D:/jev",
+    "branch": "release/jcc-v1.3-final",
+    "head": "05715da68794eff374703467f00de0871a44d65a",
+    "tags": [],
+    "worktree_short": "M artifacts/release/v1.3_product/legs/V1_3_LEG_A1_FREEZE_MODEL.json\n M artifacts/release/v1.3_product/legs/V1_3_LEG_A2_DOMAIN.json\n M artifacts/release/v1.3_product/legs/V1_3_LEG_A3_MISSION.json\n M artifacts/release/v1.3_product/legs/V1_3_LEG_A4_ATTENTION.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_A5_DELIVERABLES.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_A6_CONNECTIONS.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_A7_INVARIANTS.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_A8_SECURITY_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B1_W2_PRODUCT_UI.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B2_W3_MISSION_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B3_W4_ATTENTION_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B4_W5_DELIVERABLES_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B5_W6_WORLD_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B6_W7_CONNECTION_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B7_W8_RUNTIME_GATE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_B8_W10_BROWSER_PERF.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_C1_CORE_E2E.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_C2_TOOLS_TESTS.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_C3a_TYPECHECK.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_C3b_VITEST.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_C3c_BUILD.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_D1_GREEN_PROTECTION.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_D2_PRODUCT_CONFIG_INERT.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_D3_UI_IS_NOT_STDLIB.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_E1_FROZEN_TREE.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_E2_GATE_INPUTS_TRACKED.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_E3_A8_PINS_VS_HEAD_BLOBS.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_E4_NO_LISTENERS_LEFT_BEHIND.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_E5_FREEZE_ANCHOR_RESOLVES.json\n D artifacts/release/v1.3_product/legs/V1_3_LEG_F1_INSTRUMENTS_ARE_FALSIFIABLE.json",
+    "worktree": "DIRTY",
+    "log_graph_head_8": "* 05715da (HEAD -> release/jcc-v1.3-final) docs(v1_3): rewrite FINAL_CLOSURE_STATUS with fresh-measured corrections\n* aed5711 fix(tools): import Path in sandbox_canary_sweep so the hygiene tool loads\n* c8687fd evidence: the 20261004-112232 full-gate run, recorded as FAIL 21/30\n* 0e86b79 docs: the relocation closure verdict, with the ten blockers sorted by cause\n* 3a382de fix(relocation): the remaining live code paths, and the security artifact they moved\n* cf9b2ea fix(relocation): the control plane derives its repo root instead of naming a drive\n* b680021 (tag: jcc-v1.3.5-relocation-rollback-before) v1.3.5: STEP 12 verified in a real browser, after the probe itself was wrong three times\n* e969100 v1.3.5: the sandbox boundary characterised by measurement, and the closure verdict stated"
+  },
+  "python": "Python 3.13.14",
+  "node": "v22.22.2",
+  "ports_4778_4779_4780": {
+    "4778": "not-listening",
+    "4779": "not-listening",
+    "4780": "not-listening"
+  },
+  "windows_boot": "<UNAVAILABLE: Get-CimInstance blocked from Bash sandbox>",
+  "workbuddy_executable": "<not on PATH; WorkBuddy uses its own exe at runtime>",
+  "workbuddy_version": "<n/a>",
+  "nvidia_smi": "<ERR can only concatenate str (not \"NoneType\") to str>",
+  "browsers_on_path": "<none on PATH; Playwright bundled Chromium used for tests>",
+  "scheduled_tasks_JCC": "<UNAVAILABLE: os.listdir('C:\\Windows\\System32\\Tasks') => PermissionError[WinError 5] in sandbox>",
+  "classification": {
+    "product_freeze_sha": "3a382de",
+    "evidence_head": "05715da68794eff374703467f00de0871a44d65a",
+    "host_blocked_items": [
+      "E: HOST_PREFLIGHT (Scheduled Task XML not readable in sandbox)",
+      "F: WORKBUDDY_AUTH=PENDING_HUMAN_LOGIN (interactive)",
+      "G: DURABLE_RUNTIME (needs host Task ownership)",
+      "H: REAL_MISSION causal chain (needs host WorkBuddy native launch)",
+      "I: LIVE_3D/SSE (needs host services 4779/4780 up)",
+      "J: RTX_HARDWARE_PERFORMANCE (no GPU in sandbox)"
+    ],
+    "sandbox_runnable_done": [
+      "A: repo truth (HEAD/branch/freeze SHA git-measured)",
+      "C: sandbox cert partial (A1-A4 fresh ok; full 30-leg needs host/GPU)",
+      "K: security GO 9/9 + A8 pins GREEN",
+      "falsifier: reset_legs/selftest confirmed"
+    ]
+  }
+}

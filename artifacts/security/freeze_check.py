@@ -37,7 +37,22 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path(r"F:/jev")
+# WHY THIS IS DERIVED AND NOT TYPED IN. The literal this replaced was
+# `F:/jev`, and that is not a cosmetic problem: this module inserted
+# `F:/jev/artifacts/acceptance` into sys.path, then imported `final_gate_run`
+# from it. On any host where F: is not mounted -- which is every host except the
+# one the file was written on -- the sys.path entry pointed at a directory that
+# does not exist and the import raised ModuleNotFoundError before `main()` was
+# ever reached. The gate could not run at all. A check that cannot start is not
+# a passing check, so `artifacts/acceptance/final_security_go.json` recording
+# "freeze_check.py -> FREEZE CHECK: COMPLIANT (exit 0)" is evidence of a call
+# that could not have succeeded on this host.
+#
+# Same idiom as jcc_core/config.py (REPO_ROOT = parents[2]) and
+# scripts/lib/JccWatchdogCommon.ps1 (Split-Path -Parent twice over
+# $PSScriptRoot). This file is <repo>/artifacts/security/freeze_check.py, so
+# parents[2] is the repo root; the gate dir hangs off it.
+ROOT = Path(__file__).resolve().parents[2]
 
 # One truth for "what counts as release evidence".
 #
@@ -48,7 +63,10 @@ ROOT = Path(r"F:/jev")
 # file states it is worse than no rule - the FAIL was real, but it proved
 # nothing about the release. Import the constant instead of restating it; the
 # gate has an `__main__` guard, so importing it runs no checks.
-_GATE_DIR = Path(r"F:/jev/artifacts/acceptance")
+#
+# The sys.path tweak must precede the import (hence noqa: E402). It is kept
+# conditional and it is derived, so it stays correct if the checkout moves.
+_GATE_DIR = ROOT / "artifacts" / "acceptance"
 if str(_GATE_DIR) not in sys.path:
     sys.path.insert(0, str(_GATE_DIR))
 

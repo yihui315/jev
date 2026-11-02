@@ -137,3 +137,46 @@ id_ed25519
 # the provenance checks (P-01/P-05). Ignore them; do not delete them (只搬不删).
 nul
 NUL
+
+# v1.1 Real Jev Provider secrets and tokens (added 2026-09-27 by the
+# v1.1 baseline commit on feature/jcc-v1.1-activation). The provider
+# uses an env var (jev.api_key_env) and a base URL; the secret itself
+# never enters the repository. These rules are belt-and-suspenders so
+# an accidental drop of a recorded credential file is invisible to git
+# and the gate's P-01 stays satisfiable.
+fixtures/v1.1/**/*.api_key
+fixtures/v1.1/**/*.tok
+fixtures/v1.1/**/real_session_*.json
+
+# Test scratch roots (added 2026-10-04, relay, after CR-004/relocation work).
+#
+# WHY THIS BLOCK IS A FREEZE GATE, NOT COSMETICS. `release_truth.py` treats ANY
+# untracked path as PRODUCT, so a test run that drops a basetemp inside the
+# checkout makes the worktree dirty and the freeze cannot be signed. That is
+# fail-closed working as designed: the run genuinely left files where they do
+# not belong. The fix belongs here rather than in the rule that judged it --
+# loosening "untracked == dirty" to make a command turn green would let real
+# contamination through.
+#
+# `packages/conftest.py` redirects JCC_SPOOL_DIR and JCC_STATE_DIR into the
+# per-session temp dir, so a basetemp inside the repo also collects spool
+# jsonl + temp config.toml -- not just empty directories.
+#
+# Patterns are anchored per-depth and cover the shapes actually observed:
+#   * .relay_bt*   -- this agent's --basetemp dirs (21 of them accumulated)
+#   * .pytest_bt*  -- the conventional name for the same trick
+#   * jcc-spool*   -- a spool dir created in-tree if JCC_SPOOL_DIR is relative
+#   * *.jcc-spool* -- the same under another name
+# Relative (leading-slash-free) rules match at ANY depth, because pytest is
+# invoked from packages/, from the repo root, and from ad-hoc subdirectories.
+.relay_bt*/
+.pytest_bt*/
+.jcc_bt*/
+**/jcc-spool*/
+**/jcc_spool*/
+**/*.jcc-spool/
+# Codex observer state + agent-side hooks landing in-tree when their env
+# overrides are set to a relative path.
+**/codex_observer_state.json
+**/jcc_execution_state.json
+runtime/v1.1/**/shadow_endpoint.token

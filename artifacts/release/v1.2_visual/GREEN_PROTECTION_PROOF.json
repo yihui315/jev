@@ -1,0 +1,36 @@
+{
+  "forbidden_ops_respected": [
+    "no stop GREEN",
+    "no restart GREEN",
+    "no kill GREEN pid",
+    "no write to green db",
+    "no modify config/jcc.yaml",
+    "no expose 4778"
+  ],
+  "gate": "GREEN Protection Gate (v1.2 isolation)",
+  "green_config": "F:\\jev\\config\\jcc.yaml",
+  "green_config_sha256": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+  "green_db": "F:\\jev\\runtime\\jcc\\jcc.db",
+  "green_db_mtime": 1790331020.4183857,
+  "green_host": "127.0.0.1",
+  "green_listening": true,
+  "green_observed_pid": 7588,
+  "green_ownership_marker": "F:\\jev\\runtime\\jcc\\jcc.ownership.json",
+  "green_pid_alive": true,
+  "green_port": 4778,
+  "note": "GREEN runs as the frozen, untouched v1.0.1 service. v1.2 is a second isolated instance on 4779/4780 with its own DB and config; it never examines or touches 4778.",
+  "probe_timestamp_utc": "2026-09-28T12:59:12Z",
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "v12_never_targets_green_port": true,
+  "v12_observed_pids": [
+    19640,
+    16580
+  ],
+  "v12_ports": [
+    4779,
+    4780
+  ],
+  "verdict": "PROTECTED",
+  "worktree_dirty_at_probe": true
+}

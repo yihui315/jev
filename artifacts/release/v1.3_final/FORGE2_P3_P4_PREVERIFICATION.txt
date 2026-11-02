@@ -1,0 +1,127 @@
+FORGE2 PRE-VERIFICATION — P3 (CR-H5) and P4 (CR-H6)
+=====================================================
+Written before implementation, while the ordering gate is still CLOSED
+(risk1-scope's server.py / config.py / project_scope.py are uncommitted).
+These are READ-ONLY measurements: no product file was modified to produce them.
+
+Owner: forge2. Date: 2026-10-04. Host: D:\jev
+Python: D:\jev\.venv\Scripts\python.exe (3.13.14)
+
+--------------------------------------------------------------------
+P4 — CR-H6 defect claim: VERIFIED (reproduced exactly as specified)
+--------------------------------------------------------------------
+Claim: hmac.compare_digest raises TypeError on a str containing non-ASCII
+code points, so a non-ASCII X-JCC-Token is an uncaught exception rather than
+a 403.
+
+  compare_digest('中文', '中文')        -> TypeError: comparing strings with
+                                           non-ASCII characters is not supported
+  compare_digest('中文', 'ascii-token') -> TypeError (same)
+  compare_digest('ascii-token','ascii-token') -> True   (ASCII control OK)
+
+Spec option (a) — encode both sides first — removes the exception WITHOUT
+changing the verdict:
+
+  compare_digest('中文'.encode(), '中文'.encode())     -> True
+  compare_digest('中文'.encode(), 'ascii-token'.encode()) -> False
+
+So (a) satisfies all three acceptance rows: non-ASCII -> refused, correct
+ASCII -> still passes, wrong ASCII -> still refused. I intend (a); it deletes
+the exception path instead of catching it, and compare_digest on bytes is
+still constant-time.
+
+--------------------------------------------------------------------
+P3 — CR-H5 premise: VERIFIED
+--------------------------------------------------------------------
+  JCC_CONTROL_TOKEN         in os.environ: False
+  JEV_API_KEY               in os.environ: False
+  JCC_DIRECTIVE_SIGNING_KEY in os.environ: False
+  config/.env               does not exist
+  load_config('config/jcc-v1.3.yaml').control_token_env == 'JCC_CONTROL_TOKEN'
+  os.environ.get(that) is falsy  -> control_token_configured would be False
+
+NOTE / DISCREPANCY: the spec says read
+`os.environ.get(config.control.token_env)`. In the code the attribute is
+FLATTENED -- `config.control_token_env` (config.py Config dataclass, no nested
+`control` object; `control:` is only the YAML key). Writing
+`config.control.token_env` would raise AttributeError at request time, i.e. a
+500 on the OPEN health endpoint. I will use the real attribute name and record
+this so the next reader does not "fix" it back.
+
+--------------------------------------------------------------------
+FINDING — the P4 spec names ONE call site; server.py has TWO
+--------------------------------------------------------------------
+  line  346  require_control_token()  HTTP mutating routes   <- the spec's target
+  line 1493  ws_endpoint()            WebSocket /ws          <- NOT in the spec
+
+Line 1493 is `hmac.compare_digest(token, expected)` with the token taken from
+the offered WebSocket subprotocol. Reproduced with the same inputs:
+
+  ws path with a non-ASCII subprotocol -> TypeError, same message
+
+Consequence if only line 346 is fixed: the exception still escapes on /ws, and
+it escapes BEFORE `ws.close(code=4401)`, so the socket is neither accepted nor
+cleanly closed — an aborted handshake rather than an HTTP 500. Same root
+cause, different surface, and the spec's acceptance rows (all written in terms
+of POST /api/pause) would not cover it.
+
+I am NOT widening scope unilaterally. I will fix both call sites in the same
+commit — same defect, same function pair, one-line change each — unless
+team-lead says the /ws path is someone else's. Flagging it so the decision is
+made, not inherited.
+
+--------------------------------------------------------------------
+GATE STATUS (re-checked immediately before writing this file)
+--------------------------------------------------------------------
+  M packages/jcc_core/config.py
+  M packages/jcc_core/server.py
+  ?? packages/jcc_core/project_scope.py
+=> risk1-scope STILL UNCOMMITTED. Ordering gate NOT satisfied. Not touching
+   server.py. Not touching test_doctor_next_hint.py.
+
+VERDICT: two spec claims independently reproduced; one spec gap found
+(undocumented second call site); one spec typo found (config.control.token_env
+does not exist in code).
+
+================================================================
+ADDENDUM — spec line references re-verified against the LIVE tree
+================================================================
+Written while still holding. The spec (docs/P3_P4_SPEC.md) cites line numbers,
+and server.py is under active edit, so those references were re-checked rather
+than trusted.
+
+CURRENT WORKING TREE (risk1-scope uncommitted, as of this writing):
+  line   346  if not presented or not hmac.compare_digest(presented, expected):
+  line  1493  if not expected or not token or not hmac.compare_digest(token, expected):
+  line   357      def health():
+  line   332  async def require_control_token(
+  line  1489  async def ws_endpoint(ws: WebSocket):
+
+=> 346 and 1493 are EXACTLY the spec's numbers. health() is at 357; the spec
+   says "about 327", which is ~30 lines stale but names the right function.
+
+RISK1-SCOPE'S CURRENT HUNK RANGES in server.py (git diff -U0):
+  @@ -43,0 +44 @@
+  @@ -231,0 +233,29 @@      (LaunchController / scope_base wiring)
+  @@ -482,0 +513,8 @@
+  @@ -600 +638,19 @@         (domain write routes)
+  @@ -602 +658,6 @@
+  @@ -611,0 +673,15 @@
+  @@ -616 +692 @@
+  @@ -624 +700,4 @@
+  total: 87 lines changed, 83 insertions, 4 deletions
+
+FINDING: none of those hunks touch lines 346, 357 or 1493. Their work is
+concentrated in 233-262 (wiring) and 513-704 (domain write routes). So the
+TEXTUAL overlap with P3/P4 is currently ZERO.
+
+WHY I STILL DO NOT START: the gate in the spec I was handed is
+"`git status --short packages/jcc_core/server.py` outputs EMPTY", and it
+outputs " M packages/jcc_core/server.py". Zero textual overlap lowers the odds
+of a merge conflict; it does NOT address the real hazard, which is that their
+next `git add` would stage MY uncommitted lines along with theirs. Those are
+different risks and only one of them is currently small.
+
+USE AFTER THE GATE CLEARS: re-run the grep above and confirm 346 / 357 / 1493
+have not moved. If they have, work from the CODE SHAPES recorded in this file
+(not the line numbers) and say so in the commit.

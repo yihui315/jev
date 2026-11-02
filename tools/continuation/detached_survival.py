@@ -69,11 +69,12 @@ import datetime
 import io
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")

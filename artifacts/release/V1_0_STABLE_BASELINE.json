@@ -1,0 +1,52 @@
+{
+  "schema": "jcc-v1.0-stable-baseline/1",
+  "recorded_at": "2026-09-27T06:45:19+08:00",
+  "head_sha": "a3dd89c09fa98536344d74a9f40f0209722cf77a",
+  "tag": "jcc-v1.0-stable",
+  "tag_sha": "a3dd89c09fa98536344d74a9f40f0209722cf77a",
+  "rollback_sha": "a3dd89c09fa98536344d74a9f40f0209722cf77a",
+  "branch": "master",
+  "remotes": null,
+  "working_tree_clean": true,
+  "service_pid": 9952,
+  "launcher_pid": 18348,
+  "port": 4778,
+  "bind": "127.0.0.1:4778",
+  "service_start_time_local": "2026-09-26T22:18:20.0050160+08:00",
+  "health": {
+    "status": "ok",
+    "jev_provider": "mock",
+    "actuation_enabled": false,
+    "policy_version": "p3.0.0",
+    "localhost_only": true,
+    "wal": true,
+    "open_get_endpoints": [
+      "/api/health",
+      "/api/sessions",
+      "/api/sessions/{sid}",
+      "/api/audit",
+      "/api/decisions",
+      "/api/audit/verify"
+    ]
+  },
+  "doctor_result": {
+    "checks_run": 9,
+    "pass": 9,
+    "fail": 0,
+    "measured_at": "2026-09-27T06:45:29+08:00",
+    "host": "Windows PowerShell 5.1"
+  },
+  "provider": "mock",
+  "actuation_enabled": false,
+  "policy_version": "p3.0.0",
+  "status_reading": {
+    "uptime": "08h27m12s",
+    "service": "UP",
+    "pid": "9952"
+  },
+  "db_path": "F:/jev/runtime/jcc/jcc.db",
+  "config_path": "F:\\jev\\config\\jcc.yaml",
+  "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+  "created_by": "scripts/start.ps1",
+  "note": "BASELINE IS PROTECTED. Do not restart, stop, kill pid 9952, rebuild the database, delete runtime/, or re-bootstrap for v1.1 work. Use an isolated test port or a maintenance test instance. Only a maintenance-acceptance step may move the real 4778 instance, and it must save rollback first."
+}

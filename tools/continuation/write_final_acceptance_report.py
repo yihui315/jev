@@ -10,9 +10,10 @@ import datetime
 import io
 import json
 import os
+from pathlib import Path
 import subprocess
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 G = os.path.join(ACC, "final_gate_result.json")
 

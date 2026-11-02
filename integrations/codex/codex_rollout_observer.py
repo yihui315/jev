@@ -25,7 +25,16 @@ import time
 from pathlib import Path
 from typing import Dict, Iterator, Optional, Tuple
 
-JCC_ROOT = os.environ.get("JCC_ROOT", "F:/jev")
+#: Repository root, derived from this file's location rather than hardcoded --
+#: the same idiom as ``jcc_core/config.py``. ``codex_rollout_observer.py`` lives
+#: at ``<repo>/integrations/codex/``, so two ``parents`` steps up is the repo
+#: root. The literal this replaced pointed at a drive that no longer exists,
+#: which made the ``jcc_emit`` import below fail at LOAD time and took the whole
+#: (VERIFIED) Codex rollout telemetry path down with it.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: ``JCC_ROOT`` remains the operator override; only the fallback is derived.
+JCC_ROOT = os.environ.get("JCC_ROOT") or str(REPO_ROOT)
 _PACKAGES = str(Path(JCC_ROOT) / "packages")
 _INTEG = str(Path(JCC_ROOT) / "integrations" / "_common")
 for _p in (_PACKAGES, _INTEG):

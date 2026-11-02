@@ -1,0 +1,133 @@
+{
+  "schema": "jcc/v1.3-sandbox-boundary/1",
+  "measured_at_local": "2026-09-30T13:50:00+08:00..14:09:00+08:00",
+  "branch": "release/jcc-v1.3-final",
+  "head_at_measurement": "2c2807f",
+  "product_freeze_sha": "cb56658",
+  "purpose": "Characterise, by measurement, the difference between the agent sandbox's execution boundary and the real Windows host runtime, and record which gates that difference blocks.",
+
+  "section_1_delete_matrix_remeasured": {
+    "interpreter": "F:\\jev\\.venv\\Scripts\\python.exe",
+    "probe_base": "F:\\jev\\.workbuddy\\scratch\\host_temp\\jdelreprobe_xelb7n34",
+    "results": {
+      "os.unlink": {"ok": false, "error": "PermissionError [WinError 5]"},
+      "os.remove": {"ok": false, "error": "PermissionError [WinError 5]"},
+      "cmd.exe /c del /f /q": {"ok": true, "rc": 0, "gone": true},
+      "MoveFileEx(REPLACE_EXISTING)": {"ok": true, "rc": 1, "a_gone": true},
+      "sqlite fresh journal_mode=wal": {"ok": false, "error": "OperationalError: disk I/O error", "orphans": ["probe_10b74d01.db-journal"]},
+      "sqlite fresh journal_mode=delete": {"ok": false, "error": "OperationalError: disk I/O error", "orphans": ["probe_8dacdcda.db-journal"]},
+      "sqlite fresh journal_mode=truncate": {"ok": true, "back": "truncate", "rows": 1, "reopen": 1},
+      "sqlite fresh journal_mode=persist": {"ok": true, "back": "persist", "rows": 1, "reopen": 1}
+    },
+    "refused": 4,
+    "of": 8,
+    "conclusion": "Unchanged from the earlier measurement. Denial is at the Win32 API layer, not ACLs -- `cmd.exe del` on the same path succeeds, so an ACL denial is excluded."
+  },
+
+  "section_2_warmed_wal_write_DOES_work": {
+    "why_measured": "Distinguishes 'the sandbox cannot do SQLite at all' (false) from 'the sandbox cannot CREATE a database' (true).",
+    "source": "F:\\jev\\runtime\\jcc-v1.3\\jcc.db",
+    "source_bytes": 159744,
+    "copy_journal_mode": "wal",
+    "copy_tables": 16,
+    "write": "CREATE TABLE + INSERT + commit + close",
+    "write_seconds": 3.23,
+    "reopen_rows": 1,
+    "reopen_verdict": "DURABLE",
+    "files_after_close": ["copy.db", "copy.db-shm", "copy.db-wal"],
+    "conclusion": "Writing to an ALREADY-EXISTING WAL database succeeds and is durable. The fresh-DB failure is specifically the journal unlink performed while establishing the journal, not SQLite as such."
+  },
+
+  "section_3_sandbox_descendants_are_reaped_at_the_tool_call_boundary": {
+    "why_measured": "Determines whether any long-lived server started from the sandbox can be used for a multi-call gate.",
+    "breakaway_attempt": {"flags": "CREATE_BREAKAWAY_FROM_JOB|DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP", "result": "PermissionError [WinError 5]"},
+    "fallback_spawn": {"flags": "DETACHED_PROCESS|CREATE_NEW_PROCESS_GROUP", "pid": 23116},
+    "ticks_inside_call": 3,
+    "ticks_30s_later": 3,
+    "tick_file_mtime": "13:57:38",
+    "observed_at": "13:58:08",
+    "conclusion": "The child was alive inside the call and dead 30 s later, having written nothing further. The per-call reaper is real and unavoidable, and it applies to the product's own launcher: scripts\\jcc-v1.3.ps1 -Action up starts a detached child that is gone by the next tool call, which is why its 90 s health probe reported failure."
+  },
+
+  "section_4_host_execution_lane_and_ownership": {
+    "registered_tasks_read_from": "C:\\Windows\\System32\\Tasks",
+    "JCC-v1.3-API": {
+      "present": true,
+      "task_xml_mtime": "2026-09-29T12:15:03",
+      "principal": "S-1-5-18 (SYSTEM)",
+      "action": "cmd.exe /c set JCC_CONFIG=... && set PYTHONPATH=... && \"F:\\jev\\.venv\\Scripts\\python.exe\" -m jcc_core.run",
+      "trigger": "BootTrigger only",
+      "multiple_instances": "IgnoreNew",
+      "restart_on_failure": "PT1M x3",
+      "execution_time_limit": "PT0S"
+    },
+    "JCC-v1.3-VisualUI": {"present": false, "doctor_verdict": "ABSENT = PENDING_EXTERNAL_ACTION (run scripts/jcc-v1.3-register-tasks.ps1 on the host)"},
+    "started_by": "Start-ScheduledTask JCC-v1.3-API",
+    "observed_process": {"pid": 3580, "ppid": 23624, "created": "2026-09-30T13:53:54", "cmdline": "\"F:\\jev\\.venv\\Scripts\\python.exe\"  -m jcc_core.run"},
+    "health_at_first_start": {"http": 200, "actuation_enabled": false, "provider_mode": "MOCK", "policy_version": "p3.0.0", "wal": true, "localhost_only": true},
+    "initial_status_verdict": "API 4779 : DOWN -- port owner 3580 answered but the ownership marker jcc-v1.3.ownership.json was absent. status said 'treat as foreign, do NOT stop it with -Action down', RESULT: DEGRADED.",
+    "adoption": {
+      "command": "scripts\\jcc-v1.3.ps1 -Action mark",
+      "output": "API: marker written for service pid 3580 on port 4779",
+      "documented_in": "scripts\\jcc-v1.3-register-tasks.ps1 -- 'a task-launched instance was not started by a launcher, so no launcher wrote its ownership marker. Adopt it explicitly'",
+      "conclusion": "The foreign classification is a DOCUMENTED, EXPECTED intermediate state with an official adoption step. It is not a product defect."
+    },
+    "durable_cycle_run_1": {
+      "before": "API pid 3580 owned+marked, GREEN 4778 pid 2452 http 200",
+      "down": "API verified target (all checks passed): pid 3580, cmdline, port owner -- then exited; pid file + marker cleaned up; 4779 had no listener",
+      "down_exit": "2 for the UI half only (stale UI pidfile 10852 not running -- correctly refused, not signalled)",
+      "official_start": "Start-ScheduledTask recovered in ~2 s, new owner pid 15504",
+      "re_mark": "marker written for service pid 15504",
+      "after": "GREEN 4778 pid 2452 http 200"
+    },
+    "durable_cycle_run_2": {
+      "reason": "port 4779 was released for the W10 perf attempt, then restored",
+      "official_start": "recovered in ~2 s, new owner pid 23016",
+      "re_mark": "marker written for service pid 23016",
+      "after": "GREEN 4778 pid 2452 http 200; API 4779 UP, pid file + marker present"
+    },
+    "doctor_summary": {"checks": 17, "pass": 14, "fail": 1, "failing": "D-6 runtime directory writable -- probe failed: [safe-delete][SAFE_DELETE_BULK_GUARD_ERROR] state lock timeout", "D-8": "PASS -- listener owned by OUR pid, verified by marker + command line + port owner + ancestry", "D-10": "PASS -- GREEN 4778 protected", "note": "D-6 is the sandbox guard refusing the probe's own delete, not a product finding."},
+    "conclusion": "DURABLE_RUNTIME for the API half is VERIFIED through the product's own ownership contract: start(task) -> healthy -> official stop -> down -> official start -> recovered (new pid) -> mark -> status: ownership verified, with GREEN 4778 asserted untouched around every step. The UI half has no durable lane on this host."
+  },
+
+  "section_5_a_sandboxed_api_binds_the_port_but_cannot_serve": {
+    "why_measured": "The W10 perf harness booted its own product API on the warmed databases and then never became ready. This is the reason.",
+    "evidence": {
+      "GET /api/health": {"http": 200, "seconds": 25.05},
+      "GET /api/v1/domain/home": {"error": "ConnectionResetError [WinError 10054]", "seconds": 38.51},
+      "same endpoints on the HOST-owned instance": {"http": 200, "latency": "immediate"}
+    },
+    "conclusion": "A sandboxed product API binds its socket and is reachable, but its request path is effectively unusable: the first DB write of a request stalls on the refused journal unlink, so a request either takes tens of seconds or is reset. This -- not the fresh-DB issue alone -- is what the earlier 90 s health-probe timeout was reporting."
+  },
+
+  "section_6_what_that_blocks": {
+    "B8_W10_BROWSER_PERF": {
+      "attempt": "tools/v1_3_wave10_browser_perf.py run through .workbuddy/scratch/run_w10_perf_chromium.py, which supplies a warmed database and the bundled chromium; the harness itself was NOT modified",
+      "pre_boot_checks_passed": 5,
+      "failed_check": "API_BOOT: v1.3 app answered /api/v1/domain/home",
+      "verdict": "FAIL 5/6",
+      "seconds": 193.4,
+      "evidence_file": "F:\\jev\\.workbuddy\\scratch\\v1_3_wave10_browser_perf_20260930-140428.json",
+      "hardware_renderer_identity_was_already_measured_separately": "docs/v1_3/evidence/host_browser_renderer.json -- ANGLE (NVIDIA, GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0), class HARDWARE",
+      "fps_targets": "NOT MEASURED. No frame-time or FPS number is claimed for this head.",
+      "instrument_behaviour": "The harness refused to emit numbers when its precondition failed, which is correct. No FPS figure is manufactured from a broken API."
+    },
+    "real_browser_sse_recovery_step_12": "Not attempted in a browser: it needs the SPA driving a working API. The client state machine itself is unit-tested in apps/command_center_3d/src/store/SceneStore.test.ts, whose measured-defect comments name the two STEP 5 defects (recovery leaked the 5 s poller; startPolling overwrote RECONNECTING).",
+    "fresh_WAL_full_gate": "Still blocked, unchanged."
+  },
+
+  "section_7_instruments_verified_this_round": {
+    "tools/v1_3_aggregate_falsifiers.py": {"verdict": "PASS 8/8", "positive_control": "a complete fresh set of real legs is still ACCEPTED (project_complete=True, blockers=0)"},
+    "tools/final_gate_run_v1_3.py --selftest": {"verdict": "PASS 7/7 falsifiers", "note": "left the F1 record on disk because the host refused the unlink, and says so instead of dying before it can report"},
+    "commits": ["99d3dc2 -- aggregate hardening + the falsifier", "2c2807f -- F1 leg re-measured at 99d3dc2"]
+  },
+
+  "what_is_not_claimed": [
+    "No FPS or frame-time number is claimed for this head.",
+    "No 'installed Chrome verified' claim: installed-Chrome automation is BLOCKED on this host; the renderer identity was measured with the bundled chromium.",
+    "No claim that the release leg B8_W10_BROWSER_PERF ran.",
+    "No claim that the 30 product legs measured at 9bfcc8d extend to the current head.",
+    "No claim about the Visual UI's durable runtime: its scheduled task is absent.",
+    "No claim that the sandbox's delete refusal is a product defect."
+  ]
+}

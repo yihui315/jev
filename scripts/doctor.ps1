@@ -158,6 +158,7 @@ try {
 Out-Title '6. server port ownership'
 $port = Get-JccPort -Root $Root -Python $python
 $owner = Get-JccPortOwner -Port $port
+$own = $null
 if ($owner.Pid -eq 0) {
         Add-Check -Id 'D-6' -Name ('port ' + $port + ' not in foreign hold') -Status 'PASS' -Detail ('no LISTENING socket (detected via ' + $owner.Method + ')')
     } else {
@@ -170,6 +171,20 @@ if ($owner.Pid -eq 0) {
             Add-Check -Id 'D-6' -Name ('port ' + $port + ' not in foreign hold') -Status 'FAIL' -Detail ('LISTENING held by foreign pid ' + $owner.Pid + ' via ' + $owner.Method + '; command line: ' + $info.CommandLine + '; verification said: ' + $own.Reason)
     }
 }
+
+# What the operator should do next, derived from what section 6 just measured.
+# Kept next to the measurement so the two cannot drift apart.
+$portState = 'FREE'
+$foreignPid = 0
+if ($owner.Pid -ne 0) {
+    if ($own.Ok) {
+        $portState = 'OURS'
+    } else {
+        $portState = 'FOREIGN'
+        $foreignPid = $owner.Pid
+    }
+}
+$nextHint = Get-JccNextHint -PortState $portState -ForeignPid $foreignPid
 
 # 7 ----------------------------------------------------------------------- #
 Out-Title '7. disk space'
@@ -216,5 +231,12 @@ if ($failedChecks.Count -gt 0) {
     exit 1
 }
 Write-Output ('RESULT: PASS')
-Write-Output ('next      : .\scripts\start.ps1')
+# State-aware. The old line was "next: .\scripts\start.ps1" unconditionally, so
+# on a host where the service was already UP -- which is what "RESULT: PASS"
+# usually means here -- the operator was told to start it again: a hint that,
+# taken literally, is a maintenance restart of a healthy instance. It was also
+# printed when the port was held by a foreign process, where start.ps1 would
+# refuse and where telling someone to cover another process's listener is
+# actively unsafe. PASS/FAIL and the exit code are untouched by this.
+Write-Output ('next      : ' + $nextHint)
 exit 0

@@ -1,0 +1,46 @@
+{
+  "findings": {
+    "FULL_is_not_slower_than_NORMAL": true,
+    "NORMAL_total_vs_server_63s": 30.66,
+    "every_close_slow_under_NORMAL": false,
+    "only_first_slow_under_NORMAL": true
+  },
+  "interpretation": "Only the FIRST WAL close is slow: the 30s is a one-time per-process cost, so the 63s needs a second explanation that this script did not find.",
+  "product_settings": {
+    "connections_explicit_synchronous_pragma": "NONE FOUND",
+    "state_store": {
+      "journal_mode": "wal",
+      "synchronous": 1
+    }
+  },
+  "question": "is the 63s stall ONE amortised first-WAL cost, or one per database? and is it fsync at all?",
+  "series_FULL": {
+    "close_times_s": [
+      0.11,
+      0.09,
+      0.1,
+      0.09,
+      0.13
+    ],
+    "effective_sync_observed": [
+      2
+    ],
+    "requested_sync": "FULL",
+    "total_s": 0.52
+  },
+  "series_NORMAL": {
+    "close_times_s": [
+      30.13,
+      0.13,
+      0.16,
+      0.12,
+      0.12
+    ],
+    "effective_sync_observed": [
+      1
+    ],
+    "requested_sync": "NORMAL",
+    "total_s": 30.66
+  },
+  "sqlite_version": "3.53.1"
+}

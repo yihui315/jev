@@ -1,0 +1,62 @@
+{
+  "browser_fps_node_counts": {
+    "measured": null,
+    "reason": "no product node-count stress route and no rAF FPS sampler wired; real headless Chrome is present but cannot inflate the live scene to 50/200/500/1000 nodes without app support.",
+    "required": [
+      50,
+      200,
+      500,
+      1000
+    ],
+    "status": "PENDING"
+  },
+  "criteria": [
+    {
+      "name": "UI /api/health 200",
+      "pass": false
+    },
+    {
+      "name": "UI index.html served",
+      "pass": false
+    },
+    {
+      "name": "API /api/health 200",
+      "pass": true
+    },
+    {
+      "name": "REAL Chrome loads SPA",
+      "pass": true
+    }
+  ],
+  "http_serving": {
+    "api_health": {
+      "bytes": 430,
+      "ok": true,
+      "seconds": 0.06,
+      "status": 200
+    },
+    "ui_health": {
+      "error": "TimeoutError('timed out')",
+      "ok": false
+    },
+    "ui_index": {
+      "error": "ConnectionRefusedError(10061, '\u7531\u4e8e\u76ee\u6807\u8ba1\u7b97\u673a\u79ef\u6781\u62d2\u7edd\uff0c\u65e0\u6cd5\u8fde\u63a5\u3002', None, 10061, None)",
+      "ok": false
+    }
+  },
+  "note": "HTTP serving is measured live. REAL Chrome was attempted; its outcome is recorded honestly (loaded=True). Node-count FPS (50/200/500/1000) is PENDING (honest) -- not claimed as a PASS.",
+  "probe": "JCC v1.2 Visual Command Center honest performance",
+  "real_browser": {
+    "available": true,
+    "canvas_present": false,
+    "dom_bytes": 0,
+    "loaded": true,
+    "mounted": false,
+    "root_present": false
+  },
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "result": "HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+  "timestamp_utc": "2026-09-28T12:59:12Z",
+  "worktree_dirty_at_probe": true
+}

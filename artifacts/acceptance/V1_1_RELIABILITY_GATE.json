@@ -1,0 +1,229 @@
+{
+  "schema": "jcc.v1_1.reliability_gate/v1",
+  "verdict": "GO",
+  "failed": [],
+  "scenario_count": 19,
+  "passed_count": 19,
+  "protected_divergences": {},
+  "repo_head": "7e6ca4984a1db6e95dd25c5b9c8f42d084e3039c",
+  "worktree_dirty": true,
+  "blue": {
+    "port": 4779,
+    "db": "F:\\jev\\runtime\\v1.1\\reliability\\jcc.db",
+    "config": "F:\\jev\\runtime\\v1.1\\reliability\\jcc.yaml"
+  },
+  "protected": {
+    "green_http_status": 200,
+    "green_key_count": 7,
+    "green_listener_pid": 7588
+  },
+  "scenarios": [
+    {
+      "sid": "R-01",
+      "title": "cold start on clean state answers /api/health",
+      "passed": true,
+      "observed": {
+        "status": 200,
+        "body_status": "ok"
+      }
+    },
+    {
+      "sid": "R-02",
+      "title": "BLUE reports the v1.1 shape, not the frozen build",
+      "passed": true,
+      "observed": {
+        "key_count": 12,
+        "is_v1_1": true,
+        "keys": [
+          "actuation_enabled",
+          "jev_provider",
+          "localhost_only",
+          "open_get_endpoints",
+          "policy_version",
+          "provider_activation_state",
+          "provider_is_real",
+          "provider_mode",
+          "provider_requested_mode",
+          "provider_verified",
+          "status",
+          "wal"
+        ]
+      }
+    },
+    {
+      "sid": "R-03",
+      "title": "declared read-only surface answers",
+      "passed": true,
+      "observed": {
+        "/api/health": 200,
+        "/api/sessions": 200,
+        "/api/audit": 200,
+        "/api/decisions": 200,
+        "/api/audit/verify": 200,
+        "/api/sessions/{sid}": 404
+      }
+    },
+    {
+      "sid": "R-04",
+      "title": "unknown session is 404, never 500",
+      "passed": true,
+      "observed": {
+        "status": 404
+      }
+    },
+    {
+      "sid": "R-05",
+      "title": "unknown route is 404, never 500",
+      "passed": true,
+      "observed": {
+        "status": 404
+      }
+    },
+    {
+      "sid": "R-06",
+      "title": "unconfigured control token fails CLOSED with 401",
+      "passed": true,
+      "observed": {
+        "/api/assess": 401,
+        "/api/pause": 401,
+        "/api/steer": 401,
+        "/api/retry": 401
+      }
+    },
+    {
+      "sid": "R-08",
+      "title": "syntactically invalid body is 422, never 500",
+      "passed": true,
+      "observed": {
+        "status": 422,
+        "health_after": "ok"
+      }
+    },
+    {
+      "sid": "R-11",
+      "title": "SQLite runs in WAL journal mode",
+      "passed": true,
+      "observed": {
+        "journal_mode": "wal"
+      }
+    },
+    {
+      "sid": "R-18",
+      "title": "a busy port is refused, never hijacked",
+      "passed": true,
+      "observed": {
+        "port": 61480,
+        "start_refused": true,
+        "owner_before": 7080,
+        "owner_after": 7080
+      }
+    },
+    {
+      "sid": "R-07",
+      "title": "wrong control token is refused with 403",
+      "passed": true,
+      "observed": {
+        "/api/assess": 403,
+        "/api/pause": 403,
+        "/api/steer": 403,
+        "/api/retry": 403
+      }
+    },
+    {
+      "sid": "R-09",
+      "title": "a rejected envelope is STILL audited (record never dropped)",
+      "passed": true,
+      "observed": {
+        "status": 422,
+        "found_audit_row": true,
+        "assessment": "rejected:EXACT_BLOCKER"
+      }
+    },
+    {
+      "sid": "R-10",
+      "title": "audit chain verifies intact after hostile traffic",
+      "passed": true,
+      "observed": {
+        "intact": true,
+        "entries": 1
+      }
+    },
+    {
+      "sid": "R-12",
+      "title": "state survives an orderly restart",
+      "passed": true,
+      "observed": {
+        "before": 1,
+        "after": 1,
+        "restart_status": 200
+      }
+    },
+    {
+      "sid": "R-13",
+      "title": "service recovers after an ABRUPT kill, with no manual repair",
+      "passed": true,
+      "observed": {
+        "status": 200,
+        "body_status": "ok"
+      }
+    },
+    {
+      "sid": "R-14",
+      "title": "no torn pages after an ABRUPT kill",
+      "passed": true,
+      "observed": {
+        "integrity_check": "ok"
+      }
+    },
+    {
+      "sid": "R-15",
+      "title": "repeated restarts do not duplicate state",
+      "passed": true,
+      "observed": {
+        "entries": 1,
+        "unique_seqs": 1
+      }
+    },
+    {
+      "sid": "R-16",
+      "title": "readers are served while a writer commits",
+      "passed": true,
+      "observed": {
+        "non_200_reads": 0,
+        "sample": []
+      }
+    },
+    {
+      "sid": "R-17",
+      "title": "hostile payloads round-trip without corrupting storage",
+      "passed": true,
+      "observed": {
+        "round_tripped": true,
+        "health_after": "ok"
+      }
+    },
+    {
+      "sid": "R-19",
+      "title": "the protected v1.0.1 runtime is untouched by everything above",
+      "passed": true,
+      "observed": {
+        "divergences": {},
+        "observed_before": {
+          "listener": 7588,
+          "marker_pid": 7588
+        },
+        "observed_after": {
+          "listener": 7588,
+          "marker_pid": 7588
+        },
+        "green_http": 200,
+        "green_key_count": 7
+      }
+    }
+  ],
+  "reproducibility": {
+    "deterministic": true,
+    "note": "no timestamp or duration is stored here; they live in the markdown report",
+    "generator": "tools/v1_1_reliability_gate.py"
+  }
+}

@@ -38,7 +38,7 @@ import threading
 import time
 import urllib.request
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 RUNTIME = os.path.join(ROOT, "runtime", "jcc")
@@ -143,6 +143,7 @@ def fsize(p):
 
 # ============================ PHASE A: freeze scene ========================
 import hashlib
+from pathlib import Path
 
 def sha(p):
     if not os.path.isfile(p):

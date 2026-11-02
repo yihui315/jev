@@ -1,0 +1,87 @@
+{
+  "decision": "GO",
+  "dimension": "Product Contract per Wave",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "19 passed / 0 failed / 0 errors / 0 skipped (floor 19)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A1_FREEZE_MODEL.json",
+      "evidence_sha256": "b9f71770c0d11057f9f00d12ae15a70f230c5c2af9842465947c70f78f15d1ee",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A1_FREEZE_MODEL",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "47 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A2_DOMAIN.json",
+      "evidence_sha256": "fc451d88a4ec5bbf8c22c46fef506056b4dba7711c60874848cc6ad700d5be42",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A2_DOMAIN",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "23 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A3_MISSION.json",
+      "evidence_sha256": "971b98df4c966235c4738470dfb017689eaeed3734942e21e09b4f4dd91db3ad",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A3_MISSION",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "26 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A4_ATTENTION.json",
+      "evidence_sha256": "f8481768da0b34c368364e65fd74e215b8b15eba379cd87101b4ef6476c76117",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A4_ATTENTION",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "26 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A5_DELIVERABLES.json",
+      "evidence_sha256": "ccfd6a22052b62b6987227d24097844139fd384f39f73c2d2a839fabf0d518ef",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A5_DELIVERABLES",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "43 passed / 0 failed / 0 errors / 0 skipped (floor 1)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A6_CONNECTIONS.json",
+      "evidence_sha256": "d06bbf229e562e1dae7e118a13936bbec10247311013d6f718774df6bfa6216b",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A6_CONNECTIONS",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "55 passed / 0 failed / 0 errors / 0 skipped (floor 55)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_A7_INVARIANTS.json",
+      "evidence_sha256": "9597685e7d6006624f86d774bbd439b540d0784c14917bfd092b429fa278019a",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "A7_INVARIANTS",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "A1_FREEZE_MODEL",
+    "A2_DOMAIN",
+    "A3_MISSION",
+    "A4_ATTENTION",
+    "A5_DELIVERABLES",
+    "A6_CONNECTIONS",
+    "A7_INVARIANTS"
+  ],
+  "leg_id": "CONTRACT",
+  "notes": "All 7 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "fc9651e5c2eaa082c46b731195fef7665bd7276687099fdd254e93bcda8f9afb",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:21Z"
+}

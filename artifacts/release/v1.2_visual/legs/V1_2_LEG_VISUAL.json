@@ -1,0 +1,18 @@
+{
+  "decision": "GO_WITH_PENDING",
+  "dimension": "Visual Performance",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/v1.2_visual/V1_2_VISUAL_PERFORMANCE.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+  "freeze_sha": "ddca208",
+  "leg_id": "VISUAL",
+  "notes": "HTTP serving + REAL Chrome SPA load PASS (live). Node-count FPS (50/200/500/1000) PENDING -- no product stress route; not claimed PASS.",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "64311417b69e0df66dc09de5c6b87b70fe0cd22acffaba903110224097b38b83",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T14:54:56Z"
+}

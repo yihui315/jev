@@ -1,0 +1,81 @@
+{
+  "stamp": "20260930T122100",
+  "python": "F:\\jev\\.venv\\Scripts\\python.exe",
+  "dir": "F:\\jev\\.workbuddy\\scratch\\_delfalsify\\20260930T122100",
+  "attempts": {
+    "clear_attrs_then_os_unlink": {
+      "call": null,
+      "raised": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delfalsify\\\\20260930T122100\\\\a.txt'",
+      "still_exists": true,
+      "deleted": false
+    },
+    "chmod777_then_os_unlink": {
+      "call": null,
+      "raised": "PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delfalsify\\\\20260930T122100\\\\b.txt'",
+      "still_exists": true,
+      "deleted": false
+    },
+    "raw_DeleteFileW": {
+      "call": null,
+      "raised": "OSError: WinError 5: 拒绝访问。",
+      "still_exists": true,
+      "deleted": false
+    },
+    "raw_DeleteFileW_extended_path": {
+      "call": null,
+      "raised": "OSError: WinError 5: 拒绝访问。",
+      "still_exists": true,
+      "deleted": false
+    },
+    "MoveFileEx_DELAY_UNTIL_REBOOT": {
+      "call": "SCHEDULED_AT_NEXT_BOOT",
+      "raised": null,
+      "still_exists": true,
+      "deleted": false
+    },
+    "MoveFileEx_REPLACE_EXISTING": {
+      "call": "REPLACED",
+      "raised": null,
+      "still_exists": false,
+      "deleted": true
+    },
+    "second_interpreter_managed_python": {
+      "call": "RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_delfalsify\\\\20260930T122100\\\\g.txt'",
+      "raised": null,
+      "still_exists": true,
+      "deleted": false
+    },
+    "non_python_node_unlinkSync": {
+      "call": "RAISED EPERM: EPERM: operation not permitted, unlink 'F:\\jev\\.workbuddy\\scratch\\_delfalsify\\20260930T122100\\h.txt'",
+      "raised": null,
+      "still_exists": true,
+      "deleted": false
+    },
+    "cmd_exe_del": {
+      "call": "rc=0 out='' err=''",
+      "raised": null,
+      "still_exists": false,
+      "deleted": true
+    },
+    "denial_is_about_the_process_or_the_path": {
+      "note": "os.unlink here failed above; if a brand-new child process also fails on a file it just created, the denial is not stale handle state",
+      "still_exists": true,
+      "deleted": false
+    }
+  },
+  "summary": {
+    "any_deleter_succeeded": true,
+    "delayed_delete_scheduled": true,
+    "remaining_probe_files": [
+      "a.txt",
+      "b.txt",
+      "c.txt",
+      "d.txt",
+      "e.txt",
+      "f_dst.txt",
+      "g.txt",
+      "h.txt",
+      "j.txt"
+    ]
+  }
+}

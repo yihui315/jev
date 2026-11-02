@@ -34,6 +34,40 @@ Symmetric HMAC-SHA256. The key is read from the environment variable named by
 never from ``config/jcc.yaml``, the database, or the log — the same rule as the
 control token. HMAC is symmetric, so it is **not** non-repudiation against the
 control plane itself; asymmetric signing is an explicit P4 decision (D-39).
+
+Two signing forms (v1.1 §17)
+----------------------------
+``v1`` is the D-33 form above, **byte-frozen**, and remains the default on every
+function here so that every directive already recorded in the P3 shadow tape
+still verifies. It covers ten tokens: policy table version, policy version,
+session, directive id, issued_at, ttl_s, nonce, action, target actuator, params.
+
+``v2`` is v1 plus three more tokens — ``human_approval``, ``scope`` and
+``expires_at`` — and is **required by the effect boundary** (``directive_gate``).
+
+WHY v2 EXISTS, AND WHY IT DOES NOT "FIX" v1 IN PLACE
+----------------------------------------------------
+v1 does not cover ``human_approval``. A directive carrying an approval and the
+same directive with the approval stripped sign to the **same bytes**, so an
+attacker holding one valid v1 signature could *add* an approval and the
+signature would still verify. That is not a theoretical weakness: rule 9 of the
+nine-rule authorisation gate (v1.1 §17) is exactly "does a human approval exist",
+so under v1 that rule is decorative — "signed" and "approved" collapse into the
+same claim, which the module docstring above already names as the failure mode
+this whole split exists to prevent.
+
+The choice is therefore between (a) editing v1's token list, invalidating every
+signature already on tape, or (b) adding a form and making the *gate* refuse
+anything not signed under the stronger one. (b) is taken, because the P3 tape is
+evidence: re-writing the canonical form would turn recorded history into a set of
+signatures that no longer verify, and "the audit tape does not verify" is
+indistinguishable from tampering.
+
+There is deliberately **no** downgrade surface. The form is a keyword-only
+parameter with a constant default, and it is never read off the directive: the
+effect boundary passes ``SIGNING_FORM_V2`` as a literal, so nothing an attacker
+can write into a directive — not ``signing_alg``, not any new field — can make
+the gate verify under the weaker form.
 """
 from __future__ import annotations
 
@@ -55,8 +89,35 @@ SIG_PREFIX = "sha256="
 #: the design input's ``JCC_DIRECTIVE_KEY`` is superseded).
 DEFAULT_KEY_ENV = "JCC_DIRECTIVE_SIGNING_KEY"
 
+#: Machine-local signing key file. When the env var above is absent, the key is
+#: resolved from THIS file so a key placed here by release tooling makes the
+#: launch control plane able to mint signed directives on this host without every
+#: launch having to set the env var ("本机 signing key"). The path lives under the
+#: SAME private runtime dir the DPAPI secret store uses (``~/.jcc``), never under
+#: the repo, a config file, the database, or the log. The env var still wins when
+#: present, so an explicit operator override is never silently overridden by the
+#: file. This fallback applies ONLY to the default env name; a caller that names a
+#: specific env var has opted into explicit configuration and gets no fallback.
+DEFAULT_KEY_FILE = os.path.join(
+    os.path.expanduser("~"), ".jcc", "jcc_directive_signing_key")
+
 #: Tolerated clock skew for "not yet valid"; expired is not skewed (fail-closed).
 DEFAULT_CLOCK_SKEW_S = 30.0
+
+# -- signing forms (v1.1 §17) -------------------------------------------------
+#: D-33 canonical form: ten tokens, no ``human_approval``. Byte-frozen.
+SIGNING_FORM_V1 = "v1"
+#: v1.1 form: v1 plus ``human_approval`` / ``scope`` / ``expires_at``, and the
+#: literal marker ``v2.`` in front so the two forms are distinguishable by
+#: inspection rather than by trying both.
+SIGNING_FORM_V2 = "v2"
+#: The closed set. A form outside this tuple is refused, never defaulted.
+SIGNING_FORMS: Tuple[str, ...] = (SIGNING_FORM_V1, SIGNING_FORM_V2)
+#: What a caller gets when it does not say. ``v1`` so that every existing
+#: signature, record and test keeps its meaning; the effect boundary opts into
+#: ``v2`` explicitly and unconditionally.
+DEFAULT_SIGNING_FORM = SIGNING_FORM_V1
+
 
 # -- verification reason vocabulary (checks 1..9; frozen strings) -------------
 REASON_OK = "ok"
@@ -82,6 +143,24 @@ INTEGRITY_CHECK_ORDER: Tuple[str, ...] = (
     "replay",
 )
 
+#: The five checks the EFFECT BOUNDARY owns (5..9). Declared here, next to the
+#: four above and next to the reason codes they return, so the full nine-rule
+#: order and its vocabulary live in ONE file: the kernel's docstring already
+#: says the boundary "re-runs them in the mandated order", and a mandated order
+#: split across two modules is an order that drifts.
+EFFECT_CHECK_ORDER: Tuple[str, ...] = (
+    "session",
+    "capability",
+    "policy",
+    "budget",
+    "approval",
+)
+
+#: All nine, in the order they must be evaluated. First failure wins; the answer
+#: is DENY either way, so the order's only job is to make the *reason* stable
+#: and to keep the cheap integrity checks ahead of the context-heavy ones.
+VERIFICATION_CHECK_ORDER: Tuple[str, ...] = INTEGRITY_CHECK_ORDER + EFFECT_CHECK_ORDER
+
 
 # --------------------------------------------------------------------------- #
 # Key loading
@@ -89,17 +168,45 @@ INTEGRITY_CHECK_ORDER: Tuple[str, ...] = (
 def load_signing_key(env_name: str = DEFAULT_KEY_ENV) -> Optional[bytes]:
     """Return the HMAC key as ``bytes``, or ``None`` when unset/blank.
 
+    Resolution order (highest precedence first):
+
+    1. **Explicit env var.** The env var named by ``env_name`` wins when present;
+       a key present but empty/whitespace is treated as absent — an empty HMAC key
+       is not a key. This keeps an operator override authoritative.
+    2. **Machine-local key file** (``DEFAULT_KEY_FILE``, only for the default env
+       name). When the env var is absent, the key is read from
+       ``~/.jcc/jcc_directive_signing_key`` — the same private runtime dir the
+       DPAPI secret store uses. This is what makes a "本机 signing key" placed
+       there usable by the launch control plane on this host without every launch
+       having to export the env var.
+
     ``None`` is a first-class, *honest* outcome: the caller records
     ``signed=False, signature_status="unavailable:no_key"`` rather than inventing
-    a fake signature. A key present but empty/whitespace is treated as absent —
-    an empty HMAC key is not a key.
+    a fake signature. The key is NEVER read from ``config/jcc.yaml``, the
+    database, or the log, and is never returned into a log line or an API
+    response.
     """
     if not isinstance(env_name, str) or not env_name:
         raise TypeError(f"env_name must be a non-empty str, got {env_name!r}")
-    raw = os.environ.get(env_name)
-    if raw is None or raw.strip() == "":
-        return None
-    return raw.encode("utf-8")
+    # 1. explicit env override (highest precedence)
+    if env_name in os.environ:
+        raw = os.environ[env_name]
+        if raw is None or raw.strip() == "":
+            return None
+        return raw.encode("utf-8")
+    # 2. machine-local key file fallback — ONLY for the default env name, because
+    #    the file IS the default machine key. A caller that names a specific env
+    #    var has opted into explicit configuration and gets no fallback.
+    if env_name == DEFAULT_KEY_ENV:
+        try:
+            if os.path.isfile(DEFAULT_KEY_FILE):
+                with open(DEFAULT_KEY_FILE, encoding="utf-8") as _fh:
+                    _data = _fh.read().strip()
+                if _data:
+                    return _data.encode("utf-8")
+        except Exception:  # noqa: BLE001 -- a key we cannot read is "absent"
+            pass
+    return None
 
 
 # --------------------------------------------------------------------------- #
@@ -115,8 +222,50 @@ def _action_token(action: Any) -> str:
     return _t(value)
 
 
-def canonical_payload(directive: Any) -> bytes:
-    """Byte-stable canonical bytes for ``directive`` (see module docstring)."""
+def scope_token(directive: Any) -> str:
+    """The canonical SCOPE token of ``directive``.
+
+    An explicit ``scope`` wins; otherwise the scope IS the actuator (the
+    actuator says where an effect would land, and for a directive that never
+    named a narrower authority that is the whole of what it may affect).
+
+    This function is the single definition of that fallback. If the rule lived at
+    the call sites, the signer and the verifier could each apply a slightly
+    different one and every signature would still "verify" — against different
+    bytes.
+    """
+    explicit = getattr(directive, "scope", None)
+    if explicit is not None and str(explicit) != "":
+        return _t(explicit)
+    return _t(getattr(directive, "target_actuator", None))
+
+
+def expires_at_token(directive: Any) -> str:
+    """``issued_at + ttl_s`` as an integer token, or ``""`` when underivable.
+
+    ``expires_at`` is a DERIVED view, not a stored field: ``expires_at`` and
+    ``issued_at + ttl_s`` that could disagree would be two answers to one
+    question, and the one the gate reads would be whichever was written last.
+    ``int()`` for the same reason ``int(issued_at)`` is used above — no float
+    repr drift — and ``""`` (never the string ``"None"``) when either half is
+    missing, so an underivable expiry is *covered* as underivable rather than
+    silently absent from the payload.
+    """
+    issued = getattr(directive, "issued_at", None)
+    ttl = getattr(directive, "ttl_s", None)
+    if issued is None or ttl is None:
+        return ""
+    return str(int(float(issued) + float(ttl)))
+
+
+def canonical_payload(directive: Any, form: str = DEFAULT_SIGNING_FORM) -> bytes:
+    """Byte-stable canonical bytes for ``directive`` under ``form``.
+
+    ``form`` is not validated here — :func:`sign_directive` and
+    :func:`verify_directive` both validate through :func:`_check_form` before
+    reaching this function, and this one is also called directly by tests that
+    deliberately probe the two forms' byte layouts.
+    """
     issued = getattr(directive, "issued_at", None)
     ttl = getattr(directive, "ttl_s", None)
     params = getattr(directive, "params", None) or {}
@@ -134,29 +283,58 @@ def canonical_payload(directive: Any) -> bytes:
             _t(getattr(directive, "evidence_hash", None)),
         ]
     )
+    if form == SIGNING_FORM_V2:
+        # The ``v2.`` marker is not load-bearing for security (the call site
+        # fixes the form) — it exists so that a hex digest, a payload dump or a
+        # bug report says which form produced it without anybody having to try
+        # both. The three added tokens follow the same positional discipline as
+        # v1's: they are inside the bytes, in a fixed order.
+        head = ".".join(
+            [
+                SIGNING_FORM_V2,
+                head,
+                _t(getattr(directive, "human_approval", None)),
+                scope_token(directive),
+                expires_at_token(directive),
+            ]
+        )
     # Trailing '.' after evidence_hash, then the params JSON — per D-33.
     body = head + "." + json.dumps(params, sort_keys=True, separators=(",", ":"))
     return body.encode("utf-8")
 
 
+def _check_form(form: object) -> str:
+    """Return ``form`` unchanged, or RAISE.
+
+    No fallback to ``DEFAULT_SIGNING_FORM``: a misspelled form that silently
+    degrades to v1 is precisely the downgrade this module's ``v2`` section exists
+    to prevent, and it would be reachable by a typo rather than by an attack.
+    """
+    if form not in SIGNING_FORMS:
+        raise ValueError(f"unknown signing form {form!r}; the closed set is {list(SIGNING_FORMS)}")
+    return str(form)
+
+
 # --------------------------------------------------------------------------- #
 # Sign
 # --------------------------------------------------------------------------- #
-def sign_directive(directive: Any, key: bytes) -> str:
-    """Return ``"sha256=<hex>"`` for ``directive`` under ``key``.
+def sign_directive(directive: Any, key: bytes, *, form: str = DEFAULT_SIGNING_FORM) -> str:
+    """Return ``"sha256=<hex>"`` for ``directive`` under ``key`` and ``form``.
 
     Raises ``ValueError`` when the directive is not fully signable. A directive
     without ``issued_at``/``ttl_s``/``nonce`` cannot be integrity- or
     replay-protected, so signing one would produce a signature that lies about
     what it covers — refuse rather than emit it.
     """
+    _check_form(form)
     if not isinstance(key, (bytes, bytearray)) or len(key) == 0:
         raise ValueError("signing key must be non-empty bytes")
     for field in ("issued_at", "ttl_s", "nonce"):
         if getattr(directive, field, None) is None:
             raise ValueError(f"cannot sign a directive without {field!r} (it is inside the payload)")
-    mac = hmac.new(bytes(key), canonical_payload(directive), hashlib.sha256)
+    mac = hmac.new(bytes(key), canonical_payload(directive, form), hashlib.sha256)
     return SIG_PREFIX + mac.hexdigest()
+
 
 
 # --------------------------------------------------------------------------- #
@@ -169,6 +347,7 @@ def verify_directive(
     now: float,
     replay: Optional[ReplayCache] = None,
     clock_skew_s: float = DEFAULT_CLOCK_SKEW_S,
+    form: str = DEFAULT_SIGNING_FORM,
 ) -> Tuple[bool, str]:
     """Run integrity checks 1–4 in order; first failure wins; no side effects.
 
@@ -185,8 +364,15 @@ def verify_directive(
     ``integrations/_common/jcc_receiver.py:166``). Checks 5–9 are the effect
     boundary's responsibility (see module docstring) and are deliberately absent
     here — this function cannot authorise anything.
+
+    ``form`` selects the canonical bytes (see the module's "Two signing forms"
+    section). It is a CALLER-CHOSEN constant and is never derived from
+    ``directive``: the whole point of the parameter is that the verifier decides
+    which strength it will accept, so reading it off the object under
+    verification would hand that decision to whoever wrote the object.
     """
     # -- check 1: presence --------------------------------------------------
+    _check_form(form)
     if not bool(getattr(directive, "signed", False)):
         return False, REASON_UNSIGNED
     signature = getattr(directive, "signature", None)
@@ -200,7 +386,7 @@ def verify_directive(
         return False, REASON_NO_KEY
 
     # -- check 2: signature -------------------------------------------------
-    expected = sign_directive(directive, key)
+    expected = sign_directive(directive, key, form=form)
     if not hmac.compare_digest(expected, signature):
         return False, REASON_BAD_SIGNATURE
 
@@ -224,20 +410,30 @@ def verify_directive(
 # Object-style facade
 # --------------------------------------------------------------------------- #
 class DirectiveSigner:
-    """Thin, stateful wrapper holding one key.
+    """Thin, stateful wrapper holding one key and one signing FORM.
 
     Provided because wiring code wants ``signer.sign(d)`` / ``signer.verify(d)``
     without threading the key through every call — and because the Sentinel
     self-verifies immediately after signing to prove the seam (D-33 line 63).
     ``available`` is the honest "is a key present" flag the recorder branches on.
+
+    ``form`` is a property of the signer, not of the directive, for the same
+    reason it is a keyword-only parameter on the two functions: the strength of
+    verification is the verifier's decision. A signer built with ``v1`` (the
+    default — what ``run.py`` builds today) produces signatures the v1.1 effect
+    boundary will REFUSE, because that boundary requires ``v2``. That refusal is
+    correct and it is the intended coupling: raising the actuation rung above
+    ``L0`` must not be possible with a signing form that cannot cover an
+    approval.
     """
 
     SIGN_ALG = SIGN_ALG
 
-    def __init__(self, key: Optional[bytes]) -> None:
+    def __init__(self, key: Optional[bytes], *, form: str = DEFAULT_SIGNING_FORM) -> None:
         if key is not None and (not isinstance(key, (bytes, bytearray)) or len(key) == 0):
             raise ValueError("key must be None or non-empty bytes")
         self._key: Optional[bytes] = bytes(key) if key is not None else None
+        self._form = _check_form(form)
 
     @property
     def key(self) -> Optional[bytes]:
@@ -247,21 +443,33 @@ class DirectiveSigner:
     def available(self) -> bool:
         return self._key is not None
 
+    @property
+    def form(self) -> str:
+        return self._form
+
     @staticmethod
-    def canonical(directive: Any) -> bytes:
-        return canonical_payload(directive)
+    def canonical(directive: Any, form: str = DEFAULT_SIGNING_FORM) -> bytes:
+        return canonical_payload(directive, form)
 
     def sign(self, directive: Any) -> Optional[str]:
         """``"sha256=<hex>"`` when a key is present, else ``None`` (never fake)."""
         if self._key is None:
             return None
-        return sign_directive(directive, self._key)
+        return sign_directive(directive, self._key, form=self._form)
 
     def verify(self, directive: Any, signature: Optional[str] = None) -> bool:
-        """Signature-only boolean (check 2). ``signature`` defaults to the directive's."""
+        """Signature-only boolean (check 2), under this signer's OWN form.
+
+        ``signature`` defaults to the directive's. Note that this is check 2
+        alone: it is a proof that the bytes are untouched under ``self.form``,
+        and nothing more. It is deliberately not a boolean for "this directive
+        may act" — that is nine checks, and it is ``directive_gate``'s answer.
+        """
         if self._key is None:
             return False
         candidate = signature if signature is not None else getattr(directive, "signature", None)
         if not isinstance(candidate, str) or not candidate:
             return False
-        return hmac.compare_digest(sign_directive(directive, self._key), candidate)
+        return hmac.compare_digest(
+            sign_directive(directive, self._key, form=self._form), candidate
+        )

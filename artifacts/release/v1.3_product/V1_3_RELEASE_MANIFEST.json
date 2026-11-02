@@ -1,0 +1,188 @@
+{
+  "evidence_head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "file_count": 20,
+  "files": [
+    {
+      "bytes": 1240424,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "packages/jcc_core",
+      "sha256": "befadcc7b7432dfc5dfa43ac777b2a117f79a6d6c45b2def6c1659823fc16658"
+    },
+    {
+      "bytes": 543608,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "apps/command_center_3d",
+      "sha256": "6abcc7df22da465add7b6c88d338bf846353c17213071480f11fa6b37cb2769b"
+    },
+    {
+      "bytes": 14475,
+      "hash_convention": "dir_fingerprint",
+      "owner": "core-platform",
+      "path": "config",
+      "sha256": "914d9d2f2cc982f75e7c2f6983658f4940b39ad193db641e2b1ed334a2124071"
+    },
+    {
+      "bytes": 492867,
+      "hash_convention": "dir_fingerprint",
+      "owner": "sre",
+      "path": "scripts",
+      "sha256": "b0d44751bb3468336599f91ab3c617db55d85dea2a93e3e90f80e6f5744ae715"
+    },
+    {
+      "bytes": 16836,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/jcc_release_manifest.py",
+      "sha256": "ed7cb02e24e943a085eb09e77f81130954559e1c3849b6ac5ef88bd10248c622"
+    },
+    {
+      "bytes": 7172,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/emit_v1_3_release_manifest.py",
+      "sha256": "f6e9406ca7f6b1820eaf1e250baac47fcb63dd61931ced7bb622b10f508ab6f4"
+    },
+    {
+      "bytes": 13981,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/emit_v1_3_legs.py",
+      "sha256": "57b97c289bb5af17728018eaaf7fe8cd15e6b1c566b3686de325967e51613491"
+    },
+    {
+      "bytes": 71262,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/final_gate_run_v1_3.py",
+      "sha256": "88a351954a6ad9662135c6d243fc327f122327df98fef2160d66007f0205f1f7"
+    },
+    {
+      "bytes": 65001,
+      "hash_convention": "git_blob",
+      "owner": "security",
+      "path": "tools/v1_1_security_gate.py",
+      "sha256": "672f0b12723fd1a39fbe576a7051965d74411b09dd1133a22d09f43123c3a280"
+    },
+    {
+      "bytes": 8158,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_ui_runtime_audit.py",
+      "sha256": "6b496093e35b57ff74857bb452967ba8f9c7849229e94af9cc7494e46de57c8d"
+    },
+    {
+      "bytes": 21986,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave2_ui_gate.py",
+      "sha256": "93f30d75567b7e5cbfde6cb7aae0d2b0b5163457cfa5718679df19314b85d2e1"
+    },
+    {
+      "bytes": 20882,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave3_mission_gate.py",
+      "sha256": "ee685b8f7458683f9d1f114b7fde6936f3df10b46c576f43b0c09b816bbd8a19"
+    },
+    {
+      "bytes": 15236,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave4_attention_gate.py",
+      "sha256": "30c3594745dca47c2dda350f7514e1bddeb70bf8c911676b8dd2f9082ad82338"
+    },
+    {
+      "bytes": 12774,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave5_deliverables_gate.py",
+      "sha256": "64e8e01e70695404ab25eba0f7772f35b2600bbb1aca2fafbe58c4cb4302ae80"
+    },
+    {
+      "bytes": 7128,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave6_world_gate.py",
+      "sha256": "058b0adbe07a7dd141919a3bf227e78233915bc39fda539a51121fb279ca343e"
+    },
+    {
+      "bytes": 14779,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave7_connection_gate.py",
+      "sha256": "5394f7c9dc1c88ab92cf23d8a367e800e948171816cb9e5a76609fe96082acc6"
+    },
+    {
+      "bytes": 40128,
+      "hash_convention": "git_blob",
+      "owner": "lead",
+      "path": "tools/v1_3_wave8_runtime_gate.py",
+      "sha256": "a7d3dddd86dbc1ab2551b24f74440d5f452a8209760152be8b217f1f54f1e0a8"
+    },
+    {
+      "bytes": 118062,
+      "hash_convention": "dir_fingerprint",
+      "owner": "qa",
+      "path": "tests/e2e",
+      "sha256": "3b24c6450f3ae91b44d7e219eba4e3944f2e16ecb84d2f91eacebf44252ddad8"
+    },
+    {
+      "bytes": 14885,
+      "hash_convention": "git_blob",
+      "owner": "protocol-architect",
+      "path": "docs/v1_3/FINAL_PRODUCT_FREEZE.md",
+      "sha256": "207803938134d73b2688b696aee556f4f4bcfccbb0463dba50cdcbe7e2a3f42e"
+    },
+    {
+      "bytes": 10350,
+      "hash_convention": "git_blob",
+      "owner": "protocol-architect",
+      "path": "docs/v1_2/FINAL_PRODUCT_FREEZE.md",
+      "sha256": "82f9144e65c38abd4a64c7a1afcda32e2451a61f04b3e8b0e29834749e2b319e"
+    }
+  ],
+  "final_gate": {
+    "blocker": 0,
+    "blockers": [],
+    "final_release": false,
+    "pending_host_activation": [
+      "Unregister the two stray Scheduled Tasks created during the measured incident recorded in docs/v1_3/WAVE_8_DURABLE_RUNTIME.md section 6: JCC-v1.3-API and JCC-v1.3-PROBE (schtasks.exe is blacklisted in the agent sandbox and Windows' own unregister path goes through the same blind CIM provider, so this cannot be done from here).",
+      "Run scripts\\jcc-v1.3-register-tasks.ps1 -Apply from an ELEVATED PowerShell on the host to create the durable JCC-v1.3-API / JCC-v1.3-VisualUI tasks, then `scripts\\jcc-v1.3.ps1 -Action mark` to adopt them.",
+      "Authenticate the WorkBuddy CLI for the account the JCC API runs under, so a launcher-spawned non-interactive process can obtain credentials. Until it is done the launch read-back classifies the run as AUTH_REQUIRED, the mission is NOT walked to RUNNING by design, and the capability reads HOST_ACTIVATION_PENDING (see docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md section 8)."
+    ],
+    "present": true,
+    "project_complete": true,
+    "release_readiness": "RELEASE_READY_PENDING_HOST_ACTIVATION"
+  },
+  "generated_at": "2026-09-29T23:21:10.270985+00:00",
+  "generated_by": "tools/emit_v1_3_release_manifest.py",
+  "generated_by_sha256": "f6e9406ca7f6b1820eaf1e250baac47fcb63dd61931ced7bb622b10f508ab6f4",
+  "hash_convention": "sha256(git cat-file blob <PRODUCT_FREEZE_SHA>:<path>) for tracked files; sha256(content fingerprint over tracked files) for directories",
+  "product_deny": [
+    "packages/**",
+    "apps/**",
+    "facades/**",
+    "scripts/**",
+    "config/**",
+    "fixtures/**",
+    "tools/**",
+    "integrations/**",
+    "adapters/**",
+    "policies/**",
+    "evals/**",
+    "tests/**"
+  ],
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "release": "JCC v1.3 Product Edition (local)",
+  "release_metadata_allow": [
+    "artifacts/release/**",
+    "artifacts/acceptance/**",
+    "docs/v1_3/**",
+    "docs/release/**",
+    "artifacts/release/v1.3_product/**"
+  ],
+  "schema": "jcc/release-manifest/2",
+  "tag_head": null
+}

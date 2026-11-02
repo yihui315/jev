@@ -19,7 +19,7 @@ Env:
   JCC_CONTROL_TOKEN   control token for /api/assess (required for HTTP)
   JCC_CORE_URL        default http://127.0.0.1:4778
   JCC_SPOOL_DIR        default ~/.jcc/spool
-  JCC_ROOT             repo root (default F:/jev)
+  JCC_ROOT            repo root override; default = the checkout this file lives in
 """
 from __future__ import annotations
 
@@ -33,7 +33,20 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Dict, Optional
 
-DEFAULT_ROOT = os.environ.get("JCC_ROOT", "F:/jev")
+#: Repository root, derived from this file's location rather than hardcoded --
+#: the same idiom as ``jcc_core/config.py``. ``jcc_emit.py`` lives at
+#: ``<repo>/integrations/_common/jcc_emit.py``, so two ``parents`` steps up is
+#: the repo root. The literal this replaced pointed at a drive that no longer
+#: exists, which made ``sys.path`` gain a dead entry and turned the
+#: ``jcc_core`` import below into a LOAD-TIME failure -- breaking the native
+#: event path for all four agents, not just one entry point.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: ``JCC_ROOT`` still wins: it is a supported operator override for pointing the
+#: hook at a checkout other than this file's. It is honoured verbatim (absolute
+#: or not) because an operator who names a location means it. Only the FALLBACK
+#: is derived, so the default can never name a drive that is not there.
+DEFAULT_ROOT = os.environ.get("JCC_ROOT") or str(REPO_ROOT)
 _PACKAGES = str(Path(DEFAULT_ROOT) / "packages")
 if _PACKAGES not in sys.path:
     sys.path.insert(0, _PACKAGES)
@@ -100,8 +113,24 @@ def emit_event(
     url: Optional[str] = None,
     token: Optional[str] = None,
     spool_on_failure: bool = True,
+    http_timeout: float = 3.0,
 ) -> Dict[str, Any]:
-    """Normalize + deliver one native event. NEVER raises on delivery failure."""
+    """Normalize + deliver one native event. NEVER raises on delivery failure.
+
+    ``http_timeout`` is the per-POST ceiling for the loopback delivery path. It
+    is NOT a flake-hiding knob: callers that drive a real server MUST first pass
+    a readiness barrier (server healthy AND the /api/assess consumer proven
+    schedulable) so a confirmed-ready consumer that still hits this ceiling is a
+    genuine stall, not scheduler jitter.
+
+    Monotonic timing (``time.monotonic`` -- never wall-clock, which can go
+    backwards across NTP steps) is captured at every lifecycle boundary and
+    returned so a caller can LOCATE a stall instead of guessing:
+      * ``request_at``   -- just before the HTTP POST is issued
+      * ``response_at``  -- just after a successful POST returns
+      * ``spooled_at``   -- when delivery failed and the event was spooled
+      * ``round_trip_ms``-- response_at - request_at (or spooled_at - request_at)
+    """
     received_at = time.time()
     raw = dict(raw)
     raw.setdefault("_received_at", received_at)
@@ -136,15 +165,23 @@ def emit_event(
     # 2) HTTP loopback
     target = url or os.environ.get("JCC_CORE_URL", "http://127.0.0.1:4778") + "/api/assess"
     tok = token if token is not None else os.environ.get("JCC_CONTROL_TOKEN")
+    request_at = time.monotonic()
     try:
-        out = _post(target, tok, envelope)
-        return {"status": "sent", "via": "http", "session_id": envelope["session_id"], "result": out}
+        out = _post(target, tok, envelope, timeout=http_timeout)
+        response_at = time.monotonic()
+        return {"status": "sent", "via": "http", "session_id": envelope["session_id"], "result": out,
+                "request_at": request_at, "response_at": response_at,
+                "round_trip_ms": (response_at - request_at) * 1000.0}
     except Exception as exc:  # noqa: BLE001
         # 3) spool (event IS identified -> redeliverable)
+        spooled_at = time.monotonic()
         if spool_on_failure:
             spool(agent, {"kind": "identified", "agent": agent, "envelope": envelope,
-                          "reason": str(exc), "received_at": received_at})
-        return {"status": "spooled", "reason": str(exc), "session_id": envelope["session_id"]}
+                          "reason": str(exc), "received_at": received_at,
+                          "request_at": request_at, "spooled_at": spooled_at})
+        return {"status": "spooled", "reason": str(exc), "session_id": envelope["session_id"],
+                "request_at": request_at, "spooled_at": spooled_at,
+                "round_trip_ms": (spooled_at - request_at) * 1000.0}
 
 
 def _read_input(path: Optional[str]) -> Dict[str, Any]:

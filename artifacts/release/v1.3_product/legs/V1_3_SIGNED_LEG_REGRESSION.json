@@ -1,0 +1,69 @@
+{
+  "decision": "GO",
+  "dimension": "Full Regression (core+e2e / tools / frontend)",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "865 passed / 0 failed / 0 errors / 0 skipped (floor 786)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_C1_CORE_E2E.json",
+      "evidence_sha256": "6b1957c8d6d14562f85910b67740640c6aaafe5666b643b8d5135fe1dd7385e4",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "C1_CORE_E2E",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "248 passed / 0 failed / 0 errors / 0 skipped (floor 248)",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_C2_TOOLS_TESTS.json",
+      "evidence_sha256": "5f90ec36dc93e98a4f8965ed8631be09bc2df31972402185b43ad11c6fd9d790",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "C2_TOOLS_TESTS",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "exit=0 ; tsc_ran=1",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_C3a_TYPECHECK.json",
+      "evidence_sha256": "3bf20389b69ec37cdcf897923ccd52000f8c711b08a90f4563c81f5a8c427080",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "C3a_TYPECHECK",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "exit=0 ; tests_passed=1, tests_passed_max=94",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_C3b_VITEST.json",
+      "evidence_sha256": "c91a08363dd83cb1a64a2d9f55139b5ccffa64b0413c8fa2dd0be39135a220b0",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "C3b_VITEST",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "exit=0 ; built_in=1",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_C3c_BUILD.json",
+      "evidence_sha256": "4fb9ce5088554ea6c87b5958996b1d352b3f5ba74e99ee695a7f19e74176319d",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "C3c_BUILD",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "C1_CORE_E2E",
+    "C2_TOOLS_TESTS",
+    "C3a_TYPECHECK",
+    "C3b_VITEST",
+    "C3c_BUILD"
+  ],
+  "leg_id": "REGRESSION",
+  "notes": "All 5 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "566dd40b80afbefac11a14a0a9fb1e4cb921209e07efa7034e66746f498b3d19",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:21Z"
+}

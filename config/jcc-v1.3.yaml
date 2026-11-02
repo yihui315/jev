@@ -1,0 +1,133 @@
+# JCC Core control-plane configuration -- v1.3 PRODUCT EDITION instance.
+#
+# This is the PRODUCT runtime for v1.3 (JEV COMMAND CENTER -- AI Work Operating
+# System). It runs ALONGSIDE the frozen GREEN service on 127.0.0.1:4778 and MUST
+# NOT disturb it:
+#   * a different runtime dir + SQLite database (runtime/jcc-v1.3, not jcc),
+#   * the same loopback-only bind (127.0.0.1) -- never 0.0.0.0.
+#
+# PORT OWNERSHIP (canonical, read from THIS file at launch time):
+#   4778  GREEN       -- frozen v1.0.1 service. NEVER touched by this instance.
+#   4779  PRODUCT API -- this file (server.port). Canonical product port.
+#   4780  PRODUCT UI  -- the built SPA, served by apps/command_center_3d/serve_visual.py
+#                        under uvicorn (ASGI). NOT python http.server.
+#   4781  DEV UI      -- `npm run dev` only. Never a production surface.
+#   4782  smoke/diagnostic ONLY -- MUST NOT be used as a production port.
+#
+# The v1.2 instance used 4779 too; v1.3 SUPERSEDES it. Only one product instance
+# may hold 4779 at a time, and the launcher fails closed if a FOREIGN holder owns
+# it (see scripts/jcc-v1.3.ps1 -Action doctor).
+#
+# Secrets are NEVER stored here -- only env-var NAMES. See config/.env.example.
+
+server:
+  host: 127.0.0.1          # localhost-only; run.py also forces 127.0.0.1 at bind
+  port: 4779               # canonical PRODUCT API port (v1.3 supersedes v1.2)
+  cors_origins:            # EXPLICIT allowlist only -- never "*"
+    - http://localhost:4780   # v1.3 product UI (built SPA over uvicorn/ASGI)
+    - http://127.0.0.1:4780
+    - http://localhost:4781   # dev/debug UI (never a production surface)
+    - http://127.0.0.1:4781
+
+control:
+  token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
+
+launcher:
+  # CR-003: the workspace boundary a mission's project_root must sit inside.
+  # A launch sets the child's cwd here AND passes it to the agent as --add-dir,
+  # which is the directory its Read/Edit/Write/Glob/Grep/Bash tools are granted,
+  # so a root outside this base is a privilege grant rather than a convenience.
+  # Leave EMPTY to take the default: jcc_core.config.DEFAULT_PROJECT_SCOPE_BASE
+  # is the repository root, derived from __file__ (never a hardcoded drive
+  # letter -- this project has been broken by that three times already). A
+  # relative value is resolved against the repository root; an absolute value is
+  # honoured verbatim. A base that does not exist refuses EVERY launch
+  # (fail-closed), so a typo here cannot silently widen the boundary.
+  project_scope_base: ""
+
+state_store:
+  # RELATIVE to the repository root. The absolute form this line used to carry
+  # (F:/jev/...) became a load failure the moment the checkout moved drives; a
+  # relative path travels with the repo. jcc_core.config resolves it against
+  # REPO_ROOT, which is derived from __file__.
+  db_path: runtime/jcc-v1.3/jcc.db   # gitignored; isolated from GREEN and v1.2
+
+jev:
+  provider: mock            # mock | disabled | real
+  model: jev-1.13.0
+  api_key_env: JEV_API_KEY
+  base_url: https://api.typesafe.ai
+  feature_flags:
+    real_provider: false    # real provider stays OFF until explicitly enabled + key present
+
+actuation:
+  enabled: false            # actuation OFF (ADR-0004). Refuses ALL side-effects.
+  allowed_actions: []       # none permitted
+
+policy:
+  version: p3.0.0           # ADR-0008 D-37: R6 threshold surface
+  priority: [ESCALATE, PAUSE, VERIFY, STEER, RETRY, FINISH, CONTINUE]
+  thresholds:               # ADR-0008 D-24: RETIRED / INERT -- superseded by
+    escalate_risk: 0.8      #   p3.shadow.thresholds. Kept for config back-compat
+    pause_risk: 0.6         #   ONLY; editing these has NO effect.
+    verify_risk: 0.4
+
+p3:                         # ADR-0008 P3 shadow supervision (Sentinel + Metric).
+  shadow:
+    enabled: false          # the product runtime runs with the shadow plane inert
+    budget:
+      assess_calls: 200
+      scorer_tokens: 200000
+      events: 2000
+      directives: 200
+      retries: 5
+      escalations: 3
+      wall_clock_s: 28800
+      cost_units: 500
+      cost_units_per_hour: 2000
+      directives_per_minute: 600
+    thresholds:
+      default: {escalate_risk: 0.8, pause_risk: 0.6, steer_risk: 0.4, finish_risk: 0.1}
+      per_agent:
+        workbuddy: {}
+        claude: {}
+        codex: {}
+        hermes: {}
+    signing:
+      key_env: JCC_DIRECTIVE_SIGNING_KEY
+      required: false
+
+agents:
+  capabilities:
+    workbuddy:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "5.5.6"
+      config_path: "C:/Users/Administrator/.workbuddy/settings.json"
+      hook_schema_kind: codebuddy-hooks
+      permission_request_hooked: false
+    claude:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "2.1.196"
+      config_path: "C:/Users/Administrator/.claude/settings.json"
+      hook_schema_kind: claude-hooks
+      preserves_user_hooks: true
+    codex:
+      aep: true
+      verified: true
+      status: DEGRADED
+      config_path: "C:/Users/Administrator/.codex/config.toml"
+      hook_schema_kind: codex-native-hooks+notify
+      push_verified: false
+      app_server_steering: false
+    hermes:
+      aep: true
+      verified: true
+      status: CONNECTED
+      version: "0.4.0"
+      config_path: "C:/Users/Administrator/.hermes/config.yaml"
+      hook_schema_kind: hermes-hooks
+      transport: signed-outbound-hook

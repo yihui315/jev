@@ -27,7 +27,16 @@ import sys
 from pathlib import Path
 from typing import List, Optional
 
-DEFAULT_ROOT = os.environ.get("JCC_ROOT", "F:/jev")
+#: Repository root, derived from this file's location rather than hardcoded --
+#: the same idiom as ``jcc_core/config.py``. This file lives at
+#: ``<repo>/integrations/codex/``, so two ``parents`` steps up is the repo root.
+#: The literal this replaced pointed at a drive that no longer exists, so both
+#: injected paths were dead and ``from jcc_emit import emit_event`` failed --
+#: silently, because this wrapper is required to swallow every error.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: ``JCC_ROOT`` remains the operator override; only the fallback is derived.
+DEFAULT_ROOT = os.environ.get("JCC_ROOT") or str(REPO_ROOT)
 _PACKAGES = str(Path(DEFAULT_ROOT) / "packages")
 _COMMON = str(Path(DEFAULT_ROOT) / "integrations" / "_common")
 for _p in (_COMMON, _PACKAGES):

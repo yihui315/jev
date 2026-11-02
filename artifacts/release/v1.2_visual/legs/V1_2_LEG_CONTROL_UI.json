@@ -1,0 +1,18 @@
+{
+  "decision": "GO",
+  "dimension": "Control Surface Fail-Closed / Inert",
+  "distinct_from_release": true,
+  "evidence_path": "tools/v1_2_control_ui_gate.py",
+  "evidence_sha256": null,
+  "evidence_verdict": "CONTROL-UI GATE: PASS (0 failures)",
+  "freeze_sha": "ddca208",
+  "leg_id": "CONTROL_UI",
+  "notes": "In-process TestClient gate: token fail-closed (401/403), authorized actuation inert (acted=False, shadow_mode), structurally non-actuating. No socket bound; GREEN 4778 untouched.",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "7cb89b12a6a8787bad7b6827bb3249442728c46ebddc04117a88c431d5c32b48",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T14:54:56Z"
+}

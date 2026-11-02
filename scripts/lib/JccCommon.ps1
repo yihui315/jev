@@ -54,6 +54,253 @@ function Get-JccPaths {
     }
 }
 
+function Get-JccV12Paths {
+    <#
+        The JCC v1.2 VISUAL COMMAND CENTER runs as a SECOND, fully isolated
+        instance so the frozen GREEN service on 127.0.0.1:4778 is NEVER touched:
+
+          * its own config (config\jcc-v1.2.yaml -> server.port 4779),
+          * its own runtime dir (runtime\jcc-v1.2) with its own pid/marker/logs,
+          * its own SQLite database (runtime\jcc-v1.2\jcc-v1.2.db).
+
+        run.py writes its Python-side marker (JCC-marker) into the SAME directory
+        as state_store.db_path, so an isolated db_path already gives the v1.2
+        instance a separate JCC-marker too -- there is no cross-talk with the
+        GREEN runtime\jcc\JCC-marker.
+
+        Every ownership / health helper in this file takes a $Paths table, so the
+        v1.2 launcher reuses Test-JccOwnership / Write-JccOwnershipMarker /
+        Get-JccPortOwner / Invoke-JccHealth unchanged, pointed at these paths.
+    #>
+    param([string]$Root)
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $runtime = Join-Path $Root 'runtime\jcc-v1.2'
+    $req = Join-Path (Join-Path $Root 'packages\jcc_core') 'requirements.txt'
+    if (-not (Test-Path -LiteralPath $req)) {
+        $alt = Join-Path $Root 'scripts\requirements.txt'
+        if (Test-Path -LiteralPath $alt) { $req = $alt }
+    }
+
+    return @{
+        Root            = $Root
+        Runtime         = $runtime
+        VenvPython      = Join-Path $Root '.venv\Scripts\python.exe'
+        VenvPip         = Join-Path $Root '.venv\Scripts\pip.exe'
+        Config          = Join-Path $Root 'config\jcc-v1.2.yaml'
+        EnvExample      = Join-Path $Root 'config\.env.example'
+        EnvFile         = Join-Path $Root '.env'
+        PidFile         = Join-Path $runtime 'jcc-v1.2.pid'
+        MarkerFile      = Join-Path $runtime 'jcc-v1.2.ownership.json'
+        ServerLog       = Join-Path $runtime 'server.log'
+        ServerErrLog    = Join-Path $runtime 'server.err.log'
+        Requirements    = $req
+        GateRunner      = Join-Path (Join-Path $Root 'artifacts\acceptance') 'final_gate_run.py'
+        CorePackage     = Join-Path $Root 'packages\jcc_core'
+    }
+}
+
+function Get-JccV12Port {
+    <#
+        The v1.2 instance's port, read from config\jcc-v1.2.yaml. Mirrors
+        Get-JccPort but targets the v1.2 config (server.port, normally 4779) so
+        the launcher and the service can never disagree about which port is "v1.2".
+        Falls back to a YAML line-parse, then to 4779.
+    #>
+    param([string]$Root, [string]$Python)
+
+    $cfg = Join-Path $Root 'config\jcc-v1.2.yaml'
+    if ($Python -and (Test-Path -LiteralPath $cfg)) {
+        $code = @'
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
+os.environ['JCC_CONFIG'] = r'{0}'
+from jcc_core.config import load_config
+print(load_config().server.port)
+'@ -f $cfg
+        $cur = $null
+        try { $cur = (Get-Location).Path } catch { $cur = $null }
+        try {
+            Set-Location -LiteralPath $Root -ErrorAction Stop
+            $out = & $Python '-c' $code 2>$null
+            $v = ([string]$out).Trim()
+            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
+        } catch {
+            # fall through to the YAML fallback below
+        } finally {
+            if ($cur) {
+                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $cfg) {
+        $inServer = $false
+        foreach ($line in Get-Content -LiteralPath $cfg) {
+            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
+                $key = $Matches[1]
+                $inServer = ($key -eq 'server')
+                continue
+            }
+            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
+                return [int]$Matches[1]
+            }
+        }
+    }
+
+    return 4779
+}
+
+function Get-JccConfigPort {
+    <#
+        Read `server.port` out of an arbitrary JCC config file.
+
+        PRECEDENCE (same as Get-JccPort / Get-JccV12Port, and for the same
+        reason): ask the CONFIG MODULE itself -- packages/jcc_core/config.py, via
+        JCC_CONFIG -- so the launcher and the service can never disagree about
+        the port; then a YAML line-parse restricted to the `server:` block; then
+        a caller-supplied fallback.
+
+        This exists so a THIRD instance does not have to copy that read a third
+        time. Get-JccPort (4778) and Get-JccV12Port (4779) deliberately keep
+        their own bodies: 4778 is the frozen GREEN path and 4779 is the frozen
+        v1.2 path, and neither is worth re-baselining for a cosmetic refactor.
+    #>
+    param(
+        [string]$Root,
+        [string]$ConfigFile,
+        [string]$Python,
+        [int]$FallbackPort = 0
+    )
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $cfg = Join-Path $Root ('config\' + $ConfigFile)
+
+    if ($Python -and (Test-Path -LiteralPath $cfg)) {
+        $code = @'
+import sys, os
+sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
+os.environ['JCC_CONFIG'] = r'{0}'
+from jcc_core.config import load_config
+print(load_config().server.port)
+'@ -f $cfg
+        $cur = $null
+        try { $cur = (Get-Location).Path } catch { $cur = $null }
+        try {
+            Set-Location -LiteralPath $Root -ErrorAction Stop
+            $out = & $Python '-c' $code 2>$null
+            $v = ([string]$out).Trim()
+            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
+        } catch {
+            # fall through to the YAML fallback below
+        } finally {
+            if ($cur) {
+                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
+            }
+        }
+    }
+
+    if (Test-Path -LiteralPath $cfg) {
+        $inServer = $false
+        foreach ($line in Get-Content -LiteralPath $cfg) {
+            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
+                $key = $Matches[1]
+                $inServer = ($key -eq 'server')
+                continue
+            }
+            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
+                return [int]$Matches[1]
+            }
+        }
+    }
+
+    return $FallbackPort
+}
+
+function Get-JccV13Paths {
+    <#
+        JCC v1.3 PRODUCT EDITION paths.
+
+        v1.3 is the PRODUCT runtime. It runs the SAME service code as v1.2
+        (packages/jcc_core/run.py -> "python -m jcc_core.run") against its OWN
+        config, so a version bump changes ZERO Python product files and the
+        frozen GREEN instance on 127.0.0.1:4778 is never touched.
+
+        v1.3 owns TWO listeners, and they are TWO processes:
+
+          * CORE API -- config\jcc-v1.3.yaml -> server.port (4779), with its own
+            runtime dir (runtime\jcc-v1.3), its own pid/marker/logs and its own
+            SQLite database. 4778 (GREEN) and 4779 (v1.2) are never touched.
+
+          * VISUAL UI -- apps\command_center_3d\dist served by
+            apps\command_center_3d\serve_visual.py on port 4780, under uvicorn
+            (ASGI). v1.2 served the same dist with python's http.server; v1.3
+            replaced that because http.server is the stdlib demo server and is
+            not a product runtime.
+
+        The UI gets its OWN pid/marker pair because it holds no control-plane
+        state and has no write path: it must be independently stoppable without
+        touching the API, and its ownership must never be conflated with the
+        API's.
+    #>
+    param([string]$Root)
+
+    if (-not $Root) { $Root = Get-JccRepoRoot }
+    $runtime = Join-Path $Root 'runtime\jcc-v1.3'
+    $uiDir = Join-Path (Join-Path $Root 'apps') 'command_center_3d'
+    $req = Join-Path (Join-Path $Root 'packages\jcc_core') 'requirements.txt'
+    if (-not (Test-Path -LiteralPath $req)) {
+        $alt = Join-Path $Root 'scripts\requirements.txt'
+        if (Test-Path -LiteralPath $alt) { $req = $alt }
+    }
+
+    return @{
+        Root            = $Root
+        Runtime         = $runtime
+        VenvPython      = Join-Path $Root '.venv\Scripts\python.exe'
+        VenvPip         = Join-Path $Root '.venv\Scripts\pip.exe'
+        Config          = Join-Path $Root 'config\jcc-v1.3.yaml'
+        EnvExample      = Join-Path $Root 'config\.env.example'
+        EnvFile         = Join-Path $Root '.env'
+        PidFile         = Join-Path $runtime 'jcc-v1.3.pid'
+        MarkerFile      = Join-Path $runtime 'jcc-v1.3.ownership.json'
+        ServerLog       = Join-Path $runtime 'server.log'
+        ServerErrLog    = Join-Path $runtime 'server.err.log'
+        Requirements    = $req
+        GateRunner      = Join-Path (Join-Path $Root 'artifacts\acceptance') 'final_gate_run.py'
+        CorePackage     = Join-Path $Root 'packages\jcc_core'
+
+        # Visual UI half (separate process, separate ownership pair)
+        UiDir           = $uiDir
+        UiServeScript   = Join-Path $uiDir 'serve_visual.py'
+        UiDist          = Join-Path $uiDir 'dist'
+        UiPidFile       = Join-Path $runtime 'jcc-v1.3-ui.pid'
+        UiMarkerFile    = Join-Path $runtime 'jcc-v1.3-ui.ownership.json'
+        UiLog           = Join-Path $runtime 'ui.log'
+        UiErrLog        = Join-Path $runtime 'ui.err.log'
+    }
+}
+
+function Get-JccV13Port {
+    <#
+        The v1.3 CORE API port, read from config\jcc-v1.3.yaml (normally 4779).
+    #>
+    param([string]$Root, [string]$Python)
+    return (Get-JccConfigPort -Root $Root -ConfigFile 'jcc-v1.3.yaml' -Python $Python -FallbackPort 4779)
+}
+
+function Get-JccV13UiPort {
+    <#
+        The v1.3 VISUAL UI port. A constant ON PURPOSE: serve_visual.py is a
+        launcher-owned script and is not the config module, so there is nothing
+        to read it back from -- pinning it here is what keeps the launcher, the
+        doctor and the scheduled-task definition in agreement.
+
+        It must never collide with GREEN's 4778 or the CORE API's 4779.
+    #>
+    return 4780
+}
+
 function Get-JccPython {
     param([string]$Root)
 
@@ -159,48 +406,42 @@ function Get-JccPythonVersion {
 }
 
 function Get-JccPort {
+    <#
+        Read `server.port` for the GREEN (4778) instance.
+
+        CR-002 REGRESSION, found by independent verification 2026-10-04 and fixed
+        here. This function used to call `load_config()` with NO JCC_CONFIG set,
+        which made it depend on `jcc_core.config.DEFAULT_CONFIG_PATH`. That
+        default was `config/jcc.yaml` (GREEN, 4778) until CR-002 changed it to the
+        v1.3 product config -- so this function now returned 4779 while GREEN
+        actually binds 4778.
+
+        The consequence was not cosmetic. `start.ps1:59` builds its health URL
+        from this value and then exports `JCC_CONFIG=config\jcc.yaml` at :142, so
+        the child bound 4778 while the launcher polled 4779 for 90 s and exited 4.
+        Measured during the incident: GREEN answered 200 on 4778, yet
+        `Test-JccOwnership -Port 4778` returned Ok=False with
+        "PID file (0) and ownership marker service pid (...) disagree" and no
+        `jcc.pid` at all -- the launcher could not confirm the instance it had
+        just started. `status.ps1`, `stop.ps1`, `restart.ps1`, `doctor.ps1` and
+        `ensure-stable-runtime.ps1` resolve the port the same way, so a watchdog
+        would have supervised the WRONG PORT and could have concluded GREEN was
+        down (and restarted it) while it was in fact healthy.
+
+        THE FIX: read the GREEN config EXPLICITLY, exactly as
+        `Get-JccConfigPort` already does. A GREEN tool must never learn GREEN's
+        port by accident -- the whole point of the CR-002 default change is that
+        the default is no longer GREEN's, so anything that needs GREEN's port has
+        to name GREEN's config.
+    #>
     param([string]$Root, [string]$Python)
 
-    # Preferred: ask the configuration itself (packages/jcc_core/config.py).
-    if ($Python) {
-        $code = @'
-import sys, os
-sys.path.insert(0, os.path.join(os.getcwd(), 'packages'))
-from jcc_core.config import load_config
-print(load_config().server.port)
-'@
-        $cur = $null
-        try { $cur = (Get-Location).Path } catch { $cur = $null }
-        try {
-            Set-Location -LiteralPath $Root -ErrorAction Stop
-            $out = & $Python '-c' $code 2>$null
-            $v = ([string]$out).Trim()
-            if ($LASTEXITCODE -eq 0 -and $v -match '^\d+$') { return [int]$v }
-        } catch {
-            # fall through to the YAML fallback below
-        } finally {
-            if ($cur) {
-                try { Set-Location -LiteralPath $cur -ErrorAction Stop } catch { }
-            }
-        }
-    }
+    if (-not $Root) { $Root = Get-JccRepoRoot }
 
-    # Fallback: read server.port out of config/jcc.yaml, server section only.
-    $cfg = Join-Path $Root 'config\jcc.yaml'
-    if (Test-Path -LiteralPath $cfg) {
-        $inServer = $false
-        foreach ($line in Get-Content -LiteralPath $cfg) {
-            if ($line -match '^\s*([A-Za-z_][A-Za-z0-9_]*)\s*:') {
-                $key = $Matches[1]
-                $inServer = ($key -eq 'server')
-                continue
-            }
-            if ($inServer -and $line -match '^\s*port\s*:\s*(\d+)\s*$') {
-                return [int]$Matches[1]
-            }
-        }
-    }
-
+    # GREEN's port, from GREEN's config file. Never from the default.
+    $resolved = Get-JccConfigPort -Root $Root -ConfigFile 'jcc.yaml' `
+                                -Python $Python -FallbackPort 4778
+    if ($resolved -gt 0) { return $resolved }
     return 4778
 }
 
@@ -252,15 +493,38 @@ function Get-JccProcessInfo {
 function Get-JccPortOwner {
     param([int]$Port)
 
+    # EXPLICIT -ErrorAction SilentlyContinue, and the reason matters.
+    #
+    # MEASURED (2026-09-29, while building the v1.3 durable runtime): with the
+    # caller's $ErrorActionPreference='Stop' and `-ErrorAction Stop` here, asking
+    # about a port that simply has NO LISTENER did not return "no listener" -- it
+    # raised a CIM query error ("no matching MSFT_NetTCPConnection object"), which
+    # this try/catch then swallowed and turned into a netstat spawn. The returned
+    # value was correct, but a TERMINATING ERROR was still written to the error
+    # stream, so it showed up in normal run output and in every Start-Transcript
+    # log:
+    #
+    #     PS>TerminatingError(Get-NetTCPConnection): ... no matching ... object
+    #
+    # An expected condition ("nothing is listening") must not emit an error
+    # record: it trains operators to ignore errors, and it makes a correct
+    # transcript look like a failing one.
+    #
+    # The Get-Command guard preserves the ORIGINAL purpose of the netstat
+    # fallback: it exists for a host where the CMDLET is missing, not for a host
+    # where the port happens to be free. (Returning early on an empty result also
+    # stops every free-port check from spawning netstat.)
     try {
-        $conns = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction Stop)
+        $conns = @(Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue)
         if ($conns.Count -gt 0) {
             $o = $conns[0]
             $opid = 0
             if ($o.OwningProcess) { $opid = [int]$o.OwningProcess }
             return @{ Pid = $opid; Method = 'Get-NetTCPConnection' }
         }
-        return @{ Pid = 0; Method = 'none' }
+        if (Get-Command 'Get-NetTCPConnection' -ErrorAction SilentlyContinue) {
+            return @{ Pid = 0; Method = 'none' }
+        }
     } catch { }
 
     # Fallback for a host without the TCP cmdlets: read-only netstat parse.
@@ -389,12 +653,20 @@ function Write-JccOwnershipMarker {
         [string]$PythonExe,
         [string]$Root,
         [int]$LauncherPid = 0,
-        [int]$ServicePid = 0
+        [int]$ServicePid = 0,
+        [string]$Config = '',
+        [string]$CreatedBy = ''
     )
 
     # `pid` / `service_pid` are the SERVICE process: the one that actually holds
     # the listening socket. `launcher_pid` is the process the launching script
     # started and that owns the redirected log handles.
+    # -Config lets a second instance (e.g. v1.2 on port 4779) record its OWN
+    #   config file in the marker instead of the default config\jcc.yaml; the
+    #   default is unchanged so the GREEN launcher's behaviour is identical.
+    # -CreatedBy records which launcher wrote the marker (default start.ps1).
+    $configField = if ($Config) { $Config } else { (Join-Path $Root 'config\jcc.yaml') }
+    $createdByField = if ($CreatedBy) { $CreatedBy } else { 'scripts/start.ps1' }
     $marker = [ordered]@{
         service        = 'jcc-core'
         pid            = (Get-JccPidFromFile -Paths $Paths)
@@ -410,9 +682,9 @@ function Write-JccOwnershipMarker {
         module         = 'jcc_core.run'
         port           = $Port
         host           = '127.0.0.1'
-        config         = (Join-Path $Root 'config\jcc.yaml')
+        config         = $configField
         platform       = 'windows'
-        created_by     = 'scripts/start.ps1'
+        created_by     = $createdByField
     }
 
     if (-not (Test-Path -LiteralPath $Paths.Runtime)) {
@@ -539,6 +811,11 @@ function Invoke-JccHealth {
         $req.ReadWriteTimeout = [int][Math]::Max(1000, $TimeoutMs)
         $req.AllowAutoRedirect = $false
         $req.KeepAlive = $false
+        # Loopback health checks must bypass any system HTTP proxy (this host
+        # runs a v2rayN proxy that otherwise swallows 127.0.0.1:<port> and
+        # returns a misleading HTTP 502 instead of "no listener"). An empty proxy
+        # forces a direct connection to localhost.
+        try { $req.Proxy = [System.Net.GlobalProxySelection]::GetEmptyWebProxy() } catch { }
     } catch {
         $res.Error = 'cannot build request: ' + $_.Exception.Message
         return $res
@@ -612,14 +889,37 @@ function Get-JccTail {
 }
 
 function Get-JccElapsed {
-    param([datetime]$Since)
+    param([datetime]$Since, [datetime]$Now)
     if (-not $Since) { return '( unknown )' }
+    if (-not $Now) { $Now = Get-Date }
     try {
-        $d = (Get-Date) - $Since
+        $d = $Now - $Since
         if ($d.TotalMilliseconds -lt 0) { $d = New-TimeSpan -Seconds 0 }
-        $totalSec = [int]$d.TotalSeconds
-        $hh = [int]($totalSec / 3600)
-        $mm = [int](($totalSec % 3600) / 60)
+
+        # TRUNCATE, never round.
+        #
+        # MEASURED DEFECT (2026-09-27): this used to be
+        #     $totalSec = [int]$d.TotalSeconds
+        #     $hh = [int]($totalSec / 3600)
+        #     $mm = [int](($totalSec % 3600) / 60)
+        # In PowerShell a [int] cast applied to a DOUBLE does NOT truncate -- it
+        # rounds (banker's rounding, via Convert.ToInt32). Measured on this host
+        # with the live service: an elapsed time of 31033.3186547s -- plainly
+        # 8h37m13s -- was printed as "09h37m13s", because 31033/3600 = 8.6203
+        # rounds UP to 9. The same is true of the minutes: a remainder of 34m45s
+        # (34.75) was printed as "35m".
+        #
+        # So the reading was silently ONE HOUR LONG whenever the minute
+        # remainder passed 30 -- an uptime that jumps forward by an hour on its
+        # own, which is precisely the "impossible uptime" this was reported for.
+        # It also made the bug invisible in exactly the common case: a service
+        # restarted within the last half hour shows the right hour, so a quick
+        # check after a restart passes and the drift only appears later.
+        #
+        # [math]::Floor keeps it a truncation all the way down.
+        $totalSec = [int][math]::Floor($d.TotalSeconds)
+        $hh = [int][math]::Floor($totalSec / 3600)
+        $mm = [int][math]::Floor(($totalSec % 3600) / 60)
         $ss = $totalSec % 60
         return ('{0:d2}h{1:d2}m{2:d2}s' -f $hh, $mm, $ss)
     } catch {
@@ -633,6 +933,118 @@ function New-JccEnsureDir {
     if (-not (Test-Path -LiteralPath $Path)) {
         New-Item -ItemType Directory -Path $Path -Force | Out-Null
     }
+}
+
+function Get-JccUptimeReading {
+    <#
+        The one definition of "how long has the service been up".
+
+        SOURCE PRECEDENCE (and the order is the point):
+          1. Get-Process(<service pid>).StartTime  -- authoritative
+          2. Win32_Process.CreationDate            -- cross-check ONLY
+          3. the ownership marker                  -- provenance ONLY, never a source
+
+        WHY THE MARKER MAY NOT BE A SOURCE. It is written by start.ps1 a moment
+        AFTER the process already exists (measured here: process 22:18:17.865,
+        marker 22:18:20.005 -- 2.14 s later), and it is a file: it can be copied,
+        edited, or restored from a backup. Uptime is a property of the LIVE
+        PROCESS, so a file must never be allowed to answer for it. The marker
+        still proves identity ("this is the process we started"), which is what
+        it is good at.
+
+        WHY THE RESULT CANNOT CHANGE UP/DOWN. Warnings here are observations
+        about the CLOCKS, not about the service. A drifted marker or a skewed CIM
+        reading says "I do not trust my own instrumentation", never "the service
+        is down"; misreading it as the latter would mark a healthy service DOWN.
+
+        Pure: takes timestamps, returns a reading. Testable without a service.
+    #>
+    param(
+        [System.Nullable[datetime]]$ProcessStart,
+        [System.Nullable[datetime]]$CimCreation,
+        [System.Nullable[datetime]]$MarkerStart,
+        [System.Nullable[datetime]]$Now,
+        [int]$SourceSkewWarnSec = 5,
+        [int]$MarkerDriftWarnSec = 30
+    )
+
+    if (-not $Now) { $Now = Get-Date }
+
+    $warnings = New-Object System.Collections.Generic.List[string]
+    $uptime = '-'
+    $source = 'none'
+
+    if ($ProcessStart) {
+        $uptime = (Get-JccElapsed -Since $ProcessStart -Now $Now)
+        $source = 'process'
+    } elseif ($CimCreation) {
+        $uptime = (Get-JccElapsed -Since $CimCreation -Now $Now)
+        $source = 'cim'
+        $warnings.Add('UPTIME_SOURCE_WARNING: Get-Process(StartTime) was unavailable, so uptime was read from Win32_Process.CreationDate instead. That is the cross-check, not the authoritative source.')
+    } else {
+        $warnings.Add('UPTIME_SOURCE_WARNING: neither Get-Process(StartTime) nor Win32_Process.CreationDate could be read, so uptime is unknown. It is deliberately NOT taken from the ownership marker.')
+    }
+
+    $skew = $null
+    if ($ProcessStart -and $CimCreation) {
+        $skew = [math]::Abs((($CimCreation - $ProcessStart).TotalSeconds))
+        if ($skew -gt $SourceSkewWarnSec) {
+            $warnings.Add(('UPTIME_SOURCE_WARNING: Get-Process(StartTime) and Win32_Process.CreationDate disagree by {0:N1}s (tolerance {1}s). The process reading is authoritative and was used; the CIM reading is reported for diagnosis only.' -f $skew, $SourceSkewWarnSec))
+        }
+    }
+
+    $drift = $null
+    if ($ProcessStart -and $MarkerStart) {
+        $drift = [math]::Abs((($MarkerStart - $ProcessStart).TotalSeconds))
+        if ($drift -gt $MarkerDriftWarnSec) {
+            $warnings.Add(('UPTIME_SOURCE_WARNING: the ownership marker says the service started {0:N1}s away from when the process was actually created (tolerance {1}s). The marker proves identity, not uptime, so uptime was NOT taken from it -- but the marker may be stale or from a different instance.' -f $drift, $MarkerDriftWarnSec))
+        }
+    }
+
+    return @{
+        Uptime       = $uptime
+        Source       = $source
+        Warnings     = @($warnings)
+        SkewSec      = $skew
+        MarkerDriftSec = $drift
+        NowIso       = $Now.ToString('o')
+        ProcessStartIso = $(if ($ProcessStart) { $ProcessStart.ToString('o') } else { '' })
+        CimCreationIso  = $(if ($CimCreation)  { $CimCreation.ToString('o') }  else { '' })
+        MarkerStartIso  = $(if ($MarkerStart)  { $MarkerStart.ToString('o') }  else { '' })
+    }
+}
+
+function Get-JccNextHint {
+    <#
+        What to run next, given what we just measured.
+
+        The old doctor printed "next: .\scripts\start.ps1" unconditionally, so a
+        host where the service was already UP was told to start it again -- a
+        hint that, taken literally, is a maintenance restart of a healthy
+        instance. Worse, it was printed even when the port was held by a FOREIGN
+        process, where start.ps1 would refuse (and where telling an operator to
+        cover someone else's listener is actively unsafe).
+
+        Pure: takes a port state, returns the hint. Testable without a service.
+    #>
+    param(
+        [ValidateSet('OURS','FREE','FOREIGN')]
+        [string]$PortState,
+        [int]$ForeignPid = 0
+    )
+
+    switch ($PortState) {
+        'OURS' {
+            return 'none -- JCC is already running (verify with .\scripts\status.ps1)'
+        }
+        'FREE' {
+            return '.\scripts\status.ps1  (or start it with .\scripts\start.ps1)'
+        }
+        'FOREIGN' {
+            return ('do NOT run .\scripts\start.ps1 -- port is held by foreign pid ' + $ForeignPid + '; identify it first with .\scripts\status.ps1')
+        }
+    }
+    return '.\scripts\status.ps1'
 }
 
 # NOTE: this file is DOT-SOURCED by every scripts\*.ps1, not imported as a module,

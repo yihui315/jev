@@ -1,0 +1,504 @@
+{
+  "authority_model": {
+    "can_promote_to_verified": [
+      "MEASURED",
+      "OFFICIAL_ACCOUNT_DOC",
+      "OFFICIAL_PUBLIC"
+    ],
+    "levels": [
+      "OFFICIAL_PUBLIC",
+      "OFFICIAL_ACCOUNT_DOC",
+      "LOCAL_CONFIG",
+      "MEASURED",
+      "ASSUMED",
+      "UNKNOWN"
+    ],
+    "rule": "Only OFFICIAL_PUBLIC / OFFICIAL_ACCOUNT_DOC / MEASURED can make a field VERIFIED. LOCAL_CONFIG proves only that this project was once configured that way; ASSUMED is a guess and may never back a production RealProvider field."
+  },
+  "credential_evidence": {
+    "dotenv_key_names": {
+      ".env": {
+        "key_names": [
+          "JCC_CONFIG",
+          "JCC_CONTROL_TOKEN",
+          "JCC_PROVIDER",
+          "JEV_API_KEY"
+        ],
+        "state": "PRESENT"
+      },
+      "config/.env": {
+        "state": "ABSENT"
+      },
+      "config/.env.example": {
+        "key_names": [
+          "JCC_CONFIG",
+          "JCC_CONTROL_TOKEN",
+          "JCC_PROVIDER",
+          "JEV_API_KEY"
+        ],
+        "state": "PRESENT"
+      }
+    },
+    "env_presence": {
+      "ANTHROPIC_API_KEY": {
+        "state": "ABSENT"
+      },
+      "JCC_CONTROL_TOKEN": {
+        "state": "ABSENT"
+      },
+      "JCC_DIRECTIVE_SIGNING_KEY": {
+        "state": "ABSENT"
+      },
+      "JEV_API_KEY": {
+        "state": "ABSENT"
+      },
+      "JEV_TOKEN": {
+        "state": "ABSENT"
+      },
+      "OPENAI_API_KEY": {
+        "state": "ABSENT"
+      },
+      "OPENROUTER_API_KEY": {
+        "state": "ABSENT"
+      },
+      "TYPESAFE_API_KEY": {
+        "state": "ABSENT"
+      },
+      "TYPESAFE_API_TOKEN": {
+        "state": "ABSENT"
+      },
+      "TYPESAFE_TOKEN": {
+        "state": "ABSENT"
+      }
+    },
+    "file_presence": {
+      ".env": {
+        "is_file": true,
+        "state": "PRESENT"
+      },
+      ".workbuddy/settings.json": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.claude/settings.json": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.codex/config.toml": {
+        "is_file": true,
+        "state": "PRESENT"
+      },
+      "C:/Users/Administrator/.config/typesafe/config.json": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.hermes/config.yaml": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.typesafe/config": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.typesafe/credentials": {
+        "state": "ABSENT"
+      },
+      "C:/Users/Administrator/.workbuddy/settings.json": {
+        "is_file": true,
+        "state": "PRESENT"
+      },
+      "C:/Users/Administrator/AppData/Roaming/typesafe/config.json": {
+        "state": "ABSENT"
+      },
+      "config/.env": {
+        "state": "ABSENT"
+      },
+      "config/.env.example": {
+        "is_file": true,
+        "state": "PRESENT"
+      }
+    },
+    "git_tracked_secret_scan": {
+      "state": "CLEAN",
+      "tracked_file_count": 689
+    },
+    "note": "Presence only. No credential value is read, stored or published. Length buckets are coarse by construction.",
+    "real_provider_api_key_env": "JEV_API_KEY",
+    "real_provider_credential_present": false
+  },
+  "decision": {
+    "actuation_enabled": false,
+    "note": "PENDING_EXTERNAL_ACTIVATION is a lawful, SAFE end state, not a project failure: the engineering line continues on MOCK / REPLAY / DISABLED and the shadow plane.",
+    "provider_mode": "REAL",
+    "provider_verified": false,
+    "real_jev": "PENDING_EXTERNAL_ACTIVATION",
+    "reasons": [
+      "transport_not_implemented",
+      "credential_absent(JEV_API_KEY)",
+      "interface_field_critical_unverified:endpoint_path",
+      "interface_field_critical_unverified:http_method",
+      "interface_field_critical_unverified:api_version",
+      "interface_field_critical_unverified:auth_header_syntax",
+      "interface_field_critical_unverified:model_identifier",
+      "interface_field_critical_unverified:request_schema",
+      "interface_field_critical_unverified:response_schema",
+      "interface_field_critical_unverified:timeout_contract",
+      "interface_field_critical_unverified:error_schema",
+      "interface_field_critical_unverified:idempotency_semantics"
+    ]
+  },
+  "discipline_notes": [
+    "The interface card is code (packages/jcc_core/providers/real.py); this file is a serialisation of it, so the two cannot disagree.",
+    "RealProvider.verified is computed as TRANSPORT_IMPLEMENTED AND all_critical_verified() -- two independent locks. A fully verified card alone still cannot open the wire.",
+    "No mock, replay or disabled provider may report provider_mode=REAL or provider_is_real=true; pinned by tests/test_provider_mode_contract.py."
+  ],
+  "do_not_guess": {
+    "fields": [
+      "exact API route",
+      "HTTP method",
+      "API version",
+      "Authorization header syntax",
+      "model identifier",
+      "request JSON schema",
+      "response JSON schema",
+      "batch semantics",
+      "timeout contract",
+      "retry contract",
+      "error schema",
+      "rate-limit headers",
+      "usage response fields",
+      "billing / credit response fields",
+      "idempotency semantics"
+    ],
+    "note": "These are NOT known. No default was invented for any of them, and https://api.typesafe.ai was NOT expanded into a guessed path."
+  },
+  "generated_at": "2026-10-04T10:42:04.591284+00:00",
+  "generated_by": "tools/v1_1_emit_real_jev_verification.py",
+  "generated_by_host": "win32",
+  "provider": {
+    "base_url": "https://api.typesafe.ai",
+    "configured_model_label": "jev-1.13.0",
+    "credential_env_name": "JEV_API_KEY",
+    "credential_present": false,
+    "interface": {
+      "all_critical_verified": false,
+      "card_digest_sha256": "fe576fb0e74fdbedce78080b2fa7270f2199f55c231317910136c80a26fc7041",
+      "fields": [
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7)",
+          "field": "vendor",
+          "last_verified_at": "2026-09-27",
+          "note": "Context only: nothing in the request or the response parse depends on the vendor's name.",
+          "status": "VERIFIED",
+          "value": "TypeSafe AI"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7)",
+          "field": "model_family",
+          "last_verified_at": "2026-09-27",
+          "note": "Context only: the family name is not a request parameter (see model_identifier, which IS critical).",
+          "status": "VERIFIED",
+          "value": "System One Models"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7)",
+          "field": "public_model_name",
+          "last_verified_at": "2026-09-27",
+          "note": "Context only: the public NAME is not necessarily the identifier the API wants, which is why model_identifier is separate and critical.",
+          "status": "VERIFIED",
+          "value": "Jev"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7)",
+          "field": "public_availability",
+          "last_verified_at": "2026-09-27",
+          "note": "Informational. Does not gate a request.",
+          "status": "VERIFIED",
+          "value": "Early Access"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7): the HOST exists",
+          "field": "api_host",
+          "last_verified_at": "2026-09-27",
+          "note": "Not a request by itself: the path/method/version below are what actually gate the wire.",
+          "status": "VERIFIED",
+          "value": "api.typesafe.ai"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public product documentation (§7)",
+          "field": "web_console_host",
+          "last_verified_at": "2026-09-27",
+          "note": "Informational. Never contacted by this provider.",
+          "status": "VERIFIED",
+          "value": "console.typesafe.ai"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": true,
+          "evidence": "public product documentation (§7)",
+          "field": "credential_mechanism",
+          "last_verified_at": "2026-09-27",
+          "status": "VERIFIED",
+          "value": "API key"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public pricing page (§7)",
+          "field": "input_pricing",
+          "last_verified_at": "2026-09-27",
+          "note": "Cost model input only; never a request parameter.",
+          "status": "VERIFIED",
+          "value": "USD 0.042 / 1M input tokens"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public pricing page (§7)",
+          "field": "output_pricing",
+          "last_verified_at": "2026-09-27",
+          "note": "Cost model input only; never a request parameter.",
+          "status": "VERIFIED",
+          "value": "free / unmetered"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": true,
+          "evidence": "public product documentation (§7)",
+          "field": "output_paradigm",
+          "last_verified_at": "2026-09-27",
+          "status": "VERIFIED",
+          "value": "typed decisions + probabilities / confidence"
+        },
+        {
+          "authority": "OFFICIAL_PUBLIC",
+          "critical": false,
+          "evidence": "public status page (§7)",
+          "field": "official_api_status",
+          "last_verified_at": "2026-09-27",
+          "note": "A status page is not a contract; it does not gate a request.",
+          "status": "VERIFIED",
+          "value": "operational"
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published in any source consulted (§7F); must NOT be guessed from the verified host name",
+          "field": "endpoint_path",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "http_method",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "api_version",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "credential MECHANISM is verified (API key) but the header FORM is not",
+          "field": "auth_header_syntax",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "public model NAME is verified ('Jev'); the identifier the API expects is not. config/jcc.yaml carries 'jev-1.13.0', which is LOCAL_CONFIG and therefore cannot verify this field",
+          "field": "model_identifier",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "request_schema",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "response_schema",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "timeout_contract",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F)",
+          "field": "error_schema",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": true,
+          "evidence": "not published (§7F); without it a retry can double-charge",
+          "field": "idempotency_semantics",
+          "last_verified_at": null,
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": false,
+          "evidence": "not published (§7F)",
+          "field": "batch_semantics",
+          "last_verified_at": null,
+          "note": "This provider issues ONE envelope per call and has no batch path. Reclassify as critical the day a batch call is added.",
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": false,
+          "evidence": "not published (§7F)",
+          "field": "retry_contract",
+          "last_verified_at": null,
+          "note": "The provider contract forbids automatic retries (§7E: no retry loop that could multiply cost). If a retry policy is ever added, this becomes critical.",
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": false,
+          "evidence": "not published (§7F)",
+          "field": "rate_limit_headers",
+          "last_verified_at": null,
+          "note": "Read-only response metadata. Not knowing it cannot make a single request unsafe, and §18 marks absent usage data USAGE_UNAVAILABLE rather than inventing it.",
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": false,
+          "evidence": "not published (§7F)",
+          "field": "usage_response_fields",
+          "last_verified_at": null,
+          "note": "§18 requires USAGE_UNAVAILABLE when the API omits usage, so a known-absent field is handled, not guessed.",
+          "status": "UNVERIFIED",
+          "value": null
+        },
+        {
+          "authority": "UNKNOWN",
+          "critical": false,
+          "evidence": "not published (§7F)",
+          "field": "billing_response_fields",
+          "last_verified_at": null,
+          "note": "Same as usage_response_fields.",
+          "status": "UNVERIFIED",
+          "value": null
+        }
+      ],
+      "missing_critical": [
+        "endpoint_path",
+        "http_method",
+        "api_version",
+        "auth_header_syntax",
+        "model_identifier",
+        "request_schema",
+        "response_schema",
+        "timeout_contract",
+        "error_schema",
+        "idempotency_semantics"
+      ],
+      "non_verified": [
+        "endpoint_path",
+        "http_method",
+        "api_version",
+        "auth_header_syntax",
+        "model_identifier",
+        "request_schema",
+        "response_schema",
+        "timeout_contract",
+        "error_schema",
+        "idempotency_semantics",
+        "batch_semantics",
+        "retry_contract",
+        "rate_limit_headers",
+        "usage_response_fields",
+        "billing_response_fields"
+      ]
+    },
+    "provider": "real",
+    "provider_activation_state": "PENDING_EXTERNAL_ACTIVATION",
+    "provider_mode": "REAL",
+    "provider_verified": false,
+    "transport_implemented": false,
+    "unmet_requirements": [
+      "transport_not_implemented",
+      "credential_absent(JEV_API_KEY)",
+      "interface_field_critical_unverified:endpoint_path",
+      "interface_field_critical_unverified:http_method",
+      "interface_field_critical_unverified:api_version",
+      "interface_field_critical_unverified:auth_header_syntax",
+      "interface_field_critical_unverified:model_identifier",
+      "interface_field_critical_unverified:request_schema",
+      "interface_field_critical_unverified:response_schema",
+      "interface_field_critical_unverified:timeout_contract",
+      "interface_field_critical_unverified:error_schema",
+      "interface_field_critical_unverified:idempotency_semantics"
+    ]
+  },
+  "repo_branch": "release/jcc-v1.3-final",
+  "repo_head": "d311ef5942047097516b142d9072a4cd10e82180",
+  "schema": "jcc-v1.1-real-jev-verification/1",
+  "smoke": {
+    "allowed_by_section_7E": false,
+    "attempted": false,
+    "closed_gates": [
+      "credential_present",
+      "exact_endpoint_verified",
+      "request_schema_verified",
+      "transport_implemented"
+    ],
+    "decision": "PENDING_EXTERNAL_ACTIVATION",
+    "gates": {
+      "credential_present": false,
+      "exact_endpoint_verified": false,
+      "request_schema_verified": false,
+      "transport_implemented": false
+    },
+    "reason": "§7E permits a real smoke ONLY when the credential is present AND the exact endpoint AND the request schema are VERIFIED. Closed gate(s): `credential_present`, `exact_endpoint_verified`, `request_schema_verified`, `transport_implemented`. No request was issued. Zero calls also means zero cost and zero data exposure.",
+    "requests_issued": 0
+  },
+  "worktree_dirty": true
+}

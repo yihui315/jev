@@ -14,7 +14,7 @@ control:
   token_env: JCC_CONTROL_TOKEN   # read at runtime; unset => control locked (401)
 
 state_store:
-  db_path: F:/jev/runtime/jcc/jcc.db   # gitignored runtime dir; WAL enabled
+  db_path: runtime/jcc/jcc.db   # gitignored runtime dir; WAL enabled; relative to the repo root
 
 jev:
   provider: mock            # mock | disabled | real

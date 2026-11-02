@@ -1,0 +1,36 @@
+[
+  {
+    "CAUGHT": true,
+    "attacks": "the repair half",
+    "exit_code": 0,
+    "expect": "import restored on disk, file changed, exit 0",
+    "file_changed_on_disk": true,
+    "flagged": [],
+    "import_present_after": true,
+    "name": "M1 remove `from pathlib import Path` (repair-forcing)",
+    "stderr_tail": "",
+    "summary": "changed=1 skipped=0 failed=0"
+  },
+  {
+    "CAUGHT": true,
+    "attacks": "the detection half (the near-miss)",
+    "exit_code": 1,
+    "expect": "listed as FAILED, exit != 0",
+    "file_changed_on_disk": false,
+    "flagged": [
+      "FAILED  jcc_continuation.py -> `Path` still not bound at module scope"
+    ],
+    "import_present_after": true,
+    "name": "M2 `Path` imported only under TYPE_CHECKING (near-miss)",
+    "stderr_tail": "",
+    "summary": "changed=0 skipped=1 failed=1"
+  },
+  {
+    "attacks": "the falsifier's own honesty guard",
+    "exit_code": 1,
+    "expect": "an unattainable journal_mode is no longer refused",
+    "guard_removed": false,
+    "name": "M3 falsifier's journal-mode VACUOUS guard removed",
+    "note": "INFO only -- it is a statement about my guard, not a PASS/FAIL"
+  }
+]

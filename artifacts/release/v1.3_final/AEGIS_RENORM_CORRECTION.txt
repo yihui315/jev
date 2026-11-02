@@ -1,0 +1,138 @@
+AEGIS NORMALISATION CORRECTION
+========================================================================
+
+LINE-ENDING RULE, REVISED (2026-10-05): the `sed` line above is NOT the rule
+--------------------------------------------------------------------------
+weaver retracted his equivalence claim and is right. Measured with the REAL
+GNU sed 4.9 binary, exhaustive over {a,CR,LF} lengths 1..3:
+
+    sed 's/\r$//'  ->  7 size-preserving collisions  (masks real damage)
+    replace(CRLF,LF)->  1 collision                  (0d0a0a <-> 0a0d0a)
+
+`sed` removes a CR that ends a line whether or not it was paired with an LF, so
+CRLF and LF-CR normalise the same. Treat `sed 's/\r$//'` as a READING AID for
+a human, never as a decision rule.
+
+`b.replace(b"\r\n", b"\n")` is the better normalisation, and it is what the
+python paths in this repository use -- but it is NOT collision-free either: a
+CR/LF transposition survives it. The only sound test for size-preserving damage
+is a RAW byte comparison. Any normalisation is a lossy projection and belongs
+in the evidence, not in the verdict.
+READ THIS FIRST: every `tr -d '\r'` string below is EVIDENCE OF A DEFECT,
+never a recipe. I actually ran that command and it produced a false MATCH.
+
+The correct normalisation, stated once so you need not infer it:
+
+      b.replace(b"\r\n", b"\n")                 # python  <- authoritative
+      sed 's/\r$//'                             # shell -- READING AID ONLY -- READING AID ONLY
+      #   ^ NOT a decision rule: 7 size-preserving collisions, measured with
+      #     the real sed 4.9 binary. Use raw compare to decide.
+
+  [2026-10-05 amend, rulings-fix] The python line was always right and is
+  unchanged. The shell line is the POSIX-correct form: sed's pattern space holds
+  the line WITHOUT its trailing newline, so `s/\r$//` removes exactly the CR of a
+  CRLF pair and leaves an in-band CR alone.
+
+  [2026-10-05 amend #2, rulings-fix -- WITHDRAWN, kept for the record]
+  I first replaced the shell line with `sed 's/\r\n/\n/g'` and claimed
+  `s/\r$//` "still masks" a doubled CR at EOL. **That was wrong.**
+  Proof the script is inert on this host:
+      printf 'ab\r\r\n' > p.bin
+      sed ''             p.bin | od -An -tx1   ->  61 62 0d 0a
+      sed 's/\r\n/\n/g'  p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+  The canonical bytes came from GNU sed's LINE READER (this MSYS build strips the
+  CR of a trailing CRLF), not from the script. On a POSIX sed the two-byte CRLF
+  can never occur inside a pattern space, so that script CANNOT EVER FIRE -- it
+  would be a no-op reporting DIFFER for every ordinary CRLF file.
+  (POSIX half reasoned from documented sed semantics, NOT executed: wsl.exe is
+  blocked by policy on this host -> UNVERIFIED here.)
+  The "doubled CR is masked" claim was an artifact of the same reader: it had
+  already removed one CR, so `s/\r$//` removed a second. Proof: 3 CRs in, 1 out
+  (a correct run leaves 2):
+      printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+  OPEN (owner: team-lead): on this MSYS host the reader plus `s/\r$//` compose to
+  strip up to TWO CRs at EOL, so "ab\r\r\n" is MATCH here where python says
+  DIFFER. To catch that shape host-independently, use the python form or
+  tools/inc002_tree_check.py -- do NOT switch to a different sed script.
+
+  Canonical rule: adjudication #21 in ORION_ADJUDICATIONS.md.
+
+Do NOT use any `tr -d '\r'` form quoted below. Rewriting those quotes into
+the correct form would make this document lie about its own history -- it is a
+record of a mistake, and the mistake is the content. The live, copy-pasteable
+recipe that genuinely needed fixing was in AEGIS_SHA_CORRECTION.txt:25-26,
+corrected in commit 85302ea with an inline DO NOT comment. This file has zero
+code fences and no shell lines; every `tr -d` below sits inside a sentence that
+names it as the wrong form, and lines 30-31 are the byte-level evidence that it
+is wrong.
+
+generated=2026-10-05T10:50:28.4505638+08:00
+reason=weaver corrected the INC-002 rule; tr -d '\r' is a FALSE NEGATIVE
+
+WHAT WAS WRONG
+--------------------------------------------------------------------------
+I verified my own three artefacts using  tr -d '\r'  and reported MATCH.
+      b.replace(b"\r\n", b"\n")                 # python
+      sed 's/\r$//'                             # shell
+
+Rewriting the `tr -d '\r'` mentions below into the correct form would make this
+document lie: it is a record of a mistake, and the mistake is the content. The
+live, copy-pasteable recipe that DID need fixing was in
+AEGIS_SHA_CORRECTION.txt:25-26; that one is corrected in commit 85302ea, and it
+now carries an inline DO NOT comment. This file contains no runnable recipe --
+it has zero code fences, and every `tr -d` below sits in a sentence that names
+it as the wrong form.
+
+weaver showed that rule deletes EVERY CR, not just the CRLF one, so an
+in-band CR injection normalises to the same bytes as a clean file.
+
+  HEAD 'ab\r\n'   -> tr -d CR: 61 62 0a
+  WORK 'a\rb\r\n' -> tr -d CR: 61 62 0a   => MATCH  (real damage hidden)
+                    sed s/\r$//: 61 0d 62 0a => DIFFER  (correctly caught)
+
+CONFIRMED on this host, independently reproduced (VERIFIED).
+
+MY VERDICTS RE-RUN UNDER THE CORRECT RULE (CRLF-only, lone CR preserved)
+--------------------------------------------------------------------------
+  HOST_PREFLIGHT.json      normalised=MATCH  zeroed=no  lone_CR=0
+  SECURITY_FINAL.json      normalised=MATCH  zeroed=no  lone_CR=0
+  AEGIS_SHA_CORRECTION.txt normalised=MATCH  zeroed=no  lone_CR=0
+
+Both rules agree on all three, so NO verdict of mine changes. They were
+right by luck rather than by correctness: the tree happens to contain no
+lone CR, and on such a tree the unsound rule and the sound rule coincide.
+A correct conclusion reached by an unsound method is not a verified result.
+
+MY OWN SECOND ERROR, IN THE CORRECTION ITSELF
+--------------------------------------------------------------------------
+The first version of this re-check reported 'SECURITY_FINAL.json: 355 lone
+CR'. That was my bug: the CR count was compared against a shell-escaped
+b'\\r\\n' (a literal 4-byte backslash sequence) instead of the real CRLF
+pair, so every CR looked lone. Re-measured counting bytes directly: 355 CR,
+355 CRLF pairs, 0 lone. The file was never damaged.
+
+TREE-WIDE EXPOSURE (measured, byte-level, not via grep)
+--------------------------------------------------------------------------
+  git grep -P '\r(?!\n)' flagged 32 files.
+  Direct byte count: 32/32 have lone_CR = 0.
+  So the flag is a FALSE POSITIVE of the grep pattern on this tree, not
+  evidence of in-band CR anywhere. Confirmed by strict json.loads on both
+  of my JSON artefacts and by a CRLF-free canonical re-serialisation.
+
+NOTE ON weaver's ERROR 1, WHICH I ALSO REPEATED
+--------------------------------------------------------------------------
+I had passed on 'use cat-file -p, not git show, because git show may mask
+(a)'. Independently measured: both return 26d9cd51e4458837 / 45366 B,
+byte-identical. cat-file -p is only clearer about intent. I withdraw the
+stronger claim.
+
+CONCLUSION
+--------------------------------------------------------------------------
+No security verdict changes. security stays GO_WITH_CONDITIONS. K section
+stays 16/16 PASS. The correction is to the METHOD and to two claims I had
+forwarded, not to any finding.
+
+REPRODUCE
+--------------------------------------------------------------------------
+  python runtime/_aegis_probe_renorm.py     # both rules side by side
+  python runtime/_aegis_probe_lonecr.py     # byte-level lone-CR count

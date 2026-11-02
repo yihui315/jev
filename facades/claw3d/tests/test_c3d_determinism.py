@@ -25,7 +25,7 @@ def _session(session_id: str, band: str, score: float, action: DirectiveAction) 
         session_id=session_id,
         agent=AgentName.WORKBUDDY,
         project="jev",
-        cwd="F:\\jev",
+        cwd=r"C:\some\checkout",
         status=SessionStatus.AWAIT,
         created_at=1700000000.0,
         updated_at=1700000005.0,

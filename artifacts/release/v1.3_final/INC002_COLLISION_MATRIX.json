@@ -1,0 +1,161 @@
+{
+  "filters": {
+    "alphabet": "bytes {a=0x61, CR=0x0d, LF=0x0a}",
+    "lengths": "1..3 bytes (inclusive), all combinations",
+    "pairing": "reported BOTH unordered (combinations) and ordered (permutations)",
+    "size_filter": "ONLY pairs where len(head) == len(work) -- INC-002's defining shape",
+    "collision": "rule(head) == rule(work)  (i.e. the rule maps DIFFERENT bytes to the SAME output)",
+    "dedup": "none -- every distinct byte-pair is counted once per pairing mode",
+    "sed": "GNU sed, script 's/\\r$//', fed via stdin (verified by control)"
+  },
+  "control": {
+    "input": "61 6c 70 68 61 0d 0a 62 65 74 61 0d 0a",
+    "expected": "61 6c 70 68 61 0a 62 65 74 61 0a",
+    "per_rule": {
+      "tr -d CR": "61 6c 70 68 61 0a 62 65 74 61 0a",
+      "sed s/\\r$//": "61 6c 70 68 61 0a 62 65 74 61 0a",
+      "replace CRLF,LF": "61 6c 70 68 61 0a 62 65 74 61 0a"
+    },
+    "all_functional": true
+  },
+  "payload_count": 39,
+  "size_preserving_ordered_pairs": 780,
+  "per_rule": {
+    "tr -d CR": {
+      "unordered_count": 20,
+      "ordered_count": 40,
+      "unordered_pairs": [
+        [
+          "61 0d",
+          "0d 61"
+        ],
+        [
+          "0d 0a",
+          "0a 0d"
+        ],
+        [
+          "61 61 0d",
+          "61 0d 61"
+        ],
+        [
+          "61 61 0d",
+          "0d 61 61"
+        ],
+        [
+          "61 0d 61",
+          "0d 61 61"
+        ],
+        [
+          "61 0d 0d",
+          "0d 61 0d"
+        ],
+        [
+          "61 0d 0d",
+          "0d 0d 61"
+        ],
+        [
+          "61 0d 0a",
+          "61 0a 0d"
+        ],
+        [
+          "61 0d 0a",
+          "0d 61 0a"
+        ],
+        [
+          "61 0a 0d",
+          "0d 61 0a"
+        ],
+        [
+          "0d 61 0d",
+          "0d 0d 61"
+        ],
+        [
+          "0d 0d 0a",
+          "0d 0a 0d"
+        ],
+        [
+          "0d 0d 0a",
+          "0a 0d 0d"
+        ],
+        [
+          "0d 0a 61",
+          "0a 61 0d"
+        ],
+        [
+          "0d 0a 61",
+          "0a 0d 61"
+        ],
+        [
+          "0d 0a 0d",
+          "0a 0d 0d"
+        ],
+        [
+          "0d 0a 0a",
+          "0a 0d 0a"
+        ],
+        [
+          "0d 0a 0a",
+          "0a 0a 0d"
+        ],
+        [
+          "0a 61 0d",
+          "0a 0d 61"
+        ],
+        [
+          "0a 0d 0a",
+          "0a 0a 0d"
+        ]
+      ],
+      "printable_involving_count": 13
+    },
+    "sed s/\\r$//": {
+      "unordered_count": 7,
+      "ordered_count": 14,
+      "unordered_pairs": [
+        [
+          "0d 0a",
+          "0a 0d"
+        ],
+        [
+          "61 0d 0a",
+          "61 0a 0d"
+        ],
+        [
+          "0d 0d 0a",
+          "0d 0a 0d"
+        ],
+        [
+          "0d 0a 61",
+          "0a 61 0d"
+        ],
+        [
+          "0d 0a 0a",
+          "0a 0d 0a"
+        ],
+        [
+          "0d 0a 0a",
+          "0a 0a 0d"
+        ],
+        [
+          "0a 0d 0a",
+          "0a 0a 0d"
+        ]
+      ],
+      "printable_involving_count": 2
+    },
+    "replace CRLF,LF": {
+      "unordered_count": 1,
+      "ordered_count": 2,
+      "unordered_pairs": [
+        [
+          "0d 0a 0a",
+          "0a 0d 0a"
+        ]
+      ],
+      "printable_involving_count": 0
+    }
+  },
+  "safe_rules": [
+    "replace CRLF,LF"
+  ]
+}

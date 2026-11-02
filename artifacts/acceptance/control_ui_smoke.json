@@ -6,9 +6,9 @@
     "fixtures": "fixtures/demo/manifest.json",
     "fixtures_sha256": "17f9ad3893e71a2e52c47a667d2ae9d6c05f4c01387ca92bfde97b4757ceca5f",
     "generator": "apps/control_ui/acceptance.py",
-    "generator_sha256": "9dfd55aa5c52f06c04ede459e39cb3a815af221582a890b36e40f3525146401b",
+    "generator_sha256": "b49fa6f8cc2037625cd596aa9727dfe54407d1547548f79b5024a8ca5d1bdd9b",
     "renderer": "apps/control_ui/render.py",
-    "renderer_sha256": "fcabe1618ef9f125b5c664b133e00ac5278cf721c8c44182b271685765211693"
+    "renderer_sha256": "3c8531a62587408b7cf4c35c32c8ad1787be9cc9111518234d97da9ce4748601"
   },
   "schema": "jcc-control-ui-smoke/3",
   "screens": [

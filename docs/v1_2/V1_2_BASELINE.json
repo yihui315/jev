@@ -1,0 +1,88 @@
+{
+  "schema": "jcc-v1.2-baseline/1",
+  "captured_by": "Orion (v1.2 Visual Command Center takeover)",
+  "captured_at": "2026-09-28T07:00:00+08:00",
+  "purpose": "Immutable read-only snapshot of GREEN (frozen v1.0.1 service) and v1.1 release state BEFORE any v1.2 change. Used by the GREEN Protection Gate (Wave 35) to prove before==after.",
+  "baseline_ref": "jcc-v1.1-local",
+  "baseline_sha": "651c8a075a587a0bf4ce31c90e738015617ca0d9",
+  "v1_2_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_freeze_sha": "4925bb4e917c274c127878b58c2367b272310591",
+  "release_rollback_sha": "5ab5e20d961db4c9807f578195ae8530dea2f7d9",
+  "v1_1_verification": {
+    "final_gate_project_complete": true,
+    "project_run_gate": "PASS",
+    "local_tag": "jcc-v1.1-local",
+    "note": "v1.1 acceptance closed: two real gates green, local tag created, no push to remote."
+  },
+  "green_protection": {
+    "service": "jcc-core",
+    "pid": 7588,
+    "port": 4778,
+    "host": "127.0.0.1",
+    "start_time": "2026-09-27T22:39:01Z",
+    "config": "F:/jev/config/jcc.yaml",
+    "ownership_marker": "F:/jev/runtime/jcc/jcc.ownership.json",
+    "health_before": {
+      "status": "ok",
+      "jev_provider": "mock",
+      "actuation_enabled": false,
+      "policy_version": "p3.0.0",
+      "localhost_only": true,
+      "wal": true,
+      "open_get_endpoints": [
+        "/api/health",
+        "/api/sessions",
+        "/api/sessions/{sid}",
+        "/api/audit",
+        "/api/decisions",
+        "/api/audit/verify"
+      ]
+    },
+    "db": {
+      "path": "F:/jev/runtime/jcc/jcc.db",
+      "size_bytes": 57344,
+      "mtime": "2026-09-25T18:10:20",
+      "wal_sidefile_present": false,
+      "shm_sidefile_present": false,
+      "integrity_check_method": "file metadata only; database NOT opened or written (read-only protection)",
+      "touched_during_v1_2": false
+    },
+    "forbidden_operations": [
+      "git reset GREEN",
+      "stop GREEN",
+      "restart GREEN",
+      "kill GREEN process (pid 7588)",
+      "write to GREEN runtime DB (F:/jev/runtime/jcc/jcc.db)",
+      "expose port 4778",
+      "modify config/jcc.yaml for GREEN"
+    ]
+  },
+  "port_plan": {
+    "green_api": 4778,
+    "blue_api_v1_1": 4779,
+    "legacy_ui_v1_1": 4780,
+    "v1_2_dev_ui": 4781,
+    "v1_2_final_ui": 4780,
+    "legacy_ui_route_when_v1_2_final": "/legacy",
+    "note": "v1.2 dev UI on 4781; final v1.2 UI takes 4780 (Legacy UI demoted to /legacy). All bind 127.0.0.1 only."
+  },
+  "isolation_rules": {
+    "v1_2_runtime_dir": "F:/jev/runtime/v1.2/",
+    "v1_2_config": "F:/jev/runtime/v1.2/jcc.v1.2.yaml",
+    "v1_2_db": "F:/jev/runtime/v1.2/jcc.db",
+    "must_not_reuse_green_runtime": [
+      "F:/jev/runtime/jcc/jcc.db",
+      "F:/jev/runtime/jcc/jcc.pid",
+      "F:/jev/runtime/jcc/jcc.ownership.json"
+    ],
+    "must_not_use_generic_start_stop": [
+      "scripts/start.ps1",
+      "scripts/stop.ps1"
+    ]
+  },
+  "wave_ledger_plan": {
+    "MAX_ACTIVE_WORKERS": 4,
+    "waves": 7,
+    "discipline": "each independent stage committed immediately; atomic writes; no 30-60 min pile-up; external credentials/payment/public-deploy/remote-push/production-permission go to PENDING_EXTERNAL_ACTION only."
+  }
+}

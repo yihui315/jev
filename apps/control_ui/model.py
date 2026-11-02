@@ -14,10 +14,13 @@ detail, a "git-test" probe), the model returns ``None`` / an explicit
 """
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
 from control_ui.api_client import ApiClient, ApiError, ApiUnreachable
 from control_ui.api_client import quote as _quote
+from control_ui.paths import REPO_ROOT
 
 
 # --------------------------------------------------------------------------- #
@@ -89,6 +92,37 @@ def _policy_summary(cfg) -> Dict[str, Any]:
     }
 
 
+def _verified_actuable_summary() -> Dict[str, Any]:
+    """Authoritative actuation readiness from the FROZEN §10 capability record.
+
+    This is the single source of truth for "how many agents are actuable", and it
+    is kept deliberately separate from the per-agent ``verified`` flag shown in
+    the dashboard agent table. That flag means the P2 capability *surface* probe
+    passed (adapter present, AEP wired) -- NOT that the agent is actuation-
+    capable. Collapsing the two is Defect A: a reader who sees ``verified=True``
+    on all four agents would conclude four agents are actuable, when the frozen
+    record says ``actuable_capability_count=0``. Both values are true and both are
+    shown; they are just different facts.
+    """
+    path = Path(REPO_ROOT) / "artifacts/release/V1_1_CAPABILITY_MATRIX.json"
+    if not path.is_file():
+        return {"available": False, "reason": "artifact_missing",
+                "detail": "artifacts/release/V1_1_CAPABILITY_MATRIX.json"}
+    try:
+        doc = json.loads(path.read_text(encoding="utf-8"))
+    except Exception as exc:  # noqa: BLE001
+        return {"available": False, "reason": "artifact_unreadable",
+                "detail": f"{path.name}: {type(exc).__name__}: {exc}"}
+    summary = doc.get("actuation_summary") or {}
+    agents = doc.get("agents") or {}
+    return {
+        "available": True,
+        "actuable_capability_count": summary.get("actuable_capability_count"),
+        "agent_count": len(agents),
+        "actuable": list(summary.get("actuable") or []),
+    }
+
+
 # --------------------------------------------------------------------------- #
 # per-screen models
 # --------------------------------------------------------------------------- #
@@ -120,6 +154,7 @@ def dashboard_model(api: ApiClient) -> Dict[str, Any]:
         "problems": problems,
         "session_count": len(sess_list),
         "demo_count": demo_count,
+        "verified_actuable": _verified_actuable_summary(),
     }
 
 

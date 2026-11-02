@@ -1,0 +1,77 @@
+P3 (CR-H5) + P4 (CR-H6) — DELIVERY RECORD
+========================================
+Owner: forge2. Spec: docs/P3_P4_SPEC.md sections 2 and 3.
+Commit: d012509472d12163bdc13e395bd485d8fbb20787
+Base:  590ecf36 (risk1-scope RISK-1), which unblocked server.py.
+
+FILES CHANGED (2, nothing else)
+  M packages/jcc_core/server.py                                  (+68/-2)
+  A packages/jcc_core/tests/test_cr_h5_h6_control_token_gate.py   (+273)
+
+CHANGES
+  P3  health() now returns "control_token_configured": bool, computed by a
+      named helper _control_token_configured() = bool(os.environ.get(
+      config.control_token_env)). The token VALUE is never read into the body.
+  P4  Both compare_digest call sites encode to bytes:
+        require_control_token()  — was HTTP 500 on non-ASCII
+        ws_endpoint()            — was an aborted handshake on non-ASCII
+      The "not expected or not token" short-circuit is preserved exactly, so an
+      unconfigured token is still 401 and a missing token is never encoded.
+
+ACCEPTANCE (all three spec rows, measured through a raw ASGI scope)
+  non-ASCII token -> HTTP 403      correct ASCII -> HTTP 200
+  wrong ASCII     -> HTTP 403      unconfigured  -> HTTP 401
+
+FALSIFIABILITY (both directions executed)
+  Pre-fix (server.py at 590ecf3), same scope:
+      non-ASCII     -> RAISED TypeError: comparing strings with non-ASCII ...
+      correct ASCII -> HTTP [200]
+  Post-fix:
+      non-ASCII     -> HTTP [403]
+  Whole test file at HEAD: 5 failed / 2 passed.  With the fix: 7 passed.
+  The 2 that pass either way are the ASCII controls, which must not move.
+
+WHY RAW ASGI INSTEAD OF TestClient FOR THE NON-ASCII CASE
+  Measured: httpx raises UnicodeEncodeError ('ascii' codec) before the request
+  leaves the test process, so a non-ASCII token cannot be SENT via TestClient at
+  all. Such a test would fail in the transport layer, never reach the gate, and
+  could go green for the wrong reason. ASCII cases still use TestClient.
+
+SUITE RESULTS
+  packages/jcc_core/tests/ (full, no --basetemp)
+    -> 836 passed, 2 failed in 1207.88s (exit 1)
+    - test_p2_integration_smoke.py::test_http_end_to_end_four_agents_distinct_no_secret_leak
+        claude: {'status': 'spooled', 'reason': 'timed out'}
+        NOT MINE: that file contains zero references to control_token_configured,
+        compare_digest or X-JCC-Token. It drives REAL agent notification
+        delivery and fails on a spool timeout against a live adapter.
+    - test_p3_acceptance_gate.py::test_A8_negative_control_enabled_without_allowlist
+        "A8: 2 of 12 PINNED production artifacts have moved"
+        EXPECTED BY DESIGN: server.py is in the pinned set and this commit
+        changes it. config.py moved via 590ecf3 (RISK-1). Pin re-baselining is
+        the lead's task; this commit does NOT touch _BASELINE_HASHES.
+  Adjacent, run separately: 60 passed
+    (test_server_surface.py + test_project_scope_v1_3.py + my new file)
+  test_server_surface.py enforces the open-GET declaration and passed, so
+  adding a field to /api/health did not perturb the declared surface.
+
+EXCLUDED FROM THE RUN (not mine, in flight, broken at collection)
+  test_deliverables_v1_3.py, test_domain_counts_v1_3.py
+    ImportError: cannot import name 'E2E_CONTROL_TOKEN' from 'conftest'
+    Proven NOT mine: at 590ecf3 neither file references E2E_CONTROL_TOKEN, and
+    "E2E_CONTROL_TOKEN" appears in NO commit of packages/conftest.py
+    (git log -S over that path is empty). The import is an uncommitted
+    in-progress rewrite whose header says "Wave 9.3 API tests ... owner: Orion".
+    I did not modify or fix these; they are mid-edit by another member.
+
+A8 / PIN IMPACT (spec section 7 requires this be reported)
+  packages/jcc_core/server.py IS in _PROD_ARTIFACTS. Its hash changed here.
+  config.py changed via 590ecf3. One re-baseline after d012509 should cover both.
+
+DISCIPLINE
+  Zero new dependencies (stdlib only). No drive letters. No importlib/exec_module.
+  No real agent or server process spawned. No git add -A / checkout / restore /
+  stash. Staged with `git add -- <2 files>` and verified with
+  `git diff --cached --name-only` before committing (Addendum 2): exactly two.
+  Scaffolding used for falsifiability was written outside the repo tree
+  (.forge2_probe/) and has been deleted.

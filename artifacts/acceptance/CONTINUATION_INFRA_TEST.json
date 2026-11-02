@@ -1,5 +1,5 @@
 {
-  "check_count": 109,
+  "check_count": 248,
   "checks": [
     {
       "detail": "passed",
@@ -26,10 +26,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: call",
       "name": "test_both_watchdogs_are_registered_as_scheduled_tasks",
       "node_id": "tools/tests/test_continuation_infra.py::test_both_watchdogs_are_registered_as_scheduled_tasks",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -147,6 +147,18 @@
     },
     {
       "detail": "passed",
+      "name": "test_schtasks_documentation_only_is_not_flagged",
+      "node_id": "tools/tests/test_continuation_infra.py::test_schtasks_documentation_only_is_not_flagged",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_schtasks_invocation_falsifier_is_detected",
+      "node_id": "tools/tests/test_continuation_infra.py::test_schtasks_invocation_falsifier_is_detected",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_service_watchdog_budget_is_bounded",
       "node_id": "tools/tests/test_continuation_infra.py::test_service_watchdog_budget_is_bounded",
       "ok": true
@@ -224,10 +236,10 @@
       "ok": true
     },
     {
-      "detail": "passed",
+      "detail": "FAILED during: call",
       "name": "test_the_registration_verdict_refuses_a_disabled_or_misaimed_task",
       "node_id": "tools/tests/test_continuation_infra.py::test_the_registration_verdict_refuses_a_disabled_or_misaimed_task",
-      "ok": true
+      "ok": false
     },
     {
       "detail": "passed",
@@ -267,6 +279,36 @@
     },
     {
       "detail": "passed",
+      "name": "test_doctor_does_not_change_pass_fail_semantics",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_doctor_does_not_change_pass_fail_semantics",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_foreign_must_not_suggest_starting_over_it",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_foreign_must_not_suggest_starting_over_it",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_free_proposes_start",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_free_proposes_start",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_ours_says_do_not_start",
+      "node_id": "tools/tests/test_doctor_next_hint.py::test_ours_says_do_not_start",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_case_1_only_allowed_evidence",
       "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_case_1_only_allowed_evidence",
       "ok": true
@@ -299,6 +341,24 @@
       "detail": "passed",
       "name": "test_the_tool_is_in_version_control",
       "node_id": "tools/tests/test_evidence_commit_falsifiers.py::test_the_tool_is_in_version_control",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_probe_that_cannot_be_launched_is_retried_and_can_still_pass",
+      "node_id": "tools/tests/test_final_gate_legs.py::test_a_probe_that_cannot_be_launched_is_retried_and_can_still_pass",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_probe_that_never_answers_fails_closed_and_says_it_is_the_environment",
+      "node_id": "tools/tests/test_final_gate_legs.py::test_a_probe_that_never_answers_fails_closed_and_says_it_is_the_environment",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_real_parse_error_is_never_retried_into_a_pass",
+      "node_id": "tools/tests/test_final_gate_legs.py::test_a_real_parse_error_is_never_retried_into_a_pass",
       "ok": true
     },
     {
@@ -549,6 +609,12 @@
     },
     {
       "detail": "passed",
+      "name": "test_the_probe_helper_separates_an_answer_from_silence",
+      "node_id": "tools/tests/test_final_gate_legs.py::test_the_probe_helper_separates_an_answer_from_silence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
       "name": "test_tip_signed_leg_does_not_pay_for_a_diff",
       "node_id": "tools/tests/test_final_gate_legs.py::test_tip_signed_leg_does_not_pay_for_a_diff",
       "ok": true
@@ -573,80 +639,98 @@
     },
     {
       "detail": "passed",
-      "name": "test_every_target_is_on_disk",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
+      "name": "test_every_core_site_is_on_disk",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_core_site_is_on_disk",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "name": "test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "name": "test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
       "ok": true
     },
     {
       "detail": "passed",
-      "name": "test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
-      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_document_under_artifacts_denies_the_registration",
+      "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_document_under_artifacts_denies_the_registration",
       "ok": true
     },
     {
@@ -654,9 +738,759 @@
       "name": "test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
       "node_id": "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
       "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t1_tag_checkout_clean_without_reemit",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t1_tag_checkout_clean_without_reemit",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t2_product_change_after_freeze_fails",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t2_product_change_after_freeze_fails_with_tag",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails_with_tag",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t3_freeze_not_ancestor_fails",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t3_freeze_not_ancestor_fails",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t4_accepts_sha256",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t4_accepts_sha256",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t4_rejects_git_sha1_in_sha256_field",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t4_rejects_git_sha1_in_sha256_field",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t5_evidence_only_commits_stay_clean",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t5_evidence_only_commits_stay_clean",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_glob_double_star",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_glob_double_star",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[docs/release/NOTES.md-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/release/NOTES.md-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[packages/jcc_core/server.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[packages/jcc_core/server.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[some/unknown/path.txt-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[some/unknown/path.txt-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[tests/e2e/test_x.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tests/e2e/test_x.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_t7_check_does_not_write_manifest",
+      "node_id": "tools/tests/test_release_manifest_v1_3.py::test_t7_check_does_not_write_manifest",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_dry_run_tick_writes_a_boot_beacon",
+      "node_id": "tools/tests/test_stable_runtime_evidence.py::test_dry_run_tick_writes_a_boot_beacon",
+      "ok": false
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_live_durable_log_is_still_append_openable",
+      "node_id": "tools/tests/test_stable_runtime_evidence.py::test_live_durable_log_is_still_append_openable",
+      "ok": false
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_registered_task_actions_contain_no_redirection",
+      "node_id": "tools/tests/test_stable_runtime_evidence.py::test_registered_task_actions_contain_no_redirection",
+      "ok": false
+    },
+    {
+      "detail": "FAILED during: setup",
+      "name": "test_deltas_track_wall_clock",
+      "node_id": "tools/tests/test_status_uptime.py::test_deltas_track_wall_clock",
+      "ok": false
+    },
+    {
+      "detail": "passed",
+      "name": "test_get_jcc_elapsed_truncates_not_rounds",
+      "node_id": "tools/tests/test_status_uptime.py::test_get_jcc_elapsed_truncates_not_rounds",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: setup",
+      "name": "test_pid_is_stable_across_samples",
+      "node_id": "tools/tests/test_status_uptime.py::test_pid_is_stable_across_samples",
+      "ok": false
+    },
+    {
+      "detail": "FAILED during: setup",
+      "name": "test_printed_uptime_matches_live_process_at_the_same_instant",
+      "node_id": "tools/tests/test_status_uptime.py::test_printed_uptime_matches_live_process_at_the_same_instant",
+      "ok": false
+    },
+    {
+      "detail": "FAILED during: setup",
+      "name": "test_uptime_is_monotonic",
+      "node_id": "tools/tests/test_status_uptime.py::test_uptime_is_monotonic",
+      "ok": false
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_a_missing_record_becomes_degraded_not_verified",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_a_missing_record_becomes_degraded_not_verified",
+      "ok": false
+    },
+    {
+      "detail": "passed",
+      "name": "test_all_four_agents_are_present_in_the_declared_order",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_all_four_agents_are_present_in_the_declared_order",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_an_unmappable_reported_status_does_not_become_verified",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_an_unmappable_reported_status_does_not_become_verified",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_is_not_vacuous",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_is_not_vacuous",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_matrix_is_current",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_reports_the_matrix_is_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_agent_covers_every_capability",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_every_agent_covers_every_capability",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_verified_capability_carries_live_evidence",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_every_verified_capability_carries_live_evidence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_actuation_capability_is_verified_on_this_host",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_no_actuation_capability_is_verified_on_this_host",
+      "ok": true
+    },
+    {
+      "detail": "FAILED during: call",
+      "name": "test_telemetry_verification_includes_resolved_identity",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_telemetry_verification_includes_resolved_identity",
+      "ok": false
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_actuation_summary_counts_match_the_per_agent_table",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_actuation_summary_counts_match_the_per_agent_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_adapter_probe_runs_green_on_this_host",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_adapter_probe_runs_green_on_this_host",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_evidence_digest_is_stable_across_derivations",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_evidence_digest_is_stable_across_derivations",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_does_not_hash_a_live_record_file",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_does_not_hash_a_live_record_file",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_matrix_uses_only_the_four_permitted_states",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_uses_only_the_four_permitted_states",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_probe_writes_lf_into_tracked_evidence",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_the_probe_writes_lf_into_tracked_evidence",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_volatile_keys_are_stripped_at_any_depth",
+      "node_id": "tools/tests/test_v1_1_capability_matrix.py::test_volatile_keys_are_stripped_at_any_depth",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_artifacts_are_current",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_check_mode_reports_the_artifacts_are_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_verified_field_carries_evidence_and_a_date",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_every_verified_field_carries_evidence_and_a_date",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_credential_value_appears_in_either_artifact",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_no_credential_value_appears_in_either_artifact",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_REAL_JEV_VERIFICATION.json]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_REAL_JEV_VERIFICATION.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[docs/V1_1_REAL_JEV_INTERFACE.md]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[docs/V1_1_REAL_JEV_INTERFACE.md]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_document_and_the_json_quote_the_same_card_digest",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_document_and_the_json_quote_the_same_card_digest",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_file_presence_block_is_a_claim_not_a_host_measurement",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_file_presence_block_is_a_claim_not_a_host_measurement",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_json_cannot_disagree_with_the_interface_card",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_json_cannot_disagree_with_the_interface_card",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_real_jev_verdict_is_a_lawful_state",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_real_jev_verdict_is_a_lawful_state",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_replay_fixture_is_current_and_loadable",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_smoke_reason_does_not_contradict_the_gates",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_reason_does_not_contradict_the_gates",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_smoke_section_is_consistent_with_the_credential_state",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_section_is_consistent_with_the_credential_state",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_unverified_critical_fields_are_named_individually",
+      "node_id": "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_condemnation_is_not_relaunched_into_a_pass",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_a_condemnation_is_not_relaunched_into_a_pass",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_launcher_crash_is_relaunched_and_can_still_pass",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_a_launcher_crash_is_relaunched_and_can_still_pass",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_secret_under_a_secret_named_key_is_absent_from_every_sink",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_a_secret_under_a_secret_named_key_is_absent_from_every_sink",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_can_actually_fail",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_check_mode_can_actually_fail",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_artifact_is_current",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_check_states_whether_it_was_vacuous",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_every_check_states_whether_it_was_vacuous",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_every_finding_carries_a_known_severity_and_is_filed_under_its_check",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_every_finding_carries_a_known_severity_and_is_filed_under_its_check",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_check_failed_to_run",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_no_check_failed_to_run",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_no_single_condition_opens_actuation",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_no_single_condition_opens_actuation",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_actuator_is_inert_at_every_measured_setting",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_actuator_is_inert_at_every_measured_setting",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[apps/control_ui/v1_1.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[apps/control_ui/v1_1.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_SECURITY_GATE.json]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_SECURITY_GATE.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/core.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/core.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/redaction.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/redaction.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/budget_report.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/budget_report.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/directive_gate.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/directive_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_security_gate.py]",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_security_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_declares_its_schema",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_declares_its_schema",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_declared_check_table_equals_the_artifact_rows",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_declared_check_table_equals_the_artifact_rows",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_digest_changes_when_a_real_verdict_field_changes",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_gate_check_classifier_never_reads_a_condemnation_as_a_pass",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_gate_check_classifier_never_reads_a_condemnation_as_a_pass",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_gate_writes_nothing_into_the_protected_runtime_directory",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_gate_writes_nothing_into_the_protected_runtime_directory",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_normalised_digest_ignores_the_volatile_fields",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_normalised_digest_ignores_the_volatile_fields",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_per_check_counts_match_its_findings",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_per_check_counts_match_its_findings",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_protected_service_and_runtime_db_are_untouched_in_the_record",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_protected_service_and_runtime_db_are_untouched_in_the_record",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_recorded_verdict_equals_the_rule_applied_to_the_record",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_recorded_verdict_equals_the_rule_applied_to_the_record",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_rule_can_actually_go_no_go",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_rule_can_actually_go_no_go",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_secret_scan_was_non_vacuous",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_secret_scan_was_non_vacuous",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_selftest_passes",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_selftest_passes",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_totals_are_the_sums_of_the_parts",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_totals_are_the_sums_of_the_parts",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_vacuity_gap_list_matches_the_per_check_flags",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_the_vacuity_gap_list_matches_the_per_check_flags",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_two_consecutive_runs_agree_on_the_normalised_digest",
+      "node_id": "tools/tests/test_v1_1_security_gate_artifact.py::test_two_consecutive_runs_agree_on_the_normalised_digest",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_a_non_satisfied_verdict_names_its_defects",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_a_non_satisfied_verdict_names_its_defects",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_actuation_is_off_and_the_effective_level_is_l0",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_actuation_is_off_and_the_effective_level_is_l0",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_can_actually_fail",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_can_actually_fail",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_check_mode_reports_the_artifact_is_current",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_artifact_states_the_safe_completion_is_lawful",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_states_the_safe_completion_is_lawful",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_defect_codes_are_from_the_pinned_vocabulary",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_defect_codes_are_from_the_pinned_vocabulary",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_digest_changes_when_a_real_verdict_field_changes",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_embedded_ladder_equals_the_enforcement_table",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_ladder_equals_the_enforcement_table",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_emitter_has_no_write_mode_escape_hatch",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_has_no_write_mode_escape_hatch",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_emitter_opens_the_database_read_only_and_immutable",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_opens_the_database_read_only_and_immutable",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_normalised_digest_ignores_the_clock_and_the_path",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_normalised_digest_ignores_the_clock_and_the_path",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_verdict_agrees_with_the_headline",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_verdict_agrees_with_the_headline",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_two_consecutive_derivations_are_identical",
+      "node_id": "tools/tests/test_v1_1_shadow_gate_artifact.py::test_two_consecutive_derivations_are_identical",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_e2e_conftest_has_no_import_time_environment_side_effects",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_e2e_conftest_has_no_import_time_environment_side_effects",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_credential_presence_in_the_artifact_matches_this_host",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_credential_presence_in_the_artifact_matches_this_host",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_import_side_effect_falsifier_can_actually_fail",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_import_side_effect_falsifier_can_actually_fail",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_jev_check_still_observes_the_environment[JCC_CONTROL_TOKEN]",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_CONTROL_TOKEN]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_jev_check_still_observes_the_environment[JCC_DIRECTIVE_SIGNING_KEY]",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_DIRECTIVE_SIGNING_KEY]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_jev_check_still_observes_the_environment[JEV_API_KEY]",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JEV_API_KEY]",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_jev_credential_state_is_unchanged_by_the_e2e_fixture_lifecycle",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_jev_credential_state_is_unchanged_by_the_e2e_fixture_lifecycle",
+      "ok": true
+    },
+    {
+      "detail": "passed",
+      "name": "test_the_watched_names_match_the_discovery_module",
+      "node_id": "tools/tests/test_v1_1_test_isolation.py::test_the_watched_names_match_the_discovery_module",
+      "ok": true
     }
   ],
-  "failed": 0,
+  "failed": 11,
   "node_ids": [
     "tools/tests/test_continuation_infra.py::test_a_narrowed_run_does_not_rewrite_the_suite_verdict",
     "tools/tests/test_continuation_infra.py::test_a_powershell_crash_is_never_read_as_a_verdict",
@@ -682,6 +1516,8 @@
     "tools/tests/test_continuation_infra.py::test_pid_liveness_is_by_handle_not_by_name",
     "tools/tests/test_continuation_infra.py::test_publish_then_verify_is_a_fixed_point_and_still_refusable",
     "tools/tests/test_continuation_infra.py::test_saving_state_keeps_the_previous_generation",
+    "tools/tests/test_continuation_infra.py::test_schtasks_documentation_only_is_not_flagged",
+    "tools/tests/test_continuation_infra.py::test_schtasks_invocation_falsifier_is_detected",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_budget_is_bounded",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_monitors_nothing_until_the_release_is_ready",
     "tools/tests/test_continuation_infra.py::test_service_watchdog_refuses_foreign_occupancy",
@@ -702,12 +1538,20 @@
     "tools/tests/test_continuation_infra.py::test_the_task_probe_never_reads_unverifiable_as_absent",
     "tools/tests/test_continuation_infra.py::test_the_watchdog_proof_drives_the_shipped_script_in_place",
     "tools/tests/test_continuation_infra.py::test_the_watchdog_test_fails_loudly_when_neither_oracle_can_answer",
+    "tools/tests/test_doctor_next_hint.py::test_doctor_does_not_change_pass_fail_semantics",
+    "tools/tests/test_doctor_next_hint.py::test_doctor_on_this_host_does_not_suggest_starting_an_up_service",
+    "tools/tests/test_doctor_next_hint.py::test_foreign_must_not_suggest_starting_over_it",
+    "tools/tests/test_doctor_next_hint.py::test_free_proposes_start",
+    "tools/tests/test_doctor_next_hint.py::test_ours_says_do_not_start",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_1_only_allowed_evidence",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_2_product_path_refused",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_3_untracked_refused",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_4_staged_ne_inspected",
     "tools/tests/test_evidence_commit_falsifiers.py::test_case_5_not_a_fixed_point",
     "tools/tests/test_evidence_commit_falsifiers.py::test_the_tool_is_in_version_control",
+    "tools/tests/test_final_gate_legs.py::test_a_probe_that_cannot_be_launched_is_retried_and_can_still_pass",
+    "tools/tests/test_final_gate_legs.py::test_a_probe_that_never_answers_fails_closed_and_says_it_is_the_environment",
+    "tools/tests/test_final_gate_legs.py::test_a_real_parse_error_is_never_retried_into_a_pass",
     "tools/tests/test_final_gate_legs.py::test_accepted_leg_details_do_not_move_with_the_tip",
     "tools/tests/test_final_gate_legs.py::test_freeze_go_is_accepted_when_only_evidence_moved",
     "tools/tests/test_final_gate_legs.py::test_freeze_go_with_conditions_is_accepted_and_rendered",
@@ -749,28 +1593,157 @@
     "tools/tests/test_final_gate_legs.py::test_s05_refuses_a_record_that_does_not_prove_the_claim[<lambda>-not deterministic]",
     "tools/tests/test_final_gate_legs.py::test_s05_refuses_a_record_that_does_not_prove_the_claim[<lambda>-not pinned]",
     "tools/tests/test_final_gate_legs.py::test_s05_refuses_a_record_that_does_not_prove_the_claim[<lambda>-status]",
+    "tools/tests/test_final_gate_legs.py::test_the_probe_helper_separates_an_answer_from_silence",
     "tools/tests/test_final_gate_legs.py::test_tip_signed_leg_does_not_pay_for_a_diff",
     "tools/tests/test_final_gate_legs.py::test_two_runs_over_the_same_tree_produce_byte_identical_verdicts",
     "tools/tests/test_final_gate_legs.py::test_written_verdict_carries_no_clock_and_no_head",
     "tools/tests/test_gate_inputs_are_committed.py::test_every_input_the_pipeline_needs_is_committed_at_head",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_target_is_on_disk",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/soak_driver.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_target_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
-    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence"
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_every_core_site_is_on_disk",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_denies_the_registered_task[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/acceptance/FINAL_ACCEPTANCE_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/JCC_SOAK_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[artifacts/release/WATCHDOG_RECOVERY_REPORT.md]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/publish_release_evidence.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/soak_driver.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_final_acceptance_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_core_site_silently_dropped_the_caveat[tools/continuation/write_watchdog_report.py]",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_no_document_under_artifacts_denies_the_registration",
+    "tools/tests/test_release_docs_do_not_deny_registered_tasks.py::test_the_false_wording_pattern_actually_matches_the_shipped_sentence",
+    "tools/tests/test_release_manifest_v1_3.py::test_t1_tag_checkout_clean_without_reemit",
+    "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails",
+    "tools/tests/test_release_manifest_v1_3.py::test_t2_product_change_after_freeze_fails_with_tag",
+    "tools/tests/test_release_manifest_v1_3.py::test_t3_freeze_not_ancestor_fails",
+    "tools/tests/test_release_manifest_v1_3.py::test_t4_accepts_sha256",
+    "tools/tests/test_release_manifest_v1_3.py::test_t4_rejects_git_sha1_in_sha256_field",
+    "tools/tests/test_release_manifest_v1_3.py::test_t5_evidence_only_commits_stay_clean",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_glob_double_star",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[apps/command_center_3d/src/App.tsx-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/acceptance/final_gate_v1_3_result.json-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[artifacts/release/v1.3_product/V1_3_RELEASE_MANIFEST.json-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[config/jcc-v1.3.yaml-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/release/NOTES.md-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[docs/v1_3/WAVE_0.md-False]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[packages/jcc_core/server.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[some/unknown/path.txt-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tests/e2e/test_x.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t6_path_classifier[tools/emit_v1_3_release_manifest.py-True]",
+    "tools/tests/test_release_manifest_v1_3.py::test_t7_check_does_not_write_manifest",
+    "tools/tests/test_stable_runtime_evidence.py::test_dry_run_tick_writes_a_boot_beacon",
+    "tools/tests/test_stable_runtime_evidence.py::test_live_durable_log_is_still_append_openable",
+    "tools/tests/test_stable_runtime_evidence.py::test_registered_task_actions_contain_no_redirection",
+    "tools/tests/test_status_uptime.py::test_deltas_track_wall_clock",
+    "tools/tests/test_status_uptime.py::test_get_jcc_elapsed_truncates_not_rounds",
+    "tools/tests/test_status_uptime.py::test_pid_is_stable_across_samples",
+    "tools/tests/test_status_uptime.py::test_printed_uptime_matches_live_process_at_the_same_instant",
+    "tools/tests/test_status_uptime.py::test_uptime_is_monotonic",
+    "tools/tests/test_v1_1_capability_matrix.py::test_a_fixture_sourced_verified_becomes_degraded_and_says_why",
+    "tools/tests/test_v1_1_capability_matrix.py::test_a_missing_record_becomes_degraded_not_verified",
+    "tools/tests/test_v1_1_capability_matrix.py::test_all_four_agents_are_present_in_the_declared_order",
+    "tools/tests/test_v1_1_capability_matrix.py::test_an_unmappable_reported_status_does_not_become_verified",
+    "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_is_not_vacuous",
+    "tools/tests/test_v1_1_capability_matrix.py::test_check_mode_reports_the_matrix_is_current",
+    "tools/tests/test_v1_1_capability_matrix.py::test_every_agent_covers_every_capability",
+    "tools/tests/test_v1_1_capability_matrix.py::test_every_verified_capability_carries_live_evidence",
+    "tools/tests/test_v1_1_capability_matrix.py::test_no_actuation_capability_is_verified_on_this_host",
+    "tools/tests/test_v1_1_capability_matrix.py::test_telemetry_verification_includes_resolved_identity",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_actuation_summary_counts_match_the_per_agent_table",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_adapter_probe_runs_green_on_this_host",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_CAPABILITY_MATRIX.json]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/probe_adapter_capabilities.py]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_capability_matrix.py]",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_evidence_digest_is_stable_across_derivations",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_agrees_with_the_probe_evidence_on_disk",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_does_not_hash_a_live_record_file",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_matrix_uses_only_the_four_permitted_states",
+    "tools/tests/test_v1_1_capability_matrix.py::test_the_probe_writes_lf_into_tracked_evidence",
+    "tools/tests/test_v1_1_capability_matrix.py::test_volatile_keys_are_stripped_at_any_depth",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_check_mode_reports_the_artifacts_are_current",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_every_verified_field_carries_evidence_and_a_date",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_no_credential_value_appears_in_either_artifact",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[artifacts/release/V1_1_REAL_JEV_VERIFICATION.json]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[docs/V1_1_REAL_JEV_INTERFACE.md]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[fixtures/v1.1/replay_default.jsonl]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_emit_real_jev_verification.py]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_local_credential_discovery.py]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_artifact_and_its_generator_are_in_head[tools/v1_1_make_replay_fixture.py]",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_document_and_the_json_quote_the_same_card_digest",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_file_presence_block_is_a_claim_not_a_host_measurement",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_json_cannot_disagree_with_the_interface_card",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_real_jev_verdict_is_a_lawful_state",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_replay_fixture_is_current_and_loadable",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_reason_does_not_contradict_the_gates",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_smoke_section_is_consistent_with_the_credential_state",
+    "tools/tests/test_v1_1_real_jev_artifacts.py::test_the_unverified_critical_fields_are_named_individually",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_a_condemnation_is_not_relaunched_into_a_pass",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_a_launcher_crash_is_relaunched_and_can_still_pass",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_a_secret_under_a_secret_named_key_is_absent_from_every_sink",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_check_mode_can_actually_fail",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_every_check_states_whether_it_was_vacuous",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_every_finding_carries_a_known_severity_and_is_filed_under_its_check",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_no_check_failed_to_run",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_no_single_condition_opens_actuation",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_actuator_is_inert_at_every_measured_setting",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[apps/control_ui/v1_1.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_SECURITY_GATE.json]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/core.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/jcc_core/redaction.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/budget_report.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/directive_gate.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_security_gate.py]",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_artifact_declares_its_schema",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_declared_check_table_equals_the_artifact_rows",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_gate_check_classifier_never_reads_a_condemnation_as_a_pass",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_gate_writes_nothing_into_the_protected_runtime_directory",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_normalised_digest_ignores_the_volatile_fields",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_per_check_counts_match_its_findings",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_protected_service_and_runtime_db_are_untouched_in_the_record",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_recorded_verdict_equals_the_rule_applied_to_the_record",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_rule_can_actually_go_no_go",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_secret_scan_was_non_vacuous",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_selftest_passes",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_totals_are_the_sums_of_the_parts",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_the_vacuity_gap_list_matches_the_per_check_flags",
+    "tools/tests/test_v1_1_security_gate_artifact.py::test_two_consecutive_runs_agree_on_the_normalised_digest",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_a_non_satisfied_verdict_names_its_defects",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_actuation_is_off_and_the_effective_level_is_l0",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_can_actually_fail",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_check_mode_reports_the_artifact_is_current",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[artifacts/release/V1_1_LIVE_SHADOW_GATE.json]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/actuation_levels.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[packages/supervisor/live_shadow_gate.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_and_everything_it_reads_are_in_head[tools/v1_1_emit_shadow_gate.py]",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_artifact_states_the_safe_completion_is_lawful",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_defect_codes_are_from_the_pinned_vocabulary",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_digest_changes_when_a_real_verdict_field_changes",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_gate_vocabulary_equals_the_enforcement_table",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_embedded_ladder_equals_the_enforcement_table",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_has_no_write_mode_escape_hatch",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_emitter_opens_the_database_read_only_and_immutable",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_normalised_digest_ignores_the_clock_and_the_path",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_the_verdict_agrees_with_the_headline",
+    "tools/tests/test_v1_1_shadow_gate_artifact.py::test_two_consecutive_derivations_are_identical",
+    "tools/tests/test_v1_1_test_isolation.py::test_e2e_conftest_has_no_import_time_environment_side_effects",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_credential_presence_in_the_artifact_matches_this_host",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_import_side_effect_falsifier_can_actually_fail",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_CONTROL_TOKEN]",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JCC_DIRECTIVE_SIGNING_KEY]",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_jev_check_still_observes_the_environment[JEV_API_KEY]",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_jev_credential_state_is_unchanged_by_the_e2e_fixture_lifecycle",
+    "tools/tests/test_v1_1_test_isolation.py::test_the_watched_names_match_the_discovery_module"
   ],
-  "ok": true,
-  "passed": true,
-  "passed_count": 109,
+  "ok": false,
+  "passed": false,
+  "passed_count": 237,
   "provenance": {
     "command": "pytest tools/tests",
     "deterministic": true,
@@ -780,6 +1753,6 @@
     "selection": "full directory (no -k / -m / --deselect; all items ran)"
   },
   "schema": "jcc-continuation-infra/1",
-  "status": "PASS",
-  "verdict": "109/109 infrastructure test(s) passed"
+  "status": "FAIL",
+  "verdict": "237/248 infrastructure test(s) passed"
 }

@@ -42,6 +42,14 @@ from .trace import REDACTED, TraceWriteError, TraceWriter, signature_ref
 
 DEFAULT_TOKEN_ENV = "JCC_CONTROL_TOKEN"
 
+# Sentinel distinguishing "caller explicitly supplied a value (incl. None)" from
+# "caller did not supply anything, so fall back to the environment". Without this
+# an explicitly injected ``control_token=None`` (the test's "no token"
+# intent) was silently overwritten by ``JCC_CONTROL_TOKEN`` from the environment,
+# which let a missing token masquerade as a present one and be reported as
+# ``GATE_UNAVAILABLE`` instead of ``MISSING_CONTROL_TOKEN``.
+_UNSET = object()
+
 
 # --------------------------------------------------------------------------- #
 # result
@@ -92,7 +100,7 @@ class OperatorSkill:
         gateway: Optional[Gateway] = None,
         approvals: Optional[ApprovalRegistry] = None,
         control_token_env: str = DEFAULT_TOKEN_ENV,
-        control_token: Optional[str] = None,
+        control_token: Optional[str] = _UNSET,  # type: ignore[assignment]
         clock: Callable[[], float] = time.time,
         trace_writer: Optional[TraceWriter] = None,
     ) -> None:
@@ -122,8 +130,15 @@ class OperatorSkill:
 
         Never logged, never placed on a trace record, never returned to a caller:
         the value is only ever handed to the backend as a header.
+
+        If the caller injected an explicit value -- including ``None`` -- that
+        value is authoritative and the environment is NOT consulted. Only when
+        the caller supplied nothing (``_UNSET``) do we fall back to the
+        environment variable. This is what keeps "caller did not provide a
+        token" (``MISSING_CONTROL_TOKEN``) distinct from "the control gate
+        service is unavailable" (``GATE_UNAVAILABLE``).
         """
-        if self._control_token is None:
+        if self._control_token is _UNSET:
             self._control_token = os.environ.get(self.token_env) or None
         return self._control_token
 

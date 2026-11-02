@@ -9,10 +9,18 @@ The loopback rule is a REFUSAL, not a preference (P4 #77.2): a configured
 it builds or binds anything. A configuration that is silently "corrected" behind
 a log line is a fail-open control.
 
+The GREEN port rule is the same shape (CR-002): ``127.0.0.1:4778`` belongs to the
+frozen GREEN baseline, so this entrypoint refuses to start a NON-GREEN instance
+there. See :func:`check_green_port_ownership`.
+
 Launch:
     F:/jev/.venv/Scripts/python -m jcc_core.run
 Env:
-    JCC_CONFIG        path to jcc.yaml (default F:/jev/config/jcc.yaml)
+    JCC_CONFIG        path to the config to run. Defaults to the v1.3 PRODUCT
+                      config (config/jcc-v1.3.yaml, port 4779). The GREEN
+                      baseline is a separate instance and must be named
+                      explicitly (config/jcc.yaml, port 4778) -- in practice
+                      via scripts/start.ps1, which does that for you.
     JCC_CONTROL_TOKEN shared secret for mutating control endpoints (REQUIRED for those)
     JCC_PROVIDER      mock | disabled | real (optional override)
     JCC_DB_PATH       override SQLite path (used by tests)
@@ -22,6 +30,7 @@ from __future__ import annotations
 import logging
 import os
 import signal
+import socket
 import sys
 import time
 from pathlib import Path
@@ -32,7 +41,11 @@ if str(PKG.parent) not in sys.path:
     sys.path.insert(0, str(PKG.parent))
 
 from jcc_core.actuator import Actuator  # noqa: E402
-from jcc_core.config import DEFAULT_CONFIG_PATH, load_config  # noqa: E402
+from jcc_core.config import (  # noqa: E402
+    DEFAULT_CONFIG_PATH,
+    GREEN_PROTECTED_PORT,
+    load_config,
+)
 from jcc_core.core import CoreEngine  # noqa: E402
 from jcc_core.providers import build_provider  # noqa: E402
 from jcc_core.server import create_app  # noqa: E402
@@ -80,6 +93,133 @@ def check_bind_host(config) -> None:
             f"server.host to one of {allowed}, or remove the key -- the entrypoint "
             f"binds {BIND_HOST!r} regardless of what is configured."
         )
+
+
+def _resolve_port_via_getaddrinfo(port) -> Optional[int]:
+    """Resolve a NON-NUMERIC port the way ``bind()`` would. Read-only.
+
+    Returns the numeric port ``port`` denotes, or None when it denotes nothing
+    bindable. ``socket.bind((host, "jev-green"))`` is legal and goes through
+    ``getaddrinfo``, which accepts both numbers and service names -- so asking
+    the same question the same way is what keeps this guard and the actual bind
+    from disagreeing.
+
+    Loopback only, and it opens nothing: ``getaddrinfo`` is a name lookup.
+    """
+    if isinstance(port, (bytes, bytearray)):
+        try:
+            port = port.decode("ascii")
+        except (UnicodeDecodeError, AttributeError):
+            return None
+    if not isinstance(port, str) or not port.strip():
+        return None
+    try:
+        infos = socket.getaddrinfo(
+            BIND_HOST, port.strip(), type=socket.SOCK_STREAM)
+    except (socket.gaierror, UnicodeError, ValueError, OSError):
+        return None
+    for info in infos:
+        sockaddr = info[4]
+        if sockaddr and isinstance(sockaddr[1], int):
+            return int(sockaddr[1])
+    return None
+
+
+def check_green_port_ownership(config) -> None:
+    """Fail-closed: only the GREEN baseline itself may hold GREEN's port (CR-002).
+
+    Master directive 0.2 makes ``127.0.0.1:4778`` a protected baseline: read and
+    observe only, never stop/kill/rewrite/migrate/mutate. A product instance that
+    binds it does not merely risk a conflict -- it makes the port *look* healthy
+    while serving v1.3, so a probe cannot tell the baseline from an impostor, and
+    every GREEN-protection assertion downstream becomes unfalsifiable.
+
+    This is the same shape as :func:`check_bind_host`, and for the same reason: a
+    control that only warns is fail-open. A supervisor would restart the process
+    straight back into the violation.
+
+    IDENTITY IS THE CONFIG FILE, NOT A FLAG. The tempting implementation is a
+    ``--edition green`` switch or a ``JCC_INSTANCE`` env var, but then GREEN only
+    starts if whoever launched it remembered to pass the flag -- and the failure
+    mode is GREEN refusing to come up, which is worse than the bug being fixed.
+    GREEN already declares itself: ``scripts/start.ps1`` sets
+    ``JCC_CONFIG=config/jcc.yaml`` explicitly, and no GREEN launch path reads the
+    default. So the file that was loaded IS the identity, GREEN keeps working
+    with no change to its launcher, and a product instance pointed at 4778 by a
+    typo, a copied config, or a stale default is refused.
+
+    Non-zero exit, before the store/provider/socket/marker are touched.
+
+    THE PORT IS COMPARED AS AN INT, NOT AS-LOADED (verified bypass, 2026-10-04).
+    The first version of this guard read ``config.server.port`` and compared it
+    to ``GREEN_PROTECTED_PORT`` directly. ``ServerConfig`` is a bare dataclass and
+    ``load_config`` splats ``**data["server"]`` straight into it, so YAML type
+    survives all the way to the bind. A config with a QUOTED
+
+        server:
+          port: '4778'          # a str, not an int
+
+    therefore produced ``port == '4778'``, and ``'4778' != 4778`` is True, so the
+    guard returned early and the process went on to bind GREEN's port. Measured
+    before the fix: ``port='4778' -> REFUSED=False`` while ``port=4778 ->
+    REFUSED=True``. The quoted form is exactly what a hand-edited or
+    template-copied config tends to produce, and the failure is invisible: the
+    impostor then answers ``/api/health`` with 200.
+
+    Fixing this at the COMPARISON rather than only in ``load_config`` is
+    deliberate. Normalising in the loader would leave every other reader of
+    ``config.server.port`` -- ``Get-JccPort`` in ``scripts/lib/JccCommon.ps1``,
+    which regex-matches ``^\\d+$``, and uvicorn's own bind -- still seeing
+    whatever the YAML said. Coercing here means the guard asks "is this process
+    asking for port 4778?" and cannot be fooled by how the number was spelled.
+
+    ``int()`` also collapses ``4778.0`` and ``" 4778 "``, which is why the float
+    form is refused too.
+
+    WHAT IS *NOT* PROVEN BY "int() FAILED, THEREFORE IT IS NOT 4778" (residual
+    risk found by metric-verify, closed here). ``socket.bind((host, port))``
+    accepts a STRING port and resolves it through ``getaddrinfo``, which also
+    accepts a SERVICE NAME. So a config carrying ``port: jev-green`` would pass
+    an ``int()``-based guard, and on a host where some service name happens to be
+    registered against 4778 it would still land on the protected port. Measured
+    on this host: ``getservbyport(4778)`` raises ``OSError`` and none of the
+    plausible names resolve to 4778 -- so the hole is not reachable HERE, but
+    that is a property of this machine's service database, not of this code.
+
+    Rather than trust the host, a non-numeric port is now RESOLVED and refused if
+    it lands on the protected port. Resolution is done by asking the OS the same
+    way ``bind`` will, so the two cannot disagree. The lookup is read-only, and
+    if resolution itself fails the value is left alone -- an unresolvable port
+    cannot be bound, so it fails at bind time with an error the operator can see.
+    """
+    port = getattr(getattr(config, "server", None), "port", None)
+    try:
+        port_number = int(port)
+    except (TypeError, ValueError):
+        # Not a number. It still might be a SERVICE NAME that resolves to the
+        # protected port, so ask the OS exactly as bind() would.
+        port_number = _resolve_port_via_getaddrinfo(port)
+        if port_number is None:
+            # Unresolvable => cannot be bound => not the protected port. Do not
+            # invent a verdict here; uvicorn will reject it with a real message.
+            return
+    if port_number != GREEN_PROTECTED_PORT:
+        return
+    if getattr(config, "is_green_instance", False):
+        return
+    raise SystemExit(
+        f"refusing to start: server.port={GREEN_PROTECTED_PORT} is the GREEN "
+        f"baseline's protected port (master directive 0.2 -- read/observe only, "
+        f"never stop/kill/rewrite/migrate/mutate), and this process is NOT the "
+        f"GREEN instance. It was started from "
+        f"{getattr(config, 'config_path', '') or '<built-in defaults>'}"
+        f"{' (explicitly named)' if getattr(config, 'config_is_explicit', False) else ' (default)'}"
+        f". A product instance on this port would be indistinguishable from the "
+        f"baseline to a health probe and would invalidate every GREEN-protection "
+        f"assertion. Use the product port (4779 via config/jcc-v1.3.yaml), or, "
+        f"if you genuinely intend to start GREEN, use its own launcher "
+        f"scripts/start.ps1 (or set JCC_CONFIG to config/jcc.yaml)."
+    )
 
 
 def _marker_path(config) -> Path:
@@ -270,6 +410,10 @@ def main() -> None:
     # before anything is built or bound; anything loopback-shaped binds BIND_HOST
     # unconditionally. See `check_bind_host`.
     check_bind_host(config)
+    # GREEN PORT OWNERSHIP, fail-closed (CR-002). Only the GREEN baseline may
+    # hold 4778. Same placement rationale: before the store, the provider, the
+    # socket, or the marker. See `check_green_port_ownership`.
+    check_green_port_ownership(config)
 
     store = StateStore(config.state_store_db_path)
     provider = build_provider(config)

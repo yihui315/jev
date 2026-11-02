@@ -8,4 +8,4 @@ Actuator (disabled) -> Visual Projection.
 See ADR-0002..0006. Actuation is disabled; the real Jev/adapter integrations
 are UNVERIFIED stubs (P2/P3+).
 """
-__version__ = "p1.0.0"
+__version__ = "v1.2.1"

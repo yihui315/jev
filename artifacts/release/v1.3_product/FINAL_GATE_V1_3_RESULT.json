@@ -1,0 +1,87 @@
+{
+  "actuation_enabled": false,
+  "blocker": 3,
+  "blockers": [
+    "E1_FROZEN_TREE",
+    "EXPECTED_LEGS_ABSENT: ['A1_FREEZE_MODEL', 'A2_DOMAIN', 'A3_MISSION', 'A4_ATTENTION', 'A5_DELIVERABLES', 'A6_CONNECTIONS', 'A7_INVARIANTS', 'A8_SECURITY_GATE', 'B1_W2_PRODUCT_UI', 'B2_W3_MISSION_GATE', 'B3_W4_ATTENTION_GATE', 'B4_W5_DELIVERABLES_GATE', 'B5_W6_WORLD_GATE', 'B6_W7_CONNECTION_GATE', 'B7_W8_RUNTIME_GATE', 'B8_W10_BROWSER_PERF', 'C1_CORE_E2E', 'C2_TOOLS_TESTS', 'C3a_TYPECHECK', 'C3b_VITEST', 'C3c_BUILD', 'D1_GREEN_PROTECTION', 'D2_PRODUCT_CONFIG_INERT', 'D3_UI_IS_NOT_STDLIB', 'E2_GATE_INPUTS_TRACKED', 'E3_A8_PINS_VS_HEAD_BLOBS', 'E5_FREEZE_ANCHOR_RESOLVES']",
+    "GREEN_4778_CHANGED"
+  ],
+  "branch": "release/jcc-v1.3-final",
+  "failures": [
+    {
+      "detail": "product_dirty=2 metadata_dirty=41 untracked=51",
+      "leg_id": "E1_FROZEN_TREE"
+    }
+  ],
+  "final_release": false,
+  "gate": "V1_3_FINAL_PRODUCT_GATES",
+  "green_at_end": {
+    "http": 0,
+    "pid": 0
+  },
+  "green_at_start": {
+    "http": 0,
+    "pid": 0
+  },
+  "green_untouched": false,
+  "head": "a33998ad9360d6f0c53d343e903847e4974759f9",
+  "head_short": "a33998ad9360",
+  "legs": [
+    {
+      "detail": "product_dirty=2 metadata_dirty=41 untracked=51",
+      "duration_s": 0.47,
+      "head": "a33998ad9360d6f0c53d343e903847e4974759f9",
+      "leg_id": "E1_FROZEN_TREE",
+      "measured_at_utc": "2026-10-04T13:09:34Z",
+      "verdict": "FAIL"
+    },
+    {
+      "detail": "{\"4779\": 0, \"4780\": 0, \"4781\": 0, \"4782\": 0}",
+      "duration_s": 0.86,
+      "head": "a33998ad9360d6f0c53d343e903847e4974759f9",
+      "leg_id": "E4_NO_LISTENERS_LEFT_BEHIND",
+      "measured_at_utc": "2026-10-04T13:09:35Z",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "7/7 falsifiers behaved",
+      "duration_s": 0.14,
+      "head": "a33998ad9360d6f0c53d343e903847e4974759f9",
+      "leg_id": "F1_INSTRUMENTS_ARE_FALSIFIABLE",
+      "measured_at_utc": "2026-10-04T13:09:34Z",
+      "verdict": "PASS"
+    }
+  ],
+  "legs_expected": 30,
+  "legs_failed": 1,
+  "legs_from_earlier_runs_at_the_same_head": [],
+  "legs_not_pass": [],
+  "legs_passed": 2,
+  "legs_run_this_invocation": [
+    "E1_FROZEN_TREE",
+    "F1_INSTRUMENTS_ARE_FALSIFIABLE",
+    "E4_NO_LISTENERS_LEFT_BEHIND"
+  ],
+  "legs_total": 3,
+  "measured_at_utc": "2026-10-04T13:09:38Z",
+  "not_claimed_deliberately": [
+    "A HARDWARE frame rate is NOT claimed, and neither is a target FPS. The node-count curve IS measured now (leg B8_W10_BROWSER_PERF, over 50/200/500/1000 objects of real persisted work, in real Chrome, on the real cross-origin topology), but headless Chrome on this host rasterizes through ANGLE/SwiftShader -- verified by launching it four ways, all four CPU -- so the frame times are a software rasterizer's floor. The gate's evidence records the renderer string and a derived renderer_class so the number cannot be quoted without that context. The v1.2 verdict PENDING is carried forward unchanged.",
+    "Single-view rendering beyond DOMAIN_LIST_LIMIT (1000) objects is NOT claimed. The product SAYS the view is partial (Wave 9.3) but does not page; the honest limit is measured and disclosed rather than hidden.",
+    "Parent-exit survival of the product runtime is NOT claimed by this gate. The W8 restart transcript is evidence about the CONTROLLER, not proof that the service outlives its launcher; only the host Task Scheduler registration (pending, above) can establish that, and the claim stays open until it is measured on a host.",
+    "DPAPI-at-rest for the control token is NOT claimed: the token stays an environment variable, which is what W8 shipped and what the health contract exposes. A stronger claim would need a key store the sandbox cannot provide.",
+    "Fast domain writes are NOT claimed. Measured, disclosed and NOT fixed: DomainStore._conn() re-issues three PRAGMAs per connection and the store opens a fresh connection per operation -- twice per mission creation -- so every call is exposed to the host's file-syncing latency. Measured 194 ms for create_mission on a quiet host and up to ~1.4 s under load, with the per-commit cost shown NOT to track data size and the HTTP layer shown NOT to contribute. Part of that cost is unexplained and is recorded as unexplained. See tools/v1_3_domain_io_profile.py and docs/v1_3/WAVE_10_REAL_BROWSER_PERFORMANCE.md section 8."
+  ],
+  "passed": 2,
+  "pending_host_activation": [
+    "Unregister the two stray Scheduled Tasks created during the measured incident recorded in docs/v1_3/WAVE_8_DURABLE_RUNTIME.md section 6: JCC-v1.3-API and JCC-v1.3-PROBE (schtasks.exe is blacklisted in the agent sandbox and Windows' own unregister path goes through the same blind CIM provider, so this cannot be done from here).",
+    "Run scripts\\jcc-v1.3-register-tasks.ps1 -Apply from an ELEVATED PowerShell on the host to create the durable JCC-v1.3-API / JCC-v1.3-VisualUI tasks, then `scripts\\jcc-v1.3.ps1 -Action mark` to adopt them.",
+    "Authenticate the WorkBuddy CLI for the account the JCC API runs under, so a launcher-spawned non-interactive process can obtain credentials. Until it is done the launch read-back classifies the run as AUTH_REQUIRED, the mission is NOT walked to RUNNING by design, and the capability reads HOST_ACTIVATION_PENDING (see docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md section 8)."
+  ],
+  "project_complete": false,
+  "release": "JCC v1.3 Product Edition (local)",
+  "release_readiness": "NOT_RELEASE_READY",
+  "run_id": "20261004-210931",
+  "schema": "jcc/v1.3-final-gate/1",
+  "total": 3,
+  "total_duration_s": 4.0
+}

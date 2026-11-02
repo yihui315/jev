@@ -1,12 +1,12 @@
 {
   "schema_version": "1.0",
   "generator": "scripts/emit_release_evidence.py",
-  "frozen_at": "3cca8ff",
+  "frozen_at": "fbeafb2",
   "entries": [
     {
       "path": "config/jcc.yaml",
-      "sha256": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-      "bytes": 4740,
+      "sha256": "6525ea860984899e8125df1611f748d99338719f502c303f59f25492d55d5198",
+      "bytes": 4760,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
@@ -21,16 +21,16 @@
     },
     {
       "path": "packages/jcc_core/config.py",
-      "sha256": "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
-      "bytes": 6056,
+      "sha256": "7ae533feb55869cd798a26ec2aee946a3dacab2350218f12e9d2f742c81ccd8b",
+      "bytes": 18407,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
     },
     {
       "path": "packages/jcc_core/core.py",
-      "sha256": "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",
-      "bytes": 15499,
+      "sha256": "8a5141bc931296ac5f495da116e45f1b8bb9fb4fab5ae6ac99a887aca9a7106b",
+      "bytes": 18670,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
@@ -53,24 +53,24 @@
     },
     {
       "path": "packages/jcc_core/run.py",
-      "sha256": "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-      "bytes": 12980,
+      "sha256": "2ad72804ffff4470de57b35c6011e14cd9e094954e37367e82097defd590eb09",
+      "bytes": 20585,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
     },
     {
       "path": "packages/jcc_core/server.py",
-      "sha256": "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
-      "bytes": 12541,
+      "sha256": "68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e",
+      "bytes": 82977,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"
     },
     {
       "path": "packages/jcc_core/state_store.py",
-      "sha256": "b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95",
-      "bytes": 40981,
+      "sha256": "9a4cde5f6e9f90038103e3ebdd62ed2912485e71422f7f5a4b136080a1b4c739",
+      "bytes": 43538,
       "generated_by": "version control (git; A8 pin, P4)",
       "hash_convention": "git_blob",
       "provenance_note": "A8 pinned production artifact"

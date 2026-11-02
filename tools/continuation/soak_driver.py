@@ -20,7 +20,7 @@ T: watchdog recovery. T1 proves the shipped watchdog's decision procedure in an
 """
 import hashlib, io, json, os, subprocess, sys, time, datetime
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
@@ -36,6 +36,7 @@ DONE = os.path.join(SCR, "DONE")
 
 os.makedirs(SCR, exist_ok=True)
 import urllib.request
+from pathlib import Path
 _OPENER = urllib.request.build_opener(urllib.request.ProxyHandler({}))
 
 

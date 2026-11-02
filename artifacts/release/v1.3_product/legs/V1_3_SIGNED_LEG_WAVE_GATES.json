@@ -1,0 +1,87 @@
+{
+  "decision": "GO",
+  "dimension": "Wave Gates re-run at the freeze",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "child=PASS artifact=PASS 30/30",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B1_W2_PRODUCT_UI.json",
+      "evidence_sha256": "d030a191b80b36e1aa2e88e32b97a9db237d6bc11b38d37c11457469bb9d6c25",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B1_W2_PRODUCT_UI",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 30/30",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B2_W3_MISSION_GATE.json",
+      "evidence_sha256": "6704430cc126a6fc29eda1544d988a7cf97a171c33029e590abc12ab24a51a45",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B2_W3_MISSION_GATE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 19/19",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B3_W4_ATTENTION_GATE.json",
+      "evidence_sha256": "38cad290bc12828ca171db212702ac50f9463a124ac40a31710737507570ab75",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B3_W4_ATTENTION_GATE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 17/17",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B4_W5_DELIVERABLES_GATE.json",
+      "evidence_sha256": "6e89b7496e540b4f5a75a9afd1ae1d4f5e9abe347dd6f08e39a04c3d5aea0d67",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B4_W5_DELIVERABLES_GATE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 6/6",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B5_W6_WORLD_GATE.json",
+      "evidence_sha256": "047b6c0b54ecf841b6419f66af79674d143e2e59c7e070a3fa4cddb593edaf81",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B5_W6_WORLD_GATE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 20/20",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B6_W7_CONNECTION_GATE.json",
+      "evidence_sha256": "245adb2d880afe459b79dc779734fe992f453892b3b2c05b53ca5d7bb1fa64f2",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B6_W7_CONNECTION_GATE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "child=PASS artifact=PASS 54/54",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_B7_W8_RUNTIME_GATE.json",
+      "evidence_sha256": "fea2a476d387dd0e10f3a4f39f1640ced4861c1ce0a3207a5846f75124c7d73e",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "B7_W8_RUNTIME_GATE",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "B1_W2_PRODUCT_UI",
+    "B2_W3_MISSION_GATE",
+    "B3_W4_ATTENTION_GATE",
+    "B4_W5_DELIVERABLES_GATE",
+    "B5_W6_WORLD_GATE",
+    "B6_W7_CONNECTION_GATE",
+    "B7_W8_RUNTIME_GATE"
+  ],
+  "leg_id": "WAVE_GATES",
+  "notes": "All 7 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "d1d1572ff4d78026d0421596b062724d8d600d1848c216489d68eefc3e921ef3",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:22Z"
+}

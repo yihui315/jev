@@ -11,10 +11,11 @@ import ctypes
 import ctypes.wintypes as wt
 import io
 import os
+from pathlib import Path
 import subprocess
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 SCR = os.path.join(ROOT, ".workbuddy", "scratch")
@@ -24,16 +25,33 @@ DLOG = os.path.join(SOAK, "driver.log")
 
 os.makedirs(SOAK, exist_ok=True)
 
-CMD = ('@echo off\r\n'
-       'rem Detached Q+R+S+T runtime driver. Launched by WMI so the service it\r\n'
-       'rem starts is NOT inside the agent Job Object. ASCII only.\r\n'
-       'cd /d F:\\jev\r\n'
-       'echo ==== SOAK DRIVER START %%DATE%% %%TIME%% ====>> "%s"\r\n'
-       '"F:\\jev\\.venv\\Scripts\\python.exe" "F:\\jev\\.workbuddy\\scratch\\'
-       'continuation\\soak_driver.py" 40 >> "%s" 2>&1\r\n'
-       'echo EXITCODE=%%ERRORLEVEL%% >> "%s"\r\n'
-       'echo ==== SOAK DRIVER END %%DATE%% %%TIME%% ====>> "%s"\r\n'
-       % (DLOG, DLOG, DLOG, DLOG))
+# The batch file below is WRITTEN TO DISK and later executed by WMI, so its
+# paths are resolved by cmd.exe, not by Python: they must be absolute and they
+# must exist on the volume the checkout actually lives on. They used to be the
+# literal F:\jev, which made the generated .cmd `cd /d` into a drive that does
+# not exist on this host and invoke a python.exe that is not there. ROOT is
+# already derived two levels up from this file; interpolate it instead of
+# retyping a drive. (The venv python is only correct if a venv exists -- that is
+# this tool's own precondition, unchanged.)
+#
+# Built by concatenation, NOT by `%` formatting: the body is full of literal
+# `%DATE%` / `%TIME%` / `%ERRORLEVEL%` cmd.exe variables, and `%`-formatting a
+# string that already contains percent signs needs doubled `%%` everywhere. That
+# is exactly the kind of escaping that silently eats a path, so the variables
+# are interpolated by joining instead and left alone.
+_VENV_PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
+_DRIVER = os.path.join(SCR, "continuation", "soak_driver.py")
+
+CMD = (
+    '@echo off\r\n'
+    'rem Detached Q+R+S+T runtime driver. Launched by WMI so the service it\r\n'
+    'rem starts is NOT inside the agent Job Object. ASCII only.\r\n'
+    'cd /d "' + ROOT + '"\r\n'
+    'echo ==== SOAK DRIVER START %DATE% %TIME% ====>> "' + DLOG + '"\r\n'
+    '"' + _VENV_PY + '" "' + _DRIVER + '" 40 >> "' + DLOG + '" 2>&1\r\n'
+    'echo EXITCODE=%ERRORLEVEL% >> "' + DLOG + '"\r\n'
+    'echo ==== SOAK DRIVER END %DATE% %TIME% ====>> "' + DLOG + '"\r\n'
+)
 io.open(WRAPPER, "w", encoding="ascii", newline="").write(CMD)
 print("wrapper  :", WRAPPER)
 print("log      :", DLOG)

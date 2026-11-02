@@ -5,12 +5,10 @@
   "owner": "atlas-2 (docs backfill) — P4 item 12 / task #79a",
   "phase": "P3",
   "date": "2026-09-25",
-
   "rule": "A8_FREEZE_WINDOW",
   "rule_statement": "An A8 freeze pin MUST be updated inside the SAME FREEZE WINDOW as the commit that changes the pinned bytes. 'Same freeze window' REPLACES the previous 'same commit' wording: a pinned artifact's byte change and its pin update need not be in one commit, but they MUST NOT be in two different freeze windows. A freeze window is the maximal commit interval [start, end] of one authorised MUST-FIX batch, where start is the first commit of that batch that changes a pinned production artifact and end is the last commit of that batch (a trailing test-only re-baseline commit included). Both endpoints count, so a pin update that precedes or follows the byte change is compliant as long as the interval does not open or close in between.",
   "rule_source": "docs/p3/P3_RELEASE_GATE.md §2.2 (relaxed from 'the same commit that freezes the SHA'); P4 item 12.",
   "rule_history": "Prior text: 'Re-baseline ONLY in the same commit that freezes the SHA' (packages/jcc_core/tests/test_p3_acceptance_gate.py:407, owner harbor). Relaxed because the byte change and the pin update have different owners (forge vs harbor), so a single commit was not available without violating the ownership rule; the P3 net state is green.",
-
   "registered_windows": [
     {
       "id": "P3-FREEZE-W-0",
@@ -25,9 +23,58 @@
       "start": "280bfa8",
       "end": "3936c96",
       "compliance_note": "Contains BOTH the budget.py byte change (280bfa8) and the pin update (3936c96). Under the relaxed wording this re-baseline is compliant; under the old 'same commit' wording it would have been a violation. This is the case that motivated the relaxation."
-    }
+    },
+    {
+      "id": "V1.1-FREEZE-W-0",
+      "authorized_batch": "v1.1 §7B/§7C/§7D real-Jev interface verification + provider-mode contract",
+      "start": "<the v1.1 §7 commit>",
+      "end": "<the same commit>",
+      "compliance_note": "Only packages/jcc_core/server.py moved. The byte change (server.py /api/health) and the pin update (test_p3_acceptance_gate.py _BASELINE_HASHES + A8_FROZEN_AT) are in ONE commit, so BOTH wordings of the rule are satisfied. The v1.1 branch is a NEW development line; the P3 verdict of 355/0/0/0 remains valid for ITS tree (认证 SHA 3936c96) and is NOT carried over -- v1.1 verdicts are produced fresh by the v1.1 gate runs."
+    },
+    {
+      "id": "V1.2-FREEZE-W-CENTER",
+      "authorized_batch": "v1.2 VISUAL COMMAND CENTER (Wave 7+8, branch feature/jcc-v1.2-visual-command-center)",
+      "start": "<the v1.2 Wave 7 commit 959231e>",
+      "end": "<the v1.2 Wave 8 commit>",
+      "compliance_note": "Three pinned files moved by v1.2 product work already COMMITTED on the branch: core.py (record_source gate), state_store.py (events.record_source column + get_shadow_records('live')), server.py (control-token fail-closed gating across assess/pause/steer/retry + SSE generator support). Pinned hashes live in test_p3_acceptance_gate.py _BASELINE_HASHES comments with old->new + reason."
+    },
+    {
+      "id": "V1.3-FREEZE-W-1-DOMAIN",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 1 — Project/Mission domain (branch feature/jcc-v1.2-visual-command-center)",
+      "start": "1be13ca",
+      "end": "1be13ca",
+      "compliance_note": "One pinned file moved: packages/jcc_core/server.py, old 7d16a3f8.. -> new f4c01f35.., because Wave 1 wires DomainStore and adds the /api/v1/domain/* read surface plus token-gated writes. Byte change and pin update are in ONE commit (1be13ca)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-3-LAUNCH",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 3 — first real WorkBuddy mission (MissionRuntime launch bridge)",
+      "start": "v1.3-wave3-live-mission",
+      "end": "v1.3-wave3-live-mission",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old f4c01f35.. -> new 4ac96c0e.., because Wave 3 wires MissionRuntime (app.state.mission_runtime) and adds GET /api/v1/domain/launch/probe (open), POST /api/v1/domain/missions/{mid}/launch (token-gated), GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave3-live-mission). Also in this window: A11 inbound surface gains the launch POST, and test_server_surface's declared-open list gains the two Wave 3 GETs -- both reviewed edits, no unreviewed route."
+    },
+    {
+      "id": "V1.3-FREEZE-W-4-ATTENTION",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 4 — Needs Attention + Control (preview-first control surface)",
+      "start": "v1.3-wave4-needs-attention",
+      "end": "v1.3-wave4-needs-attention",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 4ac96c0e.. -> new 32d2540d.., because Wave 4 adds GET /api/v1/domain/needs-attention/resolutions (open) and POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) plus the server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave4-needs-attention). Also in this window: A11 inbound surface gains the resolve POST, test_server_surface's declared-open list gains the resolutions GET, and domain.py gains the approval->mission coupling in decide_approval + two columns in needs_attention() (domain.py is NOT an A8-pinned file)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-5-DELIVERABLES",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 5 — Deliverables (server-side view, identity, human verdict)",
+      "start": "v1.3-wave5-deliverables",
+      "end": "v1.3-wave5-deliverables",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 32d2540d.. -> new 7845d2ad.., because Wave 5 adds GET /api/v1/domain/deliverables (open, filterable), GET /api/v1/domain/artifacts/{aid} (open) and POST /api/v1/domain/artifacts/{aid}/verify (token-gated, records a human verdict), and the Home response gains the honest `deliverables` object ({produced,verified,rejected,total}); OPEN_GET_ENDPOINTS 24->26. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave5-deliverables). Also in this window: A11 inbound surface gains the verify POST, test_server_surface's declared-open list gains the two Wave 5 GETs, and domain.py gains get_artifact/verify_artifact/list_deliverables/deliverable_counts + the home_summary `deliverables` split (domain.py is NOT an A8-pinned file)."
+    },
+    {
+      "id": "V1.3-FREEZE-W-7-CONNECTION",
+      "authorized_batch": "v1.3 PRODUCT EDITION Wave 7 — Agent Connection Verification (MEASURED, not asserted)",
+      "start": "v1.3-wave7-connection-verification",
+      "end": "v1.3-wave7-connection-verification",
+      "compliance_note": "Exactly ONE pinned file moved: packages/jcc_core/server.py, old 7845d2ad.. -> new 09f9955c.., because Wave 7 makes connection capability a MEASURED fact: it adds GET /api/v1/domain/connections/{cid} (open; returns the connection, its capabilities, and a per-capability `provenance` of MEASURED vs ASSERTED) and POST /api/v1/domain/connections/{cid}/verify (token-gated; runs a REAL read-only probe via capability_probe.probe_connection and records only what it OBSERVED -- the body cannot state the outcome), and HARDENS POST /api/v1/domain/connections/{cid}/capability so a bare CONTROL_VERIFIED with no evidence_ref is refused with 422 (it still accepts a cited one); OPEN_GET_ENDPOINTS 26->27. The other 11 pinned files are byte-identical. The byte change and the pin update are in ONE commit (v1.3-wave7-connection-verification). Also in this window: A11 inbound surface gains the verify POST, test_server_surface's declared-open list gains the Wave 7 GET, a new module packages/jcc_core/capability_probe.py is added (not A8-pinned), and domain.py gains capability_provenance/record_probe + CAPABILITY_HEALTH/health_for_capability (domain.py is NOT an A8-pinned file)."
+    },
+    "V1.3.5-REPO-RELOCATION: the checkout moved from F:/jev to D:/jev. Two A8-pinned production artifacts changed bytes because their hardcoded absolute repo paths were replaced with a REPO_ROOT derived from __file__ (config/jcc.yaml, packages/jcc_core/config.py). Ten tools/ scripts and one test module were de-hardcoded but are NOT A8-pinned. Byte change and pin update are in the SAME commit. No behaviour change: an absolute db_path is still honoured verbatim, actuation stays disabled, and the GREEN 4778 / PRODUCT 4779 port contract is untouched."
   ],
-
   "old": {
     "config/jcc.yaml": "70b5bdf9",
     "packages/jcc_core/run.py": "910fefc6",
@@ -46,7 +93,6 @@
     "packages/jcc_core/config.py": "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
     "packages/supervisor/budget.py": "96a11b69dd0414826735e98b932975cca50861968cd833b4bf9a3ef9c1d1c1b2"
   },
-
   "rebaselines": [
     {
       "artifact": "config/jcc.yaml",
@@ -87,21 +133,53 @@
       "pin_updated_in_commit": "3936c96",
       "reason": "#70 / D-34 fail-closed: an uncostable directive action no longer charges 0.0 (arch-gate C1)",
       "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/jcc_core/server.py",
+      "old": "9bca4bd4",
+      "new": "392059e6",
+      "window": "V1.1-FREEZE-W-0",
+      "changed_in_commit": "<same commit as pin_updated_in_commit>",
+      "pin_updated_in_commit": "<same commit as changed_in_commit>",
+      "reason": "v1.1 §7D provider-mode contract: /api/health now exposes provider_mode / provider_verified / provider_activation_state (+ provider_requested_mode and provider_is_real) so a stand-in provider can never render as REAL. Byte change and pin update are in the SAME commit, so the strict pre-relaxation wording is satisfied.",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "config/jcc.yaml",
+      "old": "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
+      "new": "6525ea860984899e8125df1611f748d99338719f502c303f59f25492d55d5198",
+      "window": "V1.3.5-REPO-RELOCATION",
+      "changed_in_commit": "<same commit as pin_updated_in_commit>",
+      "pin_updated_in_commit": "<same commit as changed_in_commit>",
+      "reason": "Repo relocation F:/jev -> D:/jev. state_store.db_path became the repo-relative 'runtime/jcc/jcc.db'; jcc_core.config._resolve_db_path anchors it to REPO_ROOT. Identical database file, identical WAL contract, identical port. The previous literal pointed at a drive that no longer exists, so the GREEN control plane could not load its own configuration at all.",
+      "authorized_by": "lead"
+    },
+    {
+      "artifact": "packages/jcc_core/config.py",
+      "old": "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
+      "new": "ae749b5bb74951af4e0072e15ed1bbaf33d12294a8a11efe68588a78d546e4be",
+      "window": "V1.3.5-REPO-RELOCATION",
+      "changed_in_commit": "<same commit as pin_updated_in_commit>",
+      "pin_updated_in_commit": "<same commit as changed_in_commit>",
+      "reason": "Same relocation. DEFAULT_CONFIG_PATH, the StateStoreConfig default and the load_config fallback are now derived from Path(__file__).resolve().parents[2]; a new _resolve_db_path() helper keeps absolute paths verbatim and anchors relative ones to the repo root. ADR-0008 D-30 fail-closed behaviour is untouched: an explicitly requested but unreadable config still raises ConfigError.",
+      "authorized_by": "lead"
     }
   ],
-
   "provenance": {
     "derived_from": "packages/jcc_core/tests/test_p3_acceptance_gate.py:143-185 (_BASELINE_HASHES + A8_FROZEN_AT)",
     "provenance_string": "re-baselined @ HEAD 9ee4507 (3 files: jcc.yaml/run.py/config.py); was 02bdb3f; budget.py re-baselined @ 280bfa8/#70 (old 1efb9186.. -> new 96a11b69..)",
     "hash_note": "8-hex form is the value width recorded in the source comments; 'new_full' carries the full digests from _BASELINE_HASHES['...']. The A8 test's own _sha() is CRLF-normalised; these digests are the values as recorded in the pin, not recomputed."
   },
-
   "runner_field": {
     "field": "A8_REBASELINE",
     "runner": "artifacts/acceptance/p3_gate_run.py:155 (A8_REBASELINE: dict | None = None), emitted as 'a8_rebaseline' in the run JSON",
     "desired_shape": {
-      "old": { "<repo-relative path>": "<sha256>" },
-      "new": { "<repo-relative path>": "<sha256>" },
+      "old": {
+        "<repo-relative path>": "<sha256>"
+      },
+      "new": {
+        "<repo-relative path>": "<sha256>"
+      },
       "reason": "<string>",
       "authorized_by": "<string>"
     },

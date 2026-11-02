@@ -1,0 +1,381 @@
+{
+  "schema": "jcc/security-final/1",
+  "schema_version": 1,
+  "release": "v1.3-final",
+  "security": "GO_WITH_CONDITIONS",
+  "verdict": "GO_WITH_CONDITIONS",
+  "head": "591c364b99c40e36f269c32bedb99bf8fc33047c",
+  "head_measured_code_sha": "591c364b99c40e36f269c32bedb99bf8fc33047c",
+  "branch": "release/jcc-v1.3-final",
+  "stale": false,
+  "head_provenance": {
+    "measured_at_head": "591c364b99c40e36f269c32bedb99bf8fc33047c",
+    "previous_measurement_head": "ac1ef4a6a9dd8e1df0bc02d8b9984221d1bbca9f",
+    "reason_for_reissue": "CR-003 (task #15) and RISK-1 (tasks #20-21) landed after the previous SECURITY_FINAL.json. They wired the containment guard that my previous verdict recorded as FAIL. The two affected K items were re-measured; every other K item was re-run at this HEAD and is unchanged.",
+    "log_since_previous_measurement": [
+      "591c364 fix(inc002): classify re-emitted evidence instead of letting it cry wolf",
+      "74255f8 fix(falsifier): refuse an unparsable product file instead of calling it clean",
+      "34fd71d docs(retest): add sha256 provenance per the new record rule; correct a guessed explanation",
+      "981d216 fix(pins): adopt team-lead's CRLF->LF-only rule; my a4fab43 rule had the flaw I criticised",
+      "314f936 feat(inc002): executable tree check -- CRLF-normalised hash AND a non-zero-byte half",
+      "8018b82 docs(security): correct the sha256 values I reported for my own evidence",
+      "d884be8 test(a8): verify all 12 A8 pins with the three-signal rule; 0 assume-unchanged flags",
+      "a4fab43 test(pins): adopt forge2's INC-002 rule, with one added signal that closes a real blind spot",
+      "fbeafb2 test(security): cover the Bearer branch of the control-token gate",
+      "b8ec575 docs: root-cause the E2E_CONTROL_TOKEN collection failure (no code change)",
+      "df4bc4e chore(a8): re-baseline the pins to the RISK-1 and P3/P4 commits",
+      "d012509 fix(security): report control-token state in health; refuse non-ASCII tokens",
+      "f8a5aeb RISK-1: close out the 3D UI project-root surface (spec 10)",
+      "590ecf3 fix(security): refuse an out-of-scope project root at the WRITE entry (RISK-1)",
+      "3941cad fix(relocation): stop the tree from depending on a drive that is gone",
+      "3a8712f test(crh1): hold the basetemp fix at three-way concurrency, not just two",
+      "05b4f9a fix(p2): the PermissionRequest gate must survive `python -O`",
+      "a45fb49 fix(crh1): give each pytest process its own basetemp",
+      "c5f70c2 fix(cr003): make the falsifier's negative control actually measure the guard",
+      "085823a docs(retest): record the E1 host-normalisation finding, with a mechanism correction",
+      "a33998a docs(retest): retract the \"two WAL stalls = 63s\" mechanism -- it is a HOST artefact",
+      "9108ade fix(logs): CR-H4 -- recover 3 NUL-padded boot-beacon records; keep the 2 torn ones",
+      "759333d fix(tools): stop the selftests' own cleanup from hanging the run",
+      "dff2e3f docs(falsifier): retract the conftest claim in permanent source",
+      "d9e41e9 docs(retest): 15 of 30 gate legs measured; three of my own instruments were the obstacle",
+      "2899bab fix(tools): close the verification gap the mutation test found in my own repair tool",
+      "9d297ef chore(a8): re-baseline the pins to the CR-003 commit",
+      "1d7d55a fix(cr003): bind the launch project root to a base directory",
+      "33ce713 feat(release_truth): adjudicate the tracked paths the classifier was guessing at",
+      "3af548b fix(cr002): the GREEN port helper must not ride the product default",
+      "52f484b docs(retest): correct Family E -- 5 bad lines in 2 types, not \"3 entirely NUL\"",
+      "0ebb7ef docs(retest): withdraw the Family H flake claim -- it was measured under my own concurrent load",
+      "7e6d4e5 docs(retest): adjudicate every C2/C1 failure family with line-level evidence",
+      "c8ab3cc chore(a8): re-baseline the run.py pin to the port-normalisation commit",
+      "3ebb38b fix(cr002): normalize the port before the GREEN-port guard compares it",
+      "8848390 fix(uptime-probe): the no_pid_file report must be JSON, not a hand-built string",
+      "d311ef5 probe(tools): WAL falsifier for the audit-chain threaded flake -- and it REFUTES the hypothesis",
+      "46ff531 docs(security): name the evidence self-reference trap so it is not misread",
+      "20c037f docs(security): SECURITY_FINAL.json -- the K-section security gate, at HEAD"
+    ],
+    "not_inherited": "No verdict was carried over from the previous issue of this file. All 16 K items were re-executed at this HEAD."
+  },
+  "generated_at": "2026-10-05T10:40:55+0800",
+  "generated_by": "Aegis (Security / Secrets), evidence-only gate",
+  "decision_rationale": "GO_WITH_CONDITIONS. The two K items that previously FAILED (launch_scope, artifact_path_traversal) now PASS: CR-003 and RISK-1 wired the containment guard, re-measured here at 7/7. All 16 K items are PASS and 0 are NOT_MEASURED. The verdict is still not GO, for two reasons that are NOT security-blockers and NOT this gate's to sign: the two HOST dependencies (AEGIS-F5 absent NVIDIA driver, AEGIS-F6 no scheduled task) leave restart recovery and GPU performance unmeasured, and four evidence inputs the aggregator requires do not exist. A gate that reported GO here would be claiming a release readiness it cannot measure.",
+  "security_blockers": 0,
+  "blockers_are_not_p0_p2": "AEGIS-F1 is HIGH but is NOT a P0-P2 blocker: it needs a valid control token AND a signed v2 directive AND a resolvable node+WorkBuddy CLI. No unauthenticated or remote party can reach it, and no automatic side-effect actuator exists or is enabled.",
+  "k_section": [
+    {
+      "item": "secret_scan",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_audit.py",
+      "evidence": "1601 files scanned for 8 credential families. 144 pattern hits reduce to 12 unique strings, all synthetic redaction fixtures originating at packages/jcc_core/tests/test_redaction_values.py:78-85; the rest are copies in artifacts/acceptance snapshots. Zero .env values appear in any scanned file. redact() masks api_key/password; the server never interpolates a token into a log record.",
+      "artifact": "artifacts/release/v1.3_final/HOST_PREFLIGHT.json#security.secret_scan"
+    },
+    {
+      "item": "route_auth",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py + D:\\jev\\runtime\\_aegis_probe_api.py",
+      "evidence": "27 mutating routes; every one returns 401/403 with no token. Authorization: Bearer OVERRIDES X-JCC-Token, and a wrong bearer paired with a VALID X-JCC-Token returns 403, so there is no header-smuggling path. Empty bearer 403; trailing space 403 (no trimming). Undeclared open GET routes = 0 (28 declared / 27 served). /docs and /openapi.json 404.",
+      "artifact": "packages/jcc_core/server.py require_control_token"
+    },
+    {
+      "item": "localhost_binding",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_bind_v13.py",
+      "evidence": "check_bind_host refuses 0.0.0.0, ::, 192.168.1.5, example.com and '0' with SystemExit, accepting only 127.0.0.1/127.0.0.2/localhost/::1. run.py hardcodes BIND_HOST=127.0.0.1 and passes it to uvicorn.run, so config cannot move the listener. Both config files declare host 127.0.0.1 and an explicit CORS allowlist with no '*'. No external listener was observed.",
+      "artifact": "packages/jcc_core/run.py:48-82, config/jcc-v1.3.yaml:23-29"
+    },
+    {
+      "item": "signed_directive",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "Baseline sign+verify returns (True,'ok'). A tampered-params directive returns BAD_SIGNATURE. v2 signature offered to a v1 verifier returns BAD_SIGNATURE (no downgrade). An unknown form raises ValueError against the closed set {v1,v2} and is never defaulted. A blank/unset key makes load_signing_key return None, and the signer reports available=False rather than emitting a fake signature.",
+      "artifact": "packages/jcc_core/signing.py"
+    },
+    {
+      "item": "nonce_replay",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_receiver.py + D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "Directive kernel: the same nonce verifies once then returns REPLAY. Webhook receiver: a repeated delivery_id is rejected with reason='replay', and the replay check runs AFTER signature so unauthenticated traffic cannot poison the cache. A body-swap and an agent-header-swap are both rejected as bad_signature.",
+      "artifact": "packages/jcc_core/signing.py:361-365, integrations/_common/jcc_receiver.py:166-168"
+    },
+    {
+      "item": "expired_directive",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "issued_at far in the past -> EXPIRED. issued_at in the future beyond the 30s skew allowance -> NOT_YET_VALID. The receiver's separate window rejects a stale timestamp with timestamp_out_of_window.",
+      "artifact": "packages/jcc_core/signing.py:353-359"
+    },
+    {
+      "item": "wrong_project",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "directive_gate runs 9 ordered checks; check 5 (session) binds the directive's session to the intent's mission, so a directive naming a different project/mission returns SESSION_MISMATCH before any effect.",
+      "artifact": "packages/jcc_core/host_launcher.py:568-606, packages/supervisor/directive_gate.py"
+    },
+    {
+      "item": "wrong_adapter",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "check 6 (capability) requires exactly CAPABILITY_USER_LAUNCH and returns CAPABILITY_DENIED for anything else. The launch template registry is bound by template_registry_digest into the signed params, so an adapter outside the registry cannot be substituted without breaking the signature.",
+      "artifact": "packages/jcc_core/host_launcher.py CAPABILITY_USER_LAUNCH, template_registry_digest"
+    },
+    {
+      "item": "unknown_semantics",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "An event with agent='not_a_real_agent' returns 422, not 2xx. An envelope with no session_id returns 422, so cwd cannot become the identity (JCC contract rule 7). A garbage envelope returns 422. The renderer classifier returns UNKNOWN for an empty string and for an unrecognised renderer -- it never folds 'not identified' into HARDWARE.",
+      "artifact": "packages/jcc_core/schemas.py, tools/v1_3_wave10_browser_perf.py:552-583"
+    },
+    {
+      "item": "shell_injection",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "host_launcher.py contains zero shell=True call sites; the single subprocess.Popen site passes an argv list. A goal of '; rm -rf / # $(whoami) `id` && calc.exe' became ONE argv element out of 14, so the metacharacters are data and are never interpreted by a shell.",
+      "artifact": "packages/jcc_core/host_launcher.py:774"
+    },
+    {
+      "item": "command_escaping",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "Template param_flags build ['--flag', value] as separate list elements; no f-string shell line is constructed anywhere in the launcher. The joined argv is only ever used for an args_hash and for logging, never re-split into a shell.",
+      "artifact": "packages/jcc_core/host_launcher.py param_flags / build_argv"
+    },
+    {
+      "item": "telemetry_control_separation",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py + D:\\jev\\runtime\\_aegis_probe_bind_v13.py",
+      "evidence": "/api/health reports actuation_enabled=False, localhost_only=True, policy_version=p3.0.0. Both config files carry actuation.enabled=false with allowed_actions=[]. Jev scores, Policy emits directives, the Actuator refuses every side-effect.",
+      "artifact": "packages/jcc_core/actuator.py, config/jcc-v1.3.yaml:27-29"
+    },
+    {
+      "item": "launch_scope",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py",
+      "evidence": "RE-VERIFIED at HEAD after CR-003 (task #15) and RISK-1 (tasks #20-21). Previously FAIL because _is_inside() was dead code. Measured now, not read off a task list: (1) AST shows _is_inside has 4 real call sites (host_launcher.py:536 plus project_scope.py:295,319 and its import) vs 0 before; (2) all 7 containment cases still decide correctly, so the fix WIRED the predicate rather than rewriting it; (3) POST /api/v1/domain/projects now returns 422 for all 6 out-of-scope roots ('../..//../../Windows/System32', '..\\..\\..\\..\\Windows\\System32', 'C:\\Windows\\System32', '/etc/passwd', 'D:\\Windows\\System32', 'Z:/somewhere/else') and 200 for the in-scope ones, so no out-of-scope root is stored; (4) validate_project_root(raw, roots=['D:\\jev']) refuses all 6 with PROJECT_ROOT_OUT_OF_SCOPE and returns a canonical path only for in-scope roots; (5) 3/3 genuinely in-scope roots are still admitted, so the guard is a boundary and not a blanket refusal; (6) an existing out-of-scope path and two non-existent ones are refused with indistinguishable wording, so the endpoint is not a filesystem-existence oracle; (7) NEGATIVE CONTROL: with the pre-CR-003 shape the 6 out-of-scope roots pass the write side, so the passes are caused by the wiring.",
+      "artifact": "packages/jcc_core/host_launcher.py:485,536; packages/jcc_core/project_scope.py:182,295,319; config item launcher.project_scope_base",
+      "superseded_verdict": {
+        "previous": "FAIL",
+        "reason": "AEGIS-F1: _is_inside was defined and never called",
+        "fixed_by": "CR-003 (task #15) + RISK-1 (tasks #20-21)"
+      }
+    },
+    {
+      "item": "artifact_path_traversal",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py",
+      "evidence": "RE-VERIFIED at HEAD after CR-003 (task #15) and RISK-1 (tasks #20-21). Previously FAIL because _is_inside() was dead code. Measured now, not read off a task list: (1) AST shows _is_inside has 4 real call sites (host_launcher.py:536 plus project_scope.py:295,319 and its import) vs 0 before; (2) all 7 containment cases still decide correctly, so the fix WIRED the predicate rather than rewriting it; (3) POST /api/v1/domain/projects now returns 422 for all 6 out-of-scope roots ('../..//../../Windows/System32', '..\\..\\..\\..\\Windows\\System32', 'C:\\Windows\\System32', '/etc/passwd', 'D:\\Windows\\System32', 'Z:/somewhere/else') and 200 for the in-scope ones, so no out-of-scope root is stored; (4) validate_project_root(raw, roots=['D:\\jev']) refuses all 6 with PROJECT_ROOT_OUT_OF_SCOPE and returns a canonical path only for in-scope roots; (5) 3/3 genuinely in-scope roots are still admitted, so the guard is a boundary and not a blanket refusal; (6) an existing out-of-scope path and two non-existent ones are refused with indistinguishable wording, so the endpoint is not a filesystem-existence oracle; (7) NEGATIVE CONTROL: with the pre-CR-003 shape the 6 out-of-scope roots pass the write side, so the passes are caused by the wiring.",
+      "artifact": "packages/jcc_core/host_launcher.py:485,536; packages/jcc_core/project_scope.py:182,295,319; config item launcher.project_scope_base",
+      "superseded_verdict": {
+        "previous": "FAIL",
+        "reason": "AEGIS-F1: _is_inside was defined and never called",
+        "fixed_by": "CR-003 (task #15) + RISK-1 (tasks #20-21)"
+      }
+    },
+    {
+      "item": "sse_data_exposure",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_sse.py",
+      "evidence": "Measured on a real loopback uvicorn instance with 5 events genuinely ingested (not a 422-vacuous test). 4096 bytes read from /api/v1/events/stream: a planted sk- canary and a planted password canary appeared in NONE of the frames. The same canaries were absent from /api/health, /api/sessions, /api/decisions, /api/audit, /api/v1/domain/counts and from the assess response body. /ws is gated by presenting the control token as the WebSocket subprotocol.",
+      "artifact": "packages/jcc_core/server.py /ws, /api/v1/events/stream"
+    },
+    {
+      "item": "dependency_runtime_regression",
+      "verdict": "PASS",
+      "probe": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+      "evidence": "Security-critical imports resolve to fastapi 0.141.1, starlette 1.7.0, pydantic 2.13.5, pyyaml 6.0.3 on Python 3.13.14 at D:\\jev\\.venv. Every package declared in packages/jcc_core/requirements.txt is installed (missing=[]). hmac.compare_digest and hashlib.sha256 are stdlib and cannot regress behind a third-party pin.",
+      "artifact": "packages/jcc_core/requirements.txt, .venv"
+    }
+  ],
+  "k_section_summary": {
+    "total": 16,
+    "pass": 16,
+    "fail": 0,
+    "not_measured": 0,
+    "failing_items": [],
+    "changed_since_previous_issue": {
+      "launch_scope": "FAIL -> PASS",
+      "artifact_path_traversal": "FAIL -> PASS"
+    }
+  },
+  "host_dependencies": {
+    "note": "HOST-class, not security blockers. Recorded separately so the security verdict is not averaged against them.",
+    "AEGIS-F5": {
+      "class": "HOST",
+      "summary": "NVIDIA driver absent; RTX 2080 Ti hardware present.",
+      "pci_id": "PCI\\VEN_10DE&DEV_1E04&SUBSYS_86751043&REV_A1",
+      "device": "TU102 / GeForce RTX 2080 Ti",
+      "driver_service": "BasicDisplay",
+      "hardware_performance": "NOT_MEASURED",
+      "permanent": false,
+      "remediable": true,
+      "action": "Install the NVIDIA display driver, reboot, re-run the J stage. NOT attempted by Aegis: it is a host-mutating, user-interactive change requiring approval."
+    },
+    "AEGIS-F6": {
+      "class": "HOST",
+      "summary": "No JCC scheduled task exists, so Windows restart recovery is NOT_MEASURED (it cannot have been exercised).",
+      "scheduled_tasks_total": 145,
+      "jcc_tasks_found": 0,
+      "api_readable": true,
+      "xml_export_readable": true,
+      "must_not_be_reported_as": "PASS"
+    }
+  },
+  "product_findings": [
+    {
+      "id": "AEGIS-F2",
+      "severity": "MEDIUM",
+      "k_items": [],
+      "summary": "A non-ASCII control token raises an unhandled TypeError in require_control_token (hmac.compare_digest rejects non-ASCII str).",
+      "repro": "Raw ASGI POST /api/pause with header x-jcc-token: \\xe4\\xb8\\xad\\xe6\\x96\\x87 raises TypeError. httpx masks this with its own UnicodeEncodeError, so it must be driven at the ASGI layer.",
+      "confidentiality_impact": "NONE. The request is still refused; no token is accepted that should not be. This is an availability/robustness defect: an unhandled exception instead of a 403.",
+      "recommended_fix": "Coerce both operands to bytes, or wrap the compare in try/except TypeError and fall through to 403.",
+      "recommendation": "FIX IT -- it is a 3-line change in server.py and the failure mode is an unhandled exception in the auth path.",
+      "owner": "Forge (server.py)"
+    },
+    {
+      "id": "AEGIS-F3",
+      "severity": "MEDIUM",
+      "k_items": [],
+      "summary": ".env declares JCC_CONTROL_TOKEN, JCC_CONFIG and JEV_API_KEY with EMPTY values, and the host exports no JCC_*/JEV_* variables at all.",
+      "is_this_a_vulnerability": false,
+      "why": "This is fail-CLOSED and therefore correct: an unset or empty token yields '' which require_control_token rejects, so the control plane is LOCKED rather than open. All 27 mutating routes were confirmed to refuse.",
+      "residual_risk": "Operational only: an operator may believe a token is configured when the file says otherwise, and an empty JEV_API_KEY means the real provider cannot authenticate.",
+      "recommended_fix": "Expose control_token_configured (a boolean) on /api/health so the fact is visible without leaking any value.",
+      "recommendation": "WORTH FIXING but not urgent and not a security defect. The health flag is a 2-line change and turns a silent misconfiguration into a visible one. Do NOT let it read the token value.",
+      "owner": "Forge (server.py)"
+    },
+    {
+      "id": "AEGIS-F4",
+      "severity": "LOW",
+      "k_items": [],
+      "summary": "SessionIsolation._map in the webhook receiver has no TTL, no maxsize and no eviction, unlike ReplayCache.",
+      "impact": "Unbounded growth on a long-lived receiver; an attacker holding the shared webhook secret could deliberately grow the cross-agent binding table. Post-authentication only.",
+      "recommended_fix": "Give it the same ttl+maxsize treatment as ReplayCache, or derive bindings from the audit table.",
+      "recommendation": "FIX WHEN CONVENIENT -- low urgency, small change, and it removes an unbounded map from a security component.",
+      "owner": "main (integrations/)"
+    },
+    {
+      "id": "AEGIS-F7",
+      "severity": "MEDIUM",
+      "k_items": [],
+      "summary": "Main instruction H section points at F:\\jev\\.workbuddy\\fixtures; F: does not exist on this host and D:\\jev\\.workbuddy\\fixtures was absent.",
+      "status": "Weaver reported closed (.workbuddy/fixtures/final_acceptance_project)",
+      "owner": "Weaver"
+    },
+    {
+      "id": "AEGIS-F8",
+      "severity": "INFORMATION_ONLY",
+      "k_items": [
+        "unknown_semantics"
+      ],
+      "summary": "A claim that SOFTWARE_RENDERER_TOKENS does not cover 'Microsoft Basic Render Driver' is FALSE and was falsified by executing the real classifier.",
+      "evidence": "The tuple spans lines 181-186 and already contains 'basic render driver', 'basic display adapter', 'warp' and 'microsoft basic'. classify_renderer returns SOFTWARE for the WARP string and UNKNOWN for anything unrecognised, so an unknown future renderer cannot be reported as a GPU either.",
+      "action_required": "NONE. Do not open a Change Request for this."
+    },
+    {
+      "id": "AEGIS-F1",
+      "severity": "HIGH (now FIXED, verified)",
+      "k_items": [
+        "launch_scope",
+        "artifact_path_traversal"
+      ],
+      "summary": "_is_inside() at host_launcher.py:485 was dead code, so project_root reached subprocess.Popen(cwd=...) and --add-dir with only an is_dir() existence check.",
+      "status": "FIXED by CR-003 (task #15) and RISK-1 (tasks #20-21); re-verified at 7/7 by runtime/_aegis_probe_f1_recheck.py",
+      "fix_shape": "The existing predicate was WIRED on, not rewritten: 4 call sites now, all 7 containment cases still correct, a new packages/jcc_core/project_scope.py owns the write-side validator and a new config item launcher.project_scope_base (default derived from __file__, never a hardcoded drive).",
+      "residual_risk": "None observed. The guard is scoped to the repo root by default, so an operator who genuinely needs a project outside D:\\jev must widen launcher.project_scope_base explicitly -- that is a deliberate config decision, and it is the right place for it."
+    }
+  ],
+  "not_measured": [
+    {
+      "item": "gpu_hardware_performance",
+      "reason": "NVIDIA driver absent; the OS exposes the adapter through BasicDisplay and Chrome rasterises on the CPU. No frame time here can be attributed to the RTX 2080 Ti."
+    },
+    {
+      "item": "windows_restart_recovery",
+      "reason": "No JCC scheduled task exists, so it could not be exercised. NOT_MEASURED, never PASS."
+    },
+    {
+      "item": "live_protection_of_a_green_process",
+      "reason": "No JCC process is running (ports 4778/4779/4780 are all free, jcc_green_process_pid=0 is the true value). Aegis did not signal, kill or stop anything, so no 'protected a process' claim is made."
+    },
+    {
+      "item": "native_agent_hook_installer_behaviour",
+      "reason": "~/.claude, ~/.codex and ~/.hermes do not exist on this host, so the installers were never exercised and there is no hook to clobber."
+    },
+    {
+      "item": "event_flood_audit_integrity",
+      "reason": "An earlier 500-event flood sub-probe was cut short by a wall-clock timeout (exit 124). Replay-cache and isolation behaviour under load were measured separately (3000 signed deliveries, 0 rejections, ~42k/s), but the audit-tape state DURING a flood is UNVERIFIED."
+    }
+  ],
+  "explicit_non_claims": [
+    "This gate signs the SECURITY dimension only. It does not speak for architecture, acceptance, rollback, or performance.",
+    "16/16 K items PASS does NOT mean the release may proceed: the two HOST dependencies remain unmeasured, four required evidence files do not exist, and the worktree state is not this gate's to certify.",
+    "A K item that was not measured is never rendered as a pass.",
+    "The launch_scope PASS means the containment defect is fixed. It does NOT mean launching was exercised end-to-end on this host: no workload was spawned, so the child process was never observed running inside a boundary."
+  ],
+  "constraints_honoured": [
+    "No product code modified: packages/, apps/, config/, integrations/, tools/ and tests/ were read only.",
+    "No secret VALUE appears in this file. .env was inspected by key name, emptiness and length only.",
+    "No process was signalled, killed or stopped.",
+    "Only a loopback scratch port was bound, by this probe, and it was shut down by this probe.",
+    "artifacts/release/v1.3_final/HOST_PREFLIGHT.json was NOT modified."
+  ],
+  "probe_artifacts": {
+    "k_section": "D:\\jev\\runtime\\_aegis_probe_k_section.py",
+    "receiver": "D:\\jev\\runtime\\_aegis_probe_receiver.py",
+    "sse": "D:\\jev\\runtime\\_aegis_probe_sse.py",
+    "bind_v13": "D:\\jev\\runtime\\_aegis_probe_bind_v13.py",
+    "containment": "D:\\jev\\runtime\\_aegis_probe_containment.py",
+    "audit": "D:\\jev\\runtime\\_aegis_probe_audit.py",
+    "renderer": "D:\\jev\\runtime\\_aegis_probe_renderer.py",
+    "api": "D:\\jev\\runtime\\_aegis_probe_api.py",
+    "f1_recheck": "D:\\jev\\runtime\\_aegis_probe_f1_recheck.py"
+  },
+  "prior_evidence": {
+    "host_preflight": "artifacts/release/v1.3_final/HOST_PREFLIGHT.json",
+    "note": "HOST_PREFLIGHT.json records head=05715da. It is retained unaltered as a物证. This file supersedes it for the security dimension and is current for the recorded head."
+  },
+  "conditions": [
+    "AEGIS-F5 (NVIDIA driver absent) must be attempted, or its non-attempt explicitly accepted, before the J stage is finalised. HOST class, not a security blocker.",
+    "AEGIS-F6 (no JCC scheduled task) blocks any claim that Windows restart recovery is verified. It is NOT_MEASURED. HOST class.",
+    "Four aggregator inputs still absent: SANDBOX_CERTIFICATION.json, HOST_ACCEPTANCE.json, PRODUCT_FREEZE.json, MANIFEST.json. This gate cannot substitute for them."
+  ],
+  "verification_discipline": {
+    "note": "Two of my own probes were wrong before they were right. Both are recorded because a gate that hides its own broken tests cannot be audited.",
+    "self_corrections": [
+      "The write-side check first reported FAIL because my own filter treated the scope base D:\\jev as an out-of-scope probe. The product was correct; the assertion was wrong.",
+      "The launch-side and existence-oracle sections first reported PASS VACUOUSLY: I called validate_project_root(raw) without its keyword-only `roots` argument, every call raised TypeError, and my handler counted TypeError as REFUSED. A test that passes because the call was malformed proves nothing. Now the real roots are passed and a TypeError is treated as FAILURE."
+    ],
+    "vacuous_pass_lesson": "A refusal-shaped exception from a malformed call is indistinguishable from a real refusal unless the expected exception type is asserted explicitly. This is the same class as the CRLF false positive: the check appeared to pass for a reason unrelated to the property under test. A third instance of the same shape was caught in this very correction: a shell-escaped comparison string made every CR look like a lone CR. Method errors keep arriving in the same family: a check that passes or fails for a reason unrelated to the property under test."
+  },
+  "tests_at_this_head": {
+    "pytest": "138 passed, 0 failed (test_project_scope_v1_3, test_server_surface, test_signing_form_v2, test_v1_1_directive_gate, test_config_failclosed)",
+    "f1_recheck_probe": "7/7 PASS",
+    "k_section_probe": "16/16 PASS, no regression",
+    "bind_probe": "9/9 PASS, localhost binding and GREEN port ownership intact",
+    "note": "The previous issue reported 108 passed; the 30 new tests are test_project_scope_v1_3, added with the CR-003/RISK-1 fix."
+  },
+  "normalisation_correction": {
+    "what_was_wrong": "Aegis verified these artefacts with tr -d '\\r' and reported MATCH. That rule deletes EVERY CR, not only the CRLF one, so an in-band CR injection normalises to the same bytes as a clean file -- a FALSE NEGATIVE, not a labelling nicety.",
+    "independently_reproduced": "HEAD 'ab\\r\\n' -> 61 62 0a; WORK 'a\\rb\\r\\n' -> tr: 61 62 0a (MATCH, damage hidden) vs sed 's/\\r$//': 61 0d 62 0a (DIFFER, caught). Verified on this host.",
+    "correct_rule_shell": "sed 's/\\r$//'",
+    "correct_rule_python": "b.replace(b\"\\r\\n\", b\"\\n\")   # NOT replace(b\"\\r\", b\"\")",
+    "verdicts_re_run_under_correct_rule": {
+      "HOST_PREFLIGHT.json": "normalised=MATCH zeroed=no lone_CR=0",
+      "SECURITY_FINAL.json": "normalised=MATCH zeroed=no lone_CR=0",
+      "AEGIS_SHA_CORRECTION.txt": "normalised=MATCH zeroed=no lone_CR=0"
+    },
+    "do_any_verdicts_change": "No. Both rules agree on all three artefacts, because the tree contains zero lone CRs. The earlier MATCH results were right BY LUCK, not by correctness: on a tree with no lone CR the unsound rule and the sound rule coincide. A correct conclusion reached by an unsound method is not a verified result.",
+    "tree_wide_exposure": {
+      "git_grep_flagged_files": 32,
+      "files_with_genuinely_non_crlf_CR": 0,
+      "measurement": "direct byte count (total CR minus CRLF pairs), not grep",
+      "conclusion": "The -P \r(?!\n) flag is a FALSE POSITIVE of the pattern on this tree, not evidence of in-band CR anywhere. Confirmed by strict json.loads on both JSON artefacts and by a CRLF-free canonical re-serialisation."
+    },
+    "withdrawn_claim": "Aegis had forwarded forge2's 'use cat-file -p, not git show, because git show may mask (a)'. Measured: both return 26d9cd51e4458837 / 45366 B, byte-identical. cat-file -p is only clearer about intent. The stronger claim is withdrawn.",
+    "aegis_own_error_in_this_correction": "The first re-check reported 'SECURITY_FINAL.json: 355 lone CR'. That was Aegis's bug: the CR count was compared against a shell-escaped b'\\\\r\\\\n' (a literal 4-byte backslash sequence) rather than the real CRLF pair, so every CR looked lone. Re-measured by counting bytes: 355 CR, 355 CRLF pairs, 0 lone. The file was never damaged.",
+    "artefact": "artifacts/release/v1.3_final/AEGIS_RENORM_CORRECTION.txt",
+    "reproduce": [
+      "python runtime/_aegis_probe_renorm.py",
+      "python runtime/_aegis_probe_lonecr.py"
+    ]
+  }
+}

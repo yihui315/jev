@@ -1,0 +1,33 @@
+{
+  "decision": "GO",
+  "dimension": "The gate's own instruments can fail",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "7/7 falsifiers behaved",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_F1_INSTRUMENTS_ARE_FALSIFIABLE.json",
+      "evidence_sha256": "bed017b13736929dabcbaf6b734d52e8b5a1f152ab9f6fcad42aaa0f31f5f6bf",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "F1_INSTRUMENTS_ARE_FALSIFIABLE",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "F1_INSTRUMENTS_ARE_FALSIFIABLE"
+  ],
+  "leg_id": "SELF_FALSIFICATION",
+  "notes": "All 1 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "d736793926b57b924280e3a9c131a50e18887e9933e9ae920b5f3f0dab7eebc6",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:22Z"
+}

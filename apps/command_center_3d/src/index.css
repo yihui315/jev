@@ -1,0 +1,229 @@
+/**
+ * JEV — the design-token layer.
+ *
+ * One file defines every colour, radius and font the product uses. Components
+ * never hardcode a hex value; they reference a Tailwind semantic token, which
+ * resolves to one of these variables.
+ *
+ * IDENTITY (v2 — "Modern AI Workspace")
+ * -------------------------------------
+ * Deep graphite surfaces, generous whitespace, one emerald action colour, one
+ * electric-blue accent. Deliberately NOT an admin dashboard: few hairlines, no
+ * neon glow, no dense grid, no sub-12px text. Hierarchy comes from spacing and
+ * type scale, not from borders.
+ *
+ * The honesty rule that outranks the palette: a state the system could not
+ * observe maps to `--status-unknown` (grey). It never maps to ok/live. This is
+ * why `unknown` exists as a first-class token rather than "grey-500" inline.
+ */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root,
+  [data-theme="dark"] {
+    /* Surfaces — deep graphite. Background is the page, card sits above it. */
+    --background: 213 28% 5%;        /* #090D12 */
+    --surface: 213 24% 7%;           /* raised panel, one step up */
+    --foreground: 40 18% 92%;        /* warm white */
+
+    --card: 213 26% 9%;              /* #10161F */
+    --card-foreground: 40 18% 92%;
+
+    --popover: 213 26% 8%;
+    --popover-foreground: 40 18% 92%;
+
+    --primary: 152 62% 42%;          /* emerald — the single action colour */
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 152 45% 16%;     /* tinted fill for selected nav rows */
+
+    --secondary: 213 20% 14%;
+    --secondary-foreground: 40 16% 88%;
+
+    --muted: 213 18% 13%;
+    --muted-foreground: 215 12% 62%;
+
+    --accent: 213 22% 15%;
+    --accent-foreground: 40 18% 94%;
+
+    --destructive: 0 72% 58%;        /* soft red, never neon */
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 213 16% 17%;
+    --border-strong: 213 14% 24%;
+    --input: 213 16% 20%;
+    --ring: 152 62% 42%;
+
+    /* Semantic status. `unknown` is grey — never green. */
+    --status-ok: 152 58% 46%;
+    --status-live: 213 92% 60%;      /* electric blue — actively running */
+    --status-warn: 38 92% 55%;       /* amber */
+    --status-danger: 0 72% 60%;
+    --status-info: 213 88% 62%;
+    --status-unknown: 215 10% 48%;
+
+    /* Radii: 12–16px per the visual spec. */
+    --radius: 0.875rem;
+    --radius-lg: 1rem;
+
+    --font-sans: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+      Roboto, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", "Noto Sans SC",
+      sans-serif;
+    --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono",
+      monospace;
+
+    /* Soft elevation, never a hard drop shadow. */
+    --shadow-card: 0 1px 2px hsl(213 40% 2% / 0.4), 0 8px 24px hsl(213 40% 2% / 0.28);
+    --shadow-pop: 0 12px 40px hsl(213 40% 2% / 0.55);
+  }
+
+  [data-theme="light"] {
+    --background: 40 24% 98%;
+    --surface: 0 0% 100%;
+    --foreground: 213 26% 14%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 213 26% 14%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 213 26% 14%;
+
+    --primary: 152 58% 30%;
+    --primary-foreground: 0 0% 100%;
+    --primary-soft: 152 44% 93%;
+
+    --secondary: 40 18% 95%;
+    --secondary-foreground: 213 26% 18%;
+
+    --muted: 40 16% 94%;
+    --muted-foreground: 215 12% 42%;
+
+    --accent: 40 16% 92%;
+    --accent-foreground: 213 26% 16%;
+
+    --destructive: 0 66% 46%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 40 12% 88%;
+    --border-strong: 40 10% 80%;
+    --input: 40 12% 85%;
+    --ring: 152 58% 30%;
+
+    --status-ok: 152 58% 30%;
+    --status-live: 213 88% 48%;
+    --status-warn: 32 88% 38%;
+    --status-danger: 0 66% 46%;
+    --status-info: 213 82% 46%;
+    --status-unknown: 215 10% 48%;
+
+    --shadow-card: 0 1px 2px hsl(213 20% 60% / 0.12), 0 8px 24px hsl(213 20% 60% / 0.1);
+    --shadow-pop: 0 12px 40px hsl(213 20% 50% / 0.18);
+  }
+
+  * {
+    @apply border-border;
+  }
+
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* The type scale starts at 14px and rarely goes below 12px. */
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  /* A single, high-contrast focus treatment for the whole product. */
+  :focus-visible {
+    @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--border-strong));
+    border-radius: 6px;
+    border: 2px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--muted-foreground));
+    background-clip: content-box;
+  }
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* The type scale, as utilities, so a page can opt into the hierarchy without
+     restating sizes inline. */
+  .t-hero {
+    font-size: clamp(1.75rem, 1.2rem + 2vw, 2.5rem);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    font-weight: 600;
+  }
+  .t-page {
+    font-size: clamp(1.375rem, 1.15rem + 0.8vw, 1.75rem);
+    line-height: 1.25;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+  .t-section {
+    font-size: 1.0625rem;
+    line-height: 1.4;
+    font-weight: 600;
+  }
+  .t-body {
+    font-size: 0.9375rem;
+    line-height: 1.65;
+  }
+  .t-meta {
+    font-size: 0.8125rem;
+    line-height: 1.5;
+  }
+
+  /* The single scroll container used by every page body. */
+  .page-scroll {
+    overflow-y: auto;
+    height: 100%;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+}

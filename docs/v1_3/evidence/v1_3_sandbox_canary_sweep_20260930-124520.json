@@ -1,0 +1,90 @@
+{
+  "tool": "v1_3_sandbox_canary_sweep",
+  "mode": "apply",
+  "generated_at": "2026-09-30T12:47:36",
+  "root": "F:\\jev",
+  "destination": "F:\\jev\\.workbuddy\\scratch\\sandbox_canaries\\20260930-124520",
+  "signature": {
+    "name_regex": "^[a-z0-9_]{8}$",
+    "size": 4,
+    "content_hex": "626c6174"
+  },
+  "found": 761,
+  "moved": 120,
+  "remaining": 641,
+  "bounded": true,
+  "failed": [],
+  "legs": [
+    {
+      "id": "POSITIVE_CONTROL_IS_SELECTED",
+      "ok": true,
+      "detail": "an exact-signature file must be recognised"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_UPPERCASE_NAME_IS_REJECTED",
+      "ok": true,
+      "detail": "the generator alphabet is lowercase-only; uppercase is a different thing"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_WRONG_CONTENT_IS_REJECTED",
+      "ok": true,
+      "detail": "one extra byte must be enough to refuse"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_NINE_CHARACTER_NAME_IS_REJECTED",
+      "ok": true,
+      "detail": "the name regex is anchored, not a substring test"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_DIRECTORY_IS_REJECTED",
+      "ok": true,
+      "detail": "a directory must never be moved as if it were a probe file"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_TRACKED_FILE_IS_NEITHER_SELECTED_NOR_MOVEABLE",
+      "ok": true,
+      "detail": ".gitignore: not a canary by signature, and git reports it tracked"
+    },
+    {
+      "id": "NEGATIVE_CONTROL_TRACKED_FILE_IS_NEITHER_SELECTED_NOR_MOVEABLE",
+      "ok": true,
+      "detail": ".gitattributes: not a canary by signature, and git reports it tracked"
+    },
+    {
+      "id": "ROOT_WAS_ACTUALLY_READABLE",
+      "ok": true,
+      "detail": "listed F:\\jev"
+    },
+    {
+      "id": "NOTHING_GIT_TRACKS_IS_SELECTED",
+      "ok": true,
+      "detail": "tracked paths that matched the signature: []"
+    },
+    {
+      "id": "DESTINATION_IS_IGNORED_BY_GIT",
+      "ok": true,
+      "detail": "git check-ignore .workbuddy/scratch/sandbox_canaries/20260930-124520 -> rc=0"
+    },
+    {
+      "id": "EVERY_SELECTED_FILE_MOVED_OR_EXPLAINED",
+      "ok": true,
+      "detail": "attempted=120 moved=120 failed=[]"
+    },
+    {
+      "id": "BOUNDED_BATCH_MOVED_EXACTLY_ITS_QUOTA_AND_ADVANCED_THE_BACKLOG",
+      "ok": true,
+      "detail": "limit=120 found=761 attempted=120 moved=120 remaining=641"
+    },
+    {
+      "id": "GIT_STATUS_READ_AFTER_THE_SWEEP",
+      "ok": true,
+      "detail": "rc=0 lines=644 stderr="
+    }
+  ],
+  "verdict": "PASS 13/13",
+  "elapsed_s": 135.94,
+  "not_claimed": [
+    "that the root stays clean -- every Python start re-creates canaries",
+    "that these files were ever part of the product"
+  ]
+}

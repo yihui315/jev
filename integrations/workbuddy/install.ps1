@@ -8,15 +8,20 @@
 # Usage:
 #   powershell -ExecutionPolicy Bypass -File install.ps1
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -DryRun
-#   powershell -ExecutionPolicy Bypass -File install.ps1 -JccRoot F:\jev
+#   powershell -ExecutionPolicy Bypass -File install.ps1 -JccRoot D:\jev
 #
 # Exit codes: 0 = ok, 1 = failure (fail-closed).
 param(
-  [string]$JccRoot = "F:\jev",
+  [string]$JccRoot = "",
   [switch]$DryRun
 )
 $ErrorActionPreference = "Stop"
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
+# $JccRoot defaults to the checkout this script lives in (integrations/workbuddy
+# -> repo root), not to a hardcoded drive letter: the checkout moved once already
+# and the literal turned this installer into an immediate "required file missing".
+$repoRoot = Split-Path -Parent (Split-Path -Parent $here)
+if ([string]::IsNullOrWhiteSpace($JccRoot)) { $JccRoot = $repoRoot }
 $log  = Join-Path $here "install.log"
 function Log($m) { $line = "$(Get-Date -Format o) $m"; Write-Host $line; Add-Content -LiteralPath $log -Value $line -Encoding UTF8 }
 

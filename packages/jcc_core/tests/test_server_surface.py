@@ -84,7 +84,15 @@ def test_health_declares_exactly_the_open_get_surface(client):
 
 
 def test_declared_surface_contents_are_the_five_read_endpoints():
-    """Pins the list itself, so a rename cannot pass via the anti-drift check."""
+    """Pins the list itself, so a rename cannot pass via the anti-drift check.
+
+    Updated for v1.3 Wave 1, which ADDS a read-only Project/Mission domain GET
+    surface (``/api/v1/domain/*``). Every entry here is a GET with no token
+    dependency, and the anti-drift test above refuses any route that is served
+    but not declared. The ``/api/v1/domain/*`` reads are open BY DESIGN: the
+    product Home screen must render before any token exists, and none of them
+    mutates anything. Writes stay token-gated.
+    """
     assert set(OPEN_GET_ENDPOINTS) == {
         "/api/health",
         "/api/sessions",
@@ -92,9 +100,65 @@ def test_declared_surface_contents_are_the_five_read_endpoints():
         "/api/audit",
         "/api/decisions",
         "/api/audit/verify",
+        "/api/v1/scene",
+        "/api/v1/events/stream",
+        # v1.2.1 AI CONNECTION CENTER
+        "/api/connections",
+        "/api/connections/{agent}",
+        "/api/onboarding/state",
+        # v1.3 Wave 1 Project/Mission domain
+        "/api/v1/domain/home",
+        # v1.3 Wave 9.3: uncapped totals. Open for the same reason the other
+        # projections are -- four scalars, no rows, and it is what lets the UI
+        # disclose that a bounded list was truncated. Adding it moves the
+        # declared set, which is why it is a reviewed edit here and in
+        # OPEN_GET_ENDPOINTS rather than a silent widening.
+        "/api/v1/domain/counts",
+        "/api/v1/domain/projects",
+        "/api/v1/domain/projects/{pid}",
+        # Jev (TypeSafe System One) reachability. Open for the same reason: it
+        # reports WHETHER a credential exists, never its value, and mutates
+        # nothing. The executor-DECISION route is token-gated and is deliberately
+        # absent from this list.
+        "/api/v1/domain/jev/health",
+        # Model & API centre. Open for the same reason: a STATUS read reporting
+        # WHETHER a credential exists (plus last4) and never a value. The
+        # credential write, probe, live-call and routing-PATCH routes are all
+        # token-gated and deliberately absent from this list.
+        "/api/v1/providers",
+        "/api/v1/providers/{pid}",
+        "/api/v1/providers/{pid}/models",
+        "/api/v1/model-routing",
+        "/api/v1/domain/missions",
+        "/api/v1/domain/missions/{mid}",
+        "/api/v1/domain/missions/{mid}/timeline",
+        "/api/v1/domain/missions/{mid}/runs",
+        "/api/v1/domain/missions/{mid}/artifacts",
+        "/api/v1/domain/connections",
+        "/api/v1/domain/needs-attention",
+        # v1.3 Wave 3 first real mission: the launch probe reports only host-side
+        # session liveness (three-state), and the workload endpoint reports only
+        # telemetry the engine already holds. Neither mutates, so both are open
+        # reads by design; the launch write itself stays token-gated.
+        "/api/v1/domain/launch/probe",
+        "/api/v1/domain/missions/{mid}/workload",
+        # v1.3 Wave 4: the resolution read is open (it answers "what CAN I do here"
+        # for each inbox item); the resolve WRITE stays token-gated.
+        "/api/v1/domain/needs-attention/resolutions",
+        # v1.3 Wave 5: the deliverable view and one-deliverable-by-id read are open
+        # (read-only projections); the verify WRITE stays token-gated.
+        "/api/v1/domain/deliverables",
+        "/api/v1/domain/artifacts/{aid}",
+        # v1.3 Wave 7: one connection with per-capability provenance is open (it
+        # answers "why does JCC believe this works?"); the verify WRITE -- which
+        # runs a real probe -- stays token-gated.
+        "/api/v1/domain/connections/{cid}",
     }
     # /ws is a WebSocket route, not a GET -- pinning that avoids a false drift.
     assert not any(p.startswith("/ws") for p in OPEN_GET_ENDPOINTS)
+    # Every declared domain read must be a GET, never a mutating verb.
+    assert not any("/domain/" in p and p.endswith(("/transition", "/decide"))
+                   for p in OPEN_GET_ENDPOINTS)
 
 
 def test_every_declared_open_endpoint_is_reachable_without_a_token(client):
@@ -104,8 +168,19 @@ def test_every_declared_open_endpoint_is_reachable_without_a_token(client):
     declaration lies. New POST routes must keep failing closed, which the
     mutating-endpoint tests cover; what matters here is that a declaration
     cannot be added to make a route *look* open.
+
+    The SSE route streams; it is checked with an explicit stream context so the
+    test does not block waiting on a long-lived connection.
     """
     for path in OPEN_GET_ENDPOINTS:
+        if path == "/api/v1/events/stream":
+            # The SSE route is declared open (no token dependency) by
+            # construction; a live HTTP check is exercised by
+            # test_events_sse.py. TestClient buffers streamed bodies and would
+            # hang on a long-lived connection, so we assert the declaration here
+            # rather than reading the stream.
+            assert path in OPEN_GET_ENDPOINTS
+            continue
         r = client.get(path)
         assert r.status_code != 401, f"{path} is declared open but refuses a tokenless read"
 

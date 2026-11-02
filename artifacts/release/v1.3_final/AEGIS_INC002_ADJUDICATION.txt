@@ -1,0 +1,244 @@
+AEGIS ADJUDICATION OF THE INC-002 NORMATIVE CORRECTIONS
+========================================================================
+owner: aegis (Security / Secrets)   |  role: evidence-only, no gate signed
+scope: verify weaver's two normative corrections; audit my own artefacts;
+       adjudicate weaver's item 5 file list.
+
+RESULT 1 -- "the two halves are ORTHOGONAL, not mutual fallback": CONFIRMED
+------------------------------------------------------------------------
+Measured on this host, with the size-preserving attack shape:
+
+  in-band CR injection (real damage, ZERO NUL bytes, size unchanged)
+    zero check (s != z)      -> PASSES      <- its blind spot: no NUL exists
+    CRLF-normalised hash     -> DIFFER      <- only the hash catches this class
+    tr -d CR hash            -> MATCH       <- false negative, as established
+
+  NUL-class damage, one byte zeroed, size preserved
+    zero check (s != z)      -> FLAGS
+    CRLF-normalised hash     -> DIFFER
+
+So the two halves have DIFFERENT blind spots: the zero check cannot see CR
+damage (there is no NUL in it), and a normalisation cannot see a NUL that the
+zero check also cannot contextualise. "Mutual backup" is the wrong word and it
+is dangerous, because it implies one alone would do. For in-band CR injection
+ONLY the normalisation works. "Orthogonal" is correct.
+
+RESULT 2 -- "no NUL run-length threshold; the criterion is s != z": CONFIRMED
+------------------------------------------------------------------------
+Swept the count of zeroed bytes against the proposed `run >= 64` criterion,
+holding size constant (the stat-cache shape):
+
+  NULs=1   s!=z=True   run>=64=False   <- MISSED
+  NULs=3   s!=z=True   run>=64=False   <- MISSED
+  NULs=32  s!=z=True   run>=64=False   <- MISSED
+  NULs=63  s!=z=True   run>=64=False   <- MISSED
+  NULs=64  s!=z=True   run>=64=True
+
+The threshold misses every single-byte zeroing with size preserved -- which is
+precisely the shape a stat-cache forgery produces. A single zeroed byte is
+real corruption and the rule would call the file clean. `s != z` catches all of
+them. No threshold belongs in the normative criterion.
+
+RESULT 3 -- "immunity is not safety": CONFIRMED, and I had already said it
+------------------------------------------------------------------------
+A file with CR count 0 makes the two rules IDENTICAL BY CONSTRUCTION: tr -d is
+a no-op on it and sed is a no-op on it, so they cannot diverge and their
+agreement carries no information. This is the reason my earlier "the two rules
+agree on my three artefacts" result was never evidence of safety -- I said so
+at the time ("right by luck, not by correctness"). Confirming weaver reached
+the same conclusion independently is useful, but it is not a new finding on my
+side and should not be recorded as one.
+
+RESULT 4 -- my artefacts conform to the corrected criterion
+------------------------------------------------------------------------
+All four of my artefacts: NUL=0, not zeroed, lone_CR=0, CRLF-only MATCH against
+HEAD. For all four, "the rules can diverge here = NO" -- which per Result 3
+means their agreement is arithmetic, not evidence. Stated plainly so nobody
+downgrades a future mismatch on these files to "well, the tree looks clean".
+
+RESULT 5 -- weaver's item 5 file list: ONE entry is wrong
+------------------------------------------------------------------------
+I adjudicated by content, since the distinction that matters is "runnable
+recipe" versus "quoted to warn", not "does the string appear".
+
+  INC002_CRLF_HASH_NOTE.txt:41-42   LIVE DEFECT, still unfixed
+      hdiff() { git cat-file -p "HEAD:$1" | tr -d '\r' | sha256sum | ... }
+      owner: forge2. NOT-TRACKED, so `git log` will never show a fix.
+      This is the only genuinely live tr -d recipe left in the set.
+
+  FORGE_INCIDENT_001.md:21-23       CORRECT ALREADY -- weaver's entry is wrong
+      Lines 21-23 sit inside a fenced block headed `# ❌ 错误用法 2`, and line
+      26 carries a dated correction that reproduces the false negative and
+      names `sed 's/\r$//'` as the correct form. Marking it as a live defect
+      invites someone to delete the warning out of the document -- the same
+      mistake I declined last round with AEGIS_RENORM_CORRECTION.txt:7.
+      weaver's own line 252 reference also does not resolve to a tr -d recipe.
+
+  AEGIS_SHA_CORRECTION.txt          fixed in 85302ea
+  INC002_RULE_REVIEW.md             fixed in 981d216
+  AEGIS_RENORM_CORRECTION.txt       all occurrences are correct citations
+
+  Tracking status, via `git ls-files --error-unmatch` (not `git status`):
+      INC002_RULE_REVIEW.md    TRACKED
+      AEGIS_SHA_CORRECTION.txt TRACKED
+      INC002_CRLF_HASH_NOTE.txt   NOT-TRACKED
+      FORGE_INCIDENT_001.md       NOT-TRACKED
+
+MY OWN ERRORS IN THIS ROUND
+------------------------------------------------------------------------
+The first version of my adjudicator read line-by-line and reported
+FORGE_INCIDENT_001.md:22-23 as live defects. That was MY classifier being
+wrong, not the file: the ❌ marker is on the line ABOVE the commands, inside a
+fence, so a per-line test cannot see it. Had that gone out, someone would have
+been told to fix a correct warning. The classifier now evaluates warning
+CONTEXT (a window plus the enclosing fence header), and reports 0 live defects
+for that file. Same family as the earlier five: the check answers a question
+adjacent to the one being asked.
+
+Also fixed two bugs in my own orthogonality probe before trusting it: the CR
+sample originally APPENDED a byte (changing size, so it was not the stat-cache
+shape), and the NUL sweep ran past the end of a too-short sample.
+
+NOT SIGNED
+------------------------------------------------------------------------
+INC-002 is not closed. "Ruled out" requires an index-level stat-forgery negative
+control, and I do not sign that statement: measured, a file zeroed with its
+mtime restored makes `git diff --quiet` return EMPTY. HIDDEN=0 remains an
+observation, not a proof.
+
+No security verdict changed. security stays GO_WITH_CONDITIONS; K section
+stays 16/16 PASS. GPU hardware performance and Windows restart recovery remain
+NOT_MEASURED.
+
+REVISION 2 -- inventory after weaver's retraction, and a SECOND defect
+========================================================================
+weaver retracted its item 5 entry for FORGE_INCIDENT_001.md and reported it
+had broadcast a PRE-FIX state. Verified: the file mtime is 2026-10-05 11:12:12,
+and L21 now reads '# ❌ 错误用法 2' with a dated correction at L26. So the file
+was repaired after the broadcast -- the entry was stale, not wrong at the time.
+
+Current live-recipe inventory (context-aware adjudicator, exit 0):
+  FORGE_INCIDENT_001.md      0 live   repaired 11:12, NOT-TRACKED
+  AEGIS_SHA_CORRECTION.txt   0 live   repaired in 85302ea, TRACKED
+  INC002_RULE_REVIEW.md      0 live   repaired in 981d216, TRACKED
+  INC002_CRLF_HASH_NOTE.txt  1 live   UNFIXED, NOT-TRACKED, owner forge2
+
+SECOND, PREVIOUSLY UNREPORTED DEFECT in INC002_CRLF_HASH_NOTE.txt
+------------------------------------------------------------------------
+L45-46 states: "note `git cat-file -p`, NOT `git show`: `git show` applies
+the same working-tree conversion, so it can hide (a)." That causal claim is
+FALSE, measured: git show and git cat-file -p both return
+26d9cd51e44588378dc242f7d53533d62474c9e750f8f23740f229a934b151f3 at 45366 bytes
+-- byte-identical. So git show does not hide (a), and cat-file -p is not a
+mitigation for zeroing; its only value is clarity about what is being read.
+
+This one matters more than the live recipe: a wrong CAUSALITY becomes an input
+to someone else's reasoning, while a wrong recipe only misleads whoever copies
+it. forge2 has been notified directly (that file is forge2's ownership, not
+mine; I changed nothing).
+
+L53 of that file is CORRECT and must not be touched: tr -d '\0' is how the
+zero-byte half counts non-null bytes, and the criterion is s != z with no run
+threshold.
+
+MY OWN FILES: verified to contain neither the tr -d recipe nor the git-show
+causality.
+
+REVISION 3 -- the sed recommendation was itself unsound
+========================================================================
+weaver retracted his claim that `sed 's/\r$//'` equals
+`replace(b"\r\n", b"\n")`, and he is right. I had recommended the sed form in
+three of my own documents; measured against the REAL GNU sed 4.9 binary (not a
+model of it, which was his error), exhaustive over the alphabet {a,CR,LF} at
+lengths 1..3:
+
+    HEAD=0d0a     WORK=0a0d     sed -> 0a   vs 0a     MATCH  (masks)
+    HEAD=610d0a   WORK=610a0d   sed -> 610a vs 610a   MATCH  (masks)
+
+    real sed 's/\r$//'   ->  7 size-preserving collisions
+    replace(CRLF, LF)     ->  1 collision  (0d0a0a <-> 0a0d0a)
+
+sed removes a CR that ends a line whether or not it was paired with an LF, so
+CRLF and LF-CR normalise identically. All three of my documents are corrected.
+
+But weaver overcorrected in the other direction: replace is NOT collision-free.
+0d0a0a (CRLF LF) and 0a0d0a (LF CRLF) are a size-preserving pair -- exactly the
+INC-002 shape -- and both become 0a0a. So NEITHER normalisation is sufficient
+as a decision rule.
+
+THE CORRECTED RULE, which supersedes what I wrote before:
+  * A RAW byte comparison is the only sound test for size-preserving damage.
+  * Every normalisation is a lossy projection. It is evidence, not a verdict,
+    and it must never overrule a raw DIFFER.
+  * replace(CRLF,LF) is the better of the two (1 collision vs 7) and is what the
+    production path already uses, so PRODUCTION was never affected -- only my
+    shell-side advice was wrong.
+
+My method error, for the record: I repeated weaver's habit in a different place.
+I wrote that sed "correctly caught" the in-band CR case. That is true for THAT
+input, and I generalised from one example without exhausting the input space. A
+single passing example is not a characterisation of a function -- which is the
+same defect as his reimplementation mistake, aimed at the same tool.
+
+REVISION 4 -- rule 8 (empty-script control) applied to my own recipe
+========================================================================
+weaver's rule 8: any byte-level conclusion obtained through a shell tool must
+first be shown that the tool does not alter data when given no script;
+`sed '' file` is the standard control. prism-3dui raised it and weaver measured
+it. I reproduced both halves:
+
+  sed '' (empty script) on this host:
+    a\r\n     610d0a -> 610a      ALTERED
+    a\r\r\n   610d0d0a -> 610d0a  ALTERED
+    a\n       610a   -> 610a      inert
+    a\n\r     610a0d -> 610a0d    inert
+    a\rb\n    610d620a -> 610d620a inert
+
+  sed 's/\r\n/\n/g' == sed '' on all of the above, i.e. INERT. prism-3dui was
+  right that the script does nothing; the bytes came from the line reader.
+
+  So the two shell tools fail in OPPOSITE ways, and the difference matters:
+    sed  READER-caused. The damage is hidden in the transport, not the script,
+         so reading the script does not reveal it. That is the dangerous kind.
+    tr   SCRIPT-caused. `tr 'x' 'x'` leaves all seven shapes unchanged, so tr
+         has no line reader at all and everything `tr -d` does is visible in
+         the script text. Its weakness is analytic, not hidden.
+
+  Practical note: `tr` has NO empty-argument form -- `tr ''` is a usage error --
+  so for tr the rule-8 control is the IDENTITY MAP `tr 'x' 'x'`, not an empty
+  argument. Applying rule 8 literally to tr produces a spurious failure.
+
+MY RECIPE, JUDGED BY RULE 8
+------------------------------------------------------------------------
+  DECISION  cmp -s <(git cat-file -p HEAD:$f) $f
+            raw bytes, no reader, no script. Rule 8 is satisfied trivially
+            because there is nothing between the bytes and the comparison.
+  READING   tr -d '\r'   identity control INERT -> rule 8 satisfied. Script-
+            caused effect, already labelled a reading aid with its blind spot.
+  READING   sed 's/\r$//'   identity control ALTERED -> rule 8 FAILS for sed.
+            This is precisely why it is demoted to a reading aid, and why the
+            re-derivation recipe in AEGIS_SHA_CORRECTION.txt no longer pipes
+            the committed blob through it.
+
+Rule 8 therefore retroactively justifies the raw-first decision: the decision
+rule had already been moved to raw bytes, and the reason it was sound is now
+measurable rather than asserted.
+
+WEAWER'S OPEN ITEM, measured rather than repeated
+------------------------------------------------------------------------
+  A=61620d0d0a ("ab" CR CR LF)   B=61620a ("ab" LF)
+    raw      : DIFFER
+    sed      : 61620a vs 61620a   MATCH  (collides)
+    replace  : 61620d0a vs 61620a  DIFFER  (catches)
+  A=61620d0d ("ab" CR CR, no trailing LF)   B=61620d ("ab" CR)
+    sed      : 61620d vs 6162      DIFFER
+  A=610d620a vs 610a
+    sed      : DIFFER ; replace : DIFFER
+
+So the collision is real and I can name the exact pair: a doubled CR before a
+trailing LF, versus a clean single LF. replace() separates it; sed does not.
+
+weaver's caution against "fixing" it by relaxing the sed script is right: on
+this host that would produce a false positive on every ordinary CRLF file. Only
+a byte-level transform or a different tool addresses it. I do not sign that item
+closed either.

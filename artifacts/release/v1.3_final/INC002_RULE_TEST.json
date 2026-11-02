@@ -1,0 +1,105 @@
+{
+  "binary_probe": {
+    "skipped": "no apps/favicon.png on this host"
+  },
+  "cases": [
+    {
+      "byte_check_ok": true,
+      "case": "crlf_only_form_b",
+      "expected": "MATCH",
+      "rule_is_correct": true,
+      "rule_says": "MATCH",
+      "size": 46355,
+      "size_minus_nul": 46355
+    },
+    {
+      "byte_check_ok": true,
+      "case": "one_char_real_edit",
+      "expected": "DIFFER",
+      "rule_is_correct": true,
+      "rule_says": "DIFFER",
+      "size": 46355,
+      "size_minus_nul": 46355
+    },
+    {
+      "byte_check_ok": false,
+      "case": "zeroed_same_size_form_a_INC002",
+      "expected": "DIFFER",
+      "rule_is_correct": true,
+      "rule_says": "DIFFER",
+      "size": 46355,
+      "size_minus_nul": 0
+    },
+    {
+      "byte_check_ok": true,
+      "case": "zeroed_truncated",
+      "expected": "DIFFER",
+      "rule_is_correct": true,
+      "rule_says": "DIFFER",
+      "size": 0,
+      "size_minus_nul": 0
+    },
+    {
+      "byte_check_ok": true,
+      "case": "in_band_cr_injection",
+      "expected": "DIFFER",
+      "rule_is_correct": true,
+      "rule_says": "DIFFER",
+      "size": 45367,
+      "size_minus_nul": 45367
+    }
+  ],
+  "known_limitation": "CR-stripping is lossy for binary content, so a binary file that differs ONLY in 0x0D bytes would read as MATCH. Verified harmless for the text files in this repo; a binary pin would need a size+separate-hash check instead.",
+  "measurement": {
+    "content_equal_after_crlf_normalisation": true,
+    "delta": 989,
+    "head_blob_bytes": 45366,
+    "head_crlf_lines": 0,
+    "worktree_bytes": 46355,
+    "worktree_crlf_lines": 989
+  },
+  "rule_under_test": "team-lead's final rule: CRLF->LF-only normalisation, NUL check first, git cat-file -p (not git show)",
+  "selftest": {
+    "all_ok": true,
+    "shapes": [
+      {
+        "current_rule": "MATCH",
+        "current_rule_ok": true,
+        "expected": "MATCH",
+        "old_delete_all_cr_rule": "MATCH",
+        "old_rule_was_wrong": false,
+        "shape": "pure CRLF line endings"
+      },
+      {
+        "current_rule": "DIFFER",
+        "current_rule_ok": true,
+        "expected": "DIFFER",
+        "old_delete_all_cr_rule": "MATCH",
+        "old_rule_was_wrong": true,
+        "shape": "mid-line CR injection"
+      },
+      {
+        "current_rule": "DIFFER",
+        "current_rule_ok": true,
+        "expected": "DIFFER",
+        "old_delete_all_cr_rule": "MATCH",
+        "old_rule_was_wrong": true,
+        "shape": "CR immediately before LF"
+      },
+      {
+        "current_rule": "DIFFER",
+        "current_rule_ok": true,
+        "expected": "DIFFER",
+        "old_delete_all_cr_rule": "DIFFER",
+        "old_rule_was_wrong": false,
+        "shape": "one-byte real edit"
+      }
+    ],
+    "shapes_the_superseded_form_got_wrong": [
+      "mid-line CR injection",
+      "CR immediately before LF"
+    ]
+  },
+  "target": "packages/jcc_core/host_launcher.py",
+  "verdict": "RULE SOUND. Uses team-lead's final normalisation (CRLF->LF only, NOT delete-every-CR), NUL check before normalisation, and git cat-file -p. Self-test confirms it matches CRLF-only noise while still detecting a mid-line CR, a CR immediately before LF, a one-byte edit, and INC-002 in both the same-size-zeroed and truncated forms. Shapes the superseded delete-every-CR form got wrong: mid-line CR injection, CR immediately before LF."
+}

@@ -1,0 +1,44 @@
+{
+  "arm1_both_NORMAL": {
+    "close_times_s": [
+      30.14,
+      0.12
+    ],
+    "syncs_requested": [
+      "NORMAL",
+      "NORMAL"
+    ],
+    "total_s": 30.26
+  },
+  "arm2_NORMAL_then_default": {
+    "close_times_s": [
+      0.17,
+      0.1
+    ],
+    "syncs_requested": [
+      "NORMAL",
+      null
+    ],
+    "total_s": 0.27
+  },
+  "arm3_both_FULL": {
+    "close_times_s": [
+      0.09,
+      0.1
+    ],
+    "syncs_requested": [
+      "FULL",
+      "FULL"
+    ],
+    "total_s": 0.19
+  },
+  "findings": {
+    "arm3_both_FULL_total_s": 0.19,
+    "default_synchronous_is_FULL": true,
+    "second_close_slow_with_default": false
+  },
+  "interpretation": "The missing pragma is NOT the cause: the second close is fast when the sibling uses SQLite's default. One process still pays ~30 s total, so the server's 63 s is NOT two first-WAL stalls and needs another explanation -- this script did not find it.",
+  "note": "synchronous: 1=NORMAL 2=FULL (3=EXTRA). The product sets NORMAL in state_store.py:376 and sets NO synchronous pragma in connections.py:179, so that connection inherits this default.",
+  "sqlite_default_synchronous": 2,
+  "sqlite_version": "3.53.1"
+}

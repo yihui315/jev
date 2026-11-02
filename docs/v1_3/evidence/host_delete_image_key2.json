@@ -1,0 +1,96 @@
+{
+  "stamp": "20260930T122602",
+  "dir": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602",
+  "probe": "F:\\jev\\.workbuddy\\scratch\\unlink_probe.py",
+  "tests": {
+    "control_system312_real": {
+      "exe": "C:\\Program Files\\Python312\\python.exe",
+      "image": "python.exe",
+      "rc": 0,
+      "stdout": "RESULT=RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_imgkey2\\\\20260930T122602\\\\t_control_system312_real.txt'",
+      "stderr_tail": null,
+      "requested_unlink": false,
+      "target_exists_after": true,
+      "deleted": false
+    },
+    "control_venv_real": {
+      "exe": "F:\\jev\\.venv\\Scripts\\python.exe",
+      "image": "python.exe",
+      "rc": 0,
+      "stdout": "RESULT=RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_imgkey2\\\\20260930T122602\\\\t_control_venv_real.txt'",
+      "stderr_tail": null,
+      "requested_unlink": false,
+      "target_exists_after": true,
+      "deleted": false
+    },
+    "renamed_system312_copy": {
+      "created": true,
+      "dst": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602\\svchost_host.exe"
+    },
+    "renamed_system312": {
+      "exe": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602\\svchost_host.exe",
+      "image": "svchost_host.exe",
+      "rc": 0,
+      "stdout": "RESULT=RAISED PermissionError: [WinError 5] 拒绝访问。: 'F:\\\\jev\\\\.workbuddy\\\\scratch\\\\_imgkey2\\\\20260930T122602\\\\t_renamed_system312.txt'",
+      "stderr_tail": null,
+      "requested_unlink": false,
+      "target_exists_after": true,
+      "deleted": false
+    },
+    "renamed_venv_copy": {
+      "created": true,
+      "dst": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602\\runtime_host.exe"
+    },
+    "renamed_venv": {
+      "exe": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602\\runtime_host.exe",
+      "image": "runtime_host.exe",
+      "rc": 106,
+      "stdout": "",
+      "stderr_tail": "failed to locate pyvenv.cfg: ???????????",
+      "requested_unlink": false,
+      "target_exists_after": false,
+      "deleted": false
+    },
+    "node_real": {
+      "exe": "C:\\Users\\Administrator\\.workbuddy\\binaries\\node\\versions\\22.22.2-3\\node.exe",
+      "image": "node.exe",
+      "rc": 1,
+      "stdout": "",
+      "stderr_tail": "JobForImport (node:internal/modules/esm/loader:311:41)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25) {\n  code: 'ERR_UNKNOWN_FILE_EXTENSION'\n}\n\nNode.js v22.22.2",
+      "requested_unlink": false,
+      "target_exists_after": false,
+      "deleted": false
+    },
+    "node_renamed": {
+      "exe": "F:\\jev\\.workbuddy\\scratch\\_imgkey2\\20260930T122602\\node_host.exe",
+      "image": "node_host.exe",
+      "rc": 1,
+      "stdout": "",
+      "stderr_tail": "JobForImport (node:internal/modules/esm/loader:311:41)\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:664:25) {\n  code: 'ERR_UNKNOWN_FILE_EXTENSION'\n}\n\nNode.js v22.22.2",
+      "requested_unlink": false,
+      "target_exists_after": false,
+      "deleted": false
+    },
+    "cmd_control": {
+      "existing_before": true,
+      "rc": 0,
+      "target_exists_after": false,
+      "deleted": true
+    }
+  },
+  "summary": {
+    "control_system312_real": false,
+    "control_venv_real": false,
+    "renamed_system312_copy": null,
+    "renamed_system312": false,
+    "renamed_venv_copy": null,
+    "renamed_venv": false,
+    "node_real": false,
+    "node_renamed": false,
+    "cmd_control": true
+  },
+  "conclusion": {
+    "any_python_deleted": false,
+    "cmd_still_works": true
+  }
+}

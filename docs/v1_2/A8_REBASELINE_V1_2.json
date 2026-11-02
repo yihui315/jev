@@ -1,0 +1,121 @@
+{
+  "doc": "v1.2 A8 rebaseline record (Wave 3 — Scene API, Wave 4 — SSE)",
+  "note": "server.py is one of the 12 A8-pinned production artifacts. Adding the /api/v1/scene route (Wave 3) and the /api/v1/events/stream route (Wave 4) are A8 rebaseline events: the committed blob sha changed and MUST be reflected in the v1.2 release manifest (artifacts/release/*.manifest.json) and in packages/jcc_core/tests/test_p3_acceptance_gate.py::_BASELINE_HASHES at Wave 9. scene.py / events.py are NEW modules (not in the A8 set) recorded only for traceability.",
+  "generated_at": "2026-09-28",
+  "branch": "feature/jcc-v1.2-visual-command-center",
+  "pre_change_head": "d3d338b",
+  "changes": [
+    {
+      "path": "packages/jcc_core/server.py",
+      "a8_pinned": true,
+      "old_sha256": "02a1c9ef4c4f477347e815d1745ec181c503c440",
+      "new_sha256": "d10a190ceca6cae5863ee95789896d6ca7455909",
+      "reason": "Wave 3 — added GET /api/v1/scene (jcc-scene/1 projection route) and declared it on OPEN_GET_ENDPOINTS; added `from .scene import build_scene` and `from pathlib import Path`.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to the FINAL committed blob sha (superseded by Wave 4 below)"
+    },
+    {
+      "path": "packages/jcc_core/scene.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "438fa20b327d19f5f6d152912c4971c9e5cb8d46",
+      "reason": "NEW module — the jcc-scene/1 projection builder (projection-only, anti-fabrication: UNKNOWN never coerced to 0/false/healthy).",
+      "action_required_at_release": "none (not A8-pinned)"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_scene_api.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — 6-scenario contract tests (empty/live/demo/mixed/hostile/large-state) + anti-fabrication invariant.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_server_surface.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "Pinned OPEN_GET_ENDPOINTS set now includes /api/v1/scene (Wave 3) and /api/v1/events/stream (Wave 4); anti-drift must move WITH the routes.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/server.py",
+      "a8_pinned": true,
+      "old_sha256": "d10a190ceca6cae5863ee95789896d6ca7455909",
+      "new_sha256": "82555e1236195c0dae645d72cbd537b2d625e728",
+      "reason": "Wave 4 — added GET /api/v1/events/stream (jcc-events/1 SSE route) + module-level events_stream_generator; attached EventBus to engine in create_app; imported `from .events import EventBus, format_sse` and `from fastapi.responses import StreamingResponse`. Two real bugs fixed en route: (1) the SSE generator subscribed AFTER yielding `: connected`, so a live event published in the same instant was missed — subscribe now happens before replay; (2) EventBus.replay_since returned [] for an unknown Last-Event-ID instead of the full buffer (docstring contract) — now returns the full ring so a reconnecting client can re-sync.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to 82555e1236195c0dae645d72cbd537b2d625e728"
+    },
+    {
+      "path": "packages/jcc_core/events.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "92c589c1e318192c671d2273ab199da9e3967742",
+      "reason": "NEW module — the Wave 4 live EventBus + SSE framing (10 typed events, bounded replay ring, idempotent dedupe, engine-broadcast translation). Projection-only; never writes state.",
+      "action_required_at_release": "none (not A8-pinned)"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_events_sse.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — bus unit tests (dedupe/replay/unknown-type/translate/framing) + generator-driven SSE tests (all-ten-types/resume/dedupe/live-delivery). Drives events_stream_generator directly with a FakeRequest because Starlette TestClient buffers the whole streamed body.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/schemas.py",
+      "a8_pinned": true,
+      "old_sha256": "467eab354489870a59aeb94beb424d4add364494",
+      "new_sha256": "0a9a773c25d098c468d1876729b9ef7fdcc544d2",
+      "reason": "Wave 7 — added `record_source: str = 'live'` to AEPEnvelope (values live|replay|demo|seed). Backward-compatible (default 'live'); the shadow gate counts ONLY 'live' so replay/demo telemetry can never pad the supervision summary. Wire contract aep/v0.1 unchanged (optional additive field).",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to 0a9a773c25d098c468d1876729b9ef7fdcc544d2"
+    },
+    {
+      "path": "packages/jcc_core/state_store.py",
+      "a8_pinned": true,
+      "old_sha256": "b0eed714782723836ca1a91e5b28472d60549090",
+      "new_sha256": "5c0b51ae021e6a8ee93c73c21d80378f1b557172",
+      "reason": "Wave 7 — added `record_source TEXT` column to the `events` table (SCHEMA + idempotent `_ensure_events_record_source_column` migration in `_init_db` and defensively in `add_event`/`get_shadow_records`). `add_event` persists `record_source`; new `get_shadow_records(record_source)` returns a lightweight projection (session_id/agent/event_type/timestamp) for the shadow gate. Non-destructive on pre-Wave-7 dbs.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to 5c0b51ae021e6a8ee93c73c21d80378f1b557172"
+    },
+    {
+      "path": "packages/jcc_core/core.py",
+      "a8_pinned": true,
+      "old_sha256": "b21fe5df82181444dce19c13c864eace87e538e7",
+      "new_sha256": "0e13027f8d824566887185216c128d0fb9d2c7dd",
+      "reason": "Wave 7 — added `CoreEngine.shadow_summary()` (READ-ONLY): groups live telemetry by agent over `store.get_shadow_records('live')`, returns None when no live records (scene maps to UNKNOWN, honest gap). Excludes replay/demo/seed by construction (D-34 fake-clean class closed). `ingest` unchanged except it now persists the new `record_source` via `add_event`.",
+      "action_required_at_release": "regenerate release manifest + _BASELINE_HASHES to 0e13027f8d824566887185216c128d0fb9d2c7dd"
+    },
+    {
+      "path": "packages/jcc_core/scene.py",
+      "a8_pinned": false,
+      "old_sha256": "see git (pre-Wave7)",
+      "new_sha256": "see git",
+      "reason": "Wave 7 — `_shadow` now wires `engine.shadow_summary()`: LIVE with real data when live telemetry exists, UNKNOWN (data null, honest gap) when shadow_summary returns None. Not A8-pinned.",
+      "action_required_at_release": "none (not A8-pinned)"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_shadow_live.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — Wave 7 shadow gate contract tests: UNKNOWN without live telemetry; LIVE counts all four agents; demo/replay EXCLUDED (falsifier for D-34); demo-only => UNKNOWN.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "packages/jcc_core/tests/test_scene_api.py",
+      "a8_pinned": false,
+      "old_sha256": "see git",
+      "new_sha256": "see git",
+      "reason": "Wave 7 — updated two contract tests for the new shadow behaviour: `test_mixed_state_has_all_four_sources` now asserts shadow UNKNOWN when there is no live telemetry (all four source kinds still coexist); `test_hostile_state` asserts the single good live ingest makes shadow LIVE with real data and a hostile row does not coerce it.",
+      "action_required_at_release": "none"
+    },
+    {
+      "path": "tools/wave7_live_shadow.py",
+      "a8_pinned": false,
+      "old_sha256": null,
+      "new_sha256": "see git",
+      "reason": "NEW — committed, reproducible Wave 7 harness: feeds real-format telemetry for all four agents through their actual adapter.normalize() paths, ingests as record_source='live', asserts the shadow gate excludes a synthetic 'demo' record, emits artifacts/v1_2/FIRST_LIVE_3D_SESSION.json (sha256 58f552db...).",
+      "action_required_at_release": "none"
+    }
+  ]
+}

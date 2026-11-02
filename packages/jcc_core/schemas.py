@@ -84,6 +84,15 @@ class AEPEnvelope(BaseModel):
     payload: Dict[str, Any] = Field(default_factory=dict)
     evidence: Optional[Dict[str, Any]] = None   # required for safe completion
     schema_ok: bool = True             # adapter marks parse success
+    # -- v1.2 Wave 7 (Jev shadow gate) ---------------------------------------
+    # Provenance of the telemetry record. The shadow surface ONLY counts
+    # ``record_source == "live"``; replay/demo/seed records are excluded so the
+    # supervision summary can never be padded by synthetic data. Default "live"
+    # (every record ingested through the real adapter/ingest path is live) keeps
+    # the change backward-compatible: pre-Wave-7 producers that omit the field
+    # are treated as live, and explicit "replay"/"demo" writers opt out of the
+    # shadow gate by construction.
+    record_source: str = "live"       # live | replay | demo | seed
 
     def model_dump_api(self) -> Dict[str, Any]:
         return self.model_dump(mode="json")
@@ -167,6 +176,17 @@ class Directive(BaseModel):
     verify_reason: Optional[str] = None                   # D-33
     shadow: bool = True                                   # D-33
     human_approval: Optional[str] = None                  # D-33
+    # -- v1.1 §17 additive ------------------------------------------------
+    # ``scope`` is the named authority of the directive: what it is allowed to
+    # affect. It is DELIBERATELY separate from ``target_actuator`` — the actuator
+    # says where the effect would land, the scope says what was authorised — and
+    # the signing form ``v2`` covers it explicitly (``v1`` covered only the
+    # actuator, so an explicit scope could be rewritten under a valid v1
+    # signature). Defaulted and unpersisted, so it is additive in every sense:
+    # no column, no migration, and the twelve A8-pinned production artifacts are
+    # untouched. When unset, ``scope`` falls back to ``target_actuator`` — see
+    # ``signing.scope_token``, the one place that fallback is defined.
+    scope: Optional[str] = None
 
 
 class AuditEntry(BaseModel):

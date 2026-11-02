@@ -91,7 +91,7 @@ def rich_state() -> SessionState:
         session_id=SESSION_ID,
         agent=AgentName.WORKBUDDY,
         project="jev",
-        cwd="F:\\jev",
+        cwd=str(REPO),
         status=SessionStatus.AWAIT,
         created_at=1700000000.0,
         updated_at=1700000005.0,
@@ -169,9 +169,9 @@ def envelope(session_id: str = SESSION_ID, event_id: str = EVENT_ID, **kw) -> AE
         session_id=session_id,
         agent=AgentName.WORKBUDDY,
         project="jev",
-        cwd="F:\\jev",
+        cwd=str(REPO),
         event_type="tool_call",
-        payload={"tool": "read", "target": "F:/jev/config/jcc.yaml"},
+        payload={"tool": "read", "target": str(REPO / "config" / "jcc.yaml")},
         evidence={"kind": "tool_result", "complete": True},
     )
     opts.update(kw)

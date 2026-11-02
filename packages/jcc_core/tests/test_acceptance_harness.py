@@ -18,6 +18,7 @@ Or via pytest: F:/jev/.venv/Scripts/python -m pytest jcc_core/tests/test_accepta
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 from pathlib import Path
 import socket
@@ -208,6 +209,76 @@ def probe_bind_scope(port: int, loopback: str = "127.0.0.1",
     return "loopback-only", f"refused on non-loopback {non_loop}"
 
 
+def _wait_ready(base: str, token: str, timeout: float = 30.0) -> bool:
+    """Readiness barrier (mirrors P2's ``_wait_event_consumer_ready``).
+
+    ``/api/health`` returning 200 only proves the app is up. The FIRST real
+    ingest through a cold uvicorn worker still pays the one-time DB cold-start
+    cost -- schema CREATE, audit-writer DDL (appended on every audit append),
+    WAL/-wal/-shm file creation, and on-access AV scanning of those freshly
+    created files -- which can exceed the 5s client timeout in this environment
+    and flip the first ``/api/assess`` into ``httpx.ReadTimeout``. That is the
+    SAME cold-ingest class the A-segment closed for the P2 HTTP leg.
+
+    We pay the cold cost HERE, inside the 30s barrier window, with a throwaway
+    UNIQUE session so it can never collide with the real timed assertions.
+    Two phases, exactly like P2:
+      1. liveness probe  -- a deliberately invalid envelope returns 422 WITHOUT
+         calling ``engine.ingest`` (no DB cost, no session created), proving the
+         handler is mounted and schedulable.
+      2. ingest warmup   -- a real, uniquely-named ingest that pays the cold DB
+         cost once. A confirmed-ready warm DB then makes every timed assert a
+         warm write.
+    Returns True once a real ingest round-trips within budget; False (loud,
+    honest root-cause signal) if the cold consumer cannot be made schedulable.
+    """
+    budget_ms = 1500.0
+    # Phase 1 -- liveness: bad envelope -> 422 without ingest.
+    bad = json.dumps({"session_id": "acceptance-probe-bad", "agent": "workbuddy"}).encode()
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        t0 = time.monotonic()
+        try:
+            r = httpx.post(
+                f"{base}/api/assess", content=bad,
+                headers={"Content-Type": "application/json", "X-JCC-Token": token},
+                timeout=2.0,
+            )
+            responded = (r.status_code == 422)
+        except Exception:  # noqa: BLE001
+            responded = False
+        rt = (time.monotonic() - t0) * 1000.0
+        if responded and rt <= budget_ms:
+            break
+        time.sleep(0.2)
+    if time.time() >= deadline:
+        return False
+    # Phase 2 -- ingest warmup: real ingest with a UNIQUE session (throwaway).
+    warm = {
+        "event_id": "acceptance-warmup",
+        "delivery_id": "acceptance-warmup-" + uuid.uuid4().hex,
+        "session_id": "acceptance-warmup-" + uuid.uuid4().hex,
+        "agent": "workbuddy", "project": "demo", "cwd": "/tmp",
+        "event_type": "tool_call", "payload": {}, "evidence": {"f": 1},
+    }
+    warm_deadline = time.time() + max(0.0, deadline - time.time())
+    while time.time() < warm_deadline:
+        t0 = time.monotonic()
+        try:
+            r = httpx.post(
+                f"{base}/api/assess", json=warm,
+                headers={"X-JCC-Token": token}, timeout=15.0,
+            )
+            responded = r.status_code in (200, 422)
+        except Exception:  # noqa: BLE001
+            responded = False
+        rt = (time.monotonic() - t0) * 1000.0
+        if responded and rt <= budget_ms:
+            return True
+        time.sleep(0.3)
+    return False
+
+
 def run_acceptance() -> int:
     global PORT, BASE
     PORT = _select_free_port()      # per-run ephemeral port (isolates overlapping runs)
@@ -230,6 +301,10 @@ def run_acceptance() -> int:
     try:
         ok, err = _wait_health()
         check("server-start", ok, f"health not reachable: {err}")
+        # readiness barrier: pay the cold-ingest cost BEFORE the timed asserts,
+        # so the steady-state 5s budget measures a warm consumer (not a cold one).
+        check("consumer-ready", _wait_ready(BASE, TOKEN),
+              "cold ingest not schedulable within budget")
 
         # (a) no 0.0.0.0 in startup log + 0.0.0.0 not reachable
         with open(log_path, "r", encoding="utf-8", errors="replace") as f:

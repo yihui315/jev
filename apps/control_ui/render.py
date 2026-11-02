@@ -25,6 +25,7 @@ main{padding:16px;max-width:1100px;margin:0 auto}
 h1{font-size:18px;margin:0 0 12px}
 h2{font-size:15px;margin:18px 0 8px;color:#aac4e0;border-bottom:1px solid #2a313c;
 padding-bottom:4px}
+h3{font-size:13px;margin:12px 0 4px;color:#8aa0b4}
 table{border-collapse:collapse;width:100%;margin:6px 0 12px}
 th,td{border:1px solid #2a313c;padding:5px 8px;text-align:left;vertical-align:top}
 th{background:#161b22;color:#aac4e0}
@@ -55,6 +56,7 @@ NAV: List[Tuple[str, Optional[str], str]] = [
     ("Settings", "/settings", "settings"),
     ("Audit", "/audit", "audit"),
     ("System Health", "/health", "health"),
+    ("v1.1 Activation", "/v1.1", "v1_1"),
 ]
 
 
@@ -121,12 +123,32 @@ def render_dashboard(m: Dict[str, Any]) -> str:
     agent_rows: List[List[Any]] = []
     for name in ("workbuddy", "claude", "codex", "hermes"):
         cap = agents.get(name) or {}
-        status = cap.get("status", "UNKNOWN")
-        kind = "ok" if str(status).upper() == "CONNECTED" else "warn"
+        adapter_state = cap.get("status", "UNKNOWN")
+        aep = cap.get("aep")
+        verified = cap.get("verified")
+        kind = "ok" if str(adapter_state).upper() == "CONNECTED" else "warn"
+        # Defect A: three SEMANTIC dimensions, never collapsed into one row.
+        #  - adapter state  = the live telemetry/adapter connection
+        #  - AEP normalization = whether the agent's events normalize to AEP v0.1
+        #  - capability set verified = P2 surface probe passed (NOT actuation)
         agent_rows.append([
-            esc(name), _badge(kind, status), esc(cap.get("version", "")),
-            esc(cap.get("aep", "")), esc(cap.get("verified", "")),
+            esc(name),
+            _badge(kind, adapter_state),
+            _tri(aep),
+            _tri(verified),
         ])
+
+    # Authoritative actuation count from the frozen §10 record. Kept visually
+    # distinct from "capability set verified" so the two cannot be conflated.
+    va = m.get("verified_actuable") or {}
+    if va.get("available"):
+        act_banner = _badge(
+            "warn",
+            f"Verified actuable agents: {va.get('actuable_capability_count')}"
+            f"/{va.get('agent_count')}",
+        )
+    else:
+        act_banner = _badge("mut", "Verified actuable agents: unavailable")
 
     risk = m["risk_by_band"]
     risk_rows: List[List[Any]] = [
@@ -155,7 +177,12 @@ def render_dashboard(m: Dict[str, Any]) -> str:
     ])}
 
     <h2>Agent capabilities (from config)</h2>
-    {_table(['agent','status','version','aep','verified'], agent_rows)}
+    {act_banner}
+    <p class="note">Three SEMANTIC dimensions are shown separately. &quot;capability
+    set verified&quot; means the P2 capability-surface probe passed (adapter
+    present, AEP wired) -- it is NOT &quot;actuation-capable&quot;. The authoritative
+    actuation count is the frozen §10 record, rendered in the banner above.</p>
+    {_table(['agent','adapter state (telemetry)','AEP normalization','capability set verified'], agent_rows)}
 
     <h2>Sessions</h2>
     <p>Sessions in store: <strong>{esc(m['session_count'])}</strong>
@@ -477,3 +504,349 @@ def render_health(m: Dict[str, Any]) -> str:
 def render_notfound(path: str) -> str:
     body = f'<div class="unreachable">No such screen: {esc(path)}</div>'
     return page("Not found", "dashboard", body)
+
+
+# --------------------------------------------------------------------------- #
+# §20 -- the v1.1 activation screen
+# --------------------------------------------------------------------------- #
+#: A panel that could not be sourced renders its reason, NOT the page-level
+#: marker the other screens use. The v1.0 screens are wholly API-backed, so
+#: "this page could not reach the control plane" is a correct verdict for them;
+#: five of the seven v1.1 panels are artifact-backed and remain true when the API
+#: is down, so a page-wide unreachable verdict here would be false. Stating the
+#: failure per panel is the only version of this that is true at both extremes.
+def _panel_failure(name: str, source: Any, reason: Any, detail: Any) -> str:
+    return (
+        f'<div class="unreachable"><strong>PANEL NOT SOURCED</strong> '
+        f'({esc(name)})<br>reason: <code>{esc(reason)}</code><br>'
+        f"source: {esc(source)}<br>detail: {esc(detail)}</div>"
+    )
+
+
+def _panel_header(panel: Dict[str, Any]) -> str:
+    if panel.get("available"):
+        return _badge("ok", "sourced")
+    return _badge("warn", "not sourced")
+
+
+def _panel_source(panel: Dict[str, Any]) -> str:
+    return f'<p class="note">source: {esc(panel.get("source"))}</p>'
+
+
+def _rows_table(pairs: List[Tuple[str, Any]]) -> str:
+    return _table(["field", "value"], [[k, v] for k, v in pairs])
+
+
+def _render_provider(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    badge_kind = "ok" if d.get("badge") in ("REAL", "REAL_UNVERIFIED") else "warn"
+    out = [_panel_source(p), f"<p>{_badge(badge_kind, d.get('badge'))}</p>"]
+    out.append(_rows_table([
+        ("provider_mode (live)", d.get("provider_mode")),
+        ("provider_requested_mode", d.get("provider_requested_mode")),
+        ("provider_is_real", d.get("provider_is_real")),
+        ("provider_verified", d.get("provider_verified")),
+        ("provider_activation_state", d.get("provider_activation_state")),
+        ("jev_provider", d.get("jev_provider")),
+        ("policy_version", d.get("policy_version")),
+    ]))
+    out.append("<h3>Reconciliation against the §7 recorded verdict</h3>")
+    recorded_rows = [
+        ("artifact", d.get("verified_artifact")),
+        ("recorded real_jev", d.get("recorded_real_jev")),
+        ("recorded provider_mode", d.get("recorded_provider_mode")),
+        ("recorded provider_verified", _tri(d.get("recorded_provider_verified"))),
+    ]
+    if d.get("recorded_reason"):
+        # Only present when the artifact could not be used: an empty row would
+        # read as "no problem", which is the opposite of what it means.
+        recorded_rows += [
+            ("artifact unreadable", d.get("recorded_reason")),
+            ("artifact detail", d.get("recorded_detail")),
+        ]
+    out.append(_rows_table(recorded_rows))
+    out.append(f'<p class="note">{esc(d.get("recorded_note"))}</p>')
+    if d.get("safety_divergence"):
+        out.append(
+            f'<div class="unreachable">DIVERGENCE: {esc(d.get("safety_divergence"))}</div>')
+    else:
+        out.append('<p class="note">No safety divergence: the live provider is not '
+                   "claiming to be real against an unverified interface card. A "
+                   "difference in mode alone is not raised, because the live "
+                   "process and the recorded emission may be different "
+                   "configurations.</p>")
+    return "".join(out)
+
+
+def _render_capability_matrix(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    rows = [[
+        r.get("agent"), r.get("adapter_state"), r.get("verified"), r.get("degraded"),
+        r.get("unsupported"), r.get("unverified"),
+    ] for r in d.get("rows") or []]
+    out = [_panel_source(p)]
+    out.append(_top3(d.get("vocabulary")))
+    out.append(_table(
+        ["agent", "adapter_state", "VERIFIED", "DEGRADED", "UNSUPPORTED", "UNVERIFIED"],
+        rows,
+    ))
+    out.append(_rows_table([
+        ("agents", d.get("agent_count")),
+        ("verified capabilities (total)", d.get("verified_total")),
+        ("agents with VERIFIED telemetry", d.get("telemetry_verified")),
+        ("actuable capabilities", d.get("actuable_capability_count")),
+        ("actuable list", _join(d.get("actuable")) or "(none)"),
+        ("section", d.get("section")),
+        ("schema", d.get("schema")),
+        ("probe script", d.get("probe_script")),
+        ("probe measurement", d.get("probe_measurement")),
+        ("evidence dir", d.get("evidence_dir")),
+        ("repo head at emission", d.get("repo_head_recorded")),
+    ]))
+    return "".join(out)
+
+
+def _render_shadow_stats(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    # Defect B: the flat row-list mixed three DIFFERENT semantic facts -- whether
+    # the shadow tape is stored, how many observations were made, and what gate
+    # defects exist -- into one undifferentiated table. Each is its own sub-section
+    # so a reader can tell "the storage is present" apart from "we observed N
+    # decisions" apart from "the gate has defects".
+    out = [_panel_source(p)]
+    out.append("<h3>Storage</h3>")
+    out.append(_rows_table([
+        ("shadow tape present (db_present)", _tri(d.get("db_present"))),
+    ]))
+    out.append("<h3>Observations (release-time)</h3>")
+    out.append(_rows_table([
+        ("status", d.get("status")),
+        ("satisfied", _tri(d.get("satisfied"))),
+        ("observed_decisions", d.get("observed_decisions")),
+        ("observed_span_s", d.get("observed_span_s")),
+        ("actuated_observations", d.get("actuated_observations")),
+        ("chain_intact", _tri(d.get("chain_intact"))),
+    ]))
+    out.append("<h3>Gate defects</h3>")
+    out.append(_rows_table([
+        ("defects", _join(d.get("defects")) or "(none)"),
+        ("thresholds", _dict_text(d.get("thresholds"))),
+    ]))
+    return "".join(out)
+
+
+def _render_actuation(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    out = [_panel_source(p)]
+    # Defect C: the ladder is POLICY's view (what the gate permits); the operator
+    # switch is the EXECUTION view (what can actually fire). They are different
+    # facts and must not read as one. The "Execution state" block states both and
+    # the three-state blocked reason for why nothing is actuating right now.
+    out.append("<h3>Execution state</h3>")
+    blocked = d.get("blocked_reason")
+    blocked_text = "(none — actuation is executable)" if blocked is None else blocked
+    out.append(_rows_table([
+        ("POLICY-PERMITTED (gate ladder)", _tri(d.get("policy_permitted"))),
+        ("CURRENTLY-EXECUTABLE (policy + operator switch)",
+         _tri(d.get("currently_executable"))),
+        ("BLOCKED reason (three-state)", blocked_text),
+    ]))
+    if blocked:
+        out.append(
+            f'<p class="note">blocked_reason={esc(blocked)} — actuation is held by '
+            f"exactly one of: config_off (operator switch off), "
+            f"gate_not_satisfied (live-shadow gate not met), ceiling_L0 "
+            f"(granted ceiling is L0). It is never silently off.</p>")
+    out.append("<h3>Ladder / gate detail</h3>")
+    out.append(_rows_table([
+        ("effective_level", d.get("effective_level")),
+        ("configured_level", d.get("configured_level")),
+        ("granted_ceiling", d.get("granted_ceiling")),
+        ("gate status", d.get("gate_status")),
+        ("gate satisfied", _tri(d.get("gate_satisfied"))),
+        ("actuation_enabled (gate)", _tri(d.get("actuation_enabled_gate"))),
+        ("actuation_enabled (config/live)", _tri(d.get("actuation_enabled_configured"))),
+        ("defects", _join(d.get("defects")) or "(none)"),
+        ("shadow tape present", _tri(d.get("db_present"))),
+    ]))
+    if d.get("mismatch"):
+        out.append(f'<div class="unreachable">MISMATCH: {esc(d.get("mismatch"))}</div>')
+    else:
+        out.append('<p class="note">No mismatch between the config switch and the '
+                   "gate. Where one of the two is unknown it is shown as blank "
+                   "above, not assumed to agree.</p>")
+    ladder = [[
+        r.get("level"), r.get("rank"), r.get("gate_runs"), r.get("capability_count"),
+        _join(r.get("permits")) or "(none)",
+    ] for r in d.get("ladder") or []]
+    out.append("<h3>Actuation ladder (emitted from the enforcing table)</h3>")
+    out.append(_table(["level", "rank", "gate_runs", "capabilities", "permits"], ladder))
+    if d.get("note"):
+        out.append(f'<p class="note">{esc(d.get("note"))}</p>')
+    return "".join(out)
+
+
+def _render_pending_activation(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    rows = [[
+        i.get("item"), i.get("state"), i.get("why"), _join(i.get("defects")) or "(none)",
+    ] for i in d.get("items") or []]
+    out = [_panel_source(p)]
+    out.append(f"<p>Still inert: <strong>{esc(d.get('count'))}</strong> "
+               f"(gate status: {esc(d.get('headline_status'))})</p>")
+    out.append(_table(["item", "state", "why", "blocking evidence"], rows))
+    out.append(f'<p class="note">provider item source: {esc(d.get("provider_artifact"))}'
+               + (f' (unreadable: {esc(d.get("provider_artifact_reason"))})'
+                  if d.get("provider_artifact_reason") else "")
+               + "</p>")
+    return "".join(out)
+
+
+def _render_budget(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    out = [_panel_source(p)]
+    out.append("<h3>Configured limits</h3>")
+    out.append(_kv([(k, v) for k, v in sorted((d.get("limits") or {}).items())]))
+    out.append(_rows_table([
+        ("limit_count", d.get("limit_count")),
+        ("cost provenance vocabulary", _join(d.get("provenance_values"))),
+        ("scorer_tokens is a waived dimension", d.get("scorer_tokens_waived")),
+        ("USAGE available", d.get("usage_available")),
+        ("USAGE reason", d.get("usage_reason")),
+    ]))
+    out.append(f'<p class="note">{esc(d.get("usage_detail"))}</p>')
+    return "".join(out)
+
+
+def _render_directive(p: Dict[str, Any]) -> str:
+    d = p["data"]
+    latest = d.get("latest") or {}
+    out = [_panel_source(p)]
+    out.append(_rows_table([
+        ("scope", d.get("scope")),
+        ("directives", d.get("total")),
+        ("signed", d.get("signed")),
+        ("unsigned", d.get("unsigned")),
+        ("acted", d.get("acted")),
+        ("signed flag disagrees with signature blob",
+         d.get("signed_flag_but_no_signature_or_reverse")),
+        ("origins", _dict_text(d.get("origins"))),
+        ("sessions covered", d.get("session_count")),
+    ]))
+    if latest:
+        out.append("<h3>Latest directive</h3>")
+        out.append(_rows_table([
+            ("directive_id", latest.get("directive_id")),
+            ("session_id", latest.get("session_id")),
+            ("timestamp", latest.get("timestamp")),
+            ("action", latest.get("action")),
+            ("target_actuator", latest.get("target_actuator")),
+            ("origin", latest.get("origin")),
+            ("policy_version", latest.get("policy_version")),
+            ("signed", _tri(latest.get("signed"))),
+            ("acted", _tri(latest.get("acted"))),
+            ("actuation_reason", latest.get("actuation_reason")),
+        ]))
+        out.append('<p class="note">The endpoint returns no verification verdict and '
+                   "no executable flag, so this panel does not show one; the "
+                   "columns it does return are listed under "
+                   "&quot;fields returned&quot; below.</p>")
+        out.append(f'<p class="note">fields returned: '
+                   f'{esc(_join(d.get("fields_returned")))}</p>')
+    else:
+        out.append('<p class="section-empty">no directives returned by the endpoint</p>')
+    return "".join(out)
+
+
+#: Panel name -> renderer. Keyed by the name the data layer emits, so a panel
+#: added to ``PANEL_NAMES`` without a renderer is caught by the test rather than
+#: silently not drawn.
+_PANEL_RENDERERS = {
+    "provider": _render_provider,
+    "capability_matrix": _render_capability_matrix,
+    "shadow_stats": _render_shadow_stats,
+    "actuation": _render_actuation,
+    "pending_activation": _render_pending_activation,
+    "budget": _render_budget,
+    "directive": _render_directive,
+}
+
+#: Human headings, in the same order as the data layer's ``PANEL_NAMES``.
+PANEL_HEADINGS = {
+    "provider": "Provider (four-state badge)",
+    "capability_matrix": "Capability Matrix (frozen §10 record)",
+    "shadow_stats": "Shadow Stats (release-time readings)",
+    "actuation": "Actuation Level (ladder + gate)",
+    "pending_activation": "Pending Activation",
+    "budget": "Budget (limits + cost provenance)",
+    "directive": "Directive",
+}
+
+
+def _join(items: Any) -> str:
+    return ", ".join(str(i) for i in (items or []))
+
+
+def _tri(value: Any) -> str:
+    """Render a three-state value. ``None`` means UNKNOWN and must say so.
+
+    ``esc(None)`` is the empty string, which on this page would read as "the
+    field is empty" -- indistinguishable from "the artifact does not carry it".
+    The distinction is the whole point of ``chain_intact=None`` (the tape is
+    absent, so the chain cannot be judged either way), so it is spelled out.
+    """
+    if value is None:
+        return "(unknown)"
+    if value is True:
+        return "True"
+    if value is False:
+        return "False"
+    return str(value)
+
+
+def _dict_text(value: Any) -> str:
+    if not isinstance(value, dict):
+        return "" if value is None else str(value)
+    return ", ".join(f"{k}={value[k]}" for k in sorted(value))
+
+
+def _top3(items: Any) -> str:
+    joined = _join(items)
+    if not joined:
+        return ""
+    return f'<p class="note">status vocabulary: {esc(joined)}</p>'
+
+
+def render_v1_1(m: Dict[str, Any]) -> str:
+    """The §20 screen. One block per panel; an unavailable panel says why.
+
+    There is no fallback value and no placeholder anywhere on this page: a panel
+    is either rendered from its declared source or rendered as a named failure
+    with the reason the source could not be used. That is the same rule the v1.0
+    screens follow for missing sections, applied to every panel instead of only
+    to the ones somebody remembered to handle.
+    """
+    panels = m["panels"]
+    sourced = _badge("mut", "panels sourced {}/{}".format(
+        m["available_count"], len(m["order"])))
+    scope_badge = _badge("mut", "scope: " + (m.get("session_id") or "all sessions"))
+    parts: List[str] = [
+        f"<p>{sourced} {scope_badge}</p>",
+        '<p class="note">Every panel names its source. Panels backed by a frozen '
+        "release artifact are marked release-time; the API-backed panels are "
+        "live. Nothing on this page is invented and nothing is read from the "
+        "database the running service owns.</p>",
+    ]
+    for name in m["order"]:
+        panel = panels[name]
+        heading = PANEL_HEADINGS.get(name, name)
+        parts.append(f"<h2>{esc(heading)} {_panel_header(panel)}</h2>")
+        if panel.get("available"):
+            renderer = _PANEL_RENDERERS.get(name)
+            parts.append(renderer(panel) if renderer
+                         else f'<p class="section-empty">no renderer for {esc(name)}</p>')
+        else:
+            parts.append(_panel_failure(name, panel.get("source"),
+                                        panel.get("reason"), panel.get("detail")))
+    return page("v1.1 Activation", "v1_1", "".join(parts))
+

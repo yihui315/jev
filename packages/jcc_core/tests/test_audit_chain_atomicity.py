@@ -329,3 +329,53 @@ def test_both_isolation_levels_produce_a_single_contiguous_chain(tmp_path):
             assert ok is True and count == 5, f"isolation_level={iso!r}: {ok},{count}"
         finally:
             conn.close()
+
+
+# --------------------------------------------------------------------------- #
+# Scale: the release gate asks for 2, 8 and 32 concurrent writers
+# --------------------------------------------------------------------------- #
+@pytest.mark.parametrize("threads", [2, 8, 32])
+def test_concurrent_writers_at_scale_keep_one_chain(tmp_path, threads):
+    """The retry must hold at the concurrency the product actually runs at.
+
+    The 8-thread case is the one that used to fail; 32 is here because a
+    lock-serialisation fix that only survives light contention is not a fix.
+    """
+    path = str(tmp_path / f"scale-{threads}.db")
+    seed = sqlite3.connect(path, isolation_level=None)
+    seed.executescript(audit.SCHEMA)
+    seed.close()
+
+    errors: list[str] = []
+    barrier = threading.Barrier(threads)
+
+    def run(n: int) -> None:
+        conn = sqlite3.connect(path, isolation_level=None)
+        try:
+            barrier.wait(timeout=180)
+            for i in range(n):
+                audit.append_audit(
+                    conn,
+                    event_id=f"s{threads}-{threading.get_ident()}-{i}",
+                    timestamp=float(i),
+                    session_id="s",
+                    agent="a",
+                    project="p",
+                )
+        except BaseException as exc:  # noqa: BLE001
+            errors.append(f"{type(exc).__name__}: {exc}")
+        finally:
+            conn.close()
+
+    workers = [threading.Thread(target=run, args=(5,)) for _ in range(threads)]
+    for w in workers:
+        w.start()
+    for w in workers:
+        w.join(timeout=600)
+    assert errors == [], f"a writer thread failed: {errors}"
+
+    reader = sqlite3.connect(path, isolation_level=None)
+    try:
+        _appends_keep_one_contiguous_chain(reader, expected=threads * 5)
+    finally:
+        reader.close()

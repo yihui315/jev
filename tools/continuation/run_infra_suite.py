@@ -47,6 +47,7 @@ import hashlib
 import io
 import json
 import os
+from pathlib import Path
 import re
 import shutil
 import subprocess
@@ -55,7 +56,7 @@ import tempfile
 import time
 import xml.etree.ElementTree as ET
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 SUITE_DIR = "tools/tests"
 EVIDENCE_REL = "artifacts/acceptance/CONTINUATION_INFRA_TEST.json"

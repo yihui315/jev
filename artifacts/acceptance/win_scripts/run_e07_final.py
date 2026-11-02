@@ -41,8 +41,14 @@ import threading
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
-ROOT = r"F:\jev"
+#: Repo root, DERIVED from this file's location. This file sits at
+#: ``<repo>/artifacts/acceptance/win_scripts/run_e07_final.py``, so three
+#: ``parents`` steps up is the repo root. The literal this replaced
+#: (``r"F:\jev"``) names a drive that does not exist on the current host, so
+#: RUNTIME / PID_FILE / SCRIPTS_DIR all resolved into nothing.
+ROOT = os.environ.get("JCC_ROOT") or str(Path(__file__).resolve().parents[3])
 RUNTIME = os.path.join(ROOT, "runtime", "jcc")
 PID_FILE = os.path.join(RUNTIME, "jcc.pid")
 SCRIPTS_DIR = os.path.join(ROOT, "scripts")

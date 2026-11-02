@@ -45,7 +45,7 @@ def _valid_aep(session_id: str, event_id: str) -> dict:
 
 
 # --------------------------------------------------------------------------- #
-def test_loopback_bind_only(api_server):
+def test_loopback_bind_only(api_server, e2e_support):
     """The real process listens ONLY on loopback addresses."""
     hosts = api_server.bound_hosts
     assert hosts, "server reported no bound sockets"
@@ -57,7 +57,11 @@ def test_loopback_bind_only(api_server):
     assert api_server.request("GET", "/api/health").status == 200
 
     # best-effort: a non-loopback interface must NOT reach the service.
-    ext = __import__("conftest").external_ip()
+    # Taken from the fixture, NOT ``__import__("conftest")``: with no
+    # ``__init__.py`` under tests/ or tools/, that bare name resolves to
+    # whichever conftest the loader reached LAST (measured: it breaks
+    # ``pytest tests/e2e tools/tests``).
+    ext = e2e_support.external_ip()
     if ext and not ext.startswith("127."):
         import urllib.error
         reached = False
@@ -126,11 +130,46 @@ def test_open_endpoints_match_health_declaration(api_server):
     # every declared open route must actually be reachable without a token
     for p in declared:
         path = p if "{sid}" not in p else p.replace("{sid}", "nope-sid")
-        r = api_server.request("GET", path)
+        # SSE endpoints stream forever; probe reachability via headers only
+        # (status + content-type) and cancel the stream instead of hanging.
+        is_sse = path.rstrip("/").endswith("/events/stream")
+        r = api_server.request("GET", path, stream=is_sse)
         assert r.status not in (401, 403), (
             f"{p} is declared open but refuses a tokenless read ({r.status})"
         )
         assert r.status in (200, 404), f"{p} returned unexpected {r.status}"
+        if is_sse:
+            ctype = r.headers.get("content-type", "")
+            assert ctype.startswith("text/event-stream"), (
+                f"{p} is declared open but is not a Server-Sent Events stream "
+                f"(content-type {ctype!r})"
+            )
+
+
+# --------------------------------------------------------------------------- #
+def test_loopback_probe_bypasses_http_proxy(api_server, monkeypatch):
+    """T-14 regression: a host-wide HTTP(S)_PROXY must NOT intercept loopback.
+
+    This host runs a loopback-intercepting proxy (v2rayN). Before the fix,
+    ``conftest._http`` used urllib's default opener, which routes 127.0.0.1
+    through the proxy and times out. The e2e client must open loopback URLs with
+    an explicit ``ProxyHandler({})`` so the probe reaches the local server.
+
+    FALSIFIER: point the proxy at a dead port; the health probe must STILL
+    return 200. Without the fix this test ERRORS (URLError: connection refused to
+    the proxy); with the fix it passes (direct loopback connection). No product
+    API is changed to make this pass.
+    """
+    dead_proxy = "http://127.0.0.1:9"
+    monkeypatch.setenv("HTTP_PROXY", dead_proxy)
+    monkeypatch.setenv("HTTPS_PROXY", dead_proxy)
+    monkeypatch.setenv("http_proxy", dead_proxy)
+    monkeypatch.setenv("https_proxy", dead_proxy)
+    r = api_server.request("GET", "/api/health")
+    assert r.status == 200, (
+        "loopback health probe was intercepted by HTTP_PROXY (status %s) -- "
+        "conftest._http must open 127.0.0.1 with ProxyHandler({})" % r.status
+    )
 
 
 # --------------------------------------------------------------------------- #

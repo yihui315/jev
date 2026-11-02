@@ -45,7 +45,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-REPO = Path(r"F:\jev")
+REPO = Path(__file__).resolve().parents[2]
 SCRIPTS = REPO / "scripts"
 WD = SCRIPTS / "continuation-watchdog.ps1"
 PY = REPO / ".venv" / "Scripts" / "python.exe"

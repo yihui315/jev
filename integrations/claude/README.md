@@ -26,11 +26,14 @@ Notification, PreCompact`.
 
 ## Install / uninstall
 
+Run from the repository root. `-JccRoot` is optional — the script derives the
+checkout from its own location, so these commands work wherever the repo lives.
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\claude\install.ps1         # merge hooks (backup first)
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\claude\install.ps1 -DryRun
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\claude\uninstall.ps1       # remove only JCC entries
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\claude\uninstall.ps1 -RestoreBackup
+powershell -ExecutionPolicy Bypass -File .\integrations\claude\install.ps1         # merge hooks (backup first)
+powershell -ExecutionPolicy Bypass -File .\integrations\claude\install.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\integrations\claude\uninstall.ps1       # remove only JCC entries
+powershell -ExecutionPolicy Bypass -File .\integrations\claude\uninstall.ps1 -RestoreBackup
 ```
 
 Hook command on Windows is the wrapper `jcc-claude-hook.cmd` (works from both

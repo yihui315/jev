@@ -1,0 +1,23 @@
+{
+  "bare_urlopen": {
+    "error": "HTTPError: HTTP Error 502: Bad Gateway",
+    "ok": false
+  },
+  "cfg": "D:\\jev\\runtime\\harbor_p2_isolation\\jcc.yaml",
+  "child_rc": 1,
+  "direct_opener": {
+    "error": "URLError: <urlopen error [WinError 10061] 由于目标计算机积极拒绝，无法连接。>",
+    "ok": false
+  },
+  "env_proxies": {
+    "http": "http://127.0.0.1:49863",
+    "https": "http://127.0.0.1:49863"
+  },
+  "log_bytes": 0,
+  "log_kept_at": "D:\\jev\\runtime\\harbor_p2_isolation\\server.log",
+  "log_tail": "",
+  "pid": 41676,
+  "port": 53077,
+  "port_error": "[WinError 10061] 由于目标计算机积极拒绝，无法连接。",
+  "port_reachable": false
+}

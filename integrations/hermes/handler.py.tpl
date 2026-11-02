@@ -13,7 +13,7 @@ Design (P2):
   * transport = loopback token POST (default) or HMAC-signed webhook (opt-in).
 
 Config via environment (read at handler import):
-  JCC_ROOT                 default F:/jev
+  JCC_ROOT                 repo root; default = the value install.ps1 substituted
   JCC_MODE                 "loopback" (default) | "signed"
   JCC_CONTROL_TOKEN        needed for loopback
   JCC_CORE_URL             default http://127.0.0.1:4778
@@ -28,7 +28,14 @@ import sys
 import time
 import urllib.request
 
-_JCC_ROOT = os.environ.get("JCC_ROOT", "F:/jev")
+# This handler is COPIED to ~/.hermes/hooks/jcc-telemetry/handler.py, i.e.
+# OUTSIDE the checkout, so a repo root cannot be derived from __file__ here the
+# way jcc_core/config.py and jcc_emit.py derive theirs. install.ps1 substitutes
+# the __JCC_ROOT__ token with the -JccRoot it resolved; that substituted value is
+# the fallback. An unsubstituted token means the handler was installed by some
+# path that did not render it, and it degrades to "telemetry inert" rather than
+# to a guess at a drive letter.
+_JCC_ROOT = os.environ.get("JCC_ROOT") or "__JCC_ROOT__"
 for _p in (
     os.path.join(_JCC_ROOT, "packages"),
     os.path.join(_JCC_ROOT, "integrations", "_common"),

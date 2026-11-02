@@ -1,0 +1,150 @@
+AEGIS EVIDENCE SHA CORRECTION
+========================================================================
+
+Reason: CRLF normalisation. See INC002_CRLF_HASH_NOTE.txt (forge2).
+Repo autocrlf setting: true
+
+REVISION 2 (line-ending rule corrected)
+------------------------------------------------------------------------
+The re-derivation recipe below originally shipped `tr -d '\r'`. That was wrong
+and weaver caught it: it deletes every CR, not only the line-ending one, so an
+in-band CR injection is silently normalised to a clean-looking file. The recipe
+now uses `sed 's/\r$//'`, and the measured numbers are unchanged because this
+tree contains no lone CR anywhere -- meaning the original figures were right by
+luck, not by construction. The numbers did not change; the method did.
+See AEGIS_RENORM_CORRECTION.txt for the full evidence.
+
+WHAT I GOT WRONG
+------------------------------------------------------------------------
+The sha256 values I reported to team-lead earlier were computed with a bare
+sha256sum over the WORKTREE file. With core.autocrlf=true the worktree
+carries CRLF while the committed blob carries LF, so a bare worktree hash is
+NOT reproducible from a fresh checkout. Two further problems compounded it:
+  * SECURITY_FINAL.json was committed twice (20c037f, then 46ff531), so the
+    value I quoted described NEITHER final commit;
+  * the value was computed BEFORE the self-reference commit, so it was stale
+    on arrival.
+
+Nothing about the security FINDINGS changes. Only the digests were wrong.
+
+HOW TO RE-DERIVE (either is valid, say which you used)
+------------------------------------------------------------------------
+  committed artefact : git cat-file -p HEAD:<path> | sha256sum
+  worktree as-is     : sha256sum <path>
+  line-ending agnostic (either side may be CRLF or LF):
+      # RAW first -- this is the only sound test for size-preserving damage:
+      ndiff() { cmp -s <(git cat-file -p "HEAD:$1") "$1" \
+                 && echo SAME || echo DIFFER; }
+      # A normalised hash is a READING AID. It is lossy: see the collision
+      # table below. Never let it overrule a raw DIFFER.
+      nwork() { tr -d '\r' < "$1" | sha256sum | cut -d' ' -f1; }
+      # ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^ ^
+      # DO NOT replace the sed above with `tr -d '\r'`. That form is WRONG and
+      # it fails silently. `tr -d '\r'` deletes EVERY CR, not just the one that
+      # pairs with a LF, so an IN-BAND CR injection normalises to the same
+      # bytes as a clean file. Measured on this host:
+      #     clean   '...\n\nLoads the config\n'
+      #     damaged '...\n\n\rLoads the config\n'   (a CR before 'L')
+      #     tr -d '\r'      -> MATCH   (real damage hidden)
+      #     sed 's/\r$//'   -> DIFFER  (correctly caught)
+      #     non-zero-byte check -> not flagged either, so the two checks do
+      #                           NOT substitute for normalisation here.
+      # Only the line-ending CR may be removed; a lone CR is content.
+      # Python: b.replace(b"\r\n", b"\n")   -- better than sed, but also lossy
+      # (0d0a0a and 0a0d0a both become 0a0a). Raw compare is the sound test.
+      # See AEGIS_RENORM_CORRECTION.txt for the full write-up, and
+      # tools/inc002_tree_check.py:120-126 for the reference implementation.
+      # The MEASURED VALUES below were produced with the sed form. The earlier
+      # issue of this file used tr -d; on this tree both agree (no lone CR
+      # exists anywhere), so no number changes -- but the tr form was correct
+      # by luck, not by construction.
+
+MEASURED VALUES
+------------------------------------------------------------------------
+
+=== artifacts/release/v1.3_final/HOST_PREFLIGHT.json
+  worktree bytes            : 26938
+  worktree non-null bytes    : 26938
+  CR bytes in worktree      : 478
+  zeroed?                   : no (all bytes non-null)
+  worktree bare sha256      : d9340b015bb9ec16455966dc6bdb768aa233353873260d9c5871096793156343
+  COMMITTED blob bytes      : 26460
+  COMMITTED blob sha256     : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+  normalised (CR stripped)  :
+      worktree               : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+      HEAD                   : fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+      normalised match       : True  (CRLF/LF difference only - content identical)
+  empty-string sha256       : e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  is this the empty sha?    : False
+
+  >> CITE THIS ONE: fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b  (committed blob, HEAD)
+
+
+=== artifacts/release/v1.3_final/SECURITY_FINAL.json
+  worktree bytes            : 22623
+  worktree non-null bytes    : 22623
+  CR bytes in worktree      : 306
+  zeroed?                   : no (all bytes non-null)
+  worktree bare sha256      : 46ce6e140a849e13883046cc1fc58a642e84b39846762f35480b1844bcf48672
+  COMMITTED blob bytes      : 22317
+  COMMITTED blob sha256     : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+  normalised (CR stripped)  :
+      worktree               : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+      HEAD                   : ed3e0daba9069ecb379868ae1687ce2e67ba48cbdc1d60a60538dd629db95a4a
+      normalised match       : True  (CRLF/LF difference only - content identical)
+  empty-string sha256       : e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+  is this the empty sha?    : False
+
+  >> CITE THIS ONE: b182af35802fd33140553ebc87f10b387fe8e2457a23540904b4eb9e15f8801d  (committed blob, HEAD)
+
+NOTE ON THE FIRST ATTEMPT AT THIS FILE
+------------------------------------------------------------------------
+The first version of this note was produced by a PowerShell heredoc whose
+reads came back empty, so it recorded the sha256 of the empty string
+(e3b0c44298fc1c14...) for BOTH files. That is the same value a genuinely
+zeroed file produces -- the broken script emitted exactly the artefact
+INC-002 is about. It was caught by cross-checking against sha256sum, not by
+reading the file. Rewritten here with every value read explicitly.
+
+========================================================================
+VERIFIED: my evidence files are intact and non-zeroed at the time of writing.
+  HOST_PREFLIGHT.json  worktree sha256 d9340b015bb9ec16455966dc6bdb768aa233353873260d9c5871096793156343
+  SECURITY_FINAL.json  worktree sha256 46ce6e140a849e13883046cc1fc58a642e84b39846762f35480b1844bcf48672
+
+
+RE-VERIFY THESE DIGESTS (they are only valid for the commit they were taken at)
+--------------------------------------------------------------------------
+This file cites committed digests. A digest is a fact about ONE commit: if the
+artefact is re-issued, the citation rots. That already happened once -- the
+SECURITY_FINAL.json value below was correct when written and stale after
+commits 30731bc and df22446 re-issued that file. So do not trust this document;
+recompute:
+
+      for f in HOST_PREFLIGHT SECURITY_FINAL; do
+        printf '%s  ' "$f"
+        # RAW bytes. Do NOT pipe through sed: this host's sed line reader strips
+        # the CR of a trailing CRLF before the script runs, so `sed ''` alone
+        # already alters its input (measured: a\r\n -> a\n). A digest computed
+        # through sed is not this artefact's digest.
+        git cat-file -p "HEAD:artifacts/release/v1.3_final/$f.json" \
+          | sha256sum | cut -d' ' -f1
+      done
+
+Compare against the CITE lines above. If they differ, the artefact was
+re-issued and THIS DOCUMENT is the stale artefact -- re-derive and update it,
+rather than citing the value from here.
+
+Digest of each artefact as of the commit that last changed it:
+  HOST_PREFLIGHT.json      fd60f0caf87c1d5224edbc4097ea511c52e870be8a6e8b1de8284b31de83f19b
+  SECURITY_FINAL.json      b182af35802fd33140553ebc87f10b387fe8e2457a23540904b4eb9e15f8801d
+
+NOTE ON THE LINE-DENDING RULE
+--------------------------------------------------------------------------
+The byte-level transform is CRLF -> LF and nothing else:
+    b.replace(b"\r\n", b"\n")
+    NOT b.replace(b"\r", b"")   -- deletes EVERY CR, in-band ones included
+And it is EVIDENCE, not a verdict: it has measured size-preserving collisions
+(0d0a0a <-> 0a0d0a), so the only sound decision rule for size-preserving damage
+is a RAW byte comparison. `tr -d '\r'` fails on the in-band case as measured
+earlier; `sed 's/\r$//'` is worse, because on this host sed's line reader
+alters input before any script runs, so `sed ''` already changes a\r\n.

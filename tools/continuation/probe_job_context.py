@@ -17,10 +17,11 @@ import ctypes.wintypes as wt
 import io
 import json
 import os
+from pathlib import Path
 import sys
 import time
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 
 
 def external_job_check(pid):
@@ -58,9 +59,17 @@ def parent_chain():
     import subprocess
     out = []
     pid = os.getpid()
+    # Spawn the SAME interpreter that is running this probe. The literal this
+    # replaced ('F:\\jev\\.venv\\Scripts\\python.exe') made the probe fail on any
+    # host without an F: volume -- subprocess.run raises FileNotFoundError and
+    # the parent chain silently came back all-zeroes, which reads as "no parent
+    # found" rather than "this tool cannot run here". sys.executable cannot be
+    # wrong about where python is, and it is the interpreter whose job-object
+    # membership we actually want to measure.
+    _PY = sys.executable or os.path.join(ROOT, ".venv", "Scripts", "python.exe")
     for _ in range(6):
         p = subprocess.run(
-            ["F:\\jev\\.venv\\Scripts\\python.exe", "-c",
+            [_PY, "-c",
              "import ctypes,ctypes.wintypes as wt,sys\n"
              "k=ctypes.windll.kernel32\n"
              "class PE32(ctypes.Structure):\n"

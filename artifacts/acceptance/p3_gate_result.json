@@ -1,0 +1,87 @@
+{
+  "task": "#46 P3 acceptance gate (harbor)",
+  "ran_at": "2026-10-09T00:00:00+00:00",
+  "head": "5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b (server.py on-disk sha256 at freeze commit; CRLF normalized per test_A8 EOL rule)",
+  "freeze_commit_git_blob": "bf7709e5b60125276b448e9ba46fd9c01dbe3ff8",
+  "freeze_post_record_commit": "cf08b25b50d042c5d6119fbfde7a776f252ea366",
+  "dirty": true,
+  "a8_rebaseline": {
+    "files": {
+      "packages/jcc_core/server.py": {
+        "old_sha": "64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b",
+        "new_sha": "5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b",
+        "reason": "production runtime wiring unification: /api/health derives provider_mode / provider_is_real / provider_verified / provider_activation_state from a new _production_provider_facts() helper that reads the SAME ProviderRegistry the Provider Center and the mission runtime read; the §final-decision contract that one production runtime = one fact source. Legacy engine scorer remains the fall-back only, marked LEGACY_NOT_PRODUCTION in providers/real.py (§7D anti-impersonation preserved). Jev probe now persists DECISION_VERIFIED symmetrically with GENERATION_VERIFIED. ProviderRegistry gained a per-process _live_verified map so the card reads CONNECTED after a real completion in THIS process and STALE_VERIFIED after restart (from the persisted VerificationStore). NO new endpoint was added; OPEN_GET_ENDPOINTS is unchanged at 28; A11's exact POST set is unchanged. Re-baselined with old->new + reason in the SAME freeze commit that froze the SHA, as required by the A8 contract.",
+        "commit": "69746d0edcb9cdbae5f132a8fc4a8544a2f06cfd",
+        "branch": "release/jcc-v1.3-final"
+      }
+    },
+    "fixtures_updated": {
+      "packages/jcc_core/tests/test_p3_acceptance_gate.py": [
+        "A8_FROZEN_AT banner: appended PRODUCTION RUNTIME WIRING UNIFICATION re-baseline entry with old->new + reason",
+        "_BASELINE_HASHES['packages/jcc_core/server.py']: 64cc0a21.. -> 5c6c159d.."
+      ]
+    }
+  },
+  "basetemp": "D:\\jev\\.workbuddy\\scratch\\host_temp\\jev-pytest-runs\\g20261004_143533_928289",
+  "basetemp_note": "derived from tempfile.gettempdir() at runtime (the ONLY prefix the safe-delete shim exempts) with a FRESH UNIQUE per-run child, so nothing pre-exists to be mass-deleted. packages/conftest.py (#60, 9c0820d) derives the same base, so no explicit override is needed.",
+  "notes": [
+    "gate rule: passed>0 AND failed==0 AND errors==0 AND skipped==0 (a skip FAILS)",
+    "no failure is absorbed or reclassified at this SHA"
+  ],
+  "cmd": [
+    "D:\\jev\\.venv\\Scripts\\python.exe",
+    "-m",
+    "pytest",
+    "jcc_core/tests/test_p3_acceptance_gate.py",
+    "jcc_core/tests/test_p3_core_integration.py",
+    "jcc_core/tests/test_decision.py",
+    "jcc_core/tests/test_signing.py",
+    "jcc_core/tests/test_policy.py",
+    "supervisor/tests",
+    "-v",
+    "-p",
+    "no:cacheprovider",
+    "--no-header",
+    "-rN",
+    "--basetemp=D:\\jev\\.workbuddy\\scratch\\host_temp\\jev-pytest-runs\\g20261004_143533_928289"
+  ],
+  "counts": {
+    "PASSED": 0,
+    "FAILED": 0,
+    "ERROR": 0,
+    "SKIPPED": 0,
+    "XFAIL": 0,
+    "XPASS": 0
+  },
+  "gate": "FAIL",
+  "failing_tests": [],
+  "absorbed_failures": [],
+  "pytest_returncode": 4,
+  "vacuity_guard": [
+    "pytest emitted no final tally line -> the per-test parse cannot be reconciled (output truncated, crash before the summary, or run aborted)",
+    "no test results were parsed at all (pytest emitted nothing parseable -- collection/usage error, crash or wrong cwd?)",
+    "declared target contributed NO results: jcc_core/tests/test_p3_acceptance_gate.py",
+    "declared target contributed NO results: jcc_core/tests/test_p3_core_integration.py",
+    "declared target contributed NO results: jcc_core/tests/test_decision.py",
+    "declared target contributed NO results: jcc_core/tests/test_signing.py",
+    "declared target contributed NO results: jcc_core/tests/test_policy.py",
+    "declared target contributed NO results: supervisor/tests",
+    "A-matrix rows did not run: ['A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'A7', 'A8', 'A9', 'A10', 'A11'] (renamed/removed test, or it failed to collect)",
+    "load-bearing D-40 falsifier did not run: test_D40_shadow_non_actuation_is_non_vacuous",
+    "pytest returncode 4 is not 0/1 -> the run did not complete normally (see exit codes above)",
+    "pytest returned 4 but no failing test was parsed -> result is untrustworthy"
+  ],
+  "vacuity_guard_triggered": true,
+  "summary_reconciliation": {
+    "pytest_tally": null,
+    "parsed_total": 0,
+    "mismatches": [
+      "pytest emitted no final tally line -> the per-test parse cannot be reconciled (output truncated, crash before the summary, or run aborted)"
+    ],
+    "reconciled": false
+  },
+  "a8_rebaseline": null,
+  "a_matrix": {},
+  "d40": {},
+  "results": {}
+}

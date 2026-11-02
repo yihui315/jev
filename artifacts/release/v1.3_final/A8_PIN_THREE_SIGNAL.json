@@ -1,0 +1,145 @@
+{
+  "pin_count": 12,
+  "pin_source": "packages\\jcc_core\\tests\\test_p3_acceptance_gate.py (_BASELINE_HASHES)",
+  "results": [
+    {
+      "expected": "6525ea860984...",
+      "head_bytes": 4760,
+      "lf_match": true,
+      "pin": "config/jcc.yaml",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 4760,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "5f0e338c3618...",
+      "head_bytes": 3388,
+      "lf_match": true,
+      "pin": "packages/jcc_core/actuator.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 3388,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "7ae533feb558...",
+      "head_bytes": 18407,
+      "lf_match": true,
+      "pin": "packages/jcc_core/config.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 18407,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "8a5141bc9312...",
+      "head_bytes": 18670,
+      "lf_match": true,
+      "pin": "packages/jcc_core/core.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 18670,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "b61c88177e77...",
+      "head_bytes": 32139,
+      "lf_match": true,
+      "pin": "packages/jcc_core/decision.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 32139,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "a4fe24cb1b2a...",
+      "head_bytes": 4081,
+      "lf_match": true,
+      "pin": "packages/jcc_core/policy.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 4081,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "2ad72804ffff...",
+      "head_bytes": 20585,
+      "lf_match": true,
+      "pin": "packages/jcc_core/run.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 20585,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "68027923de1f...",
+      "head_bytes": 82977,
+      "lf_match": true,
+      "pin": "packages/jcc_core/server.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 82977,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "9a4cde5f6e9f...",
+      "head_bytes": 43538,
+      "lf_match": true,
+      "pin": "packages/jcc_core/state_store.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 43538,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "c47c85b91af5...",
+      "head_bytes": 23473,
+      "lf_match": true,
+      "pin": "packages/supervisor/budget.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 23473,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "21d8f5fa8a98...",
+      "head_bytes": 34589,
+      "lf_match": true,
+      "pin": "packages/supervisor/sentinel.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 34589,
+      "worktree_crlf": 0
+    },
+    {
+      "expected": "b101aebef464...",
+      "head_bytes": 9198,
+      "lf_match": true,
+      "pin": "packages/supervisor/shadow_store.py",
+      "raw_match": true,
+      "signal": "EXACT",
+      "verdict": "PASS",
+      "worktree_bytes": 9198,
+      "worktree_crlf": 0
+    }
+  ],
+  "signals_used": {
+    "PASS": 12
+  },
+  "verdict": "ALL PINS PASS, byte-identical including line endings",
+  "verdict_tally": {
+    "PASS": 12
+  }
+}

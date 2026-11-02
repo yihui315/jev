@@ -1,0 +1,28 @@
+{
+  "FINAL_STATUS": "NOT VERIFIED AS A FIX, AND NOT CURRENTLY IN THE TREE",
+  "step1_non_vacuity": {
+    "body_bytes": 57,
+    "body_sample": "{\"project\": \"D:\\\\数字人项目\\\\jev\", \"note\": ",
+    "host_default_encoding": "cp936",
+    "new_form": "ok, 43 chars",
+    "non_vacuous": false,
+    "old_form": "SUCCEEDED",
+    "verdict": "VOID -- the fixture does not distinguish the two forms"
+  },
+  "step2_child_process": {
+    "bare_decode_present": "False",
+    "child_locale_getencoding": "cp936",
+    "child_new_form": "14 chars",
+    "child_old_form": "SUCCEEDED",
+    "explicit_utf8_present": "True",
+    "returncode": 0
+  },
+  "verdict": "NOT VERIFIED -- see the individual fields",
+  "what_WAS_established": "The test only reaches line 399 after the server is healthy; with a 120s health budget it passes (1 passed, 162.00s), which means the .decode(\"utf-8\") form does not break it. That is a compatibility check, not a demonstration that the old form was wrong.",
+  "why": [
+    "The non-vacuity guard reported VOID: PYTHONUTF8=1 is set on this host, so sys.flags.utf8_mode==1 forces UTF-8 and the bare .decode() was already correct. The old and new forms do not differ here.",
+    "So this is HARDENING against a masked locale dependency, not a demonstrated fix.",
+    "The originally reported failure ('utf-8' codec can't decode byte 0xb2 in position 8) did NOT reproduce and its cause remains UNVERIFIED.",
+    "The edit was reverted when the temporary 120s health probe was reverted from the same file. packages/ is clean at HEAD."
+  ]
+}

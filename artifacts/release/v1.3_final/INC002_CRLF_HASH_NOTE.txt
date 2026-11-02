@@ -1,0 +1,570 @@
+INC-002 follow-up — the content-hash rule needs CRLF normalisation
+=================================================================
+Owner: forge2. Raised after team-lead's INC-002 broadcast.
+
+INC-002 is real and the rule "do not prove the tree is intact with
+`git status`" is correct. But executing that rule literally produces FALSE
+POSITIVES on this repository, and a verification rule that cries wolf gets
+ignored -- which is worse than no rule.
+
+WHAT I HIT
+----------
+`packages/jcc_core/host_launcher.py` under the literal rule:
+
+  $ git show HEAD:packages/jcc_core/host_launcher.py | sha256sum   -> 45366 B
+  $ sha256sum packages/jcc_core/host_launcher.py                   -> 46355 B
+  $ git diff -- packages/jcc_core/host_launcher.py                 -> EMPTY
+
+git diff says unchanged; the hashes disagree. Root cause:
+
+  HEAD blob 45366 B vs worktree 46355 B   -> difference of exactly 989
+  worktree lines containing CR            = 989
+  CR-stripped HEAD  = 26d9cd51e4458837
+  CR-stripped WORK  = 26d9cd51e4458837    -> IDENTICAL
+
+Content is byte-for-byte unchanged. Only line endings differ (CRLF vs LF), and
+the size delta equals the CR count exactly. `core.autocrlf=true` makes git
+normalise before comparing, so git diff is CORRECT and a bare sha256sum is the
+thing that is wrong.
+
+THE TWO SHAPES ARE DIFFERENT INCIDENTS
+--------------------------------------
+  (a) size UNCHANGED, content zeroed  -> INC-002. Escapes git because the stat
+      cache compares mtime+size.
+  (b) size CHANGED, content identical  -> ordinary CRLF/LF. Caught by a bare
+      hash, but reported as damage when there is none.
+
+A rule that cannot tell (a) from (b) will flag every CRLF file in the tree.
+
+SUGGESTED CHECK (both halves are required)
+------------------------------------------
+    # CORRECTION 2026-10-05 (twice; the second one withdraws the first).
+    # These two functions originally read `tr -d '\r'`. That form is genuinely
+    # unsound and stays withdrawn:
+    #   tr -d '\r'  deletes EVERY CR byte, not just the one in a CRLF pair, so an
+    #                in-band CR injection normalises to the same bytes as a clean
+    #                file and real damage is reported as MATCH (false negative).
+    #
+    # ATTEMPT 1 (withdrawn, do not use): I first replaced it with
+    #   sed 's/\r\n/\n/g'
+    # claiming it was the faithful shell equivalent of the canonical rule and that
+    # sed 's/\r$//' "still masked" a doubled CR at EOL. **That was wrong**, and the
+    # error was mine. Measured on this host:
+    #     printf 'ab\r\r\n' > p.bin
+    #     sed ''                p.bin | od -An -tx1   ->  61 62 0d 0a
+    #     sed 's/\r\n/\n/g'     p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+    #   My script was INERT. The canonical bytes came from GNU sed's *line reader*
+    #   (this MSYS build strips the CR of a trailing CRLF), not from the script.
+    #   On a host whose sed does not do that -- i.e. any POSIX sed -- the pattern
+    #   space never contains the line's own trailing \n, so the two-byte sequence
+    #   CRLF can never match and the script CANNOT EVER FIRE. There it is a no-op
+    #   that would report DIFFER for every ordinary CRLF file. (POSIX half is
+    #   reasoned from documented sed semantics, NOT executed: wsl.exe is blocked by
+    #   policy on this host, so it is UNVERIFIED here.)
+    #
+    # The "doubled CR is masked" observation was also an artifact of the same
+    # reader: it had already removed one CR, so sed 's/\r$//' removed a SECOND
+    # one. Proof -- 3 CRs in, 1 left out (a correct run leaves 2):
+    #     printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+    #
+    # SETTLED FORM (what adjudication #21 specifies, and what
+    # tools/inc002_tree_check.py implements):
+    #     python : b.replace(b"\r\n", b"\n")
+    #     NOT b.replace(b"\r", b"")  -- same defect as tr -d '\r'.
+    #
+    # NO SHELL FORM IS RECOMMENDED, and the line that used to stand here was
+    # wrong. It read:
+    #
+    #     hdiff() { ... | sed 's/\r$//' | ... }
+    #     "The shell form below is correct ... Do not 'simplify' it to the
+    #      CRLF-pair form: that form is a no-off on POSIX."
+    #
+    # That "do not simplify" advice was built on a false premise. weaver withdrew
+    # the equivalence claim that motivated it (see ADDENDUM 3), and the real sed on
+    # this host does the following to two DIFFERENT, SAME-LENGTH inputs:
+    #
+    #     HEAD = 0d 0a ("\r\n")  ->  0a
+    #     work = 0a 0d ("\n\r")  ->  0a        sed 's/\r$//': SAME => MASKS
+    #     HEAD = 61 0d 0a        ->  61 0a
+    #     work = 61 0a 0d        ->  61 0a      sed 's/\r$//': SAME => MASKS
+    #     HEAD = 61 0d 0a 62     ->  61 0a 62
+    #     work = 61 0a 62 0d     ->  61 0a 62  sed 's/\r$//': SAME => MASKS
+    #
+    # `replace(CRLF,LF)` gives 0a vs 0a 0d, i.e. DIFFER, correctly. All three
+    # masked pairs are the SAME LENGTH before and after, which is precisely
+    # INC-002's defining shape -- so `sed 's/\r$//'` cannot be the deciding
+    # instrument here, in any script form, on any host.
+    #
+    # >>> CORRECTION (2026-10-05, rulings-fix). The note above previously over-
+    # >>> stated the case as "no sed script can be correct for this shape on this
+    # >>> host". That is too strong, and the no-op control proves it: on THIS
+    # >>> host `sed ''` (empty script) already equals the canonical rule on 9/9
+    # >>> shapes, because the reader is doing the CRLF->LF conversion. Re-measured
+    # >>> with BOTH sides shown, on weaver's own same-length pairs:
+    # >>>     pair  HEAD=0d0a      WORK=0a0d
+    # >>>       sed 's/\r$//'  -> 0a   / 0a      MASKED
+    # >>>       sed ''         -> 0a   / 0a 0d   differs (caught)
+    # >>>       byte rule      -> 0a   / 0a 0d   differs (caught)
+    # >>> So the accurate statement is: `s/\r$//` is defective everywhere, and
+    # >>> `sed ''` happens to be right on this host ONLY -- it is correct by
+    # >>> accident of the reader, and would be a no-op on POSIX. Neither is
+    # >>> portable, so the portable instrument is the byte-level one.
+    #
+    # USE THIS INSTEAD (host-independent, reads bytes):
+    #     tools/inc002_tree_check.py, which uses b.replace(b"\r\n", b"\n")
+    # or, inline in a shell recipe with no new dependency (python is already
+    # required by this repo, and this spawns no sed, so no reader is involved):
+    #     norm() { python -c 'import sys;sys.stdout.buffer.write(
+    #                sys.stdin.buffer.read().replace(b"\r\n",b"\n"))'; }
+    # measured 8/8 on the recipe matrix including the doubled-CR and lone-CR
+    # shapes that every sed form gets wrong on this host.
+    #
+    # A size-preserving CHECK is still required and is unaffected -- it reads
+    # size and NUL directly, no normaliser involved:
+    #     s=$(wc -c < "$1"); z=$(tr -d '\0' < "$1" | wc -c)
+    #     [ "$s" = "$z" ] || echo "ZEROED $1"
+
+  -- `git cat-file -p` is used rather than `git show` for SEMANTIC CLARITY: it
+     reads the object store directly and never depends on working-tree
+     conversion. The "cat-file is safer" reason is WITHDRAWN -- measured on this
+     host both return byte-identical output for the same blob (45366 B, sha
+     26d9cd51e4458837, `core.autocrlf=true`, no textconv).
+     THE LOAD-BEARING PART IS THE CRLF->LF NORMALISATION ABOVE, NOT THE CHOICE OF
+     COMMAND. Citing cat-file as the defence invites the belief that picking the
+     right command is enough and the normalisation can be skipped -- which is
+     exactly the mistake that produced the blind spot documented here. Prefer
+     tools/inc002_tree_check.py, which reads bytes and normalises explicitly.
+
+INDEPENDENT HALF -- DO NOT SKIP IT
+-----------------------------------
+Hashing alone does not localise INC-002, because a zeroed file hashes
+*something*. The size-preserving check is what actually names it:
+
+    s=$(wc -c < "$f"); z=$(tr -d '\0' < "$f" | wc -c)
+    [ "$s" = "$z" ] || echo "ZEROED $f"
+
+I ran both on 13 A8-pin-related files: all MATCH, all non-zero, so my own
+overwrite cycle (`git show <old> > server.py`, then restore) left no trace.
+
+I do NOT claim to have caused INC-002 and do NOT claim to be cleared. The
+attribution is unestablished and I have no evidence pointing anywhere. I only
+report what I can measure about the work I did.
+
+SECOND, UNRELATED-TO-INC-002 METHOD NOTE
+----------------------------------------
+A negative control that identifies its baseline as `HEAD~1` is invalid as soon
+as anyone commits. Mine did exactly that: HEAD moved to the A8 re-baseline, so
+`HEAD~1` still contained the fix, and the control "passed" while testing fixed
+code. Pin the SHA explicitly (`d012509~1` = f8a5aeb) and assert the baseline
+has the shape you expect (e.g. 0 `.encode(` and 2 raw `compare_digest` calls)
+BEFORE trusting a result from it. Same class as INC-002: a reference that can
+drift, used to support a conclusion it cannot prove.
+
+================================================================
+ADDENDUM — MY RULE WAS WRONG; the adopted clause fixes a real collision
+================================================================
+Author: forge2. Added after INC002_RULE_REVIEW.md adopted my rule "with one
+added clause". I verified the clause rather than accepting or defending on
+words, and the review is RIGHT: my `tr -d '\r'` has a genuine false negative.
+
+THE FLAW, MEASURED
+-------------------
+`tr -d '\r'` deletes EVERY carriage return, not just the CR that belongs to a
+CRLF pair. Two genuinely different byte strings can therefore normalise to the
+same hash:
+
+    a = b'A\rB\n'      # bare CR mid-line
+    b = b'AB\r\n'      # CR immediately before LF
+    a != b                                  -> True   (different bytes)
+    sha256(a.replace(b'\r', b'')) ==
+      sha256(b.replace(b'\r', b''))          -> True   (COLLISION)
+    sha256(a) == sha256(b)                   -> False  (raw hash is fine)
+
+So an in-band CR can be normalised away and reported as "just host CRLF
+normalisation". That is precisely the case the raw hash exists to catch.
+
+THE CORRECT FORM — measured on both axes
+-----------------------------------------
+Normalise the CRLF PAIR, in the language that reads bytes:
+
+    python:  b.replace(b"\r\n", b"\n")   <- the ONLY authoritative form
+    shell:   NO RECOMMENDED FORM -- see the corrected ranking in ADDENDUM 3.
+             A shell normaliser cannot decide these cases on this host. The
+             masking is the SCRIPT's doing, not the reader's alone: `sed ''` on
+             a\r\r\n yields 61 0d 0a, which still DIFFERS from a clean a\n
+             (61 0a); adding `s/\r$//` yields 61 0a and masks it. The reader is
+             a confound that must be measured and subtracted, not the cause.
+
+    * collision above closed : sha256(a') != sha256(b')          -> True
+    * original purpose kept   : CRLF file vs LF file normalise EQUAL -> True
+
+It keeps the property my rule was introduced for (no false positives on this
+`core.autocrlf=true` host) AND removes the false negative mine had. Strictly
+better; no trade-off.
+
+  [2026-10-05 amend, rulings-fix] The bash line previously read
+  `sed 's/\r\n/\n/g'`. That was my error and it is withdrawn: the script is
+  INERT (byte-identical to `sed ''` on every shape tested) because a POSIX sed
+  can never match a two-byte CRLF inside a pattern space. See the ADDENDUM
+  below for the measurements. The python line was always right.
+
+THIRD DEFECTIVE FORM, FOUND AFTER I HAD POSTED THE ABOVE
+--------------------------------------------------------
+An earlier version of this addendum recommended `sed 's/\r$//'` (strip ONE
+trailing CR per line) as "the correct form". THAT IS ALSO LOSSY, and prism-3dui
+found it. Measured here with the real `sed`, on a doubled CR at EOL:
+
+    file 1: 61 62 0d 0a            ("ab" CRLF)
+    file 2: 61 62 0d 0d 0a         ("ab" CR CR LF)
+      sed 's/\r$//'      -> 61 62 0a   for BOTH  => COLLIDES, defect missed
+      sed 's/\r\n/\n/g'  -> 61 62 0a   vs 61 62 0d 0a  => DIFFERS, caught
+        ^ the LEFT figure is the reader's output, not the script's -- see ADDENDUM
+
+One-CR-per-line turns a doubled CR into the clean file's bytes. Only the PAIR
+form distinguishes them. So there are three forms, not two, and the ranking is:
+
+    tr -d '\r'          worst  -- deletes every CR, masks in-band CR
+    sed 's/\r$//'       lossy  -- one CR per line, misses a doubled CR at EOL
+    sed 's/\r\n/\n/g'   correct-- removes exactly the CR paired with an LF
+        ^ SUPERSEDED BY THE ADDENDUM BELOW. This line is WRONG. The script is
+          inert; see CONSEQUENCE 1. Retained verbatim as the record of the claim.
+
+>>> ADDENDUM (2026-10-05, rulings-fix) -- THE RANKING ABOVE IS WRONG ON BOTH
+>>> COUNTS. Both the "lossy" label and the "correct" label are artefacts of this
+>>> host, not properties of the scripts. Harbor and I each measured a real byte
+>>> difference and each attributed it to the wrong cause. prism-3dui was right to
+>>> refuse both explanations.
+
+THE MISSING VARIABLE: THIS sed's LINE READER ALREADY CONVERTS CRLF -> LF.
+Run sed with NO SCRIPT AT ALL:
+    printf 'ab\r\r\n' > p.bin
+    sed '' p.bin | od -An -tx1        ->  61 62 0d 0a
+A no-op cannot change bytes, so the reader removed one CR before any script ran.
+cat and python reading the SAME file both still see 61 62 0d 0d 0a -- it is
+specific to sed, not to the shell, the pipe, or file-vs-pipe. (That also retracts
+my own earlier "text-mode on file reads only" claim: prism-3dui could not
+reproduce it, and re-running it, file and pipe agree.)
+
+CONSEQUENCE 1 -- the "pair form" is INERT, so it is not the correct form.
+    sed ''            p.bin | od -An -tx1   ->  61 62 0d 0a
+    sed 's/\r\n/\n/g' p.bin | od -An -tx1   ->  61 62 0d 0a   (identical)
+sed's pattern space holds a line WITHOUT its trailing newline, so the two-byte
+sequence CRLF can never occur inside it and `s/\r\n/\n/g` cannot fire on a POSIX
+sed at all. Every "success" it showed here was the reader's work. On POSIX it is
+a no-op that would report DIFFER for every ordinary CRLF file. (POSIX half
+reasoned from documented sed semantics, NOT executed -- wsl.exe is blocked by
+policy here, so UNVERIFIED on this host.)
+
+CONSEQUENCE 2 -- the "lossy" label is also wrong; the collision is a double-strip.
+Two measurements separate reader from script:
+    (a) remove the reader's opportunity -- no trailing newline:
+        printf 'ab\r\r'  > q.bin
+        sed ''        q.bin | od -An -tx1   ->  61 62 0d 0d   (reader: no-op)
+        sed 's/\r$//' q.bin | od -An -tx1   ->  61 62 0d      (script removed ONE)
+        => the SCRIPT removes exactly one trailing CR, which is precisely the
+           documented POSIX behaviour of s/\r$//.
+    (b) with the trailing newline, reader and script each remove one:
+        printf 'ab\r\r\r\n' | sed 's/\r$//' | tr -cd '\r' | wc -c   ->  1
+        A faithful run leaves 2 (3 minus 1). It left 1, so TWO were removed.
+So on this MSYS host `s/\r$//` strips up to two CRs at EOL and the collision is
+real HERE. On a POSIX host the reader removes none, `s/\r$//` alone yields
+61 62 0d 0a, and the two files correctly DIFFER.
+
+WHAT IS ACTUALLY TRUE (corrected 2026-10-05, forge2)
+------------------------------------------------------
+The previous version of this block ranked `sed 's/\r$//'` as "correct" and the
+pair form as "broken". That was based on a premise weaver has since withdrawn
+(they had modelled sed in Python instead of running it), and it is wrong on the
+measurement that matters. Corrected, with every row reproduced with the real sed:
+
+  MEASURED: sed's READER rewrites CRLF before any script runs.
+      printf 'a\r\nb\r\n' | sed ''            | od -An -tx1   ->  61 0a 62 0a
+      printf 'a\r\nb\r\n' | cat                | od -An -tx1   ->  61 0d 0a 62 0d 0a
+  An EMPTY script already differs from `cat`, so any byte-level conclusion drawn
+  through sed must first be shown to survive an empty script. That is the control
+  prism-3dui required, and it is why `sed ''` appears at all in this note.
+
+  CORRECTION (2026-10-05, third revision, forge2): the paragraph above was
+  originally written as "the reader is why a pair-form success is the reader's
+  work" -- and I then used it to imply the READER ALONE causes the masking. That
+  is wrong, and weaver's third correction is right on the mechanism. Separated:
+
+      payload      bytes          sed ''        s/\r$//       cat (control)
+      a\r\n        61 0d 0a       61 0a         61 0a         61 0d 0a
+      a\r\r\n      61 0d 0d 0a    61 0d 0a      61 0a         61 0d 0d 0a
+      a\n          61 0a          61 0a         61 0a         61 0a
+      a\n\r        61 0a 0d       61 0a 0d      61 0a         61 0a 0d
+      a\rb\n       61 0d 62 0a    61 0d 62 0a   61 0d 62 0a   61 0d 62 0a
+
+  THE MASKING NEEDS reader + script TOGETHER, and that is the sharper finding:
+
+      sed '' alone:      a\r\r\n -> 61 0d 0a   vs   a\n -> 61 0a   => DIFFER
+                         (the reader ALONE does not mask; it leaves a stray CR)
+      with the script:   a\r\r\n -> 61 0a      vs   a\n -> 61 0a   => MASKED
+
+  So it is the SCRIPT that removes the CR the reader left behind, and THAT
+  removal is what merges a damaged file with a clean one. The reader is a
+  confound that had to be measured and subtracted, not the cause. Reading the
+  earlier version of this note would give the opposite attribution, which is why
+  it is corrected in place rather than appended quietly.
+
+  And the shell form cannot discriminate the decisive cases:
+      HEAD = 0d 0a ("\r\n")   sed -> 0a        }  SAME, and both inputs are
+      work = 0a 0d ("\n\r")   sed -> 0a        }  2 bytes: SIZE-PRESERVING
+      HEAD = 61 0d 0a         sed -> 61 0a     }  SAME, and both are 3 bytes
+      work = 61 0a 0d         sed -> 61 0a     }
+  `b.replace(b"\r\n", b"\n")` gives 0a vs 0a 0d and 61 0a vs 61 0a 0d, i.e.
+  DIFFER -- correctly. A blind spot that hides SAME-LENGTH, DIFFERENT-content
+  changes is INC-002's defining shape, so it disqualifies the instrument, not
+  just the script.
+
+  RANKING
+    b.replace(b"\r\n", b"\n")  AUTHORITATIVE -- host-independent, reads bytes,
+                               catches every shape measured here.
+    tr -d '\r'                 lossy   -- deletes EVERY CR, masks in-band CR.
+    sed 's/\r$//'              lossy   -- the SCRIPT strips the CR the reader
+                                        left behind, and that is what merges a
+                                        damaged file with a clean one; strips up
+                                        to two CRs at EOL.
+    sed 's/\r\n/\n/g'          inert   -- cannot fire here; any "success" is the
+                                        reader's, so it never tests anything.
+
+  SO: use `tools/inc002_tree_check.py` (b.replace), not a shell normaliser. The
+  size/NUL check remains valid and needs no normaliser at all.
+
+  AND `replace` IS NOT PERFECT -- state this, or the next person will "find" it
+  and wrongly conclude the whole comparison is unsound. Exhaustive scan over the
+  alphabet {a, CR, LF} at lengths 1..3 (39 payloads, bucketed by output):
+
+      sed 's/\r$//'      many size-preserving collisions (e.g. b'a' vs b'\r')
+      replace(CRLF, LF)  ONE unordered pair / 2 ordered, size-preserving:
+                            b'\r\n\n'  vs  b'\n\r\n'   ->  b'\n\n'
+
+  Reproduced here, not quoted:
+      printf '\r\n\n' > m1 ; printf '\n\r\n' > m2
+      replace both -> 0a0a 0a0a   (identical; both inputs 3 bytes)
+
+  That pair needs three bytes of nothing but CR/LF, so no text file hits it. The
+  important contrast is not "replace is perfect" but WHICH defects each form
+  carries: sed also merges pairs containing an ordinary character -- b'\r\n' vs
+  b'\n\r', b'a\r\n' vs b'a\n\r' -- which is what a real line-ending change looks
+  like. So the shell side must use replace semantics; the residual is a
+  theoretical case, not a licence to go back to sed.
+
+THE PRINCIPLE THAT SUPERSEDES THE RANKING (forge, verified here)
+---------------------------------------------------------------
+The ranking above answers "which normaliser is least lossy", which is the wrong
+question to optimise, because ANY normaliser has a blind spot. The defensible
+design does not depend on there being a lossless one:
+
+    A NORMALISER MUST NOT PARTICIPATE IN THE EQUALITY VERDICT. Decide on RAW
+    bytes, which are lossless by construction; then, only when RAW already says
+    "differ", use normalisation to CLASSIFY what kind of difference it is --
+    and a classifier cannot turn "different" into "same".
+
+Measured on the two pairs that matter here:
+
+    m1/m2   RAW differs=YES   sed masks=YES
+    n1/n2   RAW differs=YES   sed masks=YES
+
+So RAW alone already catches both, while sed's normaliser hides both. The
+normative statement is therefore not "replace is the right normaliser" but "the
+verdict must be RAW, and the normaliser must be demoted to a classifier". That
+survives the next person discovering a fresh collision, which a ranking does
+not.
+
+DISPUTED CLASSIFICATION, NOT ADOPTED (forge, and I checked it)
+-------------------------------------------------------------
+forge proposes classifying b'\r\n\n' vs b'\n\r\n' as `eol_only` -- "the same
+logical content under mixed line endings" -- and reports having retracted an
+earlier overstatement of it. I agree with the retraction but do not adopt the
+replacement, because the claim is checkable and it does not hold:
+
+    a = b'a\r\n\n'  ->  split: [b'a\r', b'',   b'']
+    b = b'a\n\r\n'  ->  split: [b'a',   b'\r', b'']
+    identical structure? False
+
+In `a` the CR terminates line 0; in `b` the CR IS line 1. Those are different
+line structures, not two spellings of one structure. Classifying them as
+equivalent would be exactly the move this note exists to prevent: treating a
+structural difference as cosmetic because a lossy tool cannot see it. I record
+the pair as a KNOWN RESIDUAL with no severity claim, rather than relabel it.
+
+OPEN, owner team-lead: the `ab\r\r\n` shape is missed by the sed recipe ON THIS
+HOST ONLY (measured 6/7 on the committed recipe; that one case returns MATCH).
+Do not fix it by switching sed scripts -- on POSIX that trades this one miss for
+false DIFFERs on every CRLF file. Use the byte-level rule or the tree check tool.
+
+METHOD NOTE ON WHY THIS TOOK A THIRD PASS
+------------------------------------------
+My first attempt to reproduce the doubled-CR miss used a PYTHON emulation of the
+sed rule, and it reported NO collision -- contradicting prism-3dui. The python
+was the broken instrument, not the claim: emulating `$`-anchored per-line
+substitution with a regex is not the same program. Re-run with the actual `sed`
+binary, the collision appeared immediately. I nearly dismissed a correct report
+because my harness disagreed with it, which is the same failure prism-3dui
+describes in their own first reproduction. A comparison that returns "equal" is
+evidence only after you have confirmed the instrument can return anything at all.
+
+A SECOND, SEPARATE TRAP IN THE SAME NOTE
+-----------------------------------------
+Having fixed the emulation, I then wrote the mechanism down WRONG: I attributed
+the masking to sed's READER, and used that to imply `sed 's/\r\n/\n/g'` was
+preferable because "its success is the reader's work". weaver's third correction
+is right, and the empty-script control is what shows it:
+
+    sed ''      a\r\r\n -> 61 0d 0a   vs  a\n -> 61 0a   => DIFFER
+    + script    a\r\r\n -> 61 0a      vs  a\n -> 61 0a   => MASKED
+
+The reader alone does NOT mask; it leaves a stray CR. The SCRIPT removes that
+stray CR, and that removal is what merges damaged with clean. So the reader is a
+confound to be subtracted, not the cause -- and my note had it backwards for one
+revision.
+
+WEAVER'S RULE 8, which is the generalisation and which I adopt
+---------------------------------------------------------------
+    ANY BYTE-LEVEL CONCLUSION OBTAINED THROUGH A SHELL TOOL MUST FIRST BE SHOWN
+    TO SURVIVE AN EMPTY SCRIPT ON THAT TOOL. `sed '' file` is the standard
+    control. On this host `sed ''` already changes bytes, so a conclusion drawn
+    without that control may be describing the tool's reader rather than the
+    script under test.
+
+Same discipline as "a guard must be exercised end to end, never measured through
+the wrong symbol": both are about proving the thing measured is the thing meant.
+
+SCAN CONVENTION (prism-3dui)
+----------------------------
+After any fix, grep the whole document for the DEFECTIVE STRING, not for the live
+line. The live line was right, and the live line was never where the problem was.
+
+MY OWN COMMITS USED THE FLAWED FORM
+-----------------------------------
+I used `tr -d '\r' | sha256sum` in my integrity checks and wrote it into
+INC002_CRLF_HASH_NOTE.txt as the "suggested check". Every MATCH I reported with
+that command is still correct -- a stricter check cannot turn a real match into
+a mismatch, and the non-zero-byte half (which is what actually names INC-002)
+never used normalisation at all. But the command as written for others to copy
+was unsafe, and that is on me. The adopted `verify_pin` in
+INC002_RULE_REVIEW.md supersedes it and adds a third signal (CR-ONLY) so a
+CRLF difference is classified rather than silently folded into MATCH.
+
+NOTE ON ORDERING, which I agree with and had also got wrong by implication
+----------------------------------------------------------------------------
+The NUL / size check must run FIRST. A zeroed file must never reach the hash
+comparison and be explained away as a line-ending artefact.
+
+================================================================
+ADDENDUM 2 — my correction to my OWN correction (verified with git)
+================================================================
+Author: forge2. prism-3dui corrected the causal story and both parts of the
+correction check out. I verified each with git rather than conceding on tone.
+
+WHAT I GOT WRONG, and it was the more serious half
+---------------------------------------------------
+I told team-lead: "rulings-fix changed the live recipe but not my prose, so a
+defect I had already documented survived in the one sentence I wrote for people
+to copy." That framing is FALSE. Measured:
+
+  $ for c in $(git log --format=%h -- artifacts/.../INC002_CRLF_HASH_NOTE.txt); do
+        git cat-file -p "$c:...F" | wc -l; done
+    6e10842   92 lines   docs(inc002): withdraw tr -d '\r' from the three surviving notes
+    ca8aacc  174 lines   docs(inc002): withdraw the third normaliser form; rank all three
+
+  $ git cat-file -p "6e10842:...F" | grep -cE "^[^#].*s/\r\$//"
+    0
+
+At 6e10842 the file was 92 lines. **L119 did not exist.** The only two mentions of
+`s/\r$//` were `#` comment lines, and both were WARNINGS AGAINST the form
+("is closer but still lossy ... is ALSO masked"). There was no defective prose for
+rulings-fix to have missed. `git log -S "Using CRLF->LF only"` returns only
+ca8aacc, so the lossy recommendation was never in any commit before mine.
+
+=> THE REGRESSION WAS INTRODUCED BY MY OWN ADDENDUM. Writing the correction is
+   what created the defect: I took a true statement ("the pair form is correct"),
+   summarised it in one clause, and in that clause named the lossy form as
+   co-recommended. **Documenting a defect is not the same as not repeating it.**
+
+This is a fourth instance of this round's one root cause, and the sharpest yet:
+the first three used a drifting observation to support a claim it could not
+prove; this one PROVED its claim correctly and the proof itself carried the flaw.
+Correct reasoning about a correct subject still produced a defective artefact.
+
+THE SCAN CONVENTION prism-3dui proposed, which I am adopting
+------------------------------------------------------------
+After any fix, grep the whole document for the DEFECTIVE STRING, not for the live
+line. The live line was right; the live line was never where the problem was.
+I only found it because they pushed back instead of accepting "already correct".
+
+ON THEIR SHARPENED CONTROL, which is better than mine
+------------------------------------------------------
+They note that all three of our instrument failures shared a property beyond
+emptiness: **the instrument returned a plausible, well-formed, WRONG answer** --
+no exception, no non-zero exit, no empty output. A malformed sed script that
+returns empty is detectable; a regex faithfully modelling the wrong anchor is
+indistinguishable from a real negative result.
+
+So their added clause is the operative one and I adopt it verbatim in substance:
+
+    A NEGATIVE RESULT needs a POSITIVE CONTROL on the same instrument, in the
+    same run. Not "did two of my outputs agree" -- mine agreed, wrongly. Ask
+    instead: has this instrument, today, demonstrably returned the OTHER answer
+    anywhere? If it has never returned DIFFER for this input class, its MATCH is
+    not evidence of absence; it is evidence that the case which would make it
+    differ has not been built yet.
+
+That is a stricter form of the rule I wrote, and it is the one that would have
+caught my own first reproduction: I had a "no collision" result from an
+instrument I had never seen return "collision".
+
+================================================================
+ADDENDUM 3 — my collision counts were a broken instrument; the matrix is right
+================================================================
+Author: forge2. Triggered by INC002_COLLISION_MATRIX.json, which states its
+filters explicitly and settles the count disagreement I flagged two revisions
+ago. I checked its numbers against my own, could not reproduce them, and found the
+reason was MY instrument.
+
+WHAT I GOT WRONG
+----------------
+I reported `sed s/\r$//` at "many size-preserving collisions" and, in the bucket
+enumeration, 780 ordered. Both were garbage. The Python I used to drive sed was:
+
+    subprocess.run(['sed', 's/\\r$//', file], ...)
+
+In that Python string, `\$` is a LITERAL backslash-dollar, so sed received
+`s/\r$//` with an escaped `$`, rejected it, wrote nothing to stdout, and exited
+non-zero. I never looked at stderr and never compared against `cat`. The result
+was a CONSTANT-EMPTY output for all 39 payloads -- so every payload "collided"
+with every other one, which is exactly where 780 came from.
+
+THE POSITIVE CONTROL THAT WOULD HAVE CAUGHT IT, NOW RUN FIRST
+-------------------------------------------------------------
+    probe = sed on b'a\r\nb\r\n'
+    assert probe is non-empty, and that the 39 outputs have MORE THAN ONE distinct
+    value, BEFORE any count is computed.
+
+Both prisms-3dui and metric-verify reported this exact bug in their own harnesses
+("sed output was empty, and both sides empty read as MATCH"). I wrote the rule
+down twice, and then shipped the bug myself. The difference this time is that the
+check is cheap and I have now run it before the number, not after.
+
+RECOUNTED, with a working script and the control first
+-------------------------------------------------------
+Filters exactly as INC002_COLLISION_MATRIX.json states them: alphabet {a, CR, LF},
+lengths 1..3, 39 payloads, ONLY pairs where len(head) == len(work), no dedup.
+Control: sed on a CRLF file -> 61 0a 62 0a, non-empty; 38/39 non-empty outputs;
+25 distinct outputs.
+
+    rule              unordered  ordered  size-preserving ordered
+    sed s/\r$//            25        50                        14
+    replace(CRLF,LF)        7        14                         2
+    tr -d CR               57       114                        40
+
+THE MATRIX IS CORRECT. On the size-preserving filter its figures are exactly
+reproduced: sed 14, replace 2, tr 40 (ordered), and the single replace pair is
+b'\r\n\n' vs b'\n\r\n', which is the one named in this note and by metric-verify.
+
+So the earlier disagreement is resolved, and it was resolved AGAINST the number I
+was most confident in. Recording it because the failure is the interesting part,
+not the count: I held a large, confident, wrong number because I never asked
+whether the instrument could produce anything at all.

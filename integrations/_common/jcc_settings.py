@@ -12,7 +12,7 @@ Doing the config surgery in Python (not PowerShell) avoids Windows PowerShell
   * WorkBuddy/CodeBuddy: NEVER registers a ``PermissionRequest`` hook (P2 rule).
 
 CLI (exit non-zero on failure):
-  python jcc_settings.py install   --agent workbuddy --settings <path> --jcc-root F:/jev
+  python jcc_settings.py install   --agent workbuddy --settings <path> [--jcc-root <repo>]
   python jcc_settings.py uninstall --agent workbuddy --settings <path>
   python jcc_settings.py status    --agent workbuddy --settings <path>
 """
@@ -44,6 +44,20 @@ JCC_ARTIFACTS = (
 )
 #: Backwards-compat alias (docs / other tools import this name).
 JCC_MARKER = JCC_ARTIFACTS[0]
+
+#: Repository root, derived from this file's location rather than hardcoded --
+#: the same idiom as ``jcc_core/config.py``. ``jcc_settings.py`` lives at
+#: ``<repo>/integrations/_common/jcc_settings.py``, so two ``parents`` steps up
+#: is the repo root. This value becomes the ``--jcc-root`` default, i.e. it is
+#: baked into the hook command written into an agent's settings.json, so a
+#: literal naming a drive that no longer exists silently installs a hook that
+#: can never run. Deriving it makes the written command follow the checkout.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+
+#: ``JCC_ROOT`` is still honoured as the operator override; only the fallback is
+#: derived. An explicit ``--jcc-root`` on the command line still wins over both
+#: (argparse default), so the installer scripts keep full control.
+DEFAULT_JCC_ROOT = os.environ.get("JCC_ROOT") or str(REPO_ROOT)
 
 #: P2 telemetry events only. PermissionRequest is deliberately excluded.
 TELEMETRY_EVENTS: Dict[str, List[str]] = {
@@ -138,7 +152,26 @@ def install(agent: str, settings_path: Path, jcc_root: str, command: Optional[st
         raise ValueError(f"agent '{agent}' has no settings-hook installer")
     cmd = command or default_hook_command(agent, jcc_root)
     events = TELEMETRY_EVENTS[agent]
-    assert not (FORBIDDEN_EVENTS & set(events)), "P2 forbids PermissionRequest hooking"
+    # P2 forbids PermissionRequest hooking. This is a RELEASE GATE, so it must
+    # be a real raise and not an `assert`: `python -O` strips asserts, and this
+    # module is reachable from installer/integrator entrypoints that may be run
+    # optimised. Measured on this host, before the fix, with a real agent whose
+    # event list had been made to include PermissionRequest:
+    #
+    #   python     -> AssertionError: P2 forbids PermissionRequest hooking
+    #   python -O  -> NO EXCEPTION (gate did not hold)
+    #
+    # Under -O the install proceeded. Nothing was written in that particular
+    # case ONLY because the loop below also skips forbidden events -- so the
+    # bypass was silent rather than loud, which is worse: the guard that exists
+    # to make P2 non-negotiable reported success while doing nothing. Any future
+    # change to that loop would have turned it into a written PermissionRequest
+    # hook, i.e. exactly the actuation-adjacent capability P2 removes.
+    #
+    # The error MESSAGE is preserved verbatim so anything matching on it (tests,
+    # logs, an integrator's error handling) is unaffected.
+    if FORBIDDEN_EVENTS & set(events):
+        raise ValueError("P2 forbids PermissionRequest hooking")
 
     settings_path.parent.mkdir(parents=True, exist_ok=True)
     data = _load(settings_path)
@@ -255,7 +288,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     ap.add_argument("action", choices=["install", "uninstall", "status"])
     ap.add_argument("--agent", required=True, choices=["workbuddy", "claude"])
     ap.add_argument("--settings", required=True)
-    ap.add_argument("--jcc-root", default=os.environ.get("JCC_ROOT", "F:/jev"))
+    ap.add_argument("--jcc-root", default=DEFAULT_JCC_ROOT)
     ap.add_argument("--command", default=None)
     ap.add_argument("--restore-backup", action="store_true")
     args = ap.parse_args(argv)

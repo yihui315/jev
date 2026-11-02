@@ -11,7 +11,19 @@
 #
 #     1. is it healthy?          -> NO-OP, stop here
 #     2. who owns the listener?  -> not provably ours -> FAIL-CLOSED, record, exit
-#     3. ours and dead?          -> stop.ps1, start.ps1, verify
+#     3. ours and dead?          -> stop.ps1, then the FROZEN restore, verify
+#
+# WHY NOT start.ps1. `scripts\start.ps1` builds PYTHONPATH from the WORKTREE's
+# packages\, which is correct on the frozen release branch and WRONG on a feature
+# branch: it would serve in-progress code on the protected production port.
+# Measured 2026-09-27 -- this watchdog was registered and enabled while the tree
+# was on feature/jcc-v1.1-activation, so the single .workbuddy\release_state.json
+# its Rule 1 waits for would have armed it against the frozen runtime. Recovery
+# now runs scripts\ensure-stable-runtime.ps1 in -Watchdog mode, which serves the
+# immutable snapshot extracted from the frozen commit and refuses to accept the
+# result unless the live service PROVES it is that snapshot. The task name, the
+# script it points at, and its enabled state are all unchanged; only the thing it
+# actually executes when it decides to recover was corrected.
 #
 # `taskkill /IM python.exe` appears nowhere in this file and must never appear:
 # the host runs unrelated Python, and a watchdog is not entitled to guess.
@@ -54,7 +66,10 @@ $LogDir      = Join-Path $Root '.workbuddy\scheduled\logs'
 $AuditLog    = Join-Path $LogDir 'service-watchdog.jsonl'
 $BudgetFile  = Join-Path $Root '.workbuddy\scheduled\service-watchdog-state.json'
 $StopScript  = Join-Path $Root 'scripts\stop.ps1'
-$StartScript = Join-Path $Root 'scripts\start.ps1'
+# NOT start.ps1. See the header: start.ps1 serves the WORKTREE, which on a
+# feature branch is in-progress code on the protected production port.
+$RestoreScript = Join-Path $Root 'scripts\ensure-stable-runtime.ps1'
+$RestoreArgs   = @('-Watchdog', '-Port', [string]$Port)
 
 function Write-Tick {
     param([string]$Action, [string]$Detail, [int]$ProcessId = 0, [string]$Level = 'INFO')
@@ -190,7 +205,7 @@ if ($count -ge $MaxRestartsPerHour) {
 Write-Tick -Action 'RECOVER' -Detail ("service unhealthy (health status {0}); owner pid {1}; restart {2}/{3} this hour" -f $health.status, $ownPid, ($count + 1), $MaxRestartsPerHour) -ProcessId $ownPid
 
 if ($DryRun) {
-    Write-Tick -Action 'DRYRUN' -Detail 'would run stop.ps1 then start.ps1; nothing was touched'
+    Write-Tick -Action 'DRYRUN' -Detail 'would run stop.ps1 then the frozen restore (ensure-stable-runtime.ps1 -Watchdog); nothing was touched'
     exit 0
 }
 
@@ -200,9 +215,9 @@ if (-not (Test-Path -LiteralPath $psExe)) { $psExe = 'powershell.exe' }
 $stopOut = & $psExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $StopScript 2>&1
 $stopRc = $LASTEXITCODE
 Write-Tick -Action 'STOP' -Detail ("stop.ps1 exit={0} :: {1}" -f $stopRc, (($stopOut | Out-String).Trim() -replace '\s+', ' ')) -ProcessId $ownPid
-$startOut = & $psExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $StartScript 2>&1
-$startRc = $LASTEXITCODE
-Write-Tick -Action 'START' -Detail ("start.ps1 exit={0} :: {1}" -f $startRc, (($startOut | Out-String).Trim() -replace '\s+', ' '))
+$restoreOut = & $psExe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File $RestoreScript @RestoreArgs 2>&1
+$restoreRc = $LASTEXITCODE
+Write-Tick -Action 'RESTORE' -Detail ("ensure-stable-runtime.ps1 exit={0} (0=noop 2=recovered 3=FAIL-CLOSED 4=recovery-failed 5=needs-operator) :: {1}" -f $restoreRc, (($restoreOut | Out-String).Trim() -replace '\s+', ' '))
 
 $deadline = (Get-Date).AddSeconds(45)
 $recovered = $false
@@ -228,5 +243,5 @@ if ($recovered) {
     Write-Tick -Action 'RECOVERED' -Detail ("health 200 after restart; old pid {0} -> new pid {1} (pid changed: {2}); ownership marker pid {3}" -f $ownPid, $newPid, $changed, $newOwnPid) -ProcessId $newPid
     exit 2
 }
-Write-Tick -Action 'RECOVERY_FAILED' -Level 'ERROR' -Detail ("service still unhealthy after stop.ps1 + start.ps1; old pid {0}, new pid {1}" -f $ownPid, $newPid) -ProcessId $newPid
+Write-Tick -Action 'RECOVERY_FAILED' -Level 'ERROR' -Detail ("service still unhealthy after stop.ps1 + the frozen restore; old pid {0}, new pid {1}" -f $ownPid, $newPid) -ProcessId $newPid
 exit 1

@@ -1,0 +1,23 @@
+{
+  "control_no_warmup": {
+    "health_body": "{\"status\":\"ok\",\"jev_provider\":\"mock\",\"provider_mode\":\"MOCK\",\"provider_verified\":true,\"provider_activation_state\":\"ACTIVE\",\"provider_requested_mode\":\"MOCK\",\"provider_is_real\":false,",
+    "log": "D:\\jev\\runtime\\harbor_p2_fixproof\\control\\server.log",
+    "log_bytes": 463,
+    "pid": 40976,
+    "port": 63995,
+    "time_to_healthy_s": 63.73,
+    "within_original_30s_budget": false
+  },
+  "health_budget_s": 30.0,
+  "verdict": "FIX NOT VERIFIED: control=False warmed=False -- the recommendation must be withdrawn or revised, not softened.",
+  "warmup_cost_s": 30.47,
+  "with_warmup": {
+    "health_body": "{\"status\":\"ok\",\"jev_provider\":\"mock\",\"provider_mode\":\"MOCK\",\"provider_verified\":true,\"provider_activation_state\":\"ACTIVE\",\"provider_requested_mode\":\"MOCK\",\"provider_is_real\":false,",
+    "log": "D:\\jev\\runtime\\harbor_p2_fixproof\\warmed\\server.log",
+    "log_bytes": 463,
+    "pid": 38800,
+    "port": 63059,
+    "time_to_healthy_s": 63.74,
+    "within_original_30s_budget": false
+  }
+}

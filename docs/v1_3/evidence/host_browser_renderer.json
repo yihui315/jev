@@ -1,0 +1,66 @@
+{
+  "stamp": "20260930T125346",
+  "candidates": [
+    "C:\\Users\\Administrator\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1234\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+    "C:\\Users\\Administrator\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1223\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+    "C:\\Users\\Administrator\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1208\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+    "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe"
+  ],
+  "variant_failures": [],
+  "playwright_import": "OK",
+  "variants": {
+    "A_chromium_headless_shell-1234_new_headless": {
+      "exe": "C:\\Users\\Administrator\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1234\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+      "args": [
+        "--headless=new",
+        "--use-angle=d3d11",
+        "--enable-gpu",
+        "--ignore-gpu-blocklist",
+        "--enable-unsafe-swiftshader",
+        "--disable-gpu-sandbox"
+      ],
+      "launch_kwargs": {
+        "headless": false
+      },
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)",
+      "webgl2": true,
+      "err": null,
+      "ok": true
+    },
+    "B_chromium_headless_shell-1234_plain_headless": {
+      "exe": "C:\\Users\\Administrator\\AppData\\Local\\ms-playwright\\chromium_headless_shell-1234\\chrome-headless-shell-win64\\chrome-headless-shell.exe",
+      "args": [
+        "--use-angle=d3d11",
+        "--enable-gpu",
+        "--ignore-gpu-blocklist",
+        "--enable-unsafe-swiftshader",
+        "--disable-gpu-sandbox"
+      ],
+      "launch_kwargs": {
+        "headless": true
+      },
+      "ua": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/151.0.7922.34 Safari/537.36",
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "vendor": "Google Inc. (NVIDIA)",
+      "webgl2": true,
+      "err": null,
+      "ok": true
+    }
+  },
+  "summary": {
+    "A_chromium_headless_shell-1234_new_headless": {
+      "ok": true,
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "webgl2": true,
+      "class": "HARDWARE"
+    },
+    "B_chromium_headless_shell-1234_plain_headless": {
+      "ok": true,
+      "renderer": "ANGLE (NVIDIA, NVIDIA GeForce RTX 2080 Ti (0x00001E04) Direct3D11 vs_5_0 ps_5_0, D3D11)",
+      "webgl2": true,
+      "class": "HARDWARE"
+    }
+  }
+}

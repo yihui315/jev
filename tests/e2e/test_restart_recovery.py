@@ -10,13 +10,20 @@ re-baseline or discarded history.
 
 No new deps; HTTP is stdlib urllib. The subprocess is killed only by its own
 PID (never a global process kill).
+
+WHY THERE IS NO ``import conftest`` HERE. This file used to do
+``from conftest import SubprocessServer, _free_loopback_port``. With no
+``__init__.py`` anywhere under ``tests/`` or ``tools/``, pytest imports every
+conftest in the tree as the bare module name ``conftest``, and only whichever one
+is loaded LAST owns ``sys.modules['conftest']``. That import therefore resolved
+to whatever the loader happened to reach last, and a legitimate combined run
+(``pytest tests/e2e tools/tests``) failed to collect this module with
+``ImportError: cannot import name 'SubprocessServer'``. The helpers now arrive
+through the ``e2e_support`` fixture, which pytest resolves per-directory.
 """
 from __future__ import annotations
 
 import time
-
-import conftest
-from conftest import SubprocessServer, _free_loopback_port
 
 TOKEN = "restart-control-token"
 
@@ -37,11 +44,11 @@ def _valid_aep(session_id: str, event_id: str) -> dict:
     }
 
 
-def test_state_survives_restart(tmp_path):
+def test_state_survives_restart(tmp_path, e2e_support):
     rt = tmp_path / "runtime"
     rt.mkdir(exist_ok=True)
-    port = _free_loopback_port()
-    srv = SubprocessServer(str(rt), TOKEN, port)
+    port = e2e_support.free_loopback_port()
+    srv = e2e_support.SubprocessServer(str(rt), TOKEN, port)
 
     try:
         # --- first life ---------------------------------------------------
@@ -65,7 +72,7 @@ def test_state_survives_restart(tmp_path):
         # capture the actual marker value to prove it is reconciled afterward.
         marker_before = srv.read_marker_pid()
         assert marker_before is not None, "JCC-marker absent before restart"
-        assert conftest.pid_alive(marker_before), "JCC-marker not live before restart"
+        assert e2e_support.pid_alive(marker_before), "JCC-marker not live before restart"
 
         # --- abrupt kill (Windows TerminateProcess; marker is orphaned) ----
         srv.kill_abrupt()
@@ -123,7 +130,7 @@ def test_state_survives_restart(tmp_path):
         assert srv.alive_pid() is not None, "restarted launcher is not alive"
         marker_after = srv.read_marker_pid()
         assert marker_after is not None, "JCC-marker missing after restart"
-        assert conftest.pid_alive(marker_after), (
+        assert e2e_support.pid_alive(marker_after), (
             f"JCC-marker pid {marker_after} is not a live process after restart "
             "-- orphaned marker not reconciled (ADR-0006)"
         )

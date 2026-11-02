@@ -26,11 +26,14 @@ Notification, PreCompact`.
 
 ## Install / uninstall
 
+Run from the repository root. `-JccRoot` is optional — the script derives the
+checkout from its own location, so these commands work wherever the repo lives.
+
 ```powershell
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\workbuddy\install.ps1        # add hooks (backup first)
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\workbuddy\install.ps1 -DryRun
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\workbuddy\uninstall.ps1      # remove only JCC entries
-powershell -ExecutionPolicy Bypass -File F:\jev\integrations\workbuddy\uninstall.ps1 -RestoreBackup
+powershell -ExecutionPolicy Bypass -File .\integrations\workbuddy\install.ps1        # add hooks (backup first)
+powershell -ExecutionPolicy Bypass -File .\integrations\workbuddy\install.ps1 -DryRun
+powershell -ExecutionPolicy Bypass -File .\integrations\workbuddy\uninstall.ps1      # remove only JCC entries
+powershell -ExecutionPolicy Bypass -File .\integrations\workbuddy\uninstall.ps1 -RestoreBackup
 ```
 
 ## Rollback

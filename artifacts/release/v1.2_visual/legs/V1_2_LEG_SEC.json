@@ -1,0 +1,18 @@
+{
+  "decision": "GO",
+  "dimension": "Security Gate",
+  "distinct_from_release": true,
+  "evidence_path": "artifacts/release/V1_1_SECURITY_GATE.json",
+  "evidence_sha256": null,
+  "evidence_verdict": "verdict=GO high=None ran=9",
+  "freeze_sha": "ddca208",
+  "leg_id": "SEC",
+  "notes": "v1.1 security generator re-run canonical; --check CLEAN (verdict=GO, high=0).",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+  "reuses_v1_0_1_signature": false,
+  "reuses_v1_1_signature": false,
+  "schema": "jcc/v1.2-leg/1",
+  "signature": "d6cc9bee7759131121947884e1b546bd51750beea2ce19b4b05b494337d435ab",
+  "signer": "Orion (JCC v1.2 orchestrator)",
+  "timestamp_utc": "2026-09-28T14:54:56Z"
+}

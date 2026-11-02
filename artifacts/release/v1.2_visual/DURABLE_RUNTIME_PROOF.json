@@ -1,0 +1,31 @@
+{
+  "api": {
+    "command_line": "F:\\jev\\.venv\\Scripts\\python.exe -m jcc_core.run",
+    "listening": true,
+    "observed_pid": 19640,
+    "ownership_marker": "runtime/jcc-v1.2/jcc-v1.2.ownership.json",
+    "port": 4779
+  },
+  "durability_mechanism": "long-lived run_in_background service processes (survive agent job cleanup; NOT a host reboot)",
+  "gate": "Durable Runtime Proof (v1.2)",
+  "host_durable_reason": "scripts/jcc-v1.2-register-tasks.ps1 uses Register-ScheduledTask; schtasks.exe is blocked by the sandbox Program Blacklist. Run on HOST as Admin.",
+  "host_durable_task": "PENDING_EXTERNAL_ACTION",
+  "live_processes_verified": true,
+  "note": "The v1.2 services are proven ALIVE as long-lived processes, but surviving a host reboot requires the Windows Task Scheduler tasks, which are PENDING host-side activation. This is NOT a FINAL release until the operator registers the durable tasks on the host.",
+  "probe_timestamp_utc": "2026-09-28T12:59:12Z",
+  "release_branch": "feature/jcc-v1.2-visual-command-center",
+  "release_sha": "971c4aa02ef6f5dae49c435eca7aa83118e09382",
+  "task_names": [
+    "JCC-v1.2-API",
+    "JCC-v1.2-VisualUI"
+  ],
+  "ui": {
+    "command_line": "F:\\jev\\.venv\\Scripts\\python.exe F:\\jev\\apps\\command_center_3d\\serve_visual.py --host 127.0.0.1 --port 4780",
+    "listening": true,
+    "observed_pid": 16580,
+    "ownership_marker": "runtime/jcc-v1.2/visual-ui.ownership.json",
+    "port": 4780
+  },
+  "verdict": "RELEASE_READY_PENDING_HOST_ACTIVATION",
+  "worktree_dirty_at_probe": true
+}

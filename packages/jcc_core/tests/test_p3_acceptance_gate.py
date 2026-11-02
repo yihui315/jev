@@ -200,29 +200,149 @@ A8_FROZEN_AT = (
     "    the fail-closed cost table plus the ``origin=SUPERVISOR_ORIGIN`` write\n"
     "    (632f0dd, owner: sentinel).\n"
     "  Nothing above is a silent edit: each value is the blob at the freeze commit, "
-    "taken with ``git rev-parse <freeze>:<path>``, never from a worktree."
+    "taken with ``git rev-parse <freeze>:<path>``, never from a worktree.\n"
+    "RE-BASELINED in the v1.1 ACTIVATION window (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 9bca4bd4a499… -> new 392059e69861…\n"
+    "    v1.1 §7D: /api/health gained the provider-mode contract\n"
+    "    (provider_mode / provider_verified / provider_activation_state, plus\n"
+    "    provider_requested_mode and provider_is_real). Deliberate and recorded --\n"
+    "    see docs/p3/A8_REBASELINE.json window V1.1-FREEZE-W-0.\n"
+    "RE-BASELINED for the §21 security gate fix (1 pinned file moved):\n"
+    "  packages/jcc_core/core.py\n"
+    "    old 72fc0f99.. -> new 93ee369f..\n"
+    "    §21 S-02c: ingest chokepoint now applies the key-name redaction pass, ADR-0007 D-1\n"
+    "    (mask_secret_key_values() runs before scrub_value_secrets() on payload+evidence).\n"
+    "RE-ANCHORED RELEASE FREEZE (v1.1 final acceptance; pointer move ONLY, no product hash change):\n"
+    "  RELEASE_FREEZE moved 5ab5e20d961db4c9807f578195ae8530dea2f7d9 -> the v1.1 release freeze\n"
+    "  (see docs/p3/V1_1_REBASELINE_RECORD.md for the concrete new-freeze SHA + old/new sha256).\n"
+    "  The 12 pinned product files ALREADY carried their v1.1 hashes at the time of this re-anchor\n"
+    "  (core.py 93ee369f.. from the §21 S-02c redaction fix, server.py 392059e6.. from the §7D\n"
+    "  provider-mode contract); the stale freeze 5ab5e20d PREDATED those two moves, so the legs and\n"
+    "  the release manifest that were signed against 5ab5e20d were RELEASE-BASELINE-OUTDATED, not\n"
+    "  product failures. Reason recorded in the gate: JCC v1.1 intentional product evolution.\n"
+    "  _BASELINE_HASHES is NOT modified by this re-anchor -- every pinned value still matches the\n"
+    "  byte-for-byte current product as enforced by the A8 self-check (current bytes PASS, single-byte\n"
+    "  tamper FAIL). The manifest was merely never regenerated after the two v1.1 product moves.\n"
+    "RE-BASELINED for the v1.2 VISUAL COMMAND CENTER (Wave 7+8, branch\n"
+    "feature/jcc-v1.2-visual-command-center):\n"
+    "  packages/jcc_core/core.py         old 93ee369f.. -> new 8a5141bc..  (Wave 7: record_source gate\n"
+    "                                                    + CoreEngine.shadow_summary live-only)\n"
+    "  packages/jcc_core/state_store.py  old b6667435.. -> new 9a4cde5f..  (Wave 7: events.record_source\n"
+    "                                                    column + get_shadow_records('live'))\n"
+    "  packages/jcc_core/server.py       old 392059e6.. -> new 7d16a3f8..  (Wave 7+8: control-token\n"
+    "                                                    fail-closed gating across assess/pause/steer/retry\n"
+    "                                                    + SSE generator support)\n"
+    "  All three were moved by v1.2 product work already COMMITTED on the branch; the A8 self-check now\n"
+    "  passes against the current committed bytes. Re-baselined with old->new + reason, as required.\n"
+    "RE-BASELINED for the v1.3 PRODUCT EDITION (Wave 1, Project/Mission domain):\n"
+    "  packages/jcc_core/server.py  old 7d16a3f8.. -> new f4c01f35..  (Wave 1: wires DomainStore and\n"
+    "                               adds the /api/v1/domain/* read surface + token-gated writes for\n"
+    "                               projects/missions/runs/connections/capabilities/approvals/artifacts.\n"
+    "                               connections.py is NOT pinned by A8; its SQLite receiver rename\n"
+    "                               (c -> conn, D-41 tripwire) is a v1.2.1 latent-defect fix, below.)\n"
+    "ALSO FIXED (v1.2.1 latent defect, found by the D-41 tripwire once packages/jcc_core/tests became a\n"
+    "gating scope): packages/jcc_core/connections.py used the receiver name ``c`` for its SQLite\n"
+    "connection, which the D-41 AST scanner (allowlist conn/cur/cursor/real/db/sqlite/snapshot) does not\n"
+    "recognise, so test_actuator_execute_has_no_call_site_in_the_product_tree false-failed on 11\n"
+    "``c.execute`` lines. Renamed the receiver to ``conn`` (17 site edits, no behaviour change); the\n"
+    "tripwire now reads zero non-DB ``.execute`` call sites, which is what the invariant claims.\n"
+    "RE-BASELINED for the v1.3 WAVE 9.2 MISSION LAUNCH CONTROL PLANE (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 09f9955ca759… -> new dbb661bbe0e3…\n"
+    "    Wave 9.1 delivered a HostLauncher that can verify a signed directive and start a real\n"
+    "    workload; NOTHING CALLED IT, so the product's promise (type a goal, pick an agent, press\n"
+    "    Start Mission, watch it work) still ended at a database row. This moves the server onto\n"
+    "    jcc_core.launch_control.LaunchController and adds the two token-gated routes that are that\n"
+    "    call: launch-request (PREVIEW-ONLY: spawns nothing, does NOT consume the single-use nonce)\n"
+    "    and launch-commit (the only route in the product that spawns a process). The existing open\n"
+    "    GET /api/v1/domain/launch/probe gained a `native_launch` capability reading, which keeps\n"
+    "    'is there a session I could ATTACH to' and 'can this host actually START one' as two\n"
+    "    separately-answered questions. NO new GET route was added, so OPEN_GET_ENDPOINTS stays 27\n"
+    "    and only the A11 POST exact set changed (reviewed edit to test_A11_no_new_inbound_surface).\n"
+    "    NON-ACTUATION IS UNCHANGED: launch_control holds no actuator, and the capability it honours\n"
+    "    (USER_INITIATED_MISSION_LAUNCH) is a different name from anything the autonomous controller\n"
+    "    uses -- engine directives cannot reach it. See docs/v1_3/WAVE_9_2_MISSION_LAUNCH_CONTROL.md.\n"
+    "RE-BASELINED for the v1.3 WAVE 9.3 NO SILENT TRUNCATION (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old dbb661bbe0e3… -> new 61a55d1d4902…\n"
+    "    The product client asked the bounded list reads for 200 rows and rendered whatever came\n"
+    "    back as if it were the whole domain, so with 500 missions the Missions surface AND the\n"
+    "    operational 3D plane both showed 200 of them with no visible difference from a workspace\n"
+    "    that really has 200. Measured while building the real-browser performance gate, which is\n"
+    "    the first instrument that counted the plane's draw calls against the domain and therefore\n"
+    "    the first one that could see the shortfall.\n"
+    "    The fix keeps every list BOUNDED (an unbounded read is its own defect) and makes the bound\n"
+    "    VISIBLE: new open GET /api/v1/domain/counts returns uncapped totals, and the caller is\n"
+    "    what compares them with the rows it received. DomainStore.domain_counts() is the read;\n"
+    "    MAX_DOMAIN_LIST_LIMIT is now the single documented ceiling both list_missions and\n"
+    "    list_deliverables clamp to (they had two silent ones). OPEN_GET_ENDPOINTS 27->28, so the\n"
+    "    declared-open set in test_server_surface.py moved too -- a reviewed edit, not a widening.\n"
+    "    packages/jcc_core/domain.py is NOT an A8-pinned file, so its change is not recorded here;\n"
+    "    the pin moves only because server.py gained the route.\n"
+    "    NON-ACTUATION IS UNCHANGED: counts() issues four COUNT queries and returns four integers.\n"
+    "    See docs/v1_3/WAVE_9_3_NO_SILENT_TRUNCATION.md.\n"
+    "RE-BASELINED for the FINAL PRODUCT UNBLOCK §12 (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e\n"
+    "      -> new 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b\n"
+    "    commit 4d6cef1 \"WorkBuddyDaemonAdapter — production routing to authenticated\n"
+    "    daemon (WBIPC)\" added the Jev vendor-model decision surface and the Model &\n"
+    "    API centre writes (all POST, all token-gated). The change was committed to\n"
+    "    HEAD before this re-baseline and the A11 exact POST set was reviewed and\n"
+    "    updated to match (no open mutating surface was introduced). Re-baselined\n"
+    "    with old->new + reason, as required by the A8 contract.\n"
+    "RE-BASELINED for the PRODUCTION RUNTIME WIRING UNIFICATION (1 pinned file moved):\n"
+    "  packages/jcc_core/server.py\n"
+    "    old 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b\n"
+    "      -> new 5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b\n"
+    "    The PRODUCTION RUNTIME WIRING DRIFT fix (FINAL DECISION, this cycle) unifies\n"
+    "    provider/decision/generation onto the SINGLE ProviderRegistry source of truth:\n"
+    "      - /api/health now derives provider_mode / provider_is_real /\n"
+    "        provider_verified / provider_activation_state from a new\n"
+    "        `_production_provider_facts()` helper that reads the SAME ProviderRegistry\n"
+    "        the Provider Center and the mission runtime read -- the §final-decision\n"
+    "        contract that one production runtime = one fact source. The legacy engine\n"
+    "        scorer (engine.provider) remains as the fall-back only, marked\n"
+    "        LEGACY_NOT_PRODUCTION in providers/real.py, so the §7D anti-impersonation\n"
+    "        contract is preserved (a mock/replay/disabled scorer never reads as REAL).\n"
+    "      - The Jev probe branch in ProviderRegistry.probe() now persists the\n"
+    "        DECISION_VERIFIED receipt symmetrically with the GENERATION_VERIFIED\n"
+    "        branch -- the asymmetric record was the immediate root cause of\n"
+    "        /api/health reading MOCK while the Provider Center had already proven\n"
+    "        Jev REAL_READY.\n"
+    "      - packages/jcc_core/provider_registry.py gained a per-process\n"
+    "        `_live_verified` map (uid -> latency_ms) that promotes the card from\n"
+    "        STALE_VERIFIED (remembered) to CONNECTED (LIVE_READY) after a real\n"
+    "        completion in THIS process; the shared `_display_state` reads it so the\n"
+    "        card and the probe never disagree about the same provider at the same\n"
+    "        moment.\n"
+    "    NO new endpoint was added; OPEN_GET_ENDPOINTS is unchanged at 28; A11's\n"
+    "    exact POST set was reviewed against the new server.py and is unchanged.\n"
+    "    Re-baselined with old->new + reason in the SAME freeze commit that froze\n"
+    "    the SHA, as required by the A8 contract.\n"
 )
 # Keys are REPO-RELATIVE (not absolute ``F:/jev/...``) so the scope==baseline
 # consistency check holds from any checkout root and the pin is portable.
 _BASELINE_HASHES = {
-    "config/jcc.yaml":
-        "4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0",
-    "packages/jcc_core/core.py":  # A8 re-baseline (lead, 2026-09-25): P5 _broadcast fix (a74f1d9) moved this blob.
-        "72fc0f99f2eef7510d54f556e1355eac7a4c0a7ac390737de149e21f9358c14e",  # old: 7d19e0c62defc051a6a7d18da10dd713db4d0d0b5371215ce51ca22c18778d84 (frozen_at e6f5c15)
+    "config/jcc.yaml":  # A8 re-baseline (2026-10-04, repo-relocation): state_store.db_path F:/jev/runtime/jcc/jcc.db -> runtime/jcc/jcc.db (relative to the repo root, resolved by jcc_core.config._resolve_db_path). Same database, same WAL contract, same port -- only the anchor moved. # old: 4ae55770ed70dbd0ec940514f51ebf8adf3e703a9a49105656d8b9e643acaee0
+        "6525ea860984899e8125df1611f748d99338719f502c303f59f25492d55d5198",
+    "packages/jcc_core/core.py":  # A8 re-baseline (§21 S-02c, 2026-09-27): ingest chokepoint now applies the key-name redaction pass (ADR-0007 D-1). # RE-BASELINED v1.2 (Wave 7): record_source gate + CoreEngine.shadow_summary() (live-only shadow).
+        "8a5141bc931296ac5f495da116e45f1b8bb9fb4fab5ae6ac99a887aca9a7106b",  # old: 93ee369fc5029363c20dfffd68eba4932c2c120057387fe1cd48c61ad5496aae (v1.2 Wave 7 record_source/shadow_summary)
     "packages/jcc_core/actuator.py":
         "5f0e338c3618e434702e1f50f2c037c5b604e642aa0f364d93cd96383a6e1ae2",
     "packages/jcc_core/decision.py":
         "b61c88177e776aeacac4cda17bd14410a0f8ef4e88de91f3a6faa3262ad0e31c",
-    "packages/jcc_core/state_store.py":
-        "b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95",
+    "packages/jcc_core/state_store.py":  # RE-BASELINED v1.2 (Wave 7): events.record_source column + get_shadow_records("live").
+        "9a4cde5f6e9f90038103e3ebdd62ed2912485e71422f7f5a4b136080a1b4c739",  # old: b66674356a29781d84acb437095de76a3484da91a639a39d42d8c0abe6f76f95 (v1.2 Wave 7 record_source column)
     "packages/jcc_core/policy.py":
         "a4fe24cb1b2ad4b55ce91cb8360245a6df77c2033b3ace829cbf0614f2359258",
     "packages/jcc_core/run.py":
-        "0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035",
-    "packages/jcc_core/server.py":
-        "9bca4bd4a499d1d658a9bd32a74127be6c7b3eaae6d5757e1f0681d5fb4b7cce",
-    "packages/jcc_core/config.py":
-        "af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f",
+        "2ad72804ffff4470de57b35c6011e14cd9e094954e37367e82097defd590eb09",  # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit 3af548b): the CR-002 guard now normalises the configured port with int() before comparing it to GREEN_PROTECTED_PORT, so a QUOTED `port: '4778'` can no longer bypass it ('4778' != 4778 used to let a product instance bind the baseline port and answer /api/health with 200). Independently found by metric-verify and reproduced here before the fix. # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit ac1ef4a): DEFAULT_CONFIG_PATH now names config/jcc-v1.3.yaml (port 4779) and check_green_port_ownership() refuses a product instance on the GREEN baseline port 4778, judged by the config file loaded -- not by the port value, which would be circular. # old: 0f9acd373fcc64bb7100a3c200b4e9088b640a05f2b49a8aa4c47d9fd84ce035
+    "packages/jcc_core/server.py":  # A8 re-baseline (v1.1 §7D, 2026-09-27): /api/health provider-mode contract. # RE-BASELINED v1.2 (Wave 7+8): SSE generator support + control-token fail-closed gating. # RE-BASELINED v1.3 (Wave 1): Project/Mission domain read+write surface (/api/v1/domain/*) wired to DomainStore. # RE-BASELINED v1.3 (Wave 3): MissionRuntime wiring (app.state.mission_runtime) + GET /api/v1/domain/launch/probe (open) + POST /api/v1/domain/missions/{mid}/launch (token-gated, capture) + GET /api/v1/domain/missions/{mid}/workload (open); OPEN_GET_ENDPOINTS 21->23. # RE-BASELINED v1.3 (Wave 4): attention-control routes GET /api/v1/domain/needs-attention/resolutions (open) + POST /api/v1/domain/needs-attention/{mid}/resolve (token-gated, preview-first) + server-side attention helpers (_actuation_enabled/_live_session_ids/_attention_plan/_apply_attention); OPEN_GET_ENDPOINTS 23->24. # RE-BASELINED v1.3 (Wave 7): connection verification -- GET /api/v1/domain/connections/{cid} (open, per-capability provenance) + POST /api/v1/domain/connections/{cid}/verify (token-gated, runs a real probe) + POST /api/v1/domain/connections/{cid}/capability now refuses a bare CONTROL_VERIFIED (422, needs evidence_ref); OPEN_GET_ENDPOINTS 26->27. # RE-BASELINED v1.3 (Wave 9.2): mission launch CONTROL PLANE -- constructs jcc_core.launch_control.LaunchController (preview-first, no actuator) + POST /api/v1/domain/missions/{mid}/launch-request (token-gated, PREVIEW: nothing spawned, nonce NOT consumed) + POST /api/v1/domain/missions/{mid}/launch-commit (token-gated, the only route that spawns) + the existing open GET /api/v1/domain/launch/probe gained the `native_launch` capability reading. NO new GET route, so OPEN_GET_ENDPOINTS is unchanged at 27. # RE-BASELINED v1.3 (Wave 9.3): GET /api/v1/domain/counts (open, uncapped totals) so a BOUNDED list read can be compared against the real domain size; OPEN_GET_ENDPOINTS 27->28.
+        "5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b",  # RE-BASELINED v1.3 (P3/P4 CR-H5+CR-H6, 2026-10-05, commits 590ecf3 + d012509): /api/health reports control_token_configured as a bool without ever echoing the token; BOTH hmac.compare_digest sites (require_control_token and the WebSocket ws_endpoint) compare encoded bytes, so a non-ASCII token is refused instead of raising TypeError. # RE-BASELINED (FINAL PRODUCT UNBLOCK §12): commit 4d6cef1 "WorkBuddyDaemonAdapter — production routing to authenticated daemon (WBIPC)" added the Jev vendor-model decision surface (/api/v1/domain/jev/{select-executor,request-approval,confirm,cancel}) and the Model & API centre writes (/api/v1/providers/{pid}/{credentials,probe,live}) plus /api/v1/domain/route — all POST and all token-gated. server.py moved; A11's exact POST set was reviewed and updated to match (see test_A11_no_new_inbound_surface). old 68027923de1fab24d7c56b9b4a09f605e0a30b7616ee795d6bf1e7a695acc59e -> new 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b. # RE-BASELINED (PRODUCTION RUNTIME WIRING UNIFICATION, this cycle): /api/health now derives provider_mode / provider_is_real / provider_verified / provider_activation_state from a new _production_provider_facts() helper that reads the SAME ProviderRegistry the Provider Center and the mission runtime read; legacy engine scorer remains the fall-back only, marked LEGACY_NOT_PRODUCTION in providers/real.py (§7D anti-impersonation preserved). Jev probe now persists DECISION_VERIFIED symmetrically with GENERATION_VERIFIED. ProviderRegistry gained a per-process _live_verified map so the card reads CONNECTED after a real completion in THIS process (and STALE_VERIFIED after restart, from the persisted VerificationStore). NO new endpoint; OPEN_GET_ENDPOINTS 28 unchanged; A11 POST set unchanged. old 64cc0a21ddcee07717c12412ba2315ceaee2d13a9183945216b077a62191e27b -> new 5c6c159da16c49b49289716c3abc1598853cf6ace8d70e86677d866f0f30bb1b.
+    "packages/jcc_core/config.py":  # RE-BASELINED v1.3 (CR-002, 2026-10-04, commit ac1ef4a): adds GREEN_PROTECTED_PORT, GREEN_CONFIG_PATH and is_green_config(); default config path moves off the GREEN baseline port. # old: ae749b5bb74951af4e0072e15ed1bbaf33d12294a8a11efe68588a78d546e4be  # A8 re-baseline (2026-10-04, repo-relocation): the absolute F:/jev literals for DEFAULT_CONFIG_PATH / state_store_db_path are replaced by REPO_ROOT derived from __file__, plus a _resolve_db_path() that anchors a relative db_path to the repo root. Behaviour is unchanged for an absolute path (honoured verbatim) and for a relative one (now repo-anchored instead of CWD-anchored). # old: af0ddc1868abf19edc8f7babd5edc61c7fd47ed7ee31187e2798edc844f1c08f
+        "7ae533feb55869cd798a26ec2aee946a3dacab2350218f12e9d2f742c81ccd8b",  # RE-BASELINED v1.3 (RISK-1, 2026-10-05, commit 590ecf3): allowed_project_roots plus effective_allowed_roots(); an empty project_scope_base now falls back to the derived repo root instead of resolving against the process CWD, which had made a correctly configured instance refuse every project root.
     "packages/supervisor/sentinel.py":
         "21d8f5fa8a984ed741f97eaa3aac25fb3d18bc3c4b424fae36ec0e5d3486237f",
     "packages/supervisor/shadow_store.py":
@@ -510,13 +630,13 @@ def test_A8_gitattributes_enforces_lf_eol():
     """
     ga = REPO_ROOT / ".gitattributes"
     assert ga.is_file(), (
-        "F:/jev/.gitattributes is MISSING -- A8's EOL-normalised pin depends on "
+        "repo .gitattributes is MISSING -- A8's EOL-normalised pin depends on "
         "* text=auto eol=lf; without it a fresh checkout can re-introduce CRLF "
         "(the 49d91d4 failure mode). Restore .gitattributes."
     )
     text = ga.read_text(encoding="utf-8")
     assert "* text=auto eol=lf" in text, (
-        "F:/jev/.gitattributes no longer contains '* text=auto eol=lf' -- A8's "
+        "repo .gitattributes no longer contains '* text=auto eol=lf' -- A8's "
         "EOL-normalised pin assumes LF on checkout. A '*.py -text' or removed "
         "eol=lf rule would let CRLF back in and the pin would silently depend on "
         "the _sha fold being a no-op. Restore the rule or re-pin deliberately."
@@ -604,15 +724,93 @@ def test_A10_audit_event_parity_excluding_control_plane(live):
 
 
 def test_A11_no_new_inbound_surface(live):
-    """A11: no new inbound surface — mutating endpoints are exactly
-    {assess,pause,steer,retry}; /api/hooks is 404."""
+    """A11: every mutating endpoint is ENUMERATED here, and /api/hooks is 404.
+
+    Deliberately an EXACT set, not a subset: a new POST route cannot appear
+    without a reviewed edit to this assertion, which is what keeps "the inbound
+    surface" a fact rather than a claim. Updated for v1.3 Wave 1, which adds the
+    token-gated Project/Mission domain writes. Every route listed here is POST
+    and every one is behind ``require_control_token`` (proved separately by
+    ``tools/tests`` and ``tests/e2e/test_domain_api_v1_3.py``).
+    """
     client, _store, engine, _s, cfg = live
     app = client.app
     post_paths = {
         route.path for route in app.routes
         if getattr(route, "methods", None) and "POST" in route.methods
     }
-    assert post_paths == {"/api/assess", "/api/pause", "/api/steer", "/api/retry"}, post_paths
+    expected = {
+        # P1..P4 control plane
+        "/api/assess", "/api/pause", "/api/steer", "/api/retry",
+        # v1.2.1 AI CONNECTION CENTER
+        "/api/connections/{agent}/test",
+        "/api/connections/{agent}/configure",
+        "/api/connections/{agent}/preview-disconnect",
+        "/api/connections/{agent}/disconnect",
+        "/api/connections/{agent}/sessions",
+        "/api/connections/jev/validate",
+        "/api/connections/jev/activate",
+        "/api/onboarding/advance",
+        # v1.3 Wave 1 Project/Mission domain
+        "/api/v1/domain/projects",
+        "/api/v1/domain/missions",
+        "/api/v1/domain/missions/{mid}/transition",
+        "/api/v1/domain/missions/{mid}/runs",
+        "/api/v1/domain/missions/{mid}/artifacts",
+        "/api/v1/domain/missions/{mid}/approvals",
+        "/api/v1/domain/connections",
+        "/api/v1/domain/connections/{cid}/capability",
+        "/api/v1/domain/approvals/{aid}/decide",
+        # v1.3 Wave 3 first real mission: the launch bridge. Token-gated, and it
+        # carries NO actuator (MissionRuntime is constructed without one), so it
+        # cannot actuate; it only walks the Mission state machine and ingests a
+        # real adapter-normalized event.
+        "/api/v1/domain/missions/{mid}/launch",
+        # v1.3 Wave 4 attention control: the preview-first resolve. Token-gated,
+        # and it only moves a mission through the state machine / decides an
+        # approval -- it never reaches an actuator.
+        "/api/v1/domain/needs-attention/{mid}/resolve",
+        # v1.3 Wave 5 deliverables: record a human verdict on an artifact.
+        # Token-gated; it writes a status + who decided, never an agent effect.
+        "/api/v1/domain/artifacts/{aid}/verify",
+        # v1.3 Wave 7 connection verification: run a REAL probe and record what it
+        # observed. Token-gated; the probe only READS host state (no dispatch).
+        "/api/v1/domain/connections/{cid}/verify",
+        # v1.3 Wave 9.2 mission launch control plane: the ONE inbound surface that
+        # can start a real process. Token-gated, and it honours a capability
+        # (USER_INITIATED_MISSION_LAUNCH) that is deliberately a different name
+        # from anything the autonomous controller uses; jcc_core.launch_control
+        # holds no actuator, so this is not an actuation path.
+        #   * launch-request is PREVIEW-ONLY: nothing is spawned and the
+        #     single-use nonce is not consumed.
+        #   * launch-commit is the only route in the product that spawns.
+        "/api/v1/domain/missions/{mid}/launch-request",
+        "/api/v1/domain/missions/{mid}/launch-commit",
+        # REVIEWED EDIT (A11, FINAL PRODUCT UNBLOCK §12) — commit 4d6cef1
+        # "WorkBuddyDaemonAdapter — production routing to authenticated daemon"
+        # added the Jev (TypeSafe vendor-model) decision surface and the Model &
+        # API centre. Every route below is POST and sits behind
+        # ``require_control_token`` (verified directly above against the route
+        # decorators): none of them is an open mutating surface.
+        #   * Jev vendor-model decision (server-side executor selection so the
+        #     browser cannot hardcode a default behind "JEV 自动选择"):
+        "/api/v1/domain/jev/select-executor",
+        "/api/v1/domain/jev/request-approval",
+        "/api/v1/domain/jev/confirm",
+        "/api/v1/domain/jev/cancel",
+        #   * Model & API centre writes (credential store / probe / live) — all
+        #     token-gated; the corresponding open reads are GET and enumerated in
+        #     OPEN_GET_ENDPOINTS, never here:
+        "/api/v1/providers/{pid}/credentials",
+        "/api/v1/providers/{pid}/probe",
+        "/api/v1/providers/{pid}/live",
+        #   * One-shot task routing (executor + execution model + verify model):
+        "/api/v1/domain/route",
+    }
+    assert post_paths == expected, {
+        "unexpected (NEW, unreviewed) inbound": sorted(post_paths - expected),
+        "missing (declared but gone)": sorted(expected - post_paths),
+    }
     assert client.get("/api/hooks").status_code == 404
     assert client.post("/api/hooks", json={}).status_code == 404
 

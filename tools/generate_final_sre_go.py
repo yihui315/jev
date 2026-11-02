@@ -20,8 +20,9 @@ import json
 import os
 import sys
 from datetime import datetime, timezone, timedelta
+from pathlib import Path
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[1])
 DEFAULT_EVIDENCE = os.path.join(ROOT, r"artifacts\acceptance\win_scripts\E07_FINAL_EVIDENCE.json")
 DEFAULT_OUT = os.path.join(ROOT, r"artifacts\acceptance\final_sre_go.json")
 ARCH_LEG = os.path.join(ROOT, r"artifacts\acceptance\final_architecture_go.json")
@@ -36,7 +37,7 @@ TZ = timezone(timedelta(hours=8))
 # Re-anchored df3e7d9 -> 5ab5e20 in lockstep with the gate, for the reason recorded
 # there: the four FINAL acceptance-harness paths are neither product nor release
 # evidence, so they were given a commit of their own, and that commit is the freeze.
-RELEASE_FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"
+RELEASE_FREEZE = "4925bb4e917c274c127878b58c2367b272310591"
 EVIDENCE_PREFIXES = (
     "artifacts/", "docs/", "tools/", "scripts/", ".gitignore",
     "FINAL_ACTIVATION_CHECKLIST.md", "FINAL_ACCEPTANCE_REPORT.md",

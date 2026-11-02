@@ -1,0 +1,58 @@
+{
+  "freeze_sha": "ddca208",
+  "generated_at": "2026-09-28T14:54:56Z",
+  "legs": {
+    "ARCH": {
+      "decision": "GO",
+      "evidence_verdict": "FREEZE_SHA=ddca208 (doc=n/a)",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "165f832fb7960c597bc09b5fac391d5635be02d0d23af2dae51f6f7a3940b3eb"
+    },
+    "CONNECTIONS": {
+      "decision": "GO",
+      "evidence_verdict": "verdict=PASS engine=playwright-chromium",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "8671e50e5d68c2ebbdb433e22078136cf54e08a2b03f5b812bf040a2ee18242f"
+    },
+    "CONTROL_UI": {
+      "decision": "GO",
+      "evidence_verdict": "CONTROL-UI GATE: PASS (0 failures)",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "7cb89b12a6a8787bad7b6827bb3249442728c46ebddc04117a88c431d5c32b48"
+    },
+    "GREEN_PROTECTION": {
+      "decision": "GO",
+      "evidence_verdict": "verdict=PROTECTED",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "407a3c9ddc75555608cbcec34a25c33a4cdd2c9964fc8937185ff3b99bbbac64"
+    },
+    "LIVE_SHADOW": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "verdict=UI_GATE_PASS_ACTIVATION_PENDING",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "1b75694052d83cc904ad044f4897a4e56b61fc284ed94aff80ce2ca06ceecce0"
+    },
+    "REL": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "files=26 check=None",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "686f2b19ad58bbd550d4533800b4a135cce2c94b7453d695bd16eb93af045ba0"
+    },
+    "SEC": {
+      "decision": "GO",
+      "evidence_verdict": "verdict=GO high=None ran=9",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "d6cc9bee7759131121947884e1b546bd51750beea2ce19b4b05b494337d435ab"
+    },
+    "VISUAL": {
+      "decision": "GO_WITH_PENDING",
+      "evidence_verdict": "result=HTTP_PASS_REAL_BROWSER_LOAD; FPS_PENDING",
+      "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+      "signature": "64311417b69e0df66dc09de5c6b87b70fe0cd22acffaba903110224097b38b83"
+    }
+  },
+  "note": "All signatures freshly computed at generation; none reuse v1.0.1 (f8ac95d) or v1.1 signatures.",
+  "release_sha": "a778f813b5018a2e4474c9f58d8da6b447d4e8c9",
+  "schema": "jcc/v1.2-leg-signatures/1",
+  "signer": "Orion (JCC v1.2 orchestrator)"
+}

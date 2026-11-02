@@ -1,0 +1,60 @@
+{
+  "decision": "GO",
+  "dimension": "Reproducible-from-a-clone hygiene",
+  "earlier_signatures_available": {
+    "v1.0.1-ops": "f8ac95d",
+    "v1.1": "5ab5e20",
+    "v1.2-visual-local": "ddca208"
+  },
+  "gate_legs": [
+    {
+      "detail": "product_dirty=0 metadata_dirty=30 untracked=1",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E1_FROZEN_TREE.json",
+      "evidence_sha256": "1ba09e859926ffbee4ad54a458548321d85025518f43b7897de02d741670d129",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "E1_FROZEN_TREE",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "33 inputs, 0 missing",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E2_GATE_INPUTS_TRACKED.json",
+      "evidence_sha256": "50a9754fff10e60179ae3b6038bcd42031b873e484c6a387b6d57b3a95d54c25",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "E2_GATE_INPUTS_TRACKED",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "12/12 pins match the HEAD blob",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E3_A8_PINS_VS_HEAD_BLOBS.json",
+      "evidence_sha256": "4150b33c06e1746363f84b953d75929f97df96d01356f78a131c7e481a69589b",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "E3_A8_PINS_VS_HEAD_BLOBS",
+      "verdict": "PASS"
+    },
+    {
+      "detail": "{\"4779\": 0, \"4780\": 0, \"4781\": 0, \"4782\": 0}",
+      "evidence_path": "artifacts/release/v1.3_product/legs/V1_3_LEG_E4_NO_LISTENERS_LEFT_BEHIND.json",
+      "evidence_sha256": "c0f65aa222e5733a798be37e687bb968ccc8808c89317d0c612eee69d1fd4bf1",
+      "head": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+      "leg_id": "E4_NO_LISTENERS_LEFT_BEHIND",
+      "verdict": "PASS"
+    }
+  ],
+  "gate_legs_failed": [],
+  "gate_legs_missing": [],
+  "gate_legs_required": [
+    "E1_FROZEN_TREE",
+    "E2_GATE_INPUTS_TRACKED",
+    "E3_A8_PINS_VS_HEAD_BLOBS",
+    "E4_NO_LISTENERS_LEFT_BEHIND"
+  ],
+  "leg_id": "RELEASE_HYGIENE",
+  "notes": "All 4 gate legs PASS at this head (9bfcc8d61e41).",
+  "product_freeze_sha": "9bfcc8d61e41fb364cd45e4cb3c9eda46db780bb",
+  "project_complete_at_signing": true,
+  "reuses_earlier_signature": false,
+  "schema": "jcc/v1.3-leg/1",
+  "signature": "d33554cf993fcb80abe2e6ebffd998d4a45a072fc01deea2b0b6da964e048f16",
+  "signer": "Orion (JCC v1.3 final product gate)",
+  "timestamp_utc": "2026-09-29T23:20:22Z"
+}

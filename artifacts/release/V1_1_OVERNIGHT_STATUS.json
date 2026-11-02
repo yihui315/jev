@@ -1,0 +1,124 @@
+{
+  "schema": "jcc.v1_1.overnight_status/v1",
+  "generated_for": "owner handoff after the unattended verification window",
+  "head": "e0713f1821fd57a6266fd6a3613e519057dde937",
+  "branch": "feature/jcc-v1.1-activation",
+  "worktree_clean": true,
+  "last_completed_step": "FINAL-P (re-ran the final acceptance gate), then wrote the morning handoff",
+  "next_step": "OWNER DECISION: re-baseline the A8 hash pin old->new for a v1.1 release, or keep the v1.0.1 anchor; then re-sign the architecture, security and SRE legs against HEAD",
+
+  "runtime_health": {
+    "green": {
+      "port": 4778,
+      "state": "UP",
+      "service_pid": 7588,
+      "health_keys": 7,
+      "build": "frozen v1.0.1 snapshot f8ac95d30f67f892e28fba03e3d99f900a65a61d",
+      "provider": "mock",
+      "actuation_enabled": false,
+      "policy_version": "p3.0.0",
+      "localhost_only": true,
+      "wal": true,
+      "note": "7 health keys == the frozen build. The v1.1 build answers 12; that is the discriminator."
+    },
+    "blue": {
+      "port": 4779,
+      "state": "STOPPED by design after the reliability gate",
+      "how_to_start": "set JCC_CONFIG=runtime/v1.1/reliability/jcc-4779.yaml and JCC_DB_PATH=runtime/v1.1/reliability/jcc.db, then run python -m jcc_core.run",
+      "warning": "do NOT use start.ps1/stop.ps1 for BLUE: Get-JccPaths is not port-aware and reads GREEN's marker"
+    },
+    "scheduled_tasks": [
+      { "name": "JEV-JCC-Stable-Runtime", "trigger": "AtStartup+AtLogOn", "purpose": "restore GREEN at boot" },
+      { "name": "JEV-JCC-Stable-Health", "trigger": "every 120s", "purpose": "restore GREEN when it dies" },
+      { "name": "JEV-JCC-Service-Watchdog", "trigger": "every 120s", "purpose": "monitoring; recovery now uses the frozen restore" },
+      { "name": "JEV-JCC-Continuation-Watchdog", "trigger": "every 120s", "purpose": "long-run continuation with a heartbeat lease" },
+      { "name": "JEV-JCC-v1.1-Continuation", "trigger": "every 120s", "purpose": "v1.1 continuation; inert while execution state is COMPLETE" }
+    ]
+  },
+
+  "host_instability": {
+    "unclean_restarts_since_2026-09-27T18:00": [
+      "18:23:51 Kernel-Power 41",
+      "21:20:06 Kernel-Power 41",
+      "21:27:20 Kernel-Power 41",
+      "00:06:04 Kernel-Power 41",
+      "06:34:34 Kernel-Power 41"
+    ],
+    "system_initiated_shutdown": "06:35:23 id=1074 winlogon on behalf of NT AUTHORITY\\SYSTEM",
+    "impact_on_jcc": "none of these were caused by JCC; each one killed the service",
+    "recoveries": 5,
+    "recovery_outcome": "every time the scheduled tasks restored the frozen runtime automatically, each with frozen-runtime proof PROVEN",
+    "expect_during_testing": "4778 may drop for up to ~2 minutes after a host restart, then returns by itself"
+  },
+
+  "test_tally": {
+    "command": "python -m pytest tools/tests -q",
+    "passed": 226,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "duration_s_run2": 423.87,
+    "duration_s_run3": 427.19,
+    "determinism": {
+      "artifact": "artifacts/acceptance/CONTINUATION_INFRA_TEST.json",
+      "sha256": "9a9ab503f9f62e6fdd4d301eb17fe48cc4478289fc2c870ff88239f2c1f58eb1",
+      "bytes": 84397,
+      "runs_identical": true,
+      "note": "run #1 was 223 checks before the three new stable-runtime evidence tests; the claim is that the two most recent consecutive runs agree byte for byte"
+    }
+  },
+
+  "gates": {
+    "s21_security": { "verdict": "GO", "high": 0, "medium": 0, "low": 0, "checks_ran": 9, "at_head": "e0713f1" },
+    "s22_reliability": { "verdict": "GO", "scenarios_ran": 19, "passed": 19, "protected_runtime_divergences": 0 },
+    "s24_ui_smoke": { "verdict": "PASS", "screens_ok": 8, "screens_expected": 8 },
+    "s26_final": {
+      "verdict": "PROJECT_COMPLETE=false",
+      "failed": ["E-05", "E-06", "E-07", "F-04", "F-05", "P-02"],
+      "degraded": ["A-01", "A-02", "A-03", "A-04"],
+      "passed": ["P-01 working tree clean", "P-03", "P-04", "P-05", "P-06", "E-01", "E-02", "E-03", "E-04", "F-01", "F-02", "F-03"]
+    }
+  },
+
+  "blockers": [
+    {
+      "id": "E-05/E-06/E-07",
+      "kind": "signatures stale relative to the freeze",
+      "detail": "architecture, security and SRE legs were signed at freeze 5ab5e20d961d; 37 product paths changed since",
+      "legitimate_fix": "re-verify and re-sign each leg against HEAD",
+      "not_fixable_by": "editing the artifacts -- the gate compares them against the tree"
+    },
+    {
+      "id": "P-02",
+      "kind": "release manifest vs A8 hash pin",
+      "detail": "packages/jcc_core/core.py and packages/jcc_core/server.py differ from the pin legitimately, because v1.1 extends /api/health from 7 to 12 keys",
+      "legitimate_fix": "owner-authorised A8 re-baseline recorded old->new in a freeze commit",
+      "not_fixable_by": "silently rewriting the pin or the manifest"
+    }
+  ],
+
+  "pending": [
+    "re-sign architecture / security / SRE legs against HEAD (real work, not cosmetic)",
+    "A8 hash-pin re-baseline decision -- owner only",
+    "local tag jcc-v1.1-local (deferred on purpose: tagging asserts a complete release and gates are red)"
+  ],
+
+  "promotion": {
+    "promotion_ready": false,
+    "reason": "three final legs are not re-signed and P-02 is unresolved; nothing was forced green",
+    "actuation_enabled": false,
+    "live_shadow_gate": "PENDING",
+    "real_jev": "PENDING_EXTERNAL_ACTIVATION",
+    "note": "PENDING is a lawful end state -- what is missing lives outside this repository"
+  },
+
+  "safety_invariants_honoured": {
+    "no_git_push": true,
+    "no_remote_merge": true,
+    "no_public_deploy": true,
+    "no_port_exposed_beyond_loopback": true,
+    "permanent_delete": 0,
+    "nothing_hand_edited_to_green": true,
+    "green_runtime_never_stopped_or_restarted_by_this_work": true
+  }
+}

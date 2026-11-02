@@ -8,8 +8,9 @@ import datetime
 import io
 import json
 import os
+from pathlib import Path
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 ACC = os.path.join(ROOT, "artifacts", "acceptance")
 REL = os.path.join(ROOT, "artifacts", "release")
 

@@ -92,11 +92,60 @@ _OLD_SAMPLE = (
 #: How many documents the sweep must find before it is allowed to be believed.
 _MIN_SWEPT = 10
 
+#: Smallest a swept document may be and still be a document. Far below any real
+#: report, so this cannot fire on a legitimately terse one.
+_MIN_DOC_BYTES = 32
+
+#: Repo-relative documents whose bytes could not be read as text. Populated by
+#: :func:`_read`; the sweep asserts it is empty.
+UNREADABLE_DOCS = []
+
 
 def _read(rel: str) -> str:
-    with io.open(os.path.join(ROOT, *rel.split("/")), "r", encoding="utf-8",
-                 errors="replace") as fh:
-        return fh.read()
+    """Read a swept document, refusing to return "" for a destroyed one.
+
+    WHY THIS IS NOT A PLAIN ``fh.read()``
+    ------------------------------------
+    Every assertion downstream of this helper is a NEGATIVE one: "no document
+    under artifacts/ denies the registration". A negative assertion is only as
+    good as the read behind it. INC-002 replaced a tracked file's bytes with
+    NULs and left its size -- and therefore git's stat cache -- intact. A
+    zeroed document contains no forbidden wording, so it is never an offender,
+    so the sweep passes. That is not a gap in the wording pattern; it is the
+    detector reading "the evidence disappeared" as "the evidence is clean".
+
+    Measured on a size-preserving-zeroed fixture (tools/detector_blindspot_probe.py):
+    with one swept document zeroed, this sweep reported no offenders and passed.
+
+    So a document that cannot be read as a document is recorded as UNREADABLE
+    and the sweep refuses. Note WHERE the refusal happens: here, at read time,
+    BEFORE the offender list is built -- not as a filter applied afterwards. An
+    exemption applied after the fact could silence a destroyed file, which is
+    the same hole wearing a different hat.
+    """
+    path = os.path.join(ROOT, *rel.split("/"))
+    try:
+        with io.open(path, "rb") as fh:
+            raw = fh.read()
+    except OSError as exc:
+        UNREADABLE_DOCS.append("%s: cannot read: %s" % (rel, exc))
+        return ""
+    if len(raw) < _MIN_DOC_BYTES:
+        UNREADABLE_DOCS.append(
+            "%s: %d bytes on disk, below the %d-byte floor -- content has been "
+            "removed (zeroed or truncated), so its wording cannot be judged"
+            % (rel, len(raw), _MIN_DOC_BYTES))
+        return ""
+    if b"\x00" in raw:
+        UNREADABLE_DOCS.append(
+            "%s: contains NUL bytes -- INC-002 signature (content replaced, "
+            "size preserved)" % rel)
+        return ""
+    text = raw.decode("utf-8", "replace")
+    if not text.strip():
+        UNREADABLE_DOCS.append("%s: no non-whitespace content" % rel)
+        return ""
+    return text
 
 
 def _swept_documents():
@@ -155,6 +204,18 @@ def test_no_document_under_artifacts_denies_the_registration():
     assert not missing, "core reports not reached by the sweep: %s" % missing
 
     offenders = [d for d in docs if _FALSE_WORDING.search(_read(d))]
+
+    # A document that could not be read is NOT a document that passed. This
+    # assertion is what stops "the evidence vanished" from being reported as
+    # "the evidence is clean". It sits AFTER the read loop (which is what
+    # populates UNREADABLE_DOCS) but BEFORE the offender verdict is trusted --
+    # _MIN_DOC_BYTES already refuses to add a document with no readable content
+    # to `offenders`, so an unreadable document can never be quietly exonerated
+    # by being skipped.
+    assert not UNREADABLE_DOCS, (
+        "swept documents could not be read as text, so their wording was never "
+        "actually checked: %s" % UNREADABLE_DOCS
+    )
     assert not offenders, "artifacts documents deny the registration: %s" % offenders
 
 

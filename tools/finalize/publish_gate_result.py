@@ -43,7 +43,7 @@ import json
 import os
 import sys
 
-ROOT = os.environ.get("JCC_ROOT") or r"F:\jev"
+ROOT = os.environ.get("JCC_ROOT")
 STAGING = os.path.join(ROOT, "runtime", "final-gate", "final_gate_result.json")
 CANONICAL = os.path.join(ROOT, "artifacts", "acceptance", "final_gate_result.json")
 PRODUCT_FREEZE = "5ab5e20d961db4c9807f578195ae8530dea2f7d9"

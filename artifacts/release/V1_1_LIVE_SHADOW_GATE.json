@@ -1,0 +1,119 @@
+{
+  "actuation_ladder": [
+    {
+      "capability_count": 0,
+      "gate_runs": false,
+      "level": "L0",
+      "permits": [],
+      "rank": 0
+    },
+    {
+      "capability_count": 0,
+      "gate_runs": true,
+      "level": "L1",
+      "permits": [],
+      "rank": 1
+    },
+    {
+      "capability_count": 5,
+      "gate_runs": true,
+      "level": "L2",
+      "permits": [
+        "CONTINUE",
+        "PAUSE",
+        "RETRY",
+        "STEER",
+        "VERIFY"
+      ],
+      "rank": 2
+    },
+    {
+      "capability_count": 7,
+      "gate_runs": true,
+      "level": "L3",
+      "permits": [
+        "CONTINUE",
+        "ESCALATE",
+        "FINISH",
+        "PAUSE",
+        "RETRY",
+        "STEER",
+        "VERIFY"
+      ],
+      "rank": 3
+    }
+  ],
+  "db": {
+    "db_path": "F:/jev/runtime/jcc/jcc.db",
+    "db_uri": "mode=ro&immutable=1",
+    "present": true
+  },
+  "gate_vocabulary": {
+    "default_criteria": {
+      "granted_ceiling": "L0",
+      "min_decisions": 50,
+      "min_wall_clock_s": 86400.0
+    },
+    "defect_codes": [
+      "no_observations",
+      "insufficient_observations",
+      "insufficient_observation_window",
+      "actuation_observed",
+      "shadow_chain_broken",
+      "shadow_tape_absent",
+      "storage_unavailable"
+    ],
+    "pending_forces_actuation_enabled_false": true,
+    "pending_status": "PENDING_LIVE_SHADOW_GATE",
+    "satisfied_alone_does_not_enable_actuation": true,
+    "statuses": [
+      "PENDING_LIVE_SHADOW_GATE",
+      "SATISFIED"
+    ],
+    "unreadable_tape_is_pending": true
+  },
+  "headline": {
+    "actuation_enabled": false,
+    "configured_level": "L0",
+    "effective_level": "L0",
+    "granted_ceiling": "L0",
+    "satisfied": false,
+    "status": "PENDING_LIVE_SHADOW_GATE"
+  },
+  "note": "A PENDING gate with actuation_enabled=false is a LAWFUL, SAFE v1.1 completion. Reaching the observation threshold does not by itself enable effects: the criteria's granted_ceiling and the operator's enabled flag are two further, separate conditions.",
+  "reproducibility": {
+    "deterministic": true,
+    "normalized_sha256": "ca1418f8114e179d8f236512ca83f70783109ce579e003a03e3cb4de1240700b",
+    "volatile_keys_stripped": [
+      "db_path",
+      "db_uri",
+      "evaluated_at",
+      "generated_at",
+      "reproducibility"
+    ]
+  },
+  "schema": "jcc.v1_1.live_shadow_gate/v1",
+  "verdict": {
+    "actuated_observations": 0,
+    "actuation_enabled": false,
+    "chain_intact": null,
+    "configured_level": "L0",
+    "defects": [
+      "shadow_tape_absent",
+      "no_observations"
+    ],
+    "effective_level": "L0",
+    "evaluated_at": 1790492732.5977452,
+    "granted_ceiling": "L0",
+    "observed_decisions": 0,
+    "observed_span_s": 0.0,
+    "read_failure": null,
+    "satisfied": false,
+    "status": "PENDING_LIVE_SHADOW_GATE",
+    "thresholds": {
+      "granted_ceiling": "L0",
+      "min_decisions": 50,
+      "min_wall_clock_s": 86400.0
+    }
+  }
+}

@@ -40,6 +40,13 @@ that no exercised path existed.
 Usage
 -----
     F:/jev/.venv/Scripts/python.exe tools/probe_adapter_capabilities.py
+    F:/jev/.venv/Scripts/python.exe tools/probe_adapter_capabilities.py --out-dir <dir>
+
+``--out-dir`` defaults to the tracked ``artifacts/acceptance/adapter_capability``.
+The evidence it writes is NOT byte-reproducible -- it carries ``probe_at`` and it
+records whichever live session file this host currently has -- so a caller that
+only wants to exercise the probe should redirect it rather than dirty tracked
+evidence. Writes LF, because ``.gitattributes`` says ``eol=lf``.
 """
 from __future__ import annotations
 
@@ -48,6 +55,7 @@ import inspect
 import io
 import json
 import os
+import argparse
 import re
 import socket
 import sys
@@ -515,14 +523,31 @@ def probe_adapter(cls) -> Dict[str, Any]:
     }
 
 
-def main() -> int:
+def main(argv: Optional[List[str]] = None) -> int:
+    """Probe all four adapters and write one evidence file each.
+
+    ``--out-dir`` defaults to the tracked location, so every existing caller and
+    the acceptance chain behave exactly as before. It exists because the
+    evidence is NOT reproducible byte-for-byte -- it carries ``probe_at`` and it
+    records whichever live session file the host happens to have -- so a test
+    that exercises this probe must be able to do so WITHOUT rewriting tracked
+    evidence and leaving the working tree dirty for the release gate's clean-tree
+    check. Same reason ``pytest --basetemp`` exists.
+    """
+    ap = argparse.ArgumentParser(description="JCC adapter capability probe (read-only)")
+    ap.add_argument("--out-dir", default=None,
+                    help="where to write <agent>.json (default: the tracked "
+                         "artifacts/acceptance/adapter_capability)")
+    args = ap.parse_args(argv)
+    out_dir = Path(args.out_dir).resolve() if args.out_dir else OUT_DIR
+
     started = time.time()
     print(f"[probe] adapters: {[c.agent.value for c in ADAPTERS]}")
     discovery = asyncio.run(discover_all())
     print(f"[probe] discovery statuses: {discovery['statuses']}")
     print(f"[probe] discovery actuation_enabled={discovery['actuation_enabled']}")
 
-    OUT_DIR.mkdir(parents=True, exist_ok=True)
+    out_dir.mkdir(parents=True, exist_ok=True)
     rc = 0
     written = []
     for cls in ADAPTERS:
@@ -551,10 +576,23 @@ def main() -> int:
             }
             rc = 1
             print(f"[probe] {agent_name:<9} ERROR while probing: {exc!r}")
-        target = OUT_DIR / f"{doc['adapter']}.json"
+        target = out_dir / f"{doc['adapter']}.json"
+        # newline="\n": .gitattributes declares `* text=auto eol=lf`, so the
+        # default Windows newline made every run produce a spurious CRLF diff in
+        # a tracked evidence file -- churn that hides a real change in noise.
         target.write_text(json.dumps(doc, indent=2, ensure_ascii=False) + "\n",
-                          encoding="utf-8")
-        written.append(str(target.relative_to(REPO)))
+                          encoding="utf-8", newline="\n")
+        # ``--out-dir`` may legitimately point OUTSIDE the repository: the test
+        # suite redirects the probe into scratch so the tracked evidence is left
+        # alone. Reporting a repo-relative path must not be the thing that breaks
+        # that -- before this guard, a scratch ``--out-dir`` wrote the first file
+        # and then died on ``relative_to`` for every agent, so the probe exited 1
+        # with only one of four files written and no "wrote N files" line.
+        try:
+            reported = str(target.relative_to(REPO))
+        except ValueError:
+            reported = str(target)
+        written.append(reported)
         caps_short = {k: v["status"] for k, v in doc["capabilities"].items()}
         print(f"[probe] {doc['adapter']:<9} status={doc['status']:<12} "
               f"mode={doc['probing_mode']:<16} caps={caps_short}")

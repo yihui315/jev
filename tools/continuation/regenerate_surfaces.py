@@ -41,11 +41,12 @@ import importlib.util
 import io
 import json
 import os
+from pathlib import Path
 import subprocess
 import sys
 from typing import Any, Dict, List, Optional, Tuple
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")
 OUT = os.path.join(ROOT, "artifacts", "acceptance", "SURFACE_EVIDENCE.json")
 GATE_PY = os.path.join(ROOT, "artifacts", "acceptance", "final_gate_run.py")

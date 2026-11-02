@@ -8,8 +8,9 @@ the C1/C2/C3 detach experiment (Start-Process died; WMI and schtasks survived).
 Prints TRACER_PID=<pid> and returns immediately.
 """
 import subprocess, os, io, json, time, ctypes, ctypes.wintypes as wt
+from pathlib import Path
 
-ROOT = r"F:\jev"
+ROOT = str(Path(__file__).resolve().parents[2])
 PS = os.path.join(os.environ.get("SystemRoot", r"C:\Windows"),
                   "System32", "WindowsPowerShell", "v1.0", "powershell.exe")
 VENV_PY = os.path.join(ROOT, ".venv", "Scripts", "python.exe")

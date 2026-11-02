@@ -15,9 +15,10 @@ Every case below therefore uses the production call shape:
 and case 8 is a permanent regression lock on that arity mistake.
 """
 import copy, importlib.util, io, json, sys
+from pathlib import Path
 
-HARNESS = r"F:\jev\artifacts\acceptance\win_scripts\run_e07_final.py"
-EVID = r"F:\jev\artifacts\acceptance\win_scripts\E07_FINAL_EVIDENCE.json"
+HARNESS = str(Path(__file__).resolve().parents[2] / "artifacts" / "acceptance" / "win_scripts" / "run_e07_final.py")
+EVID = str(Path(__file__).resolve().parents[2] / "artifacts" / "acceptance" / "win_scripts" / "E07_FINAL_EVIDENCE.json")
 
 spec = importlib.util.spec_from_file_location("e07h", HARNESS)
 mod = importlib.util.module_from_spec(spec)
