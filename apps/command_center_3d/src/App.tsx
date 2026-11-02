@@ -752,6 +752,43 @@ export function App() {
         return <LazyWorld scene={scene} domain={domain} onGotoMissions={openTask} />;
       case "engine-world":
         return <LazyEngineWorld scene={scene} />;
+      // --- Trading Workbench (Paper Trading × Night Researcher) ---
+      case "market-overview":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyMarketOverview controlToken={controlToken} />
+          </Suspense>
+        );
+      case "trading-desk":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyTradingDesk controlToken={controlToken} />
+          </Suspense>
+        );
+      case "agent-center":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyAgentCenter controlToken={controlToken} />
+          </Suspense>
+        );
+      case "risk-management":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyRiskManagement controlToken={controlToken} />
+          </Suspense>
+        );
+      case "strategy-research":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyStrategyResearch controlToken={controlToken} />
+          </Suspense>
+        );
+      case "trading-audit":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyTradingAudit controlToken={controlToken} />
+          </Suspense>
+        );
       default:
         return <HomeView
           missions={domain.missions}
@@ -873,6 +910,25 @@ const CommandCenter3D = reactLazy(() =>
     }>,
   })),
 );
+
+/**
+ * The six Paper Trading × Night Researcher surfaces, code-split like the 3D
+ * views so they never enter the initial bundle. Each page takes only the control
+ * token it forwards to the Paper API client (ignored while USE_MOCK is true).
+ */
+const TradingPage = (name: string) =>
+  reactLazy(() =>
+    import(`./views/trading/pages/${name}`).then((m) => ({
+      default: m[name as keyof typeof m] as React.ComponentType<{ controlToken: string }>,
+    })),
+  );
+
+const LazyMarketOverview = TradingPage("MarketOverview");
+const LazyTradingDesk = TradingPage("TradingDesk");
+const LazyAgentCenter = TradingPage("AgentCenter");
+const LazyRiskManagement = TradingPage("RiskManagement");
+const LazyStrategyResearch = TradingPage("StrategyResearch");
+const LazyTradingAudit = TradingPage("TradingAudit");
 
 /**
  * The visualization surface.

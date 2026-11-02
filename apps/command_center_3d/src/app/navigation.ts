@@ -23,17 +23,22 @@ import {
   Activity,
   AlertTriangle,
   Boxes,
+  BrainCircuit,
+  CandlestickChart,
   FileCode2,
+  FlaskConical,
   FolderKanban,
   Globe2,
   Home,
   LayoutPanelLeft,
+  LineChart,
   ListChecks,
   Orbit,
   Plug,
   Rocket,
   ScrollText,
   Settings,
+  ShieldAlert,
   Stethoscope,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -62,7 +67,14 @@ export type ViewMode =
   | "table"
   | "connections"
   | "audit"
-  | "diagnostics";
+  | "diagnostics"
+  // --- trading workbench (Paper Trading × Night Researcher) — Expert Mode, Work group ---
+  | "market-overview"
+  | "trading-desk"
+  | "agent-center"
+  | "risk-management"
+  | "strategy-research"
+  | "trading-audit";
 
 /** Sidebar grouping. Order inside a group is the display order. */
 export type NavGroup = "Main" | "Work" | "System";
@@ -245,6 +257,72 @@ export const NAV_ITEMS: readonly NavItem[] = [
     description: "Runtime health, gates and honest system status",
     group: "System",
     icon: Stethoscope,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+
+  // ---------------------------------------------------------------------
+  // Trading Workbench — Paper Trading × Night Researcher.
+  // Expert Mode only, grouped under Work. Reuses the existing Provider Center
+  // concept and the Paper API; never a second provider / API-key system.
+  // ---------------------------------------------------------------------
+  {
+    id: "market-overview",
+    label: "Market Overview",
+    labelZh: "行情总览",
+    description: "BTC/ETH/ORDI 实时行情、账户资产与策略状态",
+    group: "Work",
+    icon: LineChart,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "trading-desk",
+    label: "Trading Desk",
+    labelZh: "交易台",
+    description: "K 线、订单簿、撮合下单（需人工确认）",
+    group: "Work",
+    icon: CandlestickChart,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "agent-center",
+    label: "Agent Center",
+    labelZh: "智能体中心",
+    description: "六角色（SPOTTER/PRIOR/EDGE/KELLY/TAKER/CLOSER）运行记录",
+    group: "Work",
+    icon: BrainCircuit,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "risk-management",
+    label: "Risk Management",
+    labelZh: "风险管理",
+    description: "持仓、敞口、最大回撤与风险拒绝（服务端数据）",
+    group: "Work",
+    icon: ShieldAlert,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "strategy-research",
+    label: "Strategy Research",
+    labelZh: "策略研究",
+    description: "回测 / 样本外 / 收益与策略版本表",
+    group: "Work",
+    icon: FlaskConical,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "trading-audit",
+    label: "Trading Audit",
+    labelZh: "交易审计",
+    description: "订单、成交、账本与事件回放（服务端账本一致）",
+    group: "Work",
+    icon: ScrollText,
     visibility: "advanced",
     inSidebar: true,
   },
