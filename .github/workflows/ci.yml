@@ -41,7 +41,22 @@ jobs:
         run: npx vitest run --reporter=json --outputFile=vitest-unit.json
       - name: Unit test statistics
         if: always()
-        run: node -e "const fs=require('fs');const p='vitest-unit.json';if(!fs.existsSync(p)){console.log('no unit report');process.exit(0)};const j=JSON.parse(fs.readFileSync(p,'utf8'));const s='UNIT(mock/offline): total='+j.numTotalTests+' passed='+j.numPassedTests+' failed='+j.numFailedTests+' skipped='+j.numPendingTests;console.log(s);fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### Unit tests (mock)\n\n'+s+'\n\nSkipped = LIVE_MARKET gated real-data tests. NOT a real-run pass.\n')"
+        # Block scalar + heredoc: keeps colons/spaces inside JS strings safe from
+        # YAML plain-scalar parsing (the previous inline form broke the workflow).
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'vitest-unit.json';
+          if (!fs.existsSync(p)) { console.log('no unit report'); process.exit(0); }
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const s = 'UNIT(mock/offline): total=' + j.numTotalTests +
+            ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
+            ' skipped=' + j.numPendingTests;
+          console.log(s);
+          const note = '### Unit tests (mock)\n\n' + s +
+            '\n\nSkipped = LIVE_MARKET gated real-data tests. NOT a real-run pass.\n';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, note);
+          NODE
       - name: Archive unit report (incl. failure evidence)
         if: always()
         uses: actions/upload-artifact@v4
@@ -76,7 +91,20 @@ jobs:
         run: npx vitest run src/views/trading/services/marketData.live.test.ts --reporter=json --outputFile=vitest-live.json
       - name: Live probe statistics (separate counter)
         if: always()
-        run: node -e "const fs=require('fs');const p='vitest-live.json';if(!fs.existsSync(p)){console.log('no live report');process.exit(0)};const j=JSON.parse(fs.readFileSync(p,'utf8'));const s='LIVE(real Binance): total='+j.numTotalTests+' passed='+j.numPassedTests+' failed='+j.numFailedTests+' skipped='+j.numPendingTests;console.log(s);fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,'### Live market-data probe\n\n'+s+'\n\nThese are REAL network requests; counted separately from unit tests.\n')"
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'vitest-live.json';
+          if (!fs.existsSync(p)) { console.log('no live report'); process.exit(0); }
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const s = 'LIVE(real Binance): total=' + j.numTotalTests +
+            ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
+            ' skipped=' + j.numPendingTests;
+          console.log(s);
+          const note = '### Live market-data probe\n\n' + s +
+            '\n\nThese are REAL network requests; counted separately from unit tests.\n';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, note);
+          NODE
       - name: Archive live-probe report (incl. failure evidence)
         if: always()
         uses: actions/upload-artifact@v4
