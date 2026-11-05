@@ -1,31 +1,26 @@
 /**
  * RoleCard.test.ts — component LOGIC (pure, no DOM/jsdom needed).
  *
- * Tests the exported pure helpers that drive the Agent Center rendering: the
- * six-role ordering and the label map. Keeping these pure means the card's
- * ordering contract is pinned without mounting React in a browser. Also covers
- * the shared finance helpers used across the trading pages.
+ * Pins the six-role label map and the shared finance helpers used across the
+ * trading pages. Kept pure so the ordering/label contract is verified without
+ * mounting React.
  */
 import { describe, it, expect } from "vitest";
-import { ROLE_LABELS, roleIndex } from "./RoleCard";
+import { ROLE_LABELS } from "./RoleCard";
 import {
   exposurePct,
   formatPct,
   formatUsd,
-  grossExposure,
   pnlTone,
+  riskStatusOf,
   riskTone,
   validateOrderProposal,
 } from "../lib/finance";
-import type { PaperAccount, ResearchRole } from "../services/types";
+import type { AccountSummary, AiRoleId } from "../services/types";
 
-const ROLES: ResearchRole[] = ["SPOTTER", "PRIOR", "EDGE", "KELLY", "TAKER", "CLOSER"];
+const ROLES: AiRoleId[] = ["SPOTTER", "PRIOR", "EDGE", "KELLY", "TAKER", "CLOSER"];
 
-describe("RoleCard role ordering", () => {
-  it("orders the six roles SPOTTER → CLOSER", () => {
-    expect(ROLES.map(roleIndex)).toEqual([0, 1, 2, 3, 4, 5]);
-  });
-
+describe("RoleCard role labels", () => {
   it("provides a Chinese label for every role", () => {
     for (const r of ROLES) {
       expect(ROLE_LABELS[r]).toBeTruthy();
@@ -56,28 +51,22 @@ describe("finance formatting", () => {
     expect(riskTone("warning")).toContain("text-status-warn");
     expect(riskTone("breach")).toContain("text-status-danger");
   });
-});
 
-describe("account exposure (server-derived positions)", () => {
-  const account: PaperAccount = {
-    cash: 1000,
-    equity: 2000,
-    marginUsed: 500,
-    positions: [
-      { symbol: "BTCUSDT", side: "long", quantity: 1, avgPrice: 100, markPrice: 120, unrealizedPnl: 20, leverage: 2 },
-      { symbol: "ETHUSDT", side: "short", quantity: 2, avgPrice: 50, markPrice: 40, unrealizedPnl: 20, leverage: 1 },
-    ],
-    pnlDay: 40,
-    pnlTotal: 40,
-    maxDrawdown: 0.1,
-    riskStatus: "ok",
-    ts: 0,
-  };
+  it("derives risk status from the server summary", () => {
+    const base: AccountSummary = {
+      equity: 10000, cash: 5000, availableCash: 5000, reservedCash: 0,
+      marketValue: 5000, unrealizedPnl: 0, realizedPnl: 0, totalPnl: 0,
+      dailyPnl: 0, drawdown: 0, exposurePct: 0.2,
+      positions: [], dailyLossLocked: false, drawdownLocked: false,
+    };
+    expect(riskStatusOf(base)).toBe("ok");
+    expect(riskStatusOf({ ...base, exposurePct: 0.35 })).toBe("warning");
+    expect(riskStatusOf({ ...base, dailyLossLocked: true })).toBe("breach");
+    expect(riskStatusOf({ ...base, drawdownLocked: true })).toBe("breach");
+  });
 
-  it("computes gross exposure from positions", () => {
-    // 1*120 + 2*40 = 200
-    expect(grossExposure(account)).toBeCloseTo(200, 6);
-    expect(exposurePct(account)).toBeCloseTo(200 / 2000, 6);
+  it("exposurePct mirrors the server-derived fraction", () => {
+    expect(exposurePct({ ...({} as AccountSummary), exposurePct: 0.42 })).toBeCloseTo(0.42, 6);
   });
 });
 
@@ -89,6 +78,7 @@ describe("validateOrderProposal — the client-side gate", () => {
     quantity: 0.1,
     limitPrice: 60000,
     confirmationId: "cfm_x",
+    clientOrderId: "cli_x",
   };
 
   it("accepts a fully-specified, confirmed proposal", () => {

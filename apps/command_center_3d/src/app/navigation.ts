@@ -71,6 +71,7 @@ export type ViewMode =
   // --- trading workbench (Paper Trading × Night Researcher) — Expert Mode, Work group ---
   | "market-overview"
   | "trading-desk"
+  | "market-universe"
   | "agent-center"
   | "risk-management"
   | "strategy-research"
@@ -265,12 +266,13 @@ export const NAV_ITEMS: readonly NavItem[] = [
   // Trading Workbench — Paper Trading × Night Researcher.
   // Expert Mode only, grouped under Work. Reuses the existing Provider Center
   // concept and the Paper API; never a second provider / API-key system.
+  // V4.0 six-page taxonomy (01–06) + the supplementary audit trail.
   // ---------------------------------------------------------------------
   {
     id: "market-overview",
-    label: "Market Overview",
-    labelZh: "行情总览",
-    description: "BTC/ETH/ORDI 实时行情、账户资产与策略状态",
+    label: "AI Trading Command Center",
+    labelZh: "01 · AI 交易指挥中心",
+    description: "行情总览、账户资产与策略状态（机构级仪表盘）",
     group: "Work",
     icon: LineChart,
     visibility: "advanced",
@@ -278,8 +280,8 @@ export const NAV_ITEMS: readonly NavItem[] = [
   },
   {
     id: "trading-desk",
-    label: "Trading Desk",
-    labelZh: "交易台",
+    label: "Pro Trading Desk",
+    labelZh: "02 · 专业交易工作站",
     description: "K 线、订单簿、撮合下单（需人工确认）",
     group: "Work",
     icon: CandlestickChart,
@@ -287,19 +289,29 @@ export const NAV_ITEMS: readonly NavItem[] = [
     inSidebar: true,
   },
   {
-    id: "agent-center",
-    label: "Agent Center",
-    labelZh: "智能体中心",
-    description: "六角色（SPOTTER/PRIOR/EDGE/KELLY/TAKER/CLOSER）运行记录",
+    id: "market-universe",
+    label: "3D Market Universe",
+    labelZh: "03 · 3D 市场宇宙",
+    description: "资产相关性网络（实时 K 线计算，无假资金流）",
     group: "Work",
-    icon: BrainCircuit,
+    icon: Boxes,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "strategy-research",
+    label: "Strategy Arena",
+    labelZh: "04 · 策略竞技场",
+    description: "回测 / 样本外 / 收益与策略版本（OOS 门禁）",
+    group: "Work",
+    icon: FlaskConical,
     visibility: "advanced",
     inSidebar: true,
   },
   {
     id: "risk-management",
-    label: "Risk Management",
-    labelZh: "风险管理",
+    label: "Paper Account",
+    labelZh: "05 · 模拟交易账户",
     description: "持仓、敞口、最大回撤与风险拒绝（服务端数据）",
     group: "Work",
     icon: ShieldAlert,
@@ -307,12 +319,12 @@ export const NAV_ITEMS: readonly NavItem[] = [
     inSidebar: true,
   },
   {
-    id: "strategy-research",
-    label: "Strategy Research",
-    labelZh: "策略研究",
-    description: "回测 / 样本外 / 收益与策略版本表",
+    id: "agent-center",
+    label: "AI Expert Team",
+    labelZh: "06 · AI 专家团队",
+    description: "六角色（SPOTTER/PRIOR/EDGE/KELLY/TAKER/CLOSER）运行记录",
     group: "Work",
-    icon: FlaskConical,
+    icon: BrainCircuit,
     visibility: "advanced",
     inSidebar: true,
   },

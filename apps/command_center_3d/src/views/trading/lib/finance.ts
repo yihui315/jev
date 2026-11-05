@@ -7,11 +7,10 @@
  * bad side/type, or a non-positive quantity can never reach `createPaperOrder`.
  */
 import type {
-  AccountRiskStatus,
-  OrderSide,
+  AccountSummary,
+  OrderProposal,
   OrderType,
-  PaperAccount,
-  PaperOrderProposal,
+  Side,
 } from "../services/types";
 
 /** Format a number as USD with 2 decimals and thousands separators. */
@@ -45,28 +44,28 @@ export function toneClass(n: number): string {
   return t === "up" ? "text-status-ok" : t === "down" ? "text-status-danger" : "text-muted-foreground";
 }
 
-/** Total notional exposure across all positions, quote currency. */
-export function grossExposure(account: PaperAccount): number {
-  return account.positions.reduce(
-    (sum, p) => sum + Math.abs(p.quantity) * p.markPrice,
-    0,
-  );
+/** Server-derived exposure fraction (mirrors `summary.exposurePct`). */
+export function exposurePct(summary: AccountSummary): number {
+  return summary.exposurePct;
 }
 
-/** Gross exposure as a fraction of equity. */
-export function exposurePct(account: PaperAccount): number {
-  if (account.equity <= 0) return 0;
-  return grossExposure(account) / account.equity;
+export type RiskStatus = "ok" | "warning" | "breach";
+
+/** Derive a UI risk status from the server summary. */
+export function riskStatusOf(summary: AccountSummary): RiskStatus {
+  if (summary.dailyLossLocked || summary.drawdownLocked) return "breach";
+  if (summary.exposurePct >= 0.3) return "warning";
+  return "ok";
 }
 
-/** Server risk status -> a tone class for the badge. */
-export function riskTone(status: AccountRiskStatus): string {
+/** Risk status -> a tone class for the badge. */
+export function riskTone(status: RiskStatus): string {
   if (status === "breach") return "text-status-danger border-status-danger/40 bg-status-danger/10";
   if (status === "warning") return "text-status-warn border-status-warn/40 bg-status-warn/10";
   return "text-status-ok border-status-ok/40 bg-status-ok/10";
 }
 
-export const VALID_SIDES: readonly OrderSide[] = ["BUY", "SELL"];
+export const VALID_SIDES: readonly Side[] = ["BUY", "SELL"];
 export const VALID_TYPES: readonly OrderType[] = ["MARKET", "LIMIT"];
 
 export interface ValidationResult {
@@ -82,7 +81,7 @@ export interface ValidationResult {
  * `MISSING_CONFIRMATION` when the human confirmation is absent. A LIMIT order
  * must carry a positive limit price.
  */
-export function validateOrderProposal(p: PaperOrderProposal): ValidationResult {
+export function validateOrderProposal(p: OrderProposal): ValidationResult {
   if (!VALID_SIDES.includes(p.side)) {
     return { ok: false, error: `invalid side: ${String(p.side)}` };
   }

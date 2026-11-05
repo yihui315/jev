@@ -20,8 +20,10 @@ export function PageContainer({
   wide?: boolean;
   children: ReactNode;
 }) {
+  // `jev-trading` scopes the V4.0 navy/cyan institutional theme to the trading
+  // subsystem only — JEV's global token layer is never touched.
   return (
-    <PageBody wide={wide}>
+    <PageBody wide={wide} className="jev-trading">
       <PageHeader title={title} description={description} actions={actions} />
       {children}
     </PageBody>

@@ -33,7 +33,7 @@ export function DepthBar({
       <span className={cn("relative z-10", isBid ? "text-status-ok" : "text-status-danger")}>
         {level.price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
       </span>
-      <span className="relative z-10 text-muted-foreground">{level.size.toFixed(2)}</span>
+      <span className="relative z-10 text-muted-foreground">{level.qty.toFixed(2)}</span>
       <span className="relative z-10 text-muted-foreground">{level.total.toFixed(2)}</span>
     </div>
   );

@@ -1,327 +1,343 @@
 /**
- * trading/services/mockData — typed fake data for the Paper Trading workbench.
+ * trading/services/mockData — OFFLINE, spot-only mock data.
  *
- * This is the ONLY data the UI draws on while `USE_MOCK` is true (the default
- * until the backend is merged). Every object satisfies the interfaces in
- * types.ts, so flipping `USE_MOCK` to false requires no change in the pages —
- * they keep receiving the same shapes from the real client.
- *
- * NO real exchange, NO real funds, NO fake "test passed". The mock is explicitly
- * a stand-in for a not-yet-deployed backend.
+ * Shapes are identical to the real API envelopes (see README.md). The mock
+ * client resolves these; flipping `USE_MOCK` to false binds the real Night
+ * Researcher Paper API with NO page changes. No leverage, no short/long — spot.
  */
 import type {
+  AccountResponse,
+  AccountSummary,
   Candle,
+  Fill,
   Interval,
-  LedgerEvent,
   OrderBook,
+  OrderBookLevel,
   PaperAccount,
   PaperOrder,
-  ResearchRun,
-  RoleRun,
-  Strategy,
+  ResearchRunResult,
+  ServerEvent,
   Symbol,
+  Ticker,
 } from "./types";
 
-const NOW = Date.now();
+const SYMBOLS: Symbol[] = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
 
-function buildCandles(base: number, n = 60, drift = 0): Candle[] {
-  const out: Candle[] = [];
-  let price = base * (1 - drift);
-  const step = (base * drift) / n || base * 0.0008;
-  for (let i = n; i > 0; i--) {
-    const time = Math.floor(NOW / 1000) - i * 300;
-    const open = price;
-    const close = price + (Math.sin(i * 1.3) * base) / 400 + step;
-    const high = Math.max(open, close) + (base / 800) * Math.abs(Math.cos(i));
-    const low = Math.min(open, close) - (base / 800) * Math.abs(Math.sin(i * 0.7));
-    const volume = Math.round(50 + Math.abs(Math.sin(i * 0.5)) * 950);
-    out.push({
-      time,
-      open: round2(open),
-      high: round2(high),
-      low: round2(low),
-      close: round2(close),
-      volume,
-    });
-    price = close;
+export const MOCK_TICKERS: Ticker[] = [
+  { symbol: "BTCUSDT", price: 67000 },
+  { symbol: "ETHUSDT", price: 3300 },
+  { symbol: "ORDIUSDT", price: 0.85 },
+  { symbol: "1000SATSUSDT", price: 0.00032 },
+];
+
+/** Shared market factor so the mock series show realistic cross-asset
+ *  correlation (BTC/ETH/etc. move together), instead of four independent
+ *  noises that would render every correlation edge invisible offline. This is
+ *  still explicitly mock data — it only makes the correlation scene meaningful
+ *  in demo mode; the real API path computes correlation from live Binance. */
+let _marketWalk: number[] | null = null;
+function marketWalk(n: number): number[] {
+  if (_marketWalk && _marketWalk.length >= n) return _marketWalk.slice(0, n);
+  const out: number[] = [];
+  let v = 1;
+  let s = 99173;
+  for (let i = 0; i < n; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const r = (s / 0x7fffffff - 0.5) * 2 * 0.008;
+    v = Math.max(v * (1 + r), 0.5);
+    out.push(v);
+  }
+  _marketWalk = out;
+  return out;
+}
+
+/** Deterministic pseudo-random walk so offline renders and tests are stable. */
+function walk(seed: number, base: number, n: number, vol: number): number[] {
+  const out: number[] = [];
+  let v = base;
+  let s = seed;
+  for (let i = 0; i < n; i++) {
+    s = (s * 1103515245 + 12345) & 0x7fffffff;
+    const r = (s / 0x7fffffff - 0.5) * 2 * vol;
+    v = Math.max(v * (1 + r), base * 0.5);
+    out.push(v);
   }
   return out;
 }
 
-function round2(n: number): number {
-  return Math.round(n * 100) / 100;
+export function mockCandles(symbol: Symbol, interval: Interval, limit = 120): Candle[] {
+  const ticker = MOCK_TICKERS.find((t) => t.symbol === symbol);
+  const base = ticker ? ticker.price : 1;
+  const vol = symbol === "BTCUSDT" ? 0.01 : symbol === "ETHUSDT" ? 0.012 : 0.02;
+  const mw = marketWalk(limit);
+  const idio = walk(symbol.length * 7919 + limit, 1, limit, vol);
+  // 70% shared market factor + 30% idiosyncratic → realistic positive corr.
+  const closes = mw.map((m, i) => base * (0.7 * m + 0.3 * idio[i]));
+  const start = Math.floor(Date.now() / 1000) - limit * 300;
+  const ms = intervalMinutes(interval) * 60;
+  return closes.map((c, i) => {
+    const open = i === 0 ? c * 0.999 : closes[i - 1];
+    const high = Math.max(open, c) * (1 + vol * 0.3);
+    const low = Math.min(open, c) * (1 - vol * 0.3);
+    const volume = 50 + (i % 7) * 13;
+    return {
+      time: start + i * ms,
+      open: round(open),
+      high: round(high),
+      low: round(low),
+      close: round(c),
+      volume,
+    };
+  });
 }
 
-function lastOf(candles: Candle[]): number {
-  return candles[candles.length - 1]?.close ?? 0;
-}
-
-function mkSnapshot(symbol: Symbol, interval: Interval, base: number) {
-  const candles = buildCandles(base, 60, 0.02);
-  const open = candles[0].open;
-  const last = lastOf(candles);
-  return {
-    symbol,
-    interval,
-    last: round2(last),
-    changePct: round2(((last - open) / open) * 100),
-    open: round2(open),
-    high: round2(Math.max(...candles.map((c) => c.high))),
-    low: round2(Math.min(...candles.map((c) => c.low))),
-    volume: candles.reduce((s, c) => s + c.volume, 0),
-    ts: NOW,
-    candles,
+function intervalMinutes(interval: Interval): number {
+  const map: Record<string, number> = {
+    "1m": 1, "3m": 3, "5m": 5, "15m": 15, "30m": 30,
+    "1h": 60, "2h": 120, "4h": 240, "6h": 360, "8h": 480, "12h": 720,
+    "1d": 1440, "3d": 4320, "1w": 10080, "1M": 43200,
   };
+  return map[interval] ?? 5;
 }
 
-export const MOCK_MARKET_SNAPSHOTS = {
-  BTCUSDT: mkSnapshot("BTCUSDT", "5m", 67250),
-  ETHUSDT: mkSnapshot("ETHUSDT", "5m", 3285),
-  ORDIUSDT: mkSnapshot("ORDIUSDT", "5m", 38.4),
-};
+function round(n: number): number {
+  return Math.round(n * 1e8) / 1e8;
+}
 
-export const MOCK_QUOTES = Object.values(MOCK_MARKET_SNAPSHOTS);
-
-export const MOCK_ORDERBOOKS: Record<Symbol, OrderBook> = {
-  BTCUSDT: mkOrderBook("BTCUSDT", 67250),
-  ETHUSDT: mkOrderBook("ETHUSDT", 3285),
-  ORDIUSDT: mkOrderBook("ORDIUSDT", 38.4),
-};
-
-function mkOrderBook(symbol: Symbol, mid: number): OrderBook {
-  const bids = [];
-  const asks = [];
-  let bidTotal = 0;
-  let askTotal = 0;
-  for (let i = 1; i <= 10; i++) {
-    const size = round2(0.5 + Math.abs(Math.sin(i)) * 3.2);
-    bidTotal += size;
-    bids.push({ price: round2(mid - i * (mid * 0.0004)), size, total: round2(bidTotal) });
-    const aSize = round2(0.5 + Math.abs(Math.cos(i)) * 3.0);
-    askTotal += aSize;
-    asks.push({ price: round2(mid + i * (mid * 0.0004)), size: aSize, total: round2(askTotal) });
+export function mockOrderBook(symbol: Symbol, depth = 12): OrderBook {
+  const ticker = MOCK_TICKERS.find((t) => t.symbol === symbol);
+  const mid = ticker ? ticker.price : 1;
+  const tick = mid * 0.0002;
+  let cumB = 0;
+  let cumA = 0;
+  const bids: OrderBookLevel[] = [];
+  const asks: OrderBookLevel[] = [];
+  for (let i = 0; i < depth; i++) {
+    const bq = round(0.5 + (i % 3) * 0.4);
+    const aq = round(0.5 + ((i + 1) % 3) * 0.4);
+    cumB += bq;
+    cumA += aq;
+    bids.push({ price: round(mid - tick * (i + 1)), qty: bq, total: cumB });
+    asks.push({ price: round(mid + tick * (i + 1)), qty: aq, total: cumA });
   }
-  return { venue: "PAPER-BOOK", symbol, bids, asks, ts: NOW };
+  return {
+    venue: "binance-spot",
+    symbol,
+    lastUpdateId: 1_000_000,
+    bids,
+    asks,
+    source: "Binance public REST depth snapshot (mock)",
+    receivedAt: new Date().toISOString(),
+  };
 }
 
-export const MOCK_ACCOUNT: PaperAccount = {
-  cash: 81250.44,
-  equity: 100412.18,
-  marginUsed: 19161.74,
-  positions: [
-    {
-      symbol: "BTCUSDT",
-      side: "long",
-      quantity: 0.35,
-      avgPrice: 64120.5,
-      markPrice: 67250,
-      unrealizedPnl: (67250 - 64120.5) * 0.35,
-      leverage: 3,
-    },
-    {
-      symbol: "ETHUSDT",
-      side: "long",
-      quantity: 4.2,
-      avgPrice: 3010.25,
-      markPrice: 3285,
-      unrealizedPnl: (3285 - 3010.25) * 4.2,
-      leverage: 2,
-    },
-    {
-      symbol: "ORDIUSDT",
-      side: "short",
-      quantity: 120,
-      avgPrice: 41.1,
-      markPrice: 38.4,
-      unrealizedPnl: (41.1 - 38.4) * 120,
-      leverage: 1,
-    },
-  ],
-  pnlDay: 1284.6,
-  pnlTotal: 18412.18,
-  maxDrawdown: 0.094,
-  riskStatus: "warning",
-  ts: NOW,
-};
+// --- Account (spot-only, no leverage) -------------------------------------
 
-export const MOCK_STRATEGIES: Strategy[] = [
-  {
-    strategyId: "strat-night-mean-rev",
-    name: "Night Mean Reversion",
-    version: "v3.2.1",
-    returns: 0.412,
-    sharpe: 1.84,
-    maxDrawdown: 0.072,
-    winRate: 0.63,
-    backtestPeriod: "2023-01..2024-06",
-    oosPeriod: "2024-07..2025-09",
-    status: "active",
-  },
-  {
-    strategyId: "strat-breakout-tape",
-    name: "Tape Breakout",
-    version: "v1.9.0",
-    returns: 0.287,
-    sharpe: 1.21,
-    maxDrawdown: 0.141,
-    winRate: 0.51,
-    backtestPeriod: "2023-01..2024-06",
-    oosPeriod: "2024-07..2025-09",
-    status: "active",
-  },
-  {
-    strategyId: "strat-micro-structure",
-    name: "Microstructure Edge",
-    version: "v0.7.3",
-    returns: 0.158,
-    sharpe: 0.96,
-    maxDrawdown: 0.058,
-    winRate: 0.55,
-    backtestPeriod: "2023-06..2024-06",
-    oosPeriod: "2024-07..2025-09",
-    status: "shadow",
-  },
-  {
-    strategyId: "strat-legacy-mom",
-    name: "Legacy Momentum",
-    version: "v2.0.0",
-    returns: 0.091,
-    sharpe: 0.44,
-    maxDrawdown: 0.233,
-    winRate: 0.47,
-    backtestPeriod: "2022-01..2023-12",
-    oosPeriod: "2024-01..2024-12",
-    status: "retired",
-  },
-];
-
-/** One six-role run, returned by getResearchRun. */
-export const MOCK_RESEARCH_RUN: ResearchRun = {
-  runId: "run_night_8f3a21",
-  providerId: "openai",
-  symbols: ["BTCUSDT", "ETHUSDT"],
-  snapshotId: "snap_2025-09-30T14:05:00Z",
-  strategyVersion: "v3.2.1",
-  modelOverride: "gpt-5-mini",
-  createdAt: NOW - 1000 * 60 * 3,
-  roles: buildSixRoles(),
-};
-
-function buildSixRoles(): RoleRun[] {
-  const providers: Record<string, { model: string; provider: string }> = {
-    SPOTTER: { model: "gpt-5-mini", provider: "openai" },
-    PRIOR: { model: "claude-opus-4", provider: "anthropic" },
-    EDGE: { model: "gemini-2.5-pro", provider: "google" },
-    KELLY: { model: "gpt-5", provider: "openai" },
-    TAKER: { model: "claude-opus-4", provider: "anthropic" },
-    CLOSER: { model: "gpt-5-mini", provider: "openai" },
+function summarize(account: PaperAccount, marks: Record<string, number>): AccountSummary {
+  let marketValue = 0;
+  let unrealizedPnl = 0;
+  const positions = Object.entries(account.positions).map(([symbol, p]) => {
+    const mark = marks[symbol] ?? p.avgPrice;
+    const mv = p.qty * mark;
+    const upnl = (mark - p.avgPrice) * p.qty;
+    marketValue += mv;
+    unrealizedPnl += upnl;
+    return {
+      symbol: symbol as Symbol,
+      qty: p.qty,
+      avgPrice: p.avgPrice,
+      mark,
+      marketValue: mv,
+      unrealizedPnl: upnl,
+      reservedQty: p.reservedQty,
+    };
+  });
+  const equity = account.cash + marketValue;
+  const drawdown = account.equityPeak > 0 && equity < account.equityPeak
+    ? (account.equityPeak - equity) / account.equityPeak
+    : 0;
+  const dailyPnl = equity - account.dayStartEquity;
+  return {
+    equity,
+    cash: account.cash,
+    availableCash: account.cash - account.reservedCash,
+    reservedCash: account.reservedCash,
+    marketValue,
+    unrealizedPnl,
+    realizedPnl: account.realizedPnl,
+    totalPnl: equity - account.initialCash,
+    dailyPnl,
+    drawdown,
+    exposurePct: equity > 0 ? marketValue / equity : 0,
+    positions,
+    dailyLossLocked: dailyPnl <= -account.dayStartEquity * 0.03,
+    drawdownLocked: drawdown >= 0.1,
   };
-  const decisions: Record<string, { decision: string; rejectionReason?: string }> = {
-    SPOTTER: { decision: "MOMENTUM_BIAS_UP on BTCUSDT/ETHUSDT" },
-    PRIOR: { decision: "PRIORITIZE BTCUSDT — liquidity best, edge stable" },
-    EDGE: { decision: "EDGE_OK — expected value +1.8% per unit risk" },
-    KELLY: { decision: "KELLY_FRACTION 0.18 of risk budget" },
-    TAKER: {
-      decision: "PROPOSAL_BLOCKED",
-      rejectionReason: "Size exceeds intraday drawdown limit (KELLY 0.18 > cap 0.15)",
-    },
-    CLOSER: { decision: "NO_ACTION — awaiting human confirmation" },
-  };
-  const order: RoleRun["role"][] = ["SPOTTER", "PRIOR", "EDGE", "KELLY", "TAKER", "CLOSER"];
-  return order.map((role, i) => ({
-    role,
-    decision: decisions[role].decision,
-    rejectionReason: decisions[role].rejectionReason,
-    model: providers[role].model,
-    provider: providers[role].provider,
-    tokensUsed: 1200 + i * 340,
-    latencyMs: 180 + i * 47,
-  }));
 }
 
-export const MOCK_LEDGER: LedgerEvent[] = [
+const MOCK_ACCOUNT: PaperAccount = {
+  version: 1,
+  generation: 1,
+  initialCash: 10000,
+  cash: 7300,
+  reservedCash: 0,
+  positions: {
+    BTCUSDT: { qty: 0.03, avgPrice: 60000, reservedQty: 0 },
+    ETHUSDT: { qty: 0.3, avgPrice: 3000, reservedQty: 0 },
+  },
+  orders: [],
+  trades: [],
+  lastBookSequence: {},
+  realizedPnl: 0,
+  equityPeak: 10300,
+  dayKey: new Date().toISOString().slice(0, 10),
+  dayStartEquity: 10000,
+  createdAt: new Date(Date.now() - 86400000).toISOString(),
+  updatedAt: new Date().toISOString(),
+};
+
+const MOCK_MARKS: Record<string, number> = {
+  BTCUSDT: 67000,
+  ETHUSDT: 3300,
+  ORDIUSDT: 0.85,
+  "1000SATSUSDT": 0.00032,
+};
+
+export function mockAccountResponse(): AccountResponse {
+  const account: PaperAccount = JSON.parse(JSON.stringify(MOCK_ACCOUNT));
+  // Seed the demo orders so the audit / risk pages have data offline. The
+  // account remains the single source of truth (no localStorage authority).
+  account.orders = JSON.parse(JSON.stringify(MOCK_SEED_ORDERS));
+  return {
+    ok: true,
+    mode: "server-authoritative-paper",
+    account,
+    marks: { ...MOCK_MARKS },
+    summary: summarize(account, MOCK_MARKS),
+    markQuality: "verified",
+    version: account.version,
+    stateHash: "mock-state-hash",
+  };
+}
+
+// --- Seed orders / trades (for the audit page) -----------------------------
+
+function mkOrder(o: Partial<PaperOrder> & Pick<PaperOrder, "id" | "symbol" | "side" | "type" | "status">): PaperOrder {
+  return {
+    clientOrderId: "mock_" + o.id,
+    confirmationId: "cfm_mock_" + o.id,
+    qty: o.qty ?? 0.01,
+    limitPrice: o.limitPrice ?? null,
+    filledQty: o.filledQty ?? 0,
+    remainingQty: o.remainingQty ?? 0,
+    avgFillPrice: o.avgFillPrice ?? null,
+    fee: o.fee ?? 0,
+    realizedPnl: o.realizedPnl ?? null,
+    reservedCash: o.reservedCash ?? 0,
+    reservedQty: o.reservedQty ?? 0,
+    rejectionCode: o.rejectionCode ?? null,
+    reason: o.reason ?? null,
+    timeInForce: o.type === "MARKET" ? "IOC" : "GTC",
+    bookSequence: o.bookSequence ?? 1,
+    bookReceivedAt: o.bookReceivedAt ?? new Date().toISOString(),
+    createdAt: o.createdAt ?? new Date().toISOString(),
+    updatedAt: o.updatedAt ?? new Date().toISOString(),
+    terminalAt: o.terminalAt ?? null,
+    fillCount: o.fillCount ?? 0,
+    ...o,
+  } as PaperOrder;
+}
+
+export const MOCK_SEED_ORDERS: PaperOrder[] = [
+  mkOrder({
+    id: "O-mock-1", symbol: "BTCUSDT", side: "BUY", type: "MARKET", status: "FILLED",
+    qty: 0.03, filledQty: 0.03, remainingQty: 0, avgFillPrice: 60000, fee: 0.18, fillCount: 1,
+  }),
+  mkOrder({
+    id: "O-mock-2", symbol: "ETHUSDT", side: "BUY", type: "LIMIT", status: "PARTIALLY_FILLED",
+    qty: 0.5, limitPrice: 3000, filledQty: 0.3, remainingQty: 0.2, avgFillPrice: 3000, fee: 0.09, fillCount: 1,
+    reservedCash: 600,
+  }),
+  mkOrder({
+    id: "O-mock-3", symbol: "ORDIUSDT", side: "BUY", type: "MARKET", status: "REJECTED",
+    qty: 100, filledQty: 0, remainingQty: 0, rejectionCode: "MAX_EXPOSURE", reason: "超过总持仓敞口上限（账户净值的 40%）",
+  }),
+];
+
+export const MOCK_SERVER_EVENTS: ServerEvent[] = [
   {
-    eventId: "evt_a1",
-    ts: NOW - 1000 * 60 * 12,
-    type: "RESEARCH",
-    note: "run_night_8f3a21 completed — TAKER blocked on size cap",
+    seq: 1, eventId: "e1", commandId: "account-opened", eventType: "paper.server.account.snapshot",
+    schemaVersion: 1, payload: { account: MOCK_ACCOUNT }, createdAt: new Date(Date.now() - 86400000).toISOString(),
   },
   {
-    eventId: "evt_a2",
-    ts: NOW - 1000 * 60 * 9,
-    type: "ORDER",
-    symbol: "BTCUSDT",
-    quantity: 0.1,
-    price: 67120,
-    amount: -6712,
-    note: "LIMIT BUY 0.1 BTCUSDT @ 67120 (confirmed by operator)",
+    seq: 2, eventId: "e2", commandId: "order:mock-1", eventType: "paper.server.order.created",
+    schemaVersion: 1, payload: { order: MOCK_SEED_ORDERS[0] }, createdAt: new Date(Date.now() - 3600000).toISOString(),
   },
   {
-    eventId: "evt_a3",
-    ts: NOW - 1000 * 60 * 8,
-    type: "FILL",
-    symbol: "BTCUSDT",
-    quantity: 0.1,
-    price: 67120,
-    amount: -6712,
-    note: "FILLED 0.1 BTCUSDT @ 67120",
+    seq: 3, eventId: "e3", commandId: "order:mock-1", eventType: "paper.server.order.filled",
+    schemaVersion: 1, payload: { orderId: "O-mock-1" }, createdAt: new Date(Date.now() - 3600000).toISOString(),
   },
   {
-    eventId: "evt_a4",
-    ts: NOW - 1000 * 60 * 5,
-    type: "RISK_BREACH",
-    symbol: "ORDIUSDT",
-    note: "Margin utilisation 82% — soft warning, no auto-liquidation",
-  },
-  {
-    eventId: "evt_a5",
-    ts: NOW - 1000 * 60 * 2,
-    type: "CANCEL",
-    symbol: "ETHUSDT",
-    quantity: 0.5,
-    note: "CANCELLED LIMIT BUY 0.5 ETHUSDT @ 3190 (operator)",
+    seq: 4, eventId: "e4", commandId: "order:mock-3", eventType: "paper.server.order.rejected",
+    schemaVersion: 1, payload: { order: MOCK_SEED_ORDERS[2], reason: "MAX_EXPOSURE" }, createdAt: new Date(Date.now() - 1800000).toISOString(),
   },
 ];
 
-/** A small set of pre-existing orders for the audit page. */
-export const MOCK_ORDERS: PaperOrder[] = [
-  {
-    orderId: "ord_btc_1",
-    symbol: "BTCUSDT",
-    side: "BUY",
-    type: "LIMIT",
-    quantity: 0.1,
-    limitPrice: 67120,
-    status: "FILLED",
-    filledQty: 0.1,
-    avgFillPrice: 67120,
-    confirmationId: "cfm_op_7c2",
-    researchRunId: "run_night_8f3a21",
-    createdAt: NOW - 1000 * 60 * 9,
-  },
-  {
-    orderId: "ord_eth_1",
-    symbol: "ETHUSDT",
-    side: "BUY",
-    type: "LIMIT",
-    quantity: 0.5,
-    limitPrice: 3190,
-    status: "CANCELLED",
-    filledQty: 0,
-    confirmationId: "cfm_op_9d1",
-    createdAt: NOW - 1000 * 60 * 2,
-  },
-  {
-    orderId: "ord_ordi_1",
-    symbol: "ORDIUSDT",
-    side: "SELL",
-    type: "MARKET",
-    quantity: 120,
-    status: "FILLED",
-    filledQty: 120,
-    avgFillPrice: 38.4,
-    confirmationId: "cfm_op_4a8",
-    researchRunId: "run_night_8f3a21",
-    createdAt: NOW - 1000 * 60 * 30,
-  },
-];
+// --- Research run (mirrors real server: KELLY/TAKER BLOCKED with null metrics)
+// ---------------------------------------------------------------------------
+
+export function mockResearchRun(symbols: Symbol[], provider: string, model?: string): ResearchRunResult {
+  const runId = "run_mock_" + Math.random().toString(36).slice(2, 10);
+  const startedAt = new Date().toISOString();
+  return {
+    ok: true,
+    runId,
+    snapshotHash: "mock-snapshot-hash",
+    promptVersion: "nr-agent-research-v1",
+    provider,
+    requestedModel: model ?? "default",
+    startedAt,
+    completedAt: startedAt,
+    durationMs: 0,
+    runMode: "research-only",
+    roles: ["SPOTTER", "PRIOR", "EDGE", "KELLY", "TAKER", "CLOSER"],
+    outputs: {
+      SPOTTER: {
+        title: "机会发现",
+        opportunities: symbols.map((s) => ({
+          symbol: s, setup: "区间震荡中的突破观察", evidence: ["价格位于近期区间上沿"], missing_data: ["成交量确认"], watch_only: true,
+        })),
+        model: model ?? "default",
+      },
+      PRIOR: {
+        title: "市场先验", regime: "range", prior_confidence: 0.5, evidence: ["盘整"], counter_evidence: ["突发新闻"], unknowns: ["资金流向"],
+        model: model ?? "default",
+      },
+      EDGE: {
+        title: "优势验证", verdict: "WATCH", symbol: "", side: "WATCH", hypothesis: "需更多样本验证", edge_source: "结构突破", entry_trigger: "放量突破", invalidation: "跌破区间",
+        costs_to_test: ["手续费", "滑点"], required_evidence: ["OOS 样本"], model: model ?? "default",
+      },
+      KELLY: {
+        status: "BLOCKED", allocationPct: 0, fullKellyPct: 0, conservativeWinRate: null, sampleCount: 0, oosTrades: 0,
+        reasons: ["策略未同时通过历史与 OOS 放行门禁", "全样本有效交易数不足 100", "OOS 有效交易数不足 30"],
+      },
+      TAKER: {
+        status: "BLOCKED", symbol: "", side: "WATCH", autoSubmit: false, requiresManualConfirmation: true,
+        reason: "EDGE 未给出 RESEARCH 结论，TAKER 不得创建提案（研究运行无服务端校验的回测/OOS 指标）",
+      },
+      CLOSER: {
+        title: "退出与复盘", decision: "MONITOR", exit_conditions: ["触及失效条件"], failure_modes: ["流动性骤降"], next_validation: ["等待 OOS 样本"], final_risk_note: "仅研究结论，不构成订单授权",
+        model: model ?? "default",
+      },
+    },
+    usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+    safety: {
+      autoExecution: false,
+      liveTrading: false,
+      paperOrderCreated: false,
+      note: "AI 只产生研究结论；KELLY 与 TAKER 为确定性程序；任何模拟订单都必须由用户点击并重新通过 paper-engine 风控",
+    },
+  };
+}
+
+export { SYMBOLS };

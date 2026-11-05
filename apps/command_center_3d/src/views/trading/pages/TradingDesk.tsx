@@ -1,10 +1,11 @@
 /**
- * trading/pages/TradingDesk — 交易台
+ * trading/pages/TradingDesk — 交易台 (02 专业交易工作台 的子集)
  *
- * K-line (lightweight-charts with SVG fallback), an order book + depth, and a
- * mock order entry. The order entry builds a PaperOrderProposal and REQUIRES a
- * human confirmation before calling createPaperOrder — TAKER proposals MUST NOT
- * bypass this. No real submit happens; the mock fills instantly for display.
+ * K-line (lightweight-charts with SVG fallback), an order book + depth, and an
+ * order entry. The entry builds an OrderProposal and REQUIRES a human
+ * confirmation before calling createPaperOrder — TAKER proposals MUST NOT
+ * bypass this. No real submit happens in mock mode; the filled order returns for
+ * display. All market data is from the authoritative Binance public source.
  */
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ShieldCheck, TriangleAlert } from "lucide-react";
@@ -14,46 +15,48 @@ import { DepthBar } from "../components/DepthBar";
 import { usePaperApi } from "../hooks/usePaperApi";
 import { formatUsd, validateOrderProposal } from "../lib/finance";
 import type {
+  Candle,
   Interval,
-  MarketSnapshot,
   OrderBook,
+  OrderProposal,
   PaperOrder,
-  PaperOrderProposal,
   Symbol,
 } from "../services/types";
 import { cn } from "../../../ui/cn";
 
-const SYMBOLS: Symbol[] = ["BTCUSDT", "ETHUSDT", "ORDIUSDT"];
+const SYMBOLS: Symbol[] = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
 const INTERVALS: Interval[] = ["1m", "5m", "15m", "1h", "4h", "1d"];
 
 export function TradingDesk({ controlToken }: { controlToken: string }) {
   const api = usePaperApi(controlToken);
   const [symbol, setSymbol] = useState<Symbol>("BTCUSDT");
   const [interval, setInterval] = useState<Interval>("5m");
-  const [snapshot, setSnapshot] = useState<MarketSnapshot | null>(null);
+  const [candles, setCandles] = useState<Candle[]>([]);
   const [book, setBook] = useState<OrderBook | null>(null);
+  const [lastPrice, setLastPrice] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // --- order entry form state (the PROPOSAL, not yet an order) ---
+  // --- order entry form (the PROPOSAL, not yet an order) ---
   const [side, setSide] = useState<"BUY" | "SELL">("BUY");
   const [type, setType] = useState<"MARKET" | "LIMIT">("LIMIT");
-  const [quantity, setQuantity] = useState<string>("0.01");
+  const [quantity, setQuantity] = useState<string>("0.001");
   const [limitPrice, setLimitPrice] = useState<string>("67000");
   const [confirmed, setConfirmed] = useState(false);
   const [submitState, setSubmitState] = useState<{ ok: boolean; msg: string } | null>(null);
   const [lastOrder, setLastOrder] = useState<PaperOrder | null>(null);
+  const [clientOrderId] = useState(() => "cli_" + Math.random().toString(36).slice(2, 12));
 
-  const proposal: PaperOrderProposal = useMemo(
+  const proposal: OrderProposal = useMemo(
     () => ({
       symbol,
       side,
       type,
       quantity: Number(quantity),
-      limitPrice: type === "LIMIT" ? Number(limitPrice) : undefined,
-      // confirmationId is injected ONLY after the operator checks the box.
-      confirmationId: confirmed ? `cfm_op_${Date.now().toString(36)}` : undefined,
+      limitPrice: type === "LIMIT" ? Number(limitPrice) : null,
+      confirmationId: confirmed ? `cfm_op_${Date.now().toString(36)}` : "",
+      clientOrderId,
     }),
-    [symbol, side, type, quantity, limitPrice, confirmed],
+    [symbol, side, type, quantity, limitPrice, confirmed, clientOrderId],
   );
 
   const validation = validateOrderProposal(proposal);
@@ -61,12 +64,15 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
   const refreshMarket = useCallback(async () => {
     setError(null);
     try {
-      const [snap, ob] = await Promise.all([
-        api.getMarketSnapshot({ symbols: [symbol], interval }).then((a) => a[0]),
-        api.getOrderBook({ venue: "PAPER-BOOK", symbol }),
+      const [cs, ob, tk] = await Promise.all([
+        api.getCandles(symbol, interval),
+        api.getOrderBook(symbol),
+        api.getTicker([symbol]).catch(() => []),
       ]);
-      setSnapshot(snap);
+      setCandles(cs);
       setBook(ob);
+      const px = tk.find((t) => t.symbol === symbol)?.price ?? cs.at(-1)?.close ?? null;
+      setLastPrice(px);
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -78,25 +84,19 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
 
   async function submit() {
     setSubmitState(null);
-    // The proposal is validated client-side; createPaperOrder will ALSO reject a
-    // missing confirmation server-side. This is the human gate TAKER cannot skip.
     if (!validation.ok) {
       setSubmitState({ ok: false, msg: validation.error ?? "订单不合法" });
       return;
     }
     try {
-      // validation.ok guarantees confirmationId is present (the human gate).
-      const order = await api.createPaperOrder({
-        symbol: proposal.symbol,
-        side: proposal.side,
-        type: proposal.type,
-        quantity: proposal.quantity,
-        limitPrice: proposal.limitPrice,
-        confirmationId: proposal.confirmationId!,
-        researchRunId: proposal.researchRunId,
+      const res = await api.createOrder(proposal);
+      setLastOrder(res.order);
+      setSubmitState({
+        ok: res.accepted,
+        msg: res.accepted
+          ? `已提交（${res.order.status}）${res.order.id}`
+          : `被拒绝：${res.rejection?.reason ?? "未知原因"}`,
       });
-      setLastOrder(order);
-      setSubmitState({ ok: true, msg: `已提交（模拟成交）${order.orderId}` });
       setConfirmed(false);
     } catch (e) {
       setSubmitState({ ok: false, msg: e instanceof Error ? e.message : String(e) });
@@ -104,15 +104,12 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
   }
 
   const maxTotal = book
-    ? Math.max(
-        book.bids.at(-1)?.total ?? 1,
-        book.asks.at(-1)?.total ?? 1,
-      )
+    ? Math.max(book.bids.at(-1)?.total ?? 1, book.asks.at(-1)?.total ?? 1)
     : 1;
 
   return (
     <PageContainer
-      title="交易台"
+      title="02 · 专业交易工作站"
       description="K 线、订单簿与下单。下单需人工确认（confirmationId），模拟成交仅用于展示，不涉及真实资金。"
     >
       {error ? (
@@ -122,7 +119,6 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* K-line + symbol/interval selector */}
         <div className="lg:col-span-2 rounded-lg border border-border bg-card p-4">
           <div className="mb-3 flex flex-wrap items-center gap-2">
             {SYMBOLS.map((s) => (
@@ -152,20 +148,22 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
                 {iv}
               </button>
             ))}
-            {snapshot ? (
+            {lastPrice ? (
               <span className="ml-auto t-meta text-muted-foreground">
-                最新 {formatUsd(snapshot.last, { decimals: snapshot.last < 100 ? 3 : 2 })}
+                最新 {formatUsd(lastPrice, { decimals: lastPrice < 1 ? 5 : 2 })}
               </span>
             ) : null}
           </div>
-          {snapshot ? <CandlestickChart candles={snapshot.candles} /> : (
+          {candles.length ? <CandlestickChart candles={candles} /> : (
             <div className="h-80 animate-pulse rounded-lg border border-border bg-card" />
           )}
         </div>
 
-        {/* Order book + depth */}
         <div className="rounded-lg border border-border bg-card p-4">
-          <h2 className="t-section text-foreground">订单簿</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="t-section text-foreground">订单簿</h2>
+            <span className="t-meta text-muted-foreground">{book?.source ?? ""}</span>
+          </div>
           {book ? (
             <div className="mt-2">
               <div className="grid grid-cols-3 px-2 t-meta text-muted-foreground">
@@ -180,7 +178,8 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
                   <DepthBar key={`a${i}`} level={l} side="ask" maxTotal={maxTotal} />
                 ))}
               <div className="my-1 border-y border-border px-2 py-1 text-center t-meta text-foreground">
-                {formatUsd(book.bids[0]?.price ?? 0)} / {formatUsd(book.asks[0]?.price ?? 0)}
+                {formatUsd(book.bids[0]?.price ?? 0, { decimals: lastPrice && lastPrice < 1 ? 5 : 2 })} /{" "}
+                {formatUsd(book.asks[0]?.price ?? 0, { decimals: lastPrice && lastPrice < 1 ? 5 : 2 })}
               </div>
               {book.bids.map((l, i) => (
                 <DepthBar key={`b${i}`} level={l} side="bid" maxTotal={maxTotal} />
@@ -192,7 +191,6 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
         </div>
       </div>
 
-      {/* Order entry */}
       <div className="mt-4 rounded-lg border border-border bg-card p-4">
         <h2 className="t-section text-foreground">下单（模拟）</h2>
         <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -246,7 +244,10 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
           </Field>
           <Field label="预估名义">
             <div className="rounded border border-border bg-background px-2 py-1.5 t-meta text-muted-foreground tabular-nums">
-              {formatUsd((Number(quantity) || 0) * (type === "LIMIT" ? Number(limitPrice) || 0 : snapshot?.last || 0))}
+              {formatUsd(
+                (Number(quantity) || 0) * (type === "LIMIT" ? Number(limitPrice) || 0 : lastPrice || 0),
+                { decimals: 2 },
+              )}
             </div>
           </Field>
         </div>
@@ -298,7 +299,7 @@ export function TradingDesk({ controlToken }: { controlToken: string }) {
 
         {lastOrder ? (
           <div className="mt-2 t-meta text-muted-foreground">
-            最近订单：{lastOrder.orderId} · {lastOrder.side} {lastOrder.quantity} {lastOrder.symbol} @{" "}
+            最近订单：{lastOrder.id} · {lastOrder.side} {lastOrder.qty} {lastOrder.symbol} @{" "}
             {lastOrder.avgFillPrice ? formatUsd(lastOrder.avgFillPrice) : "市价"} · {lastOrder.status} · 确认{" "}
             {lastOrder.confirmationId}
           </div>

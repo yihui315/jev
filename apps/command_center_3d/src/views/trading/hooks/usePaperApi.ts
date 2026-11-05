@@ -1,12 +1,27 @@
 /**
- * trading/hooks/usePaperApi — a thin React wrapper around the Paper API client.
+ * trading/hooks/usePaperApi — thin React wrappers around the Paper API client.
  *
- * Each method is exposed as an async callback that threads the control token
- * through (it is ignored in mock mode). State helpers (`useAsync`) give the
- * pages a uniform loading/error/data shape without re-implementing it six times.
+ * Each method is an async callback. The legacy `controlToken` is retained for a
+ * stable signature but is ignored: `/api/paper/*` authorises via the
+ * `nr_paper_session` cookie bootstrapped by `ensureSession`; `/api/agents` only
+ * needs a provider id (credentials stay server-side).
  */
 import { useCallback, useState } from "react";
 import { getPaperApi } from "../services/paperApi";
+import type {
+  AccountResponse,
+  CancelOrderResponse,
+  CreateOrderResponse,
+  Interval,
+  OrderBook,
+  OrderProposal,
+  ResearchInput,
+  ResearchRunResult,
+  ServerEventsResponse,
+  Symbol,
+  Ticker,
+  Candle,
+} from "../services/types";
 
 export interface AsyncState<T> {
   data: T | null;
@@ -34,55 +49,53 @@ export function useAsync<T>(): AsyncState<T> & { run: (p: Promise<T>) => Promise
 export function usePaperApi(controlToken = "") {
   const client = getPaperApi(controlToken);
 
-  const getMarketSnapshot = useCallback(
-    (input: Parameters<typeof client.getMarketSnapshot>[0]) => client.getMarketSnapshot(input),
+  const ensureSession = useCallback(() => client.ensureSession(), [client]);
+  const getAccount = useCallback(() => client.getAccount(), [client]);
+  const createOrder = useCallback(
+    (input: OrderProposal) => client.createOrder(input),
+    [client],
+  );
+  const cancelOrder = useCallback(
+    (orderId: string, clientActionId: string) => client.cancelOrder(orderId, clientActionId),
+    [client],
+  );
+  const resetAccount = useCallback(
+    (input: { clientActionId: string; confirmationId: string }) => client.resetAccount(input),
+    [client],
+  );
+  const getTicker = useCallback(
+    (symbols: Symbol[]) => client.getTicker(symbols),
+    [client],
+  );
+  const getCandles = useCallback(
+    (symbol: Symbol, interval: Interval, limit?: number) => client.getCandles(symbol, interval, limit),
     [client],
   );
   const getOrderBook = useCallback(
-    (input: Parameters<typeof client.getOrderBook>[0]) => client.getOrderBook(input),
+    (symbol: Symbol, limit?: number) => client.getOrderBook(symbol, limit),
     [client],
   );
   const createResearchRun = useCallback(
-    (input: Parameters<typeof client.createResearchRun>[0]) =>
-      client.createResearchRun(input, controlToken),
-    [client, controlToken],
+    (input: ResearchInput) => client.createResearchRun(input),
+    [client],
   );
-  const getResearchRun = useCallback(
-    (runId: string) => client.getResearchRun(runId, controlToken),
-    [client, controlToken],
-  );
-  const listStrategies = useCallback(
-    () => client.listStrategies(controlToken),
-    [client, controlToken],
-  );
-  const getPaperAccount = useCallback(
-    () => client.getPaperAccount(controlToken),
-    [client, controlToken],
-  );
-  const createPaperOrder = useCallback(
-    (input: Parameters<typeof client.createPaperOrder>[0]) =>
-      client.createPaperOrder(input, controlToken),
-    [client, controlToken],
-  );
-  const cancelPaperOrder = useCallback(
-    (orderId: string) => client.cancelPaperOrder(orderId, controlToken),
-    [client, controlToken],
-  );
-  const subscribeEvents = useCallback(
-    (input?: Parameters<typeof client.subscribeEvents>[0]) =>
-      client.subscribeEvents(input),
+  const getServerEvents = useCallback(
+    (after?: number, limit?: number) => client.getServerEvents(after, limit),
     [client],
   );
 
   return {
-    getMarketSnapshot,
+    ensureSession,
+    getAccount,
+    createOrder,
+    cancelOrder,
+    resetAccount,
+    getTicker,
+    getCandles,
     getOrderBook,
     createResearchRun,
-    getResearchRun,
-    listStrategies,
-    getPaperAccount,
-    createPaperOrder,
-    cancelPaperOrder,
-    subscribeEvents,
+    getServerEvents,
   };
 }
+
+export type { AccountResponse, CancelOrderResponse, CreateOrderResponse, OrderBook, ResearchRunResult, ServerEventsResponse, Ticker, Candle };

@@ -1,334 +1,301 @@
 /**
- * trading/services/paperApi — the TypeScript client for the Paper Trading API.
+ * trading/services/paperApi — the single Trading API Client.
  *
- * Mirrors the backend contract at base `/api/v1/trading`:
- *   getMarketSnapshot, getOrderBook, createResearchRun, getResearchRun,
- *   listStrategies, getPaperAccount, createPaperOrder, cancelPaperOrder,
- *   subscribeEvents.
+ * Binds to the REAL Night Researcher Paper API (`/api/paper/*`) and the six-role
+ * research endpoint (`/api/agents/research`). Market data (ticker / candles /
+ * depth) always comes from the authoritative Binance public REST source the
+ * paper engine itself reads — never faked.
  *
- * While `USE_MOCK` is true (the default until the backend is deployed/merged)
- * every method resolves from typed fake data in mockData.ts. When it is false,
- * the real methods use the EXISTING transport (`authorizedFetch` / `openFetch`
- * from lib/authorizedFetch.ts) — this module does NOT rebuild API infra, and it
- * does NOT create a second provider/API-key system; it only talks to the Paper
- * API.
+ * `USE_MOCK` (default true) swaps the implementation for an offline, spot-only
+ * mock with identical envelopes. Flipping it to false binds the real API with
+ * NO page changes. See README.md.
  *
- * CRITICAL: the browser is never the authority on balance/positions/risk. Those
- * values come from `getPaperAccount` (server) only. `createPaperOrder` enforces
- * the human-confirmation rule: a proposal without a valid confirmationId is
- * rejected — TAKER proposals MUST NOT bypass this.
+ * Hard rules honoured here:
+ *  - Only the fields the server's `validateInput` allows are sent on order
+ *    creation (`clientOrderId, confirmationId, symbol, side, type, quantity,
+ *    limitPrice`). `researchRunId` is intentionally NOT forwarded to the server.
+ *  - Auth for `/api/paper/*` is the `nr_paper_session` cookie (bootstrapped by
+ *    `ensureSession`). In production these paths must be served same-origin.
+ *  - `safety.autoExecution` is always false; TAKER proposals never bypass the
+ *    human confirmation gate.
  */
-import { authorizedFetch, openFetch } from "../../../lib/authorizedFetch";
-import {
-  MOCK_ACCOUNT,
-  MOCK_LEDGER,
-  MOCK_MARKET_SNAPSHOTS,
-  MOCK_ORDERBOOKS,
-  MOCK_ORDERS,
-  MOCK_RESEARCH_RUN,
-  MOCK_STRATEGIES,
-} from "./mockData";
 import type {
-  CreatePaperOrderInput,
-  CreateResearchRunInput,
-  GetMarketSnapshotInput,
-  GetOrderBookInput,
-  LedgerEvent,
-  MarketSnapshot,
+  AccountResponse,
+  CancelOrderResponse,
+  CreateOrderResponse,
+  Interval,
   OrderBook,
+  OrderProposal,
   PaperAccount,
-  PaperApiError,
   PaperOrder,
-  ResearchRun,
-  Strategy,
-  SubscribeEventsInput,
+  ResearchInput,
+  ResearchRunResult,
+  ServerEventsResponse,
   Symbol,
+  Ticker,
+  Candle,
+  Fill,
 } from "./types";
+import { PaperApiError } from "./types";
+import {
+  fetchCandles as realFetchCandles,
+  fetchOrderBook as realFetchOrderBook,
+  fetchTicker as realFetchTicker,
+  MARKET_DATA_SOURCE,
+} from "./marketData";
 import { validateOrderProposal } from "../lib/finance";
+import {
+  MOCK_SEED_ORDERS,
+  MOCK_SERVER_EVENTS,
+  MOCK_TICKERS,
+  mockAccountResponse,
+  mockCandles,
+  mockOrderBook,
+  mockResearchRun,
+} from "./mockData";
 
-/**
- * Flip to `false` once the backend at `/api/v1/trading` is merged and deployed.
- * Until then every call resolves from mockData so the pages render and the
- * tests pass offline.
- */
 export const USE_MOCK = true;
+export { MARKET_DATA_SOURCE, MOCK_SEED_ORDERS };
 
-const TRADING_BASE = "/api/v1/trading";
+const PAPER_BASE = "/api/paper";
+const AGENTS_BASE = "/api/agents";
 
 export interface PaperApiClient {
-  getMarketSnapshot(input: GetMarketSnapshotInput): Promise<MarketSnapshot[]>;
-  getOrderBook(input: GetOrderBookInput): Promise<OrderBook>;
-  createResearchRun(input: CreateResearchRunInput, controlToken?: string): Promise<ResearchRun>;
-  getResearchRun(runId: string, controlToken?: string): Promise<ResearchRun>;
-  listStrategies(controlToken?: string): Promise<Strategy[]>;
-  getPaperAccount(controlToken?: string): Promise<PaperAccount>;
-  createPaperOrder(input: CreatePaperOrderInput, controlToken?: string): Promise<PaperOrder>;
-  cancelPaperOrder(orderId: string, controlToken?: string): Promise<{ ok: boolean; orderId: string }>;
-  subscribeEvents(input?: SubscribeEventsInput): Promise<LedgerEvent[]>;
-}
-
-/** Small delay so the mock feels like a network round-trip (and async stays real). */
-function delay<T>(value: T, ms = 120): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), ms));
-}
-
-function newId(prefix: string): string {
-  return `${prefix}_${Math.random().toString(36).slice(2, 10)}`;
+  ensureSession(): Promise<void>;
+  getAccount(): Promise<AccountResponse>;
+  createOrder(input: OrderProposal): Promise<CreateOrderResponse>;
+  cancelOrder(orderId: string, clientActionId: string): Promise<CancelOrderResponse>;
+  resetAccount(input: { clientActionId: string; confirmationId: string }): Promise<AccountResponse>;
+  getTicker(symbols: Symbol[]): Promise<Ticker[]>;
+  getCandles(symbol: Symbol, interval: Interval, limit?: number): Promise<Candle[]>;
+  getOrderBook(symbol: Symbol, limit?: number): Promise<OrderBook>;
+  createResearchRun(input: ResearchInput): Promise<ResearchRunResult>;
+  getServerEvents(after?: number, limit?: number): Promise<ServerEventsResponse>;
 }
 
 // ---------------------------------------------------------------------------
-// MOCK IMPLEMENTATION
+// Real client — targets the real Night Researcher endpoints (same-origin).
 // ---------------------------------------------------------------------------
 
-const mockClient: PaperApiClient = {
-  async getMarketSnapshot(input: GetMarketSnapshotInput) {
-    const snaps = input.symbols.map((s) => {
-      const base = MOCK_MARKET_SNAPSHOTS[s];
-      return { ...base, interval: input.interval };
+class RealPaperApiClient implements PaperApiClient {
+  async ensureSession(): Promise<void> {
+    try {
+      await this.raw(PAPER_BASE + "/session", { method: "POST", body: "{}" });
+    } catch {
+      /* session may already be active or backend unreachable in dev */
+    }
+  }
+
+  private async raw(path: string, init: RequestInit = {}): Promise<Response> {
+    const res = await fetch(path, {
+      credentials: "same-origin",
+      cache: "no-store",
+      headers: { accept: "application/json", ...(init.body ? { "content-type": "application/json" } : {}) },
+      ...init,
     });
-    return delay(snaps);
-  },
-
-  async getOrderBook(input: GetOrderBookInput) {
-    const book = MOCK_ORDERBOOKS[input.symbol];
-    if (!book) {
-      const e: PaperApiError = Object.assign(
-        new Error(`no order book for ${input.symbol}`),
-        { name: "PaperApiError", code: "BAD_INPUT" as const },
-      );
-      throw e;
+    if (!res.ok) {
+      let body: { error?: string; code?: string } | null = null;
+      try {
+        body = await res.json();
+      } catch {
+        /* ignore */
+      }
+      throw new PaperApiError(body?.error || `HTTP ${res.status} @ ${path}`, res.status, body?.code ?? null);
     }
-    return delay({ ...book, venue: input.venue || book.venue });
-  },
+    return res;
+  }
 
-  async createResearchRun(input: CreateResearchRunInput) {
-    // Mirror the mock run but stamp the caller's symbols/provider/version.
-    const run: ResearchRun = {
-      ...MOCK_RESEARCH_RUN,
-      runId: newId("run"),
-      providerId: input.providerId,
-      symbols: input.symbols,
-      snapshotId: input.snapshotId,
-      strategyVersion: input.strategyVersion,
-      modelOverride: input.modelOverride,
-      createdAt: Date.now(),
-    };
-    return delay(run);
-  },
+  async getAccount(): Promise<AccountResponse> {
+    const res = await this.raw(PAPER_BASE + "/account");
+    return (await res.json()) as AccountResponse;
+  }
 
-  async getResearchRun(runId: string) {
-    return delay({ ...MOCK_RESEARCH_RUN, runId });
-  },
-
-  async listStrategies() {
-    return delay(MOCK_STRATEGIES);
-  },
-
-  async getPaperAccount() {
-    return delay(MOCK_ACCOUNT);
-  },
-
-  async createPaperOrder(input: CreatePaperOrderInput) {
-    // The server-side rule, enforced here so the UI never sends an unconfirmed
-    // order. TAKER proposals in particular MUST carry a human confirmationId.
-    const proposal = { ...input, confirmationId: input.confirmationId };
-    const v = validateOrderProposal(proposal);
-    if (!v.ok) {
-      const code = v.error?.includes("confirmation") ? "MISSING_CONFIRMATION" : "BAD_INPUT";
-      const e: PaperApiError = Object.assign(new Error(v.error ?? "invalid order"), {
-        name: "PaperApiError",
-        code: code as PaperApiError["code"],
-      });
-      throw e;
-    }
-    const order: PaperOrder = {
-      orderId: newId("ord"),
+  async createOrder(input: OrderProposal): Promise<CreateOrderResponse> {
+    // Forward ONLY the fields the server's validateInput permits.
+    const body: Record<string, unknown> = {
+      clientOrderId: input.clientOrderId,
+      confirmationId: input.confirmationId,
       symbol: input.symbol,
       side: input.side,
       type: input.type,
       quantity: input.quantity,
-      limitPrice: input.limitPrice,
-      // A confirmed proposal is accepted; in paper mode it fills immediately.
+    };
+    if (input.type === "LIMIT") body.limitPrice = input.limitPrice ?? null;
+    const res = await this.raw(PAPER_BASE + "/orders", {
+      method: "POST",
+      body: JSON.stringify(body),
+    });
+    const status = res.status;
+    const json = (await res.json()) as CreateOrderResponse;
+    if (status === 409 && json.rejection) {
+      throw new PaperApiError(json.rejection.reason, 409, json.rejection.code);
+    }
+    return json;
+  }
+
+  async cancelOrder(orderId: string, clientActionId: string): Promise<CancelOrderResponse> {
+    const res = await this.raw(`${PAPER_BASE}/orders/${encodeURIComponent(orderId)}/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ clientActionId }),
+    });
+    return (await res.json()) as CancelOrderResponse;
+  }
+
+  async resetAccount(input: { clientActionId: string; confirmationId: string }): Promise<AccountResponse> {
+    const res = await this.raw(PAPER_BASE + "/account/reset", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+    return (await res.json()) as AccountResponse;
+  }
+
+  async getTicker(symbols: Symbol[]): Promise<Ticker[]> {
+    return realFetchTicker(symbols);
+  }
+
+  async getCandles(symbol: Symbol, interval: Interval, limit?: number): Promise<Candle[]> {
+    return realFetchCandles(symbol, interval, limit);
+  }
+
+  async getOrderBook(symbol: Symbol, limit?: number): Promise<OrderBook> {
+    return realFetchOrderBook(symbol, limit);
+  }
+
+  async createResearchRun(input: ResearchInput): Promise<ResearchRunResult> {
+    const res = await this.raw(AGENTS_BASE + "/research", {
+      method: "POST",
+      body: JSON.stringify({
+        snapshot: input.snapshot,
+        provider: input.provider,
+        model: input.model,
+        runId: input.runId,
+      }),
+    });
+    return (await res.json()) as ResearchRunResult;
+  }
+
+  async getServerEvents(after = 0, limit = 100): Promise<ServerEventsResponse> {
+    const qs = `?after=${String(after)}&limit=${String(limit)}`;
+    const res = await this.raw(PAPER_BASE + "/events" + qs);
+    return (await res.json()) as ServerEventsResponse;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Mock client — offline, spot-only, identical envelopes.
+// ---------------------------------------------------------------------------
+
+class MockPaperApiClient implements PaperApiClient {
+  async ensureSession(): Promise<void> {
+    /* no-op offline */
+  }
+
+  async getAccount(): Promise<AccountResponse> {
+    return mockAccountResponse();
+  }
+
+  async createOrder(input: OrderProposal): Promise<CreateOrderResponse> {
+    const v = validateOrderProposal(input);
+    if (!v.ok) {
+      throw new PaperApiError(v.error ?? "invalid order", 400, "BAD_INPUT");
+    }
+    const base = mockAccountResponse();
+    const now = new Date().toISOString();
+    const order: PaperOrder = {
+      id: "O-mock-" + Math.random().toString(36).slice(2, 10),
+      clientOrderId: input.clientOrderId,
+      confirmationId: input.confirmationId,
+      symbol: input.symbol,
+      side: input.side,
+      type: input.type,
+      qty: input.quantity,
+      limitPrice: input.type === "LIMIT" ? input.limitPrice ?? null : null,
       status: "FILLED",
       filledQty: input.quantity,
-      avgFillPrice: input.limitPrice ?? MOCK_MARKET_SNAPSHOTS[input.symbol].last,
-      confirmationId: input.confirmationId,
-      researchRunId: input.researchRunId,
-      createdAt: Date.now(),
+      remainingQty: 0,
+      avgFillPrice: base.marks[input.symbol] ?? null,
+      fee: input.quantity * (base.marks[input.symbol] ?? 0) * 0.001,
+      realizedPnl: null,
+      reservedCash: 0,
+      reservedQty: 0,
+      rejectionCode: null,
+      reason: null,
+      timeInForce: input.type === "MARKET" ? "IOC" : "GTC",
+      bookSequence: 1,
+      bookReceivedAt: now,
+      createdAt: now,
+      updatedAt: now,
+      terminalAt: now,
+      fillCount: 1,
     };
-    return delay(order);
-  },
+    const fill: Fill = {
+      id: "F-" + order.id + "-001",
+      fillIndex: 1,
+      orderId: order.id,
+      timestamp: now,
+      symbol: order.symbol,
+      side: order.side,
+      qty: order.filledQty,
+      price: order.avgFillPrice ?? 0,
+      notional: order.filledQty * (order.avgFillPrice ?? 0),
+      fee: order.fee,
+      realizedPnl: null,
+      liquidityModel: "server-visible-orderbook-walk",
+      bookSequence: 1,
+      bookReceivedAt: now,
+    };
+    const account: PaperAccount = JSON.parse(JSON.stringify(base.account));
+    account.orders = [order, ...account.orders].slice(0, 50);
+    account.trades = [fill, ...account.trades].slice(0, 50);
+    return {
+      ...base,
+      account,
+      order,
+      fills: [fill],
+      duplicate: false,
+      accepted: true,
+      rejection: null,
+    };
+  }
 
-  async cancelPaperOrder(orderId: string) {
-    return delay({ ok: true, orderId });
-  },
+  async cancelOrder(orderId: string): Promise<CancelOrderResponse> {
+    const base = mockAccountResponse();
+    const order = base.account.orders.find((o) => o.id === orderId) ?? null;
+    return { ...base, status: order ? "NOT_OPEN" : "NOT_FOUND", order };
+  }
 
-  async subscribeEvents(input?: SubscribeEventsInput) {
-    const after = input?.after ?? 0;
-    return delay(MOCK_LEDGER.filter((e) => e.ts >= after));
-  },
-};
+  async resetAccount(): Promise<AccountResponse> {
+    return mockAccountResponse();
+  }
+
+  async getTicker(): Promise<Ticker[]> {
+    return MOCK_TICKERS;
+  }
+
+  async getCandles(symbol: Symbol, interval: Interval, limit?: number): Promise<Candle[]> {
+    return mockCandles(symbol, interval, limit);
+  }
+
+  async getOrderBook(symbol: Symbol): Promise<OrderBook> {
+    return mockOrderBook(symbol);
+  }
+
+  async createResearchRun(input: ResearchInput): Promise<ResearchRunResult> {
+    const snap = (input.snapshot ?? null) as { symbols?: Symbol[] } | null;
+    const symbols = Array.isArray(snap?.symbols) ? snap!.symbols! : [];
+    return mockResearchRun(symbols, input.provider, input.model);
+  }
+
+  async getServerEvents(after = 0): Promise<ServerEventsResponse> {
+    const events = MOCK_SERVER_EVENTS.filter((e) => e.seq > after);
+    return { ok: true, events, nextAfter: events.length ? events[events.length - 1].seq : after };
+  }
+}
 
 // ---------------------------------------------------------------------------
-// REAL IMPLEMENTATION (used when USE_MOCK === false)
+// Factory
 // ---------------------------------------------------------------------------
 
-function makeRealClient(controlToken: string): PaperApiClient {
-  return {
-    async getMarketSnapshot(input) {
-      const syms = input.symbols.join(",");
-      const res = await openFetch<MarketSnapshot[]>(
-        `${TRADING_BASE}/market-snapshot?symbols=${syms}&interval=${input.interval}`,
-      );
-      if (!res.ok || !res.data) {
-        throw apiError("NETWORK", res.status, res.error ?? "market snapshot failed");
-      }
-      return res.data;
-    },
-
-    async getOrderBook(input) {
-      const res = await openFetch<OrderBook>(
-        `${TRADING_BASE}/order-book?venue=${encodeURIComponent(input.venue)}&symbol=${input.symbol}`,
-      );
-      if (!res.ok || !res.data) {
-        throw apiError("NETWORK", res.status, res.error ?? "order book failed");
-      }
-      return res.data;
-    },
-
-    async createResearchRun(input, token) {
-      const res = await authorizedFetch<ResearchRun>(
-        token ?? controlToken,
-        `${TRADING_BASE}/research-runs`,
-        { method: "POST", body: input },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "create research run failed",
-        );
-      }
-      return res.data;
-    },
-
-    async getResearchRun(runId, token) {
-      const res = await authorizedFetch<ResearchRun>(
-        token ?? controlToken,
-        `${TRADING_BASE}/research-runs/${runId}`,
-        { method: "GET" },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "get research run failed",
-        );
-      }
-      return res.data;
-    },
-
-    async listStrategies(token) {
-      const res = await authorizedFetch<Strategy[]>(
-        token ?? controlToken,
-        `${TRADING_BASE}/strategies`,
-        { method: "GET" },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "list strategies failed",
-        );
-      }
-      return res.data;
-    },
-
-    async getPaperAccount(token) {
-      const res = await authorizedFetch<PaperAccount>(
-        token ?? controlToken,
-        `${TRADING_BASE}/account`,
-        { method: "GET" },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "get paper account failed",
-        );
-      }
-      // Server is the ONLY authority on balance/positions/risk.
-      return res.data;
-    },
-
-    async createPaperOrder(input, token) {
-      // Enforce the human-confirmation rule even on the real path.
-      const v = validateOrderProposal({ ...input, confirmationId: input.confirmationId });
-      if (!v.ok) {
-        const code = v.error?.includes("confirmation") ? "MISSING_CONFIRMATION" : "BAD_INPUT";
-        throw apiError(code, undefined, v.error ?? "invalid order");
-      }
-      const res = await authorizedFetch<PaperOrder>(
-        token ?? controlToken,
-        `${TRADING_BASE}/orders`,
-        { method: "POST", body: input },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "create paper order failed",
-        );
-      }
-      return res.data;
-    },
-
-    async cancelPaperOrder(orderId, token) {
-      const res = await authorizedFetch<{ ok: boolean; orderId: string }>(
-        token ?? controlToken,
-        `${TRADING_BASE}/orders/${orderId}`,
-        { method: "DELETE" },
-      );
-      if (!res.ok || !res.data) {
-        throw apiError(
-          res.authFailed ? "AUTH" : "SERVER",
-          res.status,
-          res.error ?? "cancel paper order failed",
-        );
-      }
-      return res.data;
-    },
-
-    async subscribeEvents(input) {
-      const after = input?.after ?? 0;
-      const res = await openFetch<LedgerEvent[]>(
-        `${TRADING_BASE}/events?after=${after}`,
-      );
-      if (!res.ok || !res.data) {
-        throw apiError("NETWORK", res.status, res.error ?? "subscribe events failed");
-      }
-      return res.data;
-    },
-  };
+export function getPaperApi(_controlToken = ""): PaperApiClient {
+  return USE_MOCK ? new MockPaperApiClient() : new RealPaperApiClient();
 }
-
-function apiError(
-  code: PaperApiError["code"],
-  status: number | undefined,
-  message: string,
-): PaperApiError {
-  return Object.assign(new Error(message), { name: "PaperApiError", code, status });
-}
-
-/**
- * Get the client. In mock mode this ignores the token (no server yet). In real
- * mode it binds the control token so every write is authenticated through the
- * existing transport.
- */
-export function getPaperApi(controlToken = ""): PaperApiClient {
-  if (USE_MOCK) return mockClient;
-  return makeRealClient(controlToken);
-}
-
-/** Re-export the static mock orders for the audit page's initial render. */
-export const MOCK_SEED_ORDERS: PaperOrder[] = MOCK_ORDERS;

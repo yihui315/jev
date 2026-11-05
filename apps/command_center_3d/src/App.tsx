@@ -765,6 +765,12 @@ export function App() {
             <LazyTradingDesk controlToken={controlToken} />
           </Suspense>
         );
+      case "market-universe":
+        return (
+          <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
+            <LazyMarketUniverse controlToken={controlToken} />
+          </Suspense>
+        );
       case "agent-center":
         return (
           <Suspense fallback={<PageBody><div className="t-body text-muted-foreground">加载中…</div></PageBody>}>
@@ -925,6 +931,7 @@ const TradingPage = (name: string) =>
 
 const LazyMarketOverview = TradingPage("MarketOverview");
 const LazyTradingDesk = TradingPage("TradingDesk");
+const LazyMarketUniverse = TradingPage("MarketUniverse");
 const LazyAgentCenter = TradingPage("AgentCenter");
 const LazyRiskManagement = TradingPage("RiskManagement");
 const LazyStrategyResearch = TradingPage("StrategyResearch");
