@@ -1,0 +1,119 @@
+name: JEV Command Center — Trading Workbench CI
+
+on:
+  push:
+    branches: ["feat/jev-trading-workbench", "feat/**", "main"]
+  pull_request:
+    branches: ["main"]
+
+permissions:
+  contents: read
+
+# Concurrency: cancel stale runs on the same ref.
+concurrency:
+  group: cc3d-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-and-test:
+    name: Typecheck · Build · Unit tests (mock)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/command_center_3d
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/command_center_3d/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Typecheck
+        run: npx tsc --noEmit
+      - name: Build
+        run: npm run build
+      # Machine-readable report: unit tests are counted SEPARATELY from the
+      # real Binance probe below. The 3 pending tests are the LIVE_MARKET-gated
+      # ones and must never be reported as a live pass.
+      - name: Unit tests (mock — offline, authoritative contract)
+        run: npx vitest run --reporter=json --outputFile=vitest-unit.json
+      - name: Unit test statistics
+        if: always()
+        # Block scalar + heredoc: keeps colons/spaces inside JS strings safe from
+        # YAML plain-scalar parsing (the previous inline form broke the workflow).
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'vitest-unit.json';
+          if (!fs.existsSync(p)) { console.log('no unit report'); process.exit(0); }
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const s = 'UNIT(mock/offline): total=' + j.numTotalTests +
+            ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
+            ' skipped=' + j.numPendingTests;
+          console.log(s);
+          const note = '### Unit tests (mock)\n\n' + s +
+            '\n\nSkipped = LIVE_MARKET gated real-data tests. NOT a real-run pass.\n';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, note);
+          NODE
+      - name: Archive unit report (incl. failure evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: unit-test-results
+          path: apps/command_center_3d/vitest-unit.json
+          if-no-files-found: warn
+
+  real-data-probe:
+    name: Real Binance market-data probe (non-blocking)
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: ${{ !cancelled() }}
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: apps/command_center_3d
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: apps/command_center_3d/package-lock.json
+      - name: Install
+        run: npm ci
+      # Hits the ACTUAL public Binance endpoint and asserts the live schema.
+      # Skipped in the default unit pass; enabled here to produce real evidence.
+      - name: Live market-data verification (LIVE_MARKET=1)
+        env:
+          LIVE_MARKET: "1"
+        run: npx vitest run src/views/trading/services/marketData.live.test.ts --reporter=json --outputFile=vitest-live.json
+      - name: Live probe statistics (separate counter)
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const p = 'vitest-live.json';
+          if (!fs.existsSync(p)) { console.log('no live report'); process.exit(0); }
+          const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          const s = 'LIVE(real Binance): total=' + j.numTotalTests +
+            ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
+            ' skipped=' + j.numPendingTests;
+          console.log(s);
+          const note = '### Live market-data probe\n\n' + s +
+            '\n\nThese are REAL network requests; counted separately from unit tests.\n';
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, note);
+          NODE
+      - name: Archive live-probe report (incl. failure evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: live-market-results
+          path: apps/command_center_3d/vitest-live.json
+          if-no-files-found: warn
+
+# NOTE: The real Paper API (account/orders/research/events) HTTP E2E is NOT run
+# here yet. It requires the Night Researcher backend to be bootable. See
+# src/views/trading/CONTRACT_CONFORMANCE.md for the backend acceptance ledger.
+# That E2E must be added once the backend is verifiably running (do NOT fake a pass).
