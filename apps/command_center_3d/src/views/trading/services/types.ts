@@ -224,6 +224,9 @@ export interface CreateOrderResponse extends AccountResponse {
   duplicate: boolean;
   accepted: boolean;
   rejection: OrderRejection | null;
+  /** Returned by the duplicate branch only (idempotency hit). */
+  orderId?: string;
+  orderStatus?: string;
 }
 
 export interface CancelOrderResponse extends AccountResponse {

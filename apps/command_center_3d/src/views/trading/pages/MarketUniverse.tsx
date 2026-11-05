@@ -26,6 +26,7 @@ import { AlertTriangle, Info, RefreshCw } from "lucide-react";
 import { usePaperApi } from "../hooks/usePaperApi";
 import { formatPct, formatUsd } from "../lib/finance";
 import { cn } from "../../../ui/cn";
+import { DataModeBadge } from "../components/DataModeBadge";
 import type { Candle, Interval, Symbol } from "../services/types";
 
 const SYMBOLS: Symbol[] = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
@@ -520,6 +521,7 @@ export function MarketUniverse({ controlToken: _controlToken }: { controlToken: 
             {lastUpdated ? (
               <span className="t-meta text-muted-foreground">更新于 {new Date(lastUpdated).toLocaleTimeString("zh-CN")}</span>
             ) : null}
+            <DataModeBadge />
             <span className="t-meta text-muted-foreground">数据：Binance 公开行情 · 相关性实时计算</span>
           </div>
         </div>
