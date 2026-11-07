@@ -11,7 +11,13 @@ import react from "@vitejs/plugin-react";
 // `globalThis` (not `process`) avoids needing @types/node in this config file.
 const nodeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
 const API_PROXY_TARGET = nodeEnv?.VITE_API_PROXY_TARGET || "http://127.0.0.1:8787";
+const DESK_API_TARGET = nodeEnv?.VITE_DESK_API_TARGET || "http://127.0.0.1:4791";
 const paperProxy = {
+  // JEV Trading Desk V1.0 — the single backend data adapter. Every page calls
+  // /api/jev/* and this proxy forwards to the localhost adapter (4791). The
+  // adapter itself is the ONLY thing that talks to the frozen paper engine and
+  // the verified public market REST host. No page ever bypasses it.
+  "/api/jev": { target: DESK_API_TARGET, changeOrigin: true },
   "/api/paper": { target: API_PROXY_TARGET, changeOrigin: true },
   "/api/agents": { target: API_PROXY_TARGET, changeOrigin: true },
 };
@@ -28,6 +34,13 @@ export default defineConfig({
     outDir: "dist",
     sourcemap: false,
     rollupOptions: {
+      // Two independent entry points: the legacy command center (index.html)
+      // and the new Trading Desk (trading.html). Neither rewrites the other.
+      // Paths are relative to the Vite root (project dir).
+      input: {
+        main: "index.html",
+        trading: "trading.html",
+      },
       output: {
         /**
          * WHY THERE IS NO `three` ENTRY HERE
