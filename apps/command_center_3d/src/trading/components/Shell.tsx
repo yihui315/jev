@@ -61,7 +61,16 @@ export function TopBar({ title, metaLabel, onOpenAudit, clock }: {
 
 export function AuditDrawer({ onClose }: { onClose: () => void }) {
   const ds = useJevQuery<{ id: string; label?: Label; channel?: string; source?: string; status?: string; note?: string; count?: number }[]>("datasource/audit");
-  const qual = useJevQuery<{ verdict?: string; problems?: number; bars?: { total?: number; realtime?: number; backfill?: number; gaps?: number; anomalies?: number; stale?: boolean }; classification_rule?: string }>("market/quality");
+  const qual = useJevQuery<{
+    verdict?: string;
+    problems?: number | unknown[];
+    bars?: { total?: number; realtime?: number; backfill?: number; incomplete?: number; distinct_utc_days?: number; stale?: boolean; hash_chain_verified?: boolean };
+    classification_rule?: { REALTIME?: string; BACKFILL?: string; hard_rule?: string };
+    gaps?: unknown[];
+    anomalies?: unknown[];
+    duplicates?: unknown[];
+    blocked?: { item?: string; reason?: string }[];
+  }>("market/quality");
   const refd = useJevQuery<{ verdict?: string; images?: { id: string; file?: string; bytes?: number; sha256?: string }[]; usage?: string }>("reference/design");
   const health = useJevQuery<{ engine_symbols?: string[]; collector_only_symbols?: string[]; market_host?: string; market_channel?: string; real_money?: boolean; real_exchange_orders?: boolean }>("health");
 
@@ -82,16 +91,35 @@ export function AuditDrawer({ onClose }: { onClose: () => void }) {
 
         <h2 style={{ marginTop: 18 }}>行情质量</h2>
         {qual.data ? (
-          <div className="jev-code">
-{`verdict: ${qual.data.verdict ?? "?"}  problems: ${qual.data.problems ?? "?"}
-bars.total: ${qual.data.bars?.total ?? "?"}
-bars.realtime: ${qual.data.bars?.realtime ?? "?"}
-bars.backfill: ${qual.data.bars?.backfill ?? "?"}
-gaps: ${qual.data.bars?.gaps ?? "?"}
-anomalies: ${qual.data.bars?.anomalies ?? "?"}
-stale: ${qual.data.bars?.stale ?? "?"}
-rule: ${qual.data.classification_rule ?? "?"}`}
-          </div>
+          (() => {
+            const q = qual.data as NonNullable<typeof qual.data>;
+            const bars = q.bars ?? {};
+            const rule = q.classification_rule ?? {};
+            const arr = (x: unknown) => (Array.isArray(x) ? x : []);
+            const lines: string[] = [
+              `verdict: ${q.verdict ?? "?"}`,
+              `problems: ${Array.isArray(q.problems) ? q.problems.length : (q.problems ?? "?")}`,
+              `bars.total: ${bars.total ?? "?"}`,
+              `bars.realtime: ${bars.realtime ?? "?"}`,
+              `bars.backfill: ${bars.backfill ?? "?"}`,
+              `bars.incomplete: ${bars.incomplete ?? "?"}`,
+              `bars.distinct_utc_days: ${bars.distinct_utc_days ?? "?"}`,
+              `bars.stale: ${bars.stale ?? "?"}`,
+              `bars.hash_chain_verified: ${bars.hash_chain_verified ?? "?"}`,
+              `classification_rule:`,
+              `  REALTIME: ${rule.REALTIME ?? "?"}`,
+              `  BACKFILL: ${rule.BACKFILL ?? "?"}`,
+              `  hard_rule: ${rule.hard_rule ?? "?"}`,
+              `gaps: ${arr(q.gaps).length} ${arr(q.gaps).length ? "项" : "(无)"}`,
+              `anomalies: ${arr(q.anomalies).length} ${arr(q.anomalies).length ? "项" : "(无)"}`,
+              `duplicates: ${arr(q.duplicates).length} ${arr(q.duplicates).length ? "项" : "(无)"}`,
+              `blocked: ${arr(q.blocked).length} 项`,
+            ];
+            for (const b of arr(q.blocked) as { item?: string; reason?: string }[]) {
+              lines.push(`  - ${b.item ?? "?"}: ${b.reason ?? ""}`);
+            }
+            return <div className="jev-code">{lines.join("\n")}</div>;
+          })()
         ) : <div className="jev-state">{qual.error ?? "—"}</div>}
 
         <h2 style={{ marginTop: 18 }}>参考设计 / 来源</h2>

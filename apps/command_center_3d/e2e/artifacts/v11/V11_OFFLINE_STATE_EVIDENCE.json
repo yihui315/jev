@@ -1,0 +1,9 @@
+{
+  "generated_utc": "2026-11-07T22:39:50.988Z",
+  "online_panel_text_head": "净值 / 现金 LIVE 净值 — 可用现金 — 市值 — 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SERVER_ENGI | 盈亏 LIVE 未实现 — 已实现 — 总盈亏 — 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SERVER_ENGINE 标 | 风险 LIVE 回撤 — 敞口占比 — 日亏损熔断 — 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SERVER_ENGINE | 事件回放验证 LIVE 回放结果 不一致 ✗ 快照数 — 最后序列 — 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SERVE | 持仓 LIVE 无法从适配层获取数据 模拟账本会话无效或已过期，请重新初始化 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SE | 权益曲线 快照表未创建 NO_DATA 来源: paper_equity_snapshots (server-written, read-only) 通道: SERVER_ENGINE 标签: NO_DATA 生成UTC: 2026-11- | 委托与撤单 0 笔 LIVE 无法从适配层获取数据 模拟账本会话无效或已过期，请重新初始化 来源: server-authoritative account state (orders/trades projection) 通道: SERV | 服务端事件流（账户状态哈希链） 0 条 LIVE 无法从适配层获取数据 模拟账本会话无效或已过期，请重新初始化 来源: server-authoritative paper engine (frozen upstream, imported",
+  "offline_state_view": "无法从适配层获取数据 Failed to fetch || 无法从适配层获取数据 Failed to fetch || 无法从适配层获取数据 Failed to fetch || 无法从适配层获取数据 Failed to fetch",
+  "recovered": {
+    "states": "NONE",
+    "hasTable": true
+  }
+}

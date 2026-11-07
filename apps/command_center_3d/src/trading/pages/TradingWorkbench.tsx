@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType } from "lightweight-charts";
 import { useJevQuery } from "../api/useJev";
 import { jevFetch, placePaperOrder, makeIds } from "../api/client";
-import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd } from "../components/common";
+import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
@@ -71,33 +71,35 @@ function OrderBook({ symbol }: { symbol: string }) {
   return (
     <Panel title="盘口深度" sub={symbol} right={<StatusPill label="LIVE" />}>
       <StateView q={dq} emptyText="暂无盘口" />
-      <div className="jev-book head jev-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
-        <span style={{ textAlign: "left" }}>价格</span><span>数量</span><span>累计</span>
-      </div>
-      <div className="asks">
-        {asks.map((r, i) => {
-          const tot = asks.slice(0, i + 1).reduce((a, b) => a + Number(b[1]), 0);
-          return (
-            <div className="row" key={"a" + i}>
-              <span className="bar" style={{ background: "var(--down)", width: `${(Number(r[1]) / maxQ) * 100}%` }} />
-              <span className="px">{Number(r[0]).toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
-              <span>{Number(r[1]).toFixed(4)}</span><span className="tot">{tot.toFixed(4)}</span>
-            </div>
-          );
-        })}
-      </div>
-      <div className="mid">— 买卖中间价 —</div>
-      <div className="bids">
-        {bids.map((r, i) => {
-          const tot = bids.slice(0, i + 1).reduce((a, b) => a + Number(b[1]), 0);
-          return (
-            <div className="row" key={"b" + i}>
-              <span className="bar" style={{ background: "var(--up)", width: `${(Number(r[1]) / maxQ) * 100}%` }} />
-              <span className="px">{Number(r[0]).toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
-              <span>{Number(r[1]).toFixed(4)}</span><span className="tot">{tot.toFixed(4)}</span>
-            </div>
-          );
-        })}
+      <div className="jev-book">
+        <div className="head jev-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+          <span style={{ textAlign: "left" }}>价格</span><span style={{ textAlign: "right" }}>数量</span><span style={{ textAlign: "right" }}>累计</span>
+        </div>
+        <div className="asks">
+          {asks.map((r, i) => {
+            const tot = asks.slice(0, i + 1).reduce((a, b) => a + Number(b[1]), 0);
+            return (
+              <div className="row" key={"a" + i}>
+                <span className="bar" style={{ background: "var(--down)", width: `${(Number(r[1]) / maxQ) * 100}%` }} />
+                <span className="px">{fmtPrice(r[0])}</span>
+                <span>{fmtQty(r[1])}</span><span className="tot">{fmtQty(tot)}</span>
+              </div>
+            );
+          })}
+        </div>
+        <div className="mid">— 买卖中间价 —</div>
+        <div className="bids">
+          {bids.map((r, i) => {
+            const tot = bids.slice(0, i + 1).reduce((a, b) => a + Number(b[1]), 0);
+            return (
+              <div className="row" key={"b" + i}>
+                <span className="bar" style={{ background: "var(--up)", width: `${(Number(r[1]) / maxQ) * 100}%` }} />
+                <span className="px">{fmtPrice(r[0])}</span>
+                <span>{fmtQty(r[1])}</span><span className="tot">{fmtQty(tot)}</span>
+              </div>
+            );
+          })}
+        </div>
       </div>
       <SourceFooter meta={dq.meta} />
     </Panel>
@@ -114,10 +116,26 @@ function OrderForm({ symbol, onPlaced }: { symbol: string; onPlaced: () => void 
 
   async function submit() {
     setBusy(true); setMsg(null);
+    // P0.2: reject invalid quantity / price at the client before any server call.
+    // The server remains authoritative, but a malformed input must never be sent.
+    const qtyN = Number(qty);
+    if (!Number.isFinite(qtyN) || qtyN <= 0) {
+      setBusy(false);
+      setMsg({ ok: false, text: `拒绝：数量无效（${qty}），必须是大于 0 的数字` });
+      return;
+    }
+    if (type === "LIMIT") {
+      const lp = Number(limit);
+      if (!Number.isFinite(lp) || lp <= 0) {
+        setBusy(false);
+        setMsg({ ok: false, text: `拒绝：限价无效（${limit}），必须是大于 0 的数字` });
+        return;
+      }
+    }
     const ids = makeIds("wd");
     const body: any = {
       clientOrderId: ids.clientOrderId, confirmationId: ids.confirmationId,
-      symbol, side, type, quantity: Number(qty),
+      symbol, side, type, quantity: qtyN,
     };
     if (type === "LIMIT") body.limitPrice = Number(limit);
     const r = await placePaperOrder(body);
@@ -196,8 +214,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table" style={{ marginTop: 10 }}>
             <thead><tr><th>持仓</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>未实现</th></tr></thead>
             <tbody>
-              {Object.values(a.positions).map((p: any) => (
-                <tr key={p.symbol}><td>{p.symbol}</td><td>{Number(p.qty).toFixed(4)}</td><td>{Number(p.avgPrice).toFixed(2)}</td><td>{Number(p.mark).toFixed(2)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
+                {Object.values(a.positions).map((p: any, pi: number) => (
+                <tr key={p.symbol ?? pi}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -211,8 +229,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table">
             <thead><tr><th>ID</th><th>标的</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>状态</th><th>成交</th></tr></thead>
             <tbody>
-              {orders.data.orders.map((o: any) => (
-                <tr key={o.id}><td>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{Number(o.qty).toFixed(4)}</td><td>{o.avgFillPrice ? Number(o.avgFillPrice).toFixed(2) : "—"}</td><td>{o.status}</td><td>{Number(o.filledQty).toFixed(4)}</td></tr>
+                {orders.data.orders.map((o: any, oi: number) => (
+                <tr key={o.id ?? oi}><td>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{fmtQty(o.filledQty)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -226,8 +244,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table">
             <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
             <tbody>
-              {ev.data.events.map((e: any) => (
-                <tr key={e.seq}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+              {ev.data.events.map((e: any, i: number) => (
+                <tr key={e.seq ?? i}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
               ))}
             </tbody>
           </table>
@@ -273,9 +291,9 @@ export function TradingWorkbench({ topbar }: { topbar: React.ReactNode }) {
             {INTERVALS.map((i) => <button key={i} className={interval === i ? "on" : ""} onClick={() => setInterval(i)}>{i}</button>)}
           </div>
           <div className="spacer" style={{ flex: 1 }} />
-          {ticker.data?.map((t: any) => {
+          {ticker.data?.map((t: any, ti: number) => {
             const chg = Number(t.priceChangePercent);
-            return <span key={t.symbol} className="jev-metric" style={{ minWidth: 110 }}><span className="label">{t.symbol}</span><span className={`value sm ${chg >= 0 ? "jev-up" : "jev-down"}`}>{Number(t.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 1 })}</span></span>;
+            return <span key={t.symbol ?? ti} className="jev-metric" style={{ minWidth: 110 }}><span className="label">{t.symbol}</span><span className={`value sm ${chg >= 0 ? "jev-up" : "jev-down"}`}>{fmtPrice(t.lastPrice)}</span></span>;
           })}
         </div>
 
@@ -285,10 +303,10 @@ export function TradingWorkbench({ topbar }: { topbar: React.ReactNode }) {
           <OrderBook symbol={symbol} />
           <Panel title="逐笔成交" sub={symbol} right={<StatusPill label="LIVE" />}>
             <StateView q={trades} emptyText="暂无成交" />
-            {trades.data?.map((t: any) => (
-              <div className="jev-row" key={t.id} style={{ justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
-                <span className="jev-up">{Number(t.price).toLocaleString("en-US", { maximumFractionDigits: 2 })}</span>
-                <span>{Number(t.qty).toFixed(4)}</span>
+            {trades.data?.map((t: any, trI: number) => (
+              <div className="jev-row" key={t.id ?? trI} style={{ justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+                <span className="jev-up">{fmtPrice(t.price)}</span>
+                <span>{fmtQty(t.qty)}</span>
                 <span style={{ color: "var(--muted)" }}>{new Date(Number(t.time)).toLocaleTimeString("en-US")}</span>
               </div>
             ))}

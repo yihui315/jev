@@ -1,0 +1,462 @@
+{
+  "generated_utc": "2026-11-07T22:33:45.830Z",
+  "browser": {
+    "engine": "Chrome headless (CDP)",
+    "persistent_profile": "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\cdp-profile-v11",
+    "session_scope": "single-browser-session"
+  },
+  "app_url": "http://127.0.0.1:4781",
+  "console_messages": [
+    {
+      "level": "debug",
+      "text": "[vite] connecting...",
+      "args": [
+        "[vite] connecting..."
+      ],
+      "stack": "?:494"
+    },
+    {
+      "level": "debug",
+      "text": "[vite] connected.",
+      "args": [
+        "[vite] connected."
+      ],
+      "stack": "handleMessage:613 <- ?:545"
+    },
+    {
+      "level": "info",
+      "text": "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools font-weight:bold",
+      "args": [
+        "%cDownload the React DevTools for a better development experience: https://react.dev/link/react-devtools",
+        "font-weight:bold"
+      ],
+      "stack": "?:5 <- ../../../jev/apps/command_center_3d/node_modules/react-dom/cjs/react-dom-client.development.js:5 <- __require:7 <- ../../../jev/apps/command_center_3d/node_modules/react-dom/client.js:6 <- __require:7 <- ?:6"
+    },
+    {
+      "level": "warning",
+      "text": "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead.",
+      "args": [
+        "THREE.Clock: This module has been deprecated. Please use THREE.Timer instead."
+      ],
+      "stack": "warn:754 <- Clock:30219 <- ?:1204 <- createStoreImpl:144 <- createStore:147 <- createWithEqualityFnImpl:165 <- createWithEqualityFn:176 <- createStore2:1137 <- createRoot:11113 <- ?:11762 <- react_stack_bottom_frame:5 <- runWithFiberInDEV:1 <- commitHookEffectListMount:5 <- commitHookLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- recursivelyTraverseLayoutEffects:5 <- commitLayoutEffectOnFiber:5 <- flushLayoutEffects:5 <- commitRoot:5 <- completeRoot:5 <- completeRootWhenReady:5 <- performWorkOnRoot:5 <- performWorkOnRootViaSchedulerTask:5 <- performWorkUntilDeadline:29"
+    }
+  ],
+  "network_api_requests": [
+    {
+      "url": "http://127.0.0.1:4781/api/jev/system/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/agents/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/providers/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=BTCUSDT&interval=1h&limit=200",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=BTCUSDT&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=BTCUSDT&limit=30",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=1000SATSUSDT&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=1000SATSUSDT&interval=1h&limit=200",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=1000SATSUSDT&limit=30",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 201,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/replay",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 405,
+      "ok": false
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/equity",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/replay",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/system/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/agents/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/providers/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=BTCUSDT&interval=1h&limit=200",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=BTCUSDT&limit=20",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=BTCUSDT&limit=30",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%2C%22BNBUSDT%22%2C%22SOLUSDT%22%5D",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/strategies/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/quality",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 405,
+      "ok": false
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=100",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/equity",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/replay",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/agents/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/providers/status",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/quality",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/reference/design",
+      "status": 200,
+      "ok": true
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/health",
+      "status": 200,
+      "ok": true
+    }
+  ],
+  "order_flow": {
+    "symbol": "1000SATSUSDT",
+    "qty_input": "1000000",
+    "order_result_message": "已提交，订单状态：FILLED（由服务端撮合）",
+    "orderbook_sample_1000SATS": "0.00000873 23,491,599.00 23,491,599.00 | 0.00000872 24,035,069.00 47,526,668.00 | 0.00000871 271,534.00 47,798,202.00 | 0.0000087 39,836,825.00 87,635,027.00 | 0.00000869 225,857,562.00 313,492,589.00 | 0.00000868 51,384,503.00 364,877,092.00 | 0.00000867 214,970,878.00 579,847,970.00 | 0.00000866 124,967,137.00 704,815,107.00 | 0.00000865 319,387,697.00 1,024,202,804.00 | 0.00000864 337,209,085.00 1,361,411,889.00 | 0.00000863 345,923,202.00 1,707,335,091.00 | 0.00000862 29,657,052.00 1,736,992,143.00",
+    "ticker_sample": "BTCUSDT 75,792.31 || ETHUSDT 2,234.44 || ORDIUSDT 3.20 || 1000SATSUSDT 0.00000862 || 净值 $9,999.63 || 可用现金 $9,939.29 || 市值 $60.34 || 未实现盈亏 $-0.35 || 已实现盈亏 $0.00 || 总盈亏 $-0.37 || 日盈亏 $-0.37 || 回撤 0.00%"
+  },
+  "pages": [
+    {
+      "id": "command",
+      "label": "AI 交易指挥中心",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "关键事实（必须诚实区分）： 服务端 Paper Trading 已通过两次真实行情驱动 Gate 验收， 累计 14 笔模拟成交，但这些成交来自确定性验收 Driver，并非 AI 六角色自主决策。 当前 AI Provider 凭据为 0，真实推理记录为 0。下方「AI 专家团队」页同样标注 BLOCKED。 30 天运行时钟 当前进度 1 / 30 天 真实运行小时 8.6 h 来源: V4.6 runtime evidence (local JSON) 通道: LOCAL_EVIDENCE 标签: VERIFIED 生成UTC: 2026-11-07T22:33:28.956Z 工程门禁",
+      "screenshot": "page-command.png"
+    },
+    {
+      "id": "workbench",
+      "label": "专业交易工作台",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "本页所有行情为 真实公开 REST 数据（Binance Vision 公共接口），通道为 REST_POLLING。 WebSocket 尚未打通，因此绝不标为 WebSocket LIVE。所有模拟成交均由服务端权威引擎撮合，客户端不定价、不记账。 BTC ETH ORDI 1000SATS 1m 5m 15m 1h 4h 1d BTCUSDT 75,792.30 ETHUSDT 2,234.44 ORDIUSDT 3.20 1000SATSUSDT 0.00000862 K 线 BTCUSDT · 1h LIVE \t \t \t \t 来源: https://data-api.binance.",
+      "screenshot": "page-workbench.png"
+    },
+    {
+      "id": "universe",
+      "label": "3D 市场宇宙",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "3D 视图为 态势感知，立方体高度/颜色编码各资产 24h 涨跌幅（真实 REST 快照）。这不是资金流向图：本终端 禁止真实资金，也不展示任何未经核验的资金迁移。 通道 REST_POLLING，非 WebSocket。BNB/SOL 仅有采集层数据，标记为「仅采集、不可交易」。 BTCUSDT 可交易 LIVE 最新价 75,792.31 24h 涨跌 -0.34% ETHUSDT 可交易 LIVE 最新价 2,234.44 24h 涨跌 -0.32% ORDIUSDT 可交易 LIVE 最新价 3.2 24h 涨跌 -3.03% 1000SATSUSDT 可交易 LIVE 最新价 0 2",
+      "screenshot": "page-universe.png"
+    },
+    {
+      "id": "strategy",
+      "label": "策略竞赛实验室",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "策略实验室当前不展示任何绩效数字。 没有真实 OOS（样本外）样本，因此不生成排名、不输出收益/回撤/胜率、不允许自动晋级。 下方「样本基础」中的 K 线数量是数据采集进度的真实体现，不是策略收益；BACKFILL 历史回填不计入实时增量。 策略状态 判定 NO_DATA 真实 OOS 样本 0 回测运行 0 来源: V4.6 runtime evidence (local JSON) 通道: LOCAL_EVIDENCE 标签: NO_DATA 生成UTC: 2026-11-07T22:33:36.770Z 样本基础（非收益） K 线总数 156 实时 68 回填 88 来源: V4.6 r",
+      "screenshot": "page-strategy.png"
+    },
+    {
+      "id": "account",
+      "label": "模拟交易账户",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "账户、持仓、委托、成交、事件全部来自服务端权威 Paper 引擎的真实 SQLite 状态。 下方「事件回放」对服务端状态哈希链做独立验证——若回放结果与物化状态一致，则证明账户未被篡改。 净值 / 现金 LIVE 净值 $9,999.62 可用现金 $9,930.66 市值 $68.96 来源: server-authoritative paper engine (frozen upstream, imported in place) 通道: SERVER_ENGINE 标签: LIVE 生成UTC: 2026-11-07T22:33:40.842Z HTTP: 200 盈亏 LIVE 未实",
+      "screenshot": "page-account.png"
+    },
+    {
+      "id": "team",
+      "label": "AI 专家团队",
+      "clicked": true,
+      "loaded": true,
+      "domHead": "AI 六角色当前全部 BLOCKED。 真实 Provider 凭据为 0，真实推理记录为 0。 下方每个角色的「状态 / Provider / 模型 / token / 决策」均为 未知（NOT_CONFIGURED）， 界面不会把 0 渲染成\"已运行\"，也不会伪造任何推理结果。 1. SPOTTER 代码: SPOTTER BLOCKED 状态 NOT_CONFIGURED Provider — 模型 — 输入token — 决策 — UNKNOWN, never 0. No real inference has been executed. 2. ANALYST 代码: PRIOR BL",
+      "screenshot": "page-team.png"
+    }
+  ],
+  "audit_drawer": {
+    "has_object_object_bug": false,
+    "text_head": "×\n数据来源审计\nmarket_rest\nLIVE\ndata-api.binance.vision\nmarket_websocket\nBLOCKED\n/ws -> 404; stream.binance.com:9443 -> timeout\nmarket_backfill\nBACKFILL\nV4.5 hash-chained bars ledger\npaper_engine\nLIVE\nfrozen paper-server.mjs (imported in place)\nprovider_inference\nBLOCKED\nexisting DPAPI SecretStore\nstrategy_oos\nNO_DATA\nbacktest_engine.py / strategy-registry.mjs\nsupervisor\nVERIFIED\nruntime/v46_supervisor_state.json\n行情质量\nverdict: VERIFIED\nproblems: 0\nbars.total: 156\nbars.realtime: 68\nbars.backfill: 88\nbars.incomplete: 0\nbars.distinct_utc_days: 3\nbars.stale: false\nbars.hash_chain_verified: true\nclassification_rule:\n  REALTIME: fetched_at_utc <= bar close_time + 2h\n  BACKFILL: fetched_at_utc >  bar close_time + 2h (history repair / bootstrap)\n  hard_rule: BACKFILL bars are NEVER counted as live increments or as extra 30-day days\ngaps: 0 (无)\nanomalies: 0 (无)\nduplicates: 0 (无)\nblocked: 2 项\n  - WEBSOCKET_DUAL_CHANNEL: data-api.binance.vision /ws -> 404; stream.binance.com:9443 -> timeout. REST path is the only verified live channel. No synthetic WS feed is substituted.\n  - BNBUSDT_SOLUSDT_SERVER_WHITELIST: Frozen authoritative engine ALLOWED_SYMBOLS excludes BNB/SOL. Collector covers them; the p"
+  }
+}

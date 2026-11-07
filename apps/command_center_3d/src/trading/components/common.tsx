@@ -128,3 +128,33 @@ export function fmtUsd(v: unknown): string {
   if (!Number.isFinite(n)) return "—";
   return "$" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+
+// Adaptive-precision price formatter. Small prices such as 1000SATSUSDT (~0.0003)
+// must NOT be rounded to 0 by a fixed 2-decimal format. Decimal places scale with
+// magnitude so every instrument stays readable and truthful.
+export function fmtPrice(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  let dp: number;
+  if (abs === 0) dp = 2;
+  else if (abs < 0.01) dp = 8;
+  else if (abs < 1) dp = 6;
+  else if (abs < 1000) dp = 4;
+  else dp = 2;
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: dp });
+}
+
+// Adaptive-precision quantity formatter. Keeps micro-lots (e.g. 0.0002 BTC)
+// and whole-unit lots (e.g. 12345 1000SATS) both legible.
+export function fmtQty(v: unknown): string {
+  const n = Number(v);
+  if (!Number.isFinite(n)) return "—";
+  const abs = Math.abs(n);
+  let dp: number;
+  if (abs === 0) dp = 4;
+  else if (abs < 1) dp = 6;
+  else if (abs < 1000) dp = 4;
+  else dp = 2;
+  return n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: dp });
+}

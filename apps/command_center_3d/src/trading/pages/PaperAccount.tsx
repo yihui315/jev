@@ -4,7 +4,7 @@
 import { useEffect, useState } from "react";
 import { useJevQuery } from "../api/useJev";
 import { jevFetch, cancelPaperOrder } from "../api/client";
-import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd } from "../components/common";
+import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
 
 export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
@@ -27,7 +27,6 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
   const replay = useJevQuery<any>("paper/replay", { intervalMs: 8000 });
   const equity = useJevQuery<any>("paper/equity", { intervalMs: 8000 });
 
-  const a = acc.data?.account;
   const s = acc.data?.summary;
   const [cancelMsg, setCancelMsg] = useState<string | null>(null);
 
@@ -75,14 +74,14 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
         </div>
 
         <div className="jev-grid cols-2" style={{ marginTop: 14 }}>
-          <Panel title="持仓" sub={a ? `${Object.keys(a.positions || {}).length} 个` : ""} right={<StatusPill label="LIVE" />}>
+          <Panel title="持仓" sub={s ? `${s.positions?.length ?? 0} 个` : ""} right={<StatusPill label="LIVE" />}>
             <StateView q={acc} emptyText="无持仓" />
-            {a && Object.keys(a.positions || {}).length ? (
+            {s?.positions?.length ? (
               <table className="jev-table">
                 <thead><tr><th>标的</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>未实现</th></tr></thead>
                 <tbody>
-                  {Object.values(a.positions).map((p: any) => (
-                    <tr key={p.symbol}><td>{p.symbol}</td><td>{Number(p.qty).toFixed(4)}</td><td>{Number(p.avgPrice).toFixed(2)}</td><td>{Number(p.mark).toFixed(2)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
+                  {s.positions.map((p: any, i: number) => (
+                    <tr key={p.symbol ?? i}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -112,9 +111,9 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
             <table className="jev-table">
               <thead><tr><th>clientOrderId</th><th>标的</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>状态</th><th>操作</th></tr></thead>
               <tbody>
-                {orders.data.orders.map((o: any) => (
-                  <tr key={o.id}><td style={{ textAlign: "left" }}>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{Number(o.qty).toFixed(4)}</td><td>{o.avgFillPrice ? Number(o.avgFillPrice).toFixed(2) : "—"}</td><td>{o.status}</td><td>{o.status === "NEW" || o.status === "PARTIALLY_FILLED" ? <button className="jev-link" onClick={() => cancel(o.id)}>撤单</button> : "—"}</td></tr>
-                ))}
+                  {orders.data.orders.map((o: any, oi: number) => (
+                    <tr key={o.id ?? oi}><td style={{ textAlign: "left" }}>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{o.status === "NEW" || o.status === "PARTIALLY_FILLED" ? <button className="jev-link" onClick={() => cancel(o.id)}>撤单</button> : "—"}</td></tr>
+                  ))}
               </tbody>
             </table>
           ) : null}
@@ -128,8 +127,8 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
             <table className="jev-table">
               <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
               <tbody>
-                {events.data.events.map((e: any) => (
-                  <tr key={e.seq}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+                {events.data.events.map((e: any, ei: number) => (
+                  <tr key={e.seq ?? ei}><td>{e.seq ?? "—"}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
                 ))}
               </tbody>
             </table>

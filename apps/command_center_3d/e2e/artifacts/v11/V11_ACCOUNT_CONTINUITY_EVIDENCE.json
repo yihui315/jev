@@ -1,0 +1,162 @@
+{
+  "generated_utc": "2026-11-07T22:33:45.847Z",
+  "session_scope": "single persistent Chrome profile; one browser session for order->account",
+  "order_placed_on": "workbench",
+  "account_verified_on": "account",
+  "same_session_cookie": true,
+  "placed_order": {
+    "id": "O-aa248f67-174f-4a39-a45f-2934be83d139",
+    "clientOrderId": "wd-1794090800616-paxrkzcd",
+    "confirmationId": "wd-conf-1794090800616-paxrkzcd",
+    "symbol": "1000SATSUSDT",
+    "side": "BUY",
+    "type": "MARKET",
+    "qty": 1000000,
+    "limitPrice": null,
+    "status": "FILLED",
+    "filledQty": 1000000,
+    "remainingQty": 0,
+    "avgFillPrice": 0.00000862,
+    "fee": 0.00862,
+    "realizedPnl": null,
+    "reservedCash": 0,
+    "reservedQty": 0,
+    "rejectionCode": null,
+    "reason": null,
+    "timeInForce": "IOC",
+    "bookSequence": 3434007759,
+    "bookReceivedAt": "2026-11-07T22:33:20.729Z",
+    "createdAt": "2026-11-07T22:33:20.729Z",
+    "updatedAt": "2026-11-07T22:33:20.730Z",
+    "terminalAt": "2026-11-07T22:33:20.730Z",
+    "fillCount": 1,
+    "requestHash": "ea2395acd6af4389166c3e3a99f669db3fa3cdc0c1c86840c05ea027e218a985"
+  },
+  "account_after_navigation_summary": {
+    "equity": 9999.62073,
+    "cash": 9930.66073,
+    "availableCash": 9930.66073,
+    "reservedCash": 0,
+    "marketValue": 68.96,
+    "unrealizedPnl": -0.32,
+    "realizedPnl": 0,
+    "totalPnl": -0.37927,
+    "dailyPnl": -0.37927,
+    "drawdown": 0.00003793,
+    "exposurePct": 0.00689626,
+    "positions": [
+      {
+        "symbol": "1000SATSUSDT",
+        "qty": 8000000,
+        "avgPrice": 0.00000866,
+        "mark": 0.00000862,
+        "marketValue": 68.96,
+        "unrealizedPnl": -0.32,
+        "reservedQty": 0
+      }
+    ],
+    "dailyLossLocked": false,
+    "drawdownLocked": false
+  },
+  "account_mark_cell_rendered": {
+    "found": true,
+    "headers": [
+      "标的",
+      "数量",
+      "均价",
+      "现价",
+      "市值",
+      "未实现"
+    ],
+    "rows": [
+      [
+        "1000SATSUSDT",
+        "8,000,000.00",
+        "0.00000866",
+        "0.00000862",
+        "$68.96",
+        "$-0.32"
+      ]
+    ]
+  },
+  "ledger_consistency": {
+    "checks": {
+      "placed_order_filled_this_run": true,
+      "placed_order_symbol": "1000SATSUSDT",
+      "total_filled_qty_matches_position": true,
+      "position_present_for_symbol": true,
+      "position_qty_positive": true,
+      "cash_below_initial_10000": true,
+      "cash_reduction_matches_spent": true,
+      "equity_reported": true,
+      "events_recorded": true,
+      "replay_verified": true
+    },
+    "placed_order": {
+      "id": "O-aa248f67-174f-4a39-a45f-2934be83d139",
+      "clientOrderId": "wd-1794090800616-paxrkzcd",
+      "confirmationId": "wd-conf-1794090800616-paxrkzcd",
+      "symbol": "1000SATSUSDT",
+      "side": "BUY",
+      "type": "MARKET",
+      "qty": 1000000,
+      "limitPrice": null,
+      "status": "FILLED",
+      "filledQty": 1000000,
+      "remainingQty": 0,
+      "avgFillPrice": 0.00000862,
+      "fee": 0.00862,
+      "realizedPnl": null,
+      "reservedCash": 0,
+      "reservedQty": 0,
+      "rejectionCode": null,
+      "reason": null,
+      "timeInForce": "IOC",
+      "bookSequence": 3434007759,
+      "bookReceivedAt": "2026-11-07T22:33:20.729Z",
+      "createdAt": "2026-11-07T22:33:20.729Z",
+      "updatedAt": "2026-11-07T22:33:20.730Z",
+      "terminalAt": "2026-11-07T22:33:20.730Z",
+      "fillCount": 1,
+      "requestHash": "ea2395acd6af4389166c3e3a99f669db3fa3cdc0c1c86840c05ea027e218a985"
+    },
+    "total_filled_for_symbol": 8000000,
+    "spent_usdt": 69.33927,
+    "cash_reduction": 69.3392700000004,
+    "position": {
+      "qty": 8000000,
+      "avgPrice": 0.00000866,
+      "reservedQty": 0
+    },
+    "summary": {
+      "equity": 9999.62073,
+      "cash": 9930.66073,
+      "availableCash": 9930.66073,
+      "reservedCash": 0,
+      "marketValue": 68.96,
+      "unrealizedPnl": -0.32,
+      "realizedPnl": 0,
+      "totalPnl": -0.37927,
+      "dailyPnl": -0.37927,
+      "drawdown": 0.00003793,
+      "exposurePct": 0.00689626,
+      "positions": [
+        {
+          "symbol": "1000SATSUSDT",
+          "qty": 8000000,
+          "avgPrice": 0.00000866,
+          "mark": 0.00000862,
+          "marketValue": 68.96,
+          "unrealizedPnl": -0.32,
+          "reservedQty": 0
+        }
+      ],
+      "dailyLossLocked": false,
+      "drawdownLocked": false
+    },
+    "events_count": 25,
+    "replay_verified": true,
+    "all_consistent": true
+  },
+  "continuity_confirmed": true
+}
