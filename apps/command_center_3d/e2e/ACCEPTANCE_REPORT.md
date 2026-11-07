@@ -3,7 +3,7 @@
 > TL;DR
 > - 六页面全部通过真实数据渲染验收：**0 个 NOT_FOUND**，真实行情（Binance Vision REST）、真实账户/订单（服务端权威引擎）均落地。
 > - 后端 22 条 `/api/jev/*` 路由实测：行情/行情质量/系统状态/审计/参考设计 200；Paper 生命周期（session→account→下单→撮合→撤单）端到端真实通过。
-> - 修复 1 个阻断性缺陷：`API_BASE` 与路径拼接缺斜杠导致全部路由 `UNKNOWN_ROUTE → NOT_FOUND`（详见 §7）。
+> - 修复 2 个阻断性缺陷：`API_BASE` 与路径拼接缺斜杠导致全部路由 `UNKNOWN_ROUTE → NOT_FOUND`（§7 #1）；`App.tsx` 页面片段未包裹导致主内容区塌陷、内容挤入侧栏列（§7 #6）。
 > - 验收工具：系统 Chrome 无头（`--headless=new --virtual-time-budget`）替代 Playwright（沙箱离线无法安装）。截图见 `e2e/artifacts/*.png`。
 > - 明确 BLOCKED：AI Provider 推断、WebSocket、策略 OOS、BNB/SOL 交易、30 天 Day1/30、系统级调度、GitHub/Cloudflare 权限。
 
@@ -54,7 +54,7 @@
 
 ---
 
-## [4] 前端六页面渲染验收（Chrome 无头 DOM dump）
+## [4] 前端六页面渲染验收（Chrome 无头 DOM dump + 像素分布 + 截图）
 
 | 页面 | 检查项 | 结果 |
 |---|---|---|
@@ -66,6 +66,8 @@
 | ⑥ 专家团队 | 六角色 workflow 全 BLOCKED | ✅ 渲染（截图 `06_team.png`） |
 
 **NOT_FOUND 统计**：修复前六页面 DOM 关键字 `NOT_FOUND` 出现 6 次（每面板一次）；修复后 **0 次**。
+
+**布局验收（像素分布）**：修复前截图主内容区（x>480px）近乎空白（亮像素仅占 2.1%），内容被挤入 232px 侧栏列；修复后内容沿全宽分布（x320→x1600 均有内容），确认布局正确铺满主列。详见 §7 缺陷 #6。
 
 ---
 
@@ -93,6 +95,7 @@
 | `paperAudit` 未 await | `readSession` 可能 undefined | 异步未等待 | 改为 `async` + `await ledger.readSession` |
 | `paper/equity` 表缺失 | `no such table: paper_equity_snapshots` | 冻结引擎前 3 迁移不含该表 | 查 `sqlite_master`，缺失返回 `table_present:false` + 空数组 + `equity_curve_synthesized:false` |
 | Server 多 `Set-Cookie` 合并 | 会话 cookie 丢失 | `headers.forEach` 合并多值 | 改用 `getSetCookie()` 数组转发 |
+| **主内容区塌陷（系统性布局缺陷）** | 六页面主列空白、内容挤入 232px 侧栏列（截图亮像素仅 2.1%） | `App.tsx` 把各页面返回的片段 `<>{topbar}{content}</>` 直接作为 `.jev-app` 网格子项，使 `topbar` 与 `jev-content` 成为**两个独立网格单元**，内容落入侧栏列、主列（col 2）留空 | 用单 `<main className="jev-main">` 包裹页面切换，使 `topbar`+内容作为**一个**网格项（flex 列）充满主列；六页面全宽渲染已验证 |
 
 ---
 

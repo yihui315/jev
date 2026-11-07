@@ -60,12 +60,18 @@ export function TradingApp() {
   return (
     <div className="jev-app">
       <Sidebar page={page} onSelect={goto} />
-      {page === "command" && <AICommandCenter topbar={topbar} />}
-      {page === "workbench" && <TradingWorkbench topbar={topbar} />}
-      {page === "universe" && <MarketUniverse3D topbar={topbar} />}
-      {page === "strategy" && <StrategyArena topbar={topbar} />}
-      {page === "account" && <PaperAccount topbar={topbar} />}
-      {page === "team" && <AIExpertTeam topbar={topbar} />}
+      {/* Single grid item (col 2) so topbar + content fill the main column as a
+          flex column. Without this wrapper each page's fragment (<topbar/> +
+          <jev-content/>) becomes TWO separate grid cells, dropping the content
+          into the 232px sidebar column and leaving col 2 empty. */}
+      <main className="jev-main">
+        {page === "command" && <AICommandCenter topbar={topbar} />}
+        {page === "workbench" && <TradingWorkbench topbar={topbar} />}
+        {page === "universe" && <MarketUniverse3D topbar={topbar} />}
+        {page === "strategy" && <StrategyArena topbar={topbar} />}
+        {page === "account" && <PaperAccount topbar={topbar} />}
+        {page === "team" && <AIExpertTeam topbar={topbar} />}
+      </main>
       {auditOpen && <AuditDrawer onClose={() => setAuditOpen(false)} />}
     </div>
   );
