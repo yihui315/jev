@@ -1,0 +1,413 @@
+{
+  "generated_utc": "2026-11-08T04:56:25.444Z",
+  "task": "T05-daily-paper-trading-status",
+  "calendar": {
+    "start_utc": "2026-11-08T04:56:25.453Z",
+    "day_index": 0,
+    "target_days": 30,
+    "mode": "real_calendar_only"
+  },
+  "datasource_audit": [
+    {
+      "id": "market_rest",
+      "label": "LIVE",
+      "channel": "REST_POLLING",
+      "source": "data-api.binance.vision",
+      "status": "VERIFIED",
+      "updated_utc": "2026-11-07T13:23:48.879683Z",
+      "note": "Real public REST. WebSocket is NOT used."
+    },
+    {
+      "id": "market_websocket",
+      "label": "BLOCKED",
+      "channel": "WEBSOCKET",
+      "source": null,
+      "status": "BLOCKED",
+      "note": "/ws -> 404; stream.binance.com:9443 -> timeout"
+    },
+    {
+      "id": "market_backfill",
+      "label": "BACKFILL",
+      "channel": "LOCAL_LEDGER",
+      "source": "V4.5 hash-chained bars ledger",
+      "status": "VERIFIED",
+      "count": 88,
+      "note": "Never counted as live increments"
+    },
+    {
+      "id": "paper_engine",
+      "label": "LIVE",
+      "channel": "SERVER_ENGINE",
+      "source": "frozen paper-server.mjs (imported in place)",
+      "status": "VERIFIED"
+    },
+    {
+      "id": "provider_inference",
+      "label": "BLOCKED",
+      "channel": "PROVIDER_CENTER",
+      "source": "existing DPAPI SecretStore",
+      "status": "BLOCKED",
+      "count": 0
+    },
+    {
+      "id": "strategy_oos",
+      "label": "NO_DATA",
+      "channel": "BACKTEST_ENGINE",
+      "source": "backtest_engine.py / strategy-registry.mjs",
+      "status": "NO_DATA",
+      "count": 0
+    },
+    {
+      "id": "supervisor",
+      "label": "VERIFIED",
+      "channel": "LOCAL_EVIDENCE",
+      "source": "runtime/v46_supervisor_state.json",
+      "status": "VERIFIED"
+    }
+  ],
+  "market_quality": {
+    "schema": "jcc.v46.market_quality/v1",
+    "generated_utc": "2026-11-07T13:23:48.879683Z",
+    "verdict": "VERIFIED",
+    "problems": [],
+    "source": {
+      "bars_ledger": "D:\\jev\\artifacts\\v45\\runtime\\market_bars_ledger.jsonl",
+      "snapshots_ledger": "D:\\jev\\artifacts\\v45\\runtime\\market_snapshots_ledger.jsonl",
+      "verified_host": "data-api.binance.vision",
+      "note": "READ-ONLY. No V4.5 ledger is written. No second market-data system."
+    },
+    "classification_rule": {
+      "REALTIME": "fetched_at_utc <= bar close_time + 2h",
+      "BACKFILL": "fetched_at_utc >  bar close_time + 2h (history repair / bootstrap)",
+      "hard_rule": "BACKFILL bars are NEVER counted as live increments or as extra 30-day days"
+    },
+    "bars": {
+      "total": 156,
+      "realtime": 68,
+      "backfill": 88,
+      "incomplete": 0,
+      "distinct_utc_days": 3,
+      "latest_close_time_ms": 1794056399999,
+      "latest_close_utc": "2026-11-07T12:59:59.999000Z",
+      "age_hours": 0.397,
+      "stale": false,
+      "hash_chain_verified": true,
+      "last_hash": "1b6f32a0ef1782170f71dda90f0b4d37e03fd65a9230c2d2de0a0bd7393af59f"
+    },
+    "by_symbol": {
+      "BNBUSDT": {
+        "total": 39,
+        "realtime": 17,
+        "backfill": 22,
+        "first_open_time_ms": 1793916000000,
+        "last_open_time_ms": 1794052800000
+      },
+      "BTCUSDT": {
+        "total": 39,
+        "realtime": 17,
+        "backfill": 22,
+        "first_open_time_ms": 1793916000000,
+        "last_open_time_ms": 1794052800000
+      },
+      "ETHUSDT": {
+        "total": 39,
+        "realtime": 17,
+        "backfill": 22,
+        "first_open_time_ms": 1793916000000,
+        "last_open_time_ms": 1794052800000
+      },
+      "SOLUSDT": {
+        "total": 39,
+        "realtime": 17,
+        "backfill": 22,
+        "first_open_time_ms": 1793916000000,
+        "last_open_time_ms": 1794052800000
+      }
+    },
+    "gaps": [],
+    "duplicates": [],
+    "anomalies": [],
+    "snapshots": {
+      "total": 108,
+      "hash_chain_verified": true,
+      "last_hash": "3b5503c8e88b74f39ef834bd26e23d46727061d8f2921b4fba8aa2ce970d6422",
+      "by_kind": {
+        "trades": {
+          "count": 36,
+          "symbols": [
+            "BNBUSDT",
+            "BTCUSDT",
+            "ETHUSDT",
+            "SOLUSDT"
+          ],
+          "last_fetched_utc": "2026-11-07T12:43:13.916+00:00"
+        },
+        "ticker24h": {
+          "count": 36,
+          "symbols": [
+            "BNBUSDT",
+            "BTCUSDT",
+            "ETHUSDT",
+            "SOLUSDT"
+          ],
+          "last_fetched_utc": "2026-11-07T12:43:16.525+00:00"
+        },
+        "depth": {
+          "count": 36,
+          "symbols": [
+            "BNBUSDT",
+            "BTCUSDT",
+            "ETHUSDT",
+            "SOLUSDT"
+          ],
+          "last_fetched_utc": "2026-11-07T12:43:18.610+00:00"
+        }
+      }
+    },
+    "blocked": [
+      {
+        "item": "WEBSOCKET_DUAL_CHANNEL",
+        "reason": "data-api.binance.vision /ws -> 404; stream.binance.com:9443 -> timeout. REST path is the only verified live channel. No synthetic WS feed is substituted."
+      },
+      {
+        "item": "BNBUSDT_SOLUSDT_SERVER_WHITELIST",
+        "reason": "Frozen authoritative engine ALLOWED_SYMBOLS excludes BNB/SOL. Collector covers them; the paper engine does NOT."
+      }
+    ]
+  },
+  "provider": {
+    "verdict": "BLOCKED",
+    "code": "PROVIDER_NOT_CONFIGURED",
+    "credentials": 0,
+    "real_inference_records": 0,
+    "providers": [
+      {
+        "id": "MiniMax",
+        "configured": false,
+        "status": "NOT_CONFIGURED",
+        "last4": null
+      },
+      {
+        "id": "Qwen",
+        "configured": false,
+        "status": "NOT_CONFIGURED",
+        "last4": null
+      },
+      {
+        "id": "DeepSeek",
+        "configured": false,
+        "status": "NOT_CONFIGURED",
+        "last4": null
+      },
+      {
+        "id": "CustomOpenAI",
+        "configured": false,
+        "status": "NOT_CONFIGURED",
+        "last4": null
+      },
+      {
+        "id": "Jev-System-One",
+        "configured": false,
+        "status": "NOT_CONFIGURED",
+        "last4": null
+      }
+    ],
+    "secret_store": {
+      "path": "packages/jcc_core/secret_store.py (existing DPAPI SecretStore)",
+      "note": "No second credential system. No key is ever sent to the browser or written to a log."
+    },
+    "report_verdict_present": true,
+    "report_excerpt": "# Provider E2E Report (V4.5 P2)\r\n\r\nGenerated (UTC): `2026-11-07T05:44:58+00:00`\r\n\r\n## Verdict: BLOCKED — PROVIDER_NOT_CONFIGURED\r\n\r\nNo real Provider API credential exists in this environment. Per the ORDER: **no fake API key, no fabricated inference result**. No six-role real inference was executed and none is reported as VERIFIED.\r\n\r",
+    "work_line": {
+      "id": "W2",
+      "status": "BLOCKED",
+      "blocked": [
+        "0 credentials in the existing DPAPI SecretStore; 0 real inference records. No real six-role E2E is claimed."
+      ]
+    },
+    "naming_discrepancy": {
+      "order_roles": [
+        "SPOTTER",
+        "ANALYST",
+        "STRATEGIST",
+        "RISK",
+        "EXECUTOR",
+        "CLOSER"
+      ],
+      "code_roles": [
+        "SPOTTER",
+        "PRIOR",
+        "EDGE",
+        "KELLY",
+        "TAKER",
+        "CLOSER"
+      ],
+      "exact_match": false,
+      "mapping": "UNVERIFIED - human decision required"
+    }
+  },
+  "agents": {
+    "verdict": "BLOCKED",
+    "code": "PROVIDER_NOT_CONFIGURED",
+    "workflow": [
+      {
+        "order": 1,
+        "role": "SPOTTER",
+        "code_role": "SPOTTER",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      },
+      {
+        "order": 2,
+        "role": "ANALYST",
+        "code_role": "PRIOR",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      },
+      {
+        "order": 3,
+        "role": "STRATEGIST",
+        "code_role": "EDGE",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      },
+      {
+        "order": 4,
+        "role": "RISK",
+        "code_role": "KELLY",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      },
+      {
+        "order": 5,
+        "role": "EXECUTOR",
+        "code_role": "TAKER",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      },
+      {
+        "order": 6,
+        "role": "CLOSER",
+        "code_role": "CLOSER",
+        "status": "BLOCKED",
+        "state": "NOT_CONFIGURED",
+        "provider": null,
+        "model": null,
+        "request_id": null,
+        "input_tokens": null,
+        "output_tokens": null,
+        "finish_reason": null,
+        "latency_ms": null,
+        "decision": null,
+        "risk_rejection": null,
+        "note": "UNKNOWN, never 0. No real inference has been executed."
+      }
+    ],
+    "inference_records": [],
+    "disagreements": [],
+    "risk_rejections": [],
+    "final_decisions": [],
+    "audit_log": [
+      {
+        "at_utc": "2026-11-07T05:44:58Z",
+        "event": "PROVIDER_NOT_CONFIGURED",
+        "evidence": "D:/jev/artifacts/v45/PROVIDER_E2E_REPORT.md",
+        "verdict": "BLOCKED"
+      }
+    ],
+    "naming_discrepancy": {
+      "order_roles": [
+        "SPOTTER",
+        "ANALYST",
+        "STRATEGIST",
+        "RISK",
+        "EXECUTOR",
+        "CLOSER"
+      ],
+      "code_roles": [
+        "SPOTTER",
+        "PRIOR",
+        "EDGE",
+        "KELLY",
+        "TAKER",
+        "CLOSER"
+      ],
+      "exact_match": false,
+      "mapping": "UNVERIFIED - human decision required"
+    }
+  },
+  "paper": {
+    "session_id": null,
+    "cash": 10000,
+    "positions": [],
+    "open_orders": 0,
+    "filled_orders": 0,
+    "total_orders": 0,
+    "events": 1,
+    "equity": null
+  },
+  "research": {
+    "ai_research_count": 0,
+    "reason": "provider_inference BLOCKED (PROVIDER_NOT_CONFIGURED)",
+    "strategy_returns": "NO_DATA",
+    "oos_samples": "NO_DATA",
+    "risk_rejections": 0,
+    "supervisor": "UNKNOWN"
+  },
+  "red_lines": {
+    "no_real_funds": true,
+    "no_live_trading": true,
+    "no_oos_gate_bypass": true
+  },
+  "all_passed": true
+}

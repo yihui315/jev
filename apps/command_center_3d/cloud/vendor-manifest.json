@@ -1,0 +1,30 @@
+{
+  "origin_repository": "yihui315/night-researcher-dash",
+  "origin_commit": "34b2e54c7a125c149c758c16b8da8faa5b4b2229",
+  "files": [
+    {
+      "path": "vendor/nr_trusted/functions/_lib/paper-server.mjs",
+      "git_blob_sha": "9ed13096c801c6d5842a5ef5bc48247afc298bf7"
+    },
+    {
+      "path": "vendor/nr_trusted/functions/_lib/paper-ledger.mjs",
+      "git_blob_sha": "f7f289c5db9dbaff66719a6ea39ddb049ca92631"
+    },
+    {
+      "path": "vendor/nr_trusted/migrations/0001_paper_ledger.sql",
+      "git_blob_sha": "473950509f36edd2da419132b8f6372eab968430"
+    },
+    {
+      "path": "vendor/nr_trusted/migrations/0002_server_paper_engine.sql",
+      "git_blob_sha": "193fbed2ffc3cea6f1076f55a74998b8932cfc3f"
+    },
+    {
+      "path": "vendor/nr_trusted/migrations/0003_fixed_point.sql",
+      "git_blob_sha": "60075d41e9935e6c07531785ec9e2d8227d08fe7"
+    },
+    {
+      "path": "vendor/nr_trusted/functions/_lib/decimal.mjs",
+      "git_blob_sha": "36e73ae6c405ba0fd3c29b25ff216b5e80607e5d"
+    }
+  ]
+}

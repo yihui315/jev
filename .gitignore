@@ -180,3 +180,10 @@ fixtures/v1.1/**/real_session_*.json
 **/codex_observer_state.json
 **/jcc_execution_state.json
 runtime/v1.1/**/shadow_endpoint.token
+
+# V11 Trading Desk E2E — Chrome user-data-dir scratch profiles (test artifacts,
+# not source). Evidence under e2e/artifacts/v11/ stays tracked; only the
+# per-run profile dirs are excluded.
+apps/command_center_3d/e2e/cdp-profile*/
+# Wrangler local cache (never commit deployment state)
+.wrangler/

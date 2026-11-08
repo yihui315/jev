@@ -1,0 +1,56 @@
+name: Cloud Staging Docker Runtime Gate
+on:
+  push:
+    branches: [feat/jev-cloud-staging]
+  pull_request:
+    paths: [apps/command_center_3d/**, .github/workflows/cloud-staging-runtime.yml]
+permissions:
+  contents: read
+jobs:
+  staging-container-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - name: Build container with pinned frozen engine
+        run: docker build -f apps/command_center_3d/Dockerfile -t jev-cloud-staging:ci apps/command_center_3d
+      - name: Verify fail-closed startup and end-to-end health
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/jev-data"
+          docker run -d --name jev-staging-ci \
+            --mount "type=bind,src=$RUNNER_TEMP/jev-data,dst=/data" \
+            -p 127.0.0.1:18080:8080 \
+            -e ENABLE_REAL_TRADING=false \
+            -e JEV_PREVIEW_USER=ci-test \
+            -e JEV_PREVIEW_PASSWORD=ci-synthetic-staging-password-123456 \
+            jev-cloud-staging:ci
+          ready=0
+          for i in $(seq 1 40); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"status":"ready"'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+          test "$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:18080/trading.html)" = 401
+          curl --fail --silent --show-error --user 'ci-test:ci-synthetic-staging-password-123456' \
+            http://127.0.0.1:18080/trading.html -o "$RUNNER_TEMP/trading.html"
+          test -s "$RUNNER_TEMP/trading.html"
+          curl --fail --silent --show-error --user 'ci-test:ci-synthetic-staging-password-123456' \
+            http://127.0.0.1:18080/api/jev/health | grep -q '"ok":true'
+          docker restart jev-staging-ci
+          ready=0
+          for i in $(seq 1 30); do
+            if curl --fail --silent http://127.0.0.1:18080/healthz | grep -q '"status":"ready"'; then ready=1; break; fi
+            sleep 2
+          done
+          test "$ready" = 1
+      - name: Debug container logs on failure
+        if: failure()
+        run: docker logs jev-staging-ci || true
+      - name: Stop staging container
+        if: always()
+        run: docker rm -f jev-staging-ci || true

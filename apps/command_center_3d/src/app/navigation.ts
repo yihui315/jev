@@ -23,17 +23,22 @@ import {
   Activity,
   AlertTriangle,
   Boxes,
+  BrainCircuit,
+  CandlestickChart,
   FileCode2,
+  FlaskConical,
   FolderKanban,
   Globe2,
   Home,
   LayoutPanelLeft,
+  LineChart,
   ListChecks,
   Orbit,
   Plug,
   Rocket,
   ScrollText,
   Settings,
+  ShieldAlert,
   Stethoscope,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
@@ -62,7 +67,15 @@ export type ViewMode =
   | "table"
   | "connections"
   | "audit"
-  | "diagnostics";
+  | "diagnostics"
+  // --- trading workbench (Paper Trading × Night Researcher) — Expert Mode, Work group ---
+  | "market-overview"
+  | "trading-desk"
+  | "market-universe"
+  | "agent-center"
+  | "risk-management"
+  | "strategy-research"
+  | "trading-audit";
 
 /** Sidebar grouping. Order inside a group is the display order. */
 export type NavGroup = "Main" | "Work" | "System";
@@ -245,6 +258,83 @@ export const NAV_ITEMS: readonly NavItem[] = [
     description: "Runtime health, gates and honest system status",
     group: "System",
     icon: Stethoscope,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+
+  // ---------------------------------------------------------------------
+  // Trading Workbench — Paper Trading × Night Researcher.
+  // Expert Mode only, grouped under Work. Reuses the existing Provider Center
+  // concept and the Paper API; never a second provider / API-key system.
+  // V4.0 six-page taxonomy (01–06) + the supplementary audit trail.
+  // ---------------------------------------------------------------------
+  {
+    id: "market-overview",
+    label: "AI Trading Command Center",
+    labelZh: "01 · AI 交易指挥中心",
+    description: "行情总览、账户资产与策略状态（机构级仪表盘）",
+    group: "Work",
+    icon: LineChart,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "trading-desk",
+    label: "Pro Trading Desk",
+    labelZh: "02 · 专业交易工作站",
+    description: "K 线、订单簿、撮合下单（需人工确认）",
+    group: "Work",
+    icon: CandlestickChart,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "market-universe",
+    label: "3D Market Universe",
+    labelZh: "03 · 3D 市场宇宙",
+    description: "资产相关性网络（实时 K 线计算，无假资金流）",
+    group: "Work",
+    icon: Boxes,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "strategy-research",
+    label: "Strategy Arena",
+    labelZh: "04 · 策略竞技场",
+    description: "回测 / 样本外 / 收益与策略版本（OOS 门禁）",
+    group: "Work",
+    icon: FlaskConical,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "risk-management",
+    label: "Paper Account",
+    labelZh: "05 · 模拟交易账户",
+    description: "持仓、敞口、最大回撤与风险拒绝（服务端数据）",
+    group: "Work",
+    icon: ShieldAlert,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "agent-center",
+    label: "AI Expert Team",
+    labelZh: "06 · AI 专家团队",
+    description: "六角色（SPOTTER/PRIOR/EDGE/KELLY/TAKER/CLOSER）运行记录",
+    group: "Work",
+    icon: BrainCircuit,
+    visibility: "advanced",
+    inSidebar: true,
+  },
+  {
+    id: "trading-audit",
+    label: "Trading Audit",
+    labelZh: "交易审计",
+    description: "订单、成交、账本与事件回放（服务端账本一致）",
+    group: "Work",
+    icon: ScrollText,
     visibility: "advanced",
     inSidebar: true,
   },

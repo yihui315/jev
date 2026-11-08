@@ -1,0 +1,23 @@
+{
+  "generated_utc": "2026-11-08T04:54:22.969Z",
+  "task": "T02-partB-migration-idempotency",
+  "engine_modified": false,
+  "checks": {
+    "first_run_applies_3": true,
+    "first_run_schema_migrations_count": true,
+    "first_run_quantity_integer": true,
+    "first_run_server_events_exists": true,
+    "first_run_no_fp_residue": true,
+    "restart_skips_all": true,
+    "restart_schema_migrations_still_3": true,
+    "restart_quantity_still_integer": true,
+    "restart_no_crash": true,
+    "backfill_skips_all": true,
+    "backfill_schema_migrations_rebuilt": true,
+    "backfill_0003_not_rerun_no_double_scale": true,
+    "backfill_paper_orders_intact": true,
+    "residue_cleanup_removed_fp": true,
+    "foreign_keys_enabled": true
+  },
+  "all_passed": true
+}

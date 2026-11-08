@@ -227,3 +227,79 @@
     }
   }
 }
+
+/* =========================================================================
+   JEV TRADING DESK — V4.0 institutional-quant theme (SCOPED)
+   -------------------------------------------------------------------------
+   Bloomberg-Terminal × Institutional-Quant-Desk language, applied ONLY to the
+   trading subsystem (everything inside `.jev-trading`). It re-declares the SAME
+   design tokens every other component already reads, so `bg-card` / `text-
+   foreground` / `border-border` / `status-*` all pick up the navy/cyan palette
+   with ZERO change to JEV's global theme and ZERO change to any other module.
+
+   Palette contract (V4.0 spec, mandatory):
+     background  deep navy / near-black      · panels dark gray-blue, layered
+     accent      cool cyan                   · profit green · loss red · risk amber
+   ========================================================================= */
+.jev-trading {
+  /* Surfaces — deep navy background, layered gray-blue panels. */
+  --background: 222 47% 6%;          /* #0A0F1A — deep navy, near-black */
+  --surface: 221 38% 9%;            /* raised panel step */
+  --foreground: 213 30% 93%;        /* cool white */
+
+  --card: 220 33% 12%;              /* #172238 — layered panel */
+  --card-foreground: 213 30% 94%;
+
+  --popover: 220 34% 11%;
+  --popover-foreground: 213 30% 94%;
+
+  /* Cool cyan — the single brand / interactive accent. */
+  --primary: 187 85% 50%;           /* #14C6E8 */
+  --primary-foreground: 222 47% 8%;
+  --primary-soft: 187 62% 15%;
+
+  --secondary: 220 26% 17%;
+  --secondary-foreground: 213 26% 90%;
+
+  --muted: 220 24% 16%;
+  --muted-foreground: 215 18% 64%;
+
+  --accent: 220 30% 19%;
+  --accent-foreground: 213 30% 95%;
+
+  --destructive: 0 75% 58%;         /* loss red */
+  --destructive-foreground: 0 0% 100%;
+
+  --border: 220 26% 20%;
+  --border-strong: 220 24% 28%;
+  --input: 220 26% 24%;
+  --ring: 187 85% 50%;
+
+  /* Semantic status. Profit = green, loss = red, risk = amber. */
+  --status-ok: 152 64% 45%;         /* profit green */
+  --status-live: 187 90% 56%;       /* cyan live */
+  --status-warn: 38 92% 55%;        /* risk amber */
+  --status-danger: 0 75% 58%;       /* loss red */
+  --status-info: 199 89% 60%;
+  --status-unknown: 215 16% 50%;
+
+  /* Explicit V4.0 trading tokens (clarity aliases for finance components). */
+  --profit: 152 64% 45%;
+  --loss: 0 75% 58%;
+  --risk: 38 92% 55%;
+  --accent-cyan: 187 85% 50%;
+
+  /* The trading surface fills with navy + a faint institutional cyan glow. */
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  background-image:
+    radial-gradient(1100px 560px at 78% -12%, hsl(187 85% 50% / 0.07), transparent 62%),
+    radial-gradient(900px 520px at 6% 110%, hsl(222 60% 45% / 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* The 3D market-universe page is full-bleed; keep its canvas on navy too. */
+.jev-trading.is-fullbleed {
+  background-image:
+    radial-gradient(1400px 720px at 70% -10%, hsl(187 85% 50% / 0.06), transparent 60%);
+}

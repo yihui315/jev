@@ -1,0 +1,199 @@
+/* JEV Trading Desk V1.0 — design tokens & layout.
+ * Dark institutional quant terminal. Compact, high-density, honest about
+ * provenance. Tokens mirror the agreed reference spec (referenceDesign()).
+ */
+:root {
+  --bg: #070B12;
+  --surface: #0D141F;
+  --surface-alt: #111B29;
+  --border: #1B2A3B;
+  --text: #E4EDF7;
+  --muted: #7C8DA3;
+  --up: #22D3A6;
+  --down: #FF5A6A;
+  --accent: #3B82F6;
+  --amber: #F5B544;
+  --mono: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+  --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body, #trading-root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 13px;
+  line-height: 1.45;
+  -webkit-font-smoothing: antialiased;
+}
+.jev-app { display: grid; grid-template-columns: 232px 1fr; height: 100%; min-height: 0; }
+
+/* ---- Sidebar ---- */
+.jev-sidebar {
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  min-height: 0; overflow-y: auto;
+}
+.jev-brand { padding: 16px 18px 12px; border-bottom: 1px solid var(--border); }
+.jev-brand h1 { font-size: 15px; margin: 0; letter-spacing: .3px; }
+.jev-brand .sub { color: var(--muted); font-size: 11px; margin-top: 4px; }
+.jev-nav { padding: 8px; display: flex; flex-direction: column; gap: 2px; }
+.jev-nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 11px; border-radius: 8px; cursor: pointer;
+  color: var(--muted); border: 1px solid transparent; user-select: none;
+  font-size: 13px; text-align: left; background: none; width: 100%;
+}
+.jev-nav-item:hover { background: var(--surface-alt); color: var(--text); }
+.jev-nav-item.active { background: var(--surface-alt); color: var(--text); border-color: var(--border); }
+.jev-nav-item .ic { width: 16px; height: 16px; flex: 0 0 16px; opacity: .9; }
+.jev-nav-item .num { color: var(--accent); font-family: var(--mono); font-size: 11px; }
+.jev-side-foot { margin-top: auto; padding: 12px; border-top: 1px solid var(--border); color: var(--muted); font-size: 11px; }
+
+/* ---- Main ---- */
+.jev-main { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+.jev-topbar {
+  display: flex; align-items: center; gap: 14px;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--surface); flex: 0 0 auto;
+}
+.jev-topbar .title { font-size: 14px; font-weight: 600; }
+.jev-topbar .spacer { flex: 1; }
+.jev-clock { font-family: var(--mono); color: var(--muted); font-size: 12px; }
+.jev-content { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; }
+.jev-grid { display: grid; gap: 14px; }
+.jev-grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.jev-grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.jev-grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1100px) { .jev-grid.cols-2, .jev-grid.cols-3, .jev-grid.cols-4 { grid-template-columns: 1fr; } }
+
+/* ---- Panel ---- */
+.jev-panel {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 10px; padding: 14px; min-width: 0;
+}
+.jev-panel > .ph { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; }
+.jev-panel > .ph h2 { font-size: 13px; margin: 0; font-weight: 600; }
+.jev-panel > .ph .ph-sub { color: var(--muted); font-size: 11px; margin-left: auto; }
+
+/* ---- Status pills ---- */
+.jev-pill { font-family: var(--mono); font-size: 10.5px; padding: 2px 7px; border-radius: 999px; border: 1px solid var(--border); white-space: nowrap; }
+.jev-pill.live { color: var(--up); border-color: rgba(34,211,166,.4); background: rgba(34,211,166,.08); }
+.jev-pill.backfill { color: var(--accent); border-color: rgba(59,130,246,.4); background: rgba(59,130,246,.08); }
+.jev-pill.blocked { color: var(--down); border-color: rgba(255,90,106,.4); background: rgba(255,90,106,.08); }
+.jev-pill.nodata { color: var(--muted); border-color: var(--border); background: rgba(124,141,163,.08); }
+.jev-pill.unavailable { color: var(--amber); border-color: rgba(245,181,68,.4); background: rgba(245,181,68,.08); }
+.jev-pill.verified { color: var(--up); border-color: rgba(34,211,166,.4); background: rgba(34,211,166,.08); }
+
+/* ---- Metrics ---- */
+.jev-metric { display: flex; flex-direction: column; gap: 3px; }
+.jev-metric .label { color: var(--muted); font-size: 11px; }
+.jev-metric .value { font-family: var(--mono); font-size: 20px; letter-spacing: .3px; }
+.jev-metric .value.sm { font-size: 15px; }
+.jev-up { color: var(--up); }
+.jev-down { color: var(--down); }
+
+/* ---- Tables ---- */
+.jev-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 11.5px; }
+.jev-table th, .jev-table td { text-align: right; padding: 6px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+.jev-table th:first-child, .jev-table td:first-child { text-align: left; }
+.jev-table th { color: var(--muted); font-weight: 500; position: sticky; top: 0; background: var(--surface); }
+.jev-table tbody tr:hover { background: var(--surface-alt); }
+
+/* ---- State views ---- */
+.jev-state { padding: 22px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; }
+.jev-state.error { border-color: rgba(255,90,106,.4); color: var(--down); }
+.jev-state .big { font-size: 13px; margin-bottom: 6px; }
+.jev-spinner { display: inline-block; width: 14px; height: 14px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: jevspin .8s linear infinite; vertical-align: middle; margin-right: 8px; }
+@keyframes jevspin { to { transform: rotate(360deg); } }
+
+/* ---- Banner ---- */
+.jev-banner { border-radius: 8px; padding: 10px 12px; font-size: 12px; margin-bottom: 14px; border: 1px solid var(--border); background: var(--surface); }
+.jev-banner.crit { border-color: rgba(245,181,68,.5); background: rgba(245,181,68,.08); color: var(--amber); }
+.jev-banner.info { border-color: var(--border); color: var(--muted); }
+.jev-banner b { color: var(--text); }
+
+/* ---- Source footer ---- */
+.jev-source { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; color: var(--muted); font-size: 11px; margin-top: 10px; font-family: var(--mono); }
+.jev-source .k { color: var(--muted); }
+.jev-source .v { color: var(--text); }
+
+/* ---- Form ---- */
+.jev-form { display: flex; flex-direction: column; gap: 10px; }
+.jev-row { display: flex; gap: 8px; }
+.jev-field { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+.jev-field label { color: var(--muted); font-size: 11px; }
+.jev-input, .jev-select {
+  background: var(--bg); border: 1px solid var(--border); color: var(--text);
+  border-radius: 7px; padding: 8px 10px; font-family: var(--mono); font-size: 12px;
+}
+.jev-input:focus, .jev-select:focus { outline: none; border-color: var(--accent); }
+.jev-btn { background: var(--accent); color: #fff; border: none; border-radius: 7px; padding: 9px 14px; cursor: pointer; font-size: 12px; font-weight: 600; }
+.jev-btn:hover { filter: brightness(1.08); }
+.jev-btn.buy { background: var(--up); color: #04231b; }
+.jev-btn.sell { background: var(--down); color: #2a0608; }
+.jev-btn.ghost { background: var(--surface-alt); color: var(--text); border: 1px solid var(--border); }
+.jev-btn:disabled { opacity: .5; cursor: not-allowed; }
+.jev-seg { display: inline-flex; border: 1px solid var(--border); border-radius: 7px; overflow: hidden; }
+.jev-seg button { background: var(--surface); color: var(--muted); border: none; padding: 7px 12px; cursor: pointer; font-size: 12px; }
+.jev-seg button.on { background: var(--surface-alt); color: var(--text); }
+.jev-link { color: var(--accent); cursor: pointer; background: none; border: none; padding: 0; font-size: 12px; }
+
+/* ---- Order book ---- */
+.jev-book { font-family: var(--mono); font-size: 11.5px; }
+.jev-book .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 6px; padding: 3px 6px; position: relative; }
+.jev-book .row .bar { position: absolute; top: 0; bottom: 0; right: 0; opacity: .14; z-index: 0; }
+.jev-book .row span { position: relative; z-index: 1; text-align: right; }
+.jev-book .row .px { text-align: left; }
+.jev-book .asks .px, .jev-book .asks .tot { color: var(--down); }
+.jev-book .bids .px, .jev-book .bids .tot { color: var(--up); }
+.jev-book .mid { text-align: center; padding: 6px; color: var(--muted); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); margin: 4px 0; }
+.jev-book .head { color: var(--muted); }
+
+/* ---- 3D ---- */
+.jev-3d-wrap { position: relative; height: 460px; background: radial-gradient(120% 120% at 50% 10%, #0c1626 0%, #060a11 70%); border-radius: 10px; border: 1px solid var(--border); overflow: hidden; }
+.jev-3d-wrap canvas { display: block; }
+.jev-3d-legend { position: absolute; left: 12px; bottom: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); background: rgba(7,11,18,.7); padding: 8px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.jev-3d-tip { position: absolute; right: 12px; top: 12px; font-family: var(--mono); font-size: 11px; color: var(--muted); background: rgba(7,11,18,.7); padding: 6px 10px; border: 1px solid var(--border); border-radius: 8px; }
+.jev-3d-detail { position: absolute; right: 12px; bottom: 12px; min-width: 180px; font-family: var(--mono); font-size: 12px; background: rgba(13,20,31,.92); padding: 12px; border: 1px solid var(--border); border-radius: 8px; }
+
+/* ---- Audit drawer ---- */
+.jev-drawer { position: fixed; top: 0; right: 0; width: 460px; max-width: 92vw; height: 100%; background: var(--surface); border-left: 1px solid var(--border); box-shadow: -8px 0 40px rgba(0,0,0,.4); z-index: 50; overflow-y: auto; padding: 18px; }
+.jev-drawer h2 { margin: 0 0 12px; font-size: 14px; }
+.jev-drawer .close { float: right; background: none; border: none; color: var(--muted); cursor: pointer; font-size: 16px; }
+.jev-drawer .row { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--border); font-family: var(--mono); font-size: 11.5px; }
+.jev-drawer .row .k { color: var(--muted); }
+.jev-drawer .row .v { color: var(--text); text-align: right; }
+.jev-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 49; }
+.jev-code { font-family: var(--mono); font-size: 11px; color: var(--muted); white-space: pre-wrap; word-break: break-all; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; }
+.jev-scroll { max-height: 260px; overflow-y: auto; }
+
+/* ---- Preview access modal ---- */
+.jev-auth-btn {
+  position: fixed; right: 14px; bottom: 14px; z-index: 40;
+  background: var(--surface-alt); color: var(--text);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 8px 12px; font-size: 12px; cursor: pointer; font-family: var(--sans);
+}
+.jev-auth-btn:hover { border-color: var(--accent); }
+.jev-login {
+  position: relative; z-index: 51; width: 380px; max-width: 92vw;
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 22px; display: flex; flex-direction: column; gap: 12px;
+  box-shadow: 0 20px 60px rgba(0,0,0,.5);
+}
+.jev-login h2 { margin: 0; font-size: 16px; }
+.jev-login-note { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.jev-login label { display: flex; flex-direction: column; gap: 5px; font-size: 12px; color: var(--muted); }
+.jev-login input {
+  background: var(--bg); color: var(--text); border: 1px solid var(--border);
+  border-radius: 8px; padding: 9px 10px; font-size: 13px; font-family: var(--mono);
+}
+.jev-login input:focus { outline: none; border-color: var(--accent); }
+.jev-login button[type="submit"] {
+  margin-top: 4px; background: var(--accent); color: #fff; border: none;
+  border-radius: 8px; padding: 10px; font-size: 13px; cursor: pointer;
+}
+.jev-login button[type="submit"]:disabled { opacity: .45; cursor: not-allowed; }

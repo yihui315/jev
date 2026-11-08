@@ -1,0 +1,111 @@
+{
+  "title": "JEV Trading Desk V1.2 — Session Isolation Evidence",
+  "generated_utc": "2026-11-08T03:05:00.000Z",
+  "release": "V1.2 Release Candidate",
+  "red_lines_respected": {
+    "no_merge_to_main_master": true,
+    "no_production_deploy": true,
+    "no_real_funds": true,
+    "no_auto_strategy_promotion": true,
+    "no_fabricated_ai_oos_data": true,
+    "frozen_authoritative_engine_untouched": true
+  },
+  "engine_integrity": {
+    "frozen_engine_path": "D:/数据分析/.workbuddy/v43-worktrees/nr-trusted/functions/_lib/paper-server.mjs + paper-ledger.mjs",
+    "engine_modified": false,
+    "imported_via": "JCC_ENGINE_DIR -> apps/command_center_3d/server/trading_api.mjs (in-place import)",
+    "fixed_in": "isolation adapter layer (server/trading_api.mjs, server/lib/d1_adapter.mjs) — NOT in frozen engine",
+    "defects_fixed": [
+      {
+        "id": "D1-cross-session-audit-leak",
+        "severity": "high",
+        "where": "server/trading_api.mjs /api/jev/paper/audit route (adapter layer)",
+        "root_cause": "Audit route did not pass through readSession gateway; unauthenticated paperAudit() returned ALL sessions' orders/fills/events.",
+        "fix": "Gate the audit route with readSession(preq, env) before paperAudit(); unauthenticated call now returns 401 fail-closed.",
+        "verified": "isolation_http.json anonymous_audit_rejected=true; isolation_browser.json anonymous_audit_rejected=true; live curl POST /api/jev/paper/audit => 401"
+      },
+      {
+        "id": "D2-migration-non-idempotent",
+        "severity": "high",
+        "where": "server/lib/d1_adapter.mjs applyMigrations (migration 0003 fixed-point)",
+        "root_cause": "Migration 0003 contained DROP paper_orders + rename + double scaling; replay on restart triggered FOREIGN KEY / UNIQUE crashes.",
+        "fix": "Added schema_migrations idempotency tracking; register pre-existing schema; skip applied migrations; clean up *_fp residue tables on completion.",
+        "verified": "Adapter restart no longer crashes; health=200; runtime DB continues to serve across restarts."
+      }
+    ]
+  },
+  "layers": {
+    "L1_engine_data_isolation": {
+      "file": "e2e/artifacts/v12/isolation_engine.json",
+      "summary": "Frozen engine imported onto an INDEPENDENT throwaway SQLite (not the live runtime DB). Real market orders placed for two sessions under a market stub.",
+      "all_passed": true,
+      "key_checks": {
+        "session_id_distinct": true,
+        "cookie_token_distinct": true,
+        "A_order_accepted": true,
+        "B_order_accepted": true,
+        "A_sees_1000SATS_not_ETH": true,
+        "B_sees_ETH_not_1000SATS": true,
+        "B_does_NOT_see_A_order": true,
+        "A_does_NOT_see_B_order": true,
+        "B_events_not_A_events": true,
+        "unauthenticated_rejected": true,
+        "forged_token_rejected": true
+      }
+    },
+    "L2_live_adapter_http_dual_session": {
+      "file": "e2e/artifacts/v12/isolation_http.json",
+      "summary": "Two independent cookie jars (two Chrome 'Profiles') driving the LIVE adapter on :4791 over real HTTP.",
+      "all_passed": true,
+      "key_checks": {
+        "A_session_created": true,
+        "B_session_created": true,
+        "session_id_distinct": true,
+        "cookie_distinct": true,
+        "A_order_filled": true,
+        "B_order_filled": true,
+        "A_sees_1000SATS_not_ETH": true,
+        "B_sees_ETH_not_1000SATS": true,
+        "B_does_NOT_see_A_order": true,
+        "A_does_NOT_see_B_order": true,
+        "A_audit_session_scoped": true,
+        "B_audit_session_scoped": true,
+        "anonymous_audit_rejected": true,
+        "anonymous_account_rejected": true
+      }
+    },
+    "L3_real_browser_two_chrome_profiles": {
+      "file": "e2e/artifacts/v12/isolation_browser.json",
+      "summary": "Two independent --user-data-dir Chrome instances (separate cookie jars). Browser auto-stores and returns a per-profile Secure session cookie; all authenticated requests rely on credentials:include.",
+      "all_passed": true,
+      "key_checks": {
+        "A_session_created": true,
+        "B_session_created": true,
+        "A_cookie_auto_stored": true,
+        "B_cookie_auto_stored": true,
+        "cookies_distinct": true,
+        "A_order_filled": true,
+        "B_order_filled": true,
+        "A_sees_1000SATS_not_ETH": true,
+        "B_sees_ETH_not_1000SATS": true,
+        "anonymous_audit_rejected": true
+      }
+    }
+  },
+  "cross_session_leak_verification": {
+    "p0_requirement": "E2E runs multiple times must not accumulate orders/positions across sessions",
+    "result": "PASS — each session is scoped by session_id; audit/account/orders/fills/events are all session-scoped via readSession gateway. Anonymous access returns 401 (fail-closed), never a shared default account.",
+    "evidence": ["isolation_engine.json", "isolation_http.json", "isolation_browser.json"]
+  },
+  "contract_unification": {
+    "p1_requirement": "GET /api/jev/paper/session must not return 405; unify GET/POST contract",
+    "result": "PASS — handlePaperSession accepts only POST (GET => 405 by design at the authoritative engine). The frontend (PaperAccount.tsx) no longer polls session via GET; removed the spurious 405 request. Cookie policy: Path=/api/; HttpOnly; Secure; SameSite=Strict.",
+    "evidence": ["src/trading/pages/PaperAccount.tsx (removed session GET polling)", "server/trading_api.mjs (handlePaperSession POST-only)"]
+  },
+  "stable_business_keys": {
+    "requirement": "All list keys use stable business IDs, not index fallbacks",
+    "result": "PASS — positions keyed by symbol, orders by order id, fills/events by id/seq across PaperAccount.tsx and TradingWorkbench.tsx.",
+    "evidence": ["src/trading/pages/PaperAccount.tsx", "src/trading/pages/TradingWorkbench.tsx"]
+  },
+  "overall_all_passed": true
+}

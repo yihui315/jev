@@ -3,18 +3,44 @@ import react from "@vitejs/plugin-react";
 
 // Dev server binds 127.0.0.1:4781 only (v1.2 dev UI port). The final v1.2 UI
 // will take 4780 and the Legacy UI is demoted to /legacy (see V1_2_BASELINE.json).
+//
+// When the real Night Researcher Paper/Agents API is to be used (paperApi
+// `USE_MOCK = false`), set VITE_API_PROXY_TARGET to the NR dev origin (default
+// 8787, the wrangler dev port). The proxy is inert while USE_MOCK is true,
+// because the SPA then issues no `/api/*` requests at all.
+// `globalThis` (not `process`) avoids needing @types/node in this config file.
+const nodeEnv = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+const API_PROXY_TARGET = nodeEnv?.VITE_API_PROXY_TARGET || "http://127.0.0.1:8787";
+const DESK_API_TARGET = nodeEnv?.VITE_DESK_API_TARGET || "http://127.0.0.1:4791";
+const paperProxy = {
+  // JEV Trading Desk V1.0 — the single backend data adapter. Every page calls
+  // /api/jev/* and this proxy forwards to the localhost adapter (4791). The
+  // adapter itself is the ONLY thing that talks to the frozen paper engine and
+  // the verified public market REST host. No page ever bypasses it.
+  "/api/jev": { target: DESK_API_TARGET, changeOrigin: true },
+  "/api/paper": { target: API_PROXY_TARGET, changeOrigin: true },
+  "/api/agents": { target: API_PROXY_TARGET, changeOrigin: true },
+};
+
 export default defineConfig({
   plugins: [react()],
   // Force vitest/vite transform caches into the project tree (writable) instead
   // of TEMP — the sandbox shim rejects TEMP cache writes, which otherwise races
   // and intermittently drops a test file from the parallel collection.
   cacheDir: ".vite-cache",
-  server: { host: "127.0.0.1", port: 4781, strictPort: true },
-  preview: { host: "127.0.0.1", port: 4781, strictPort: true },
+  server: { host: "127.0.0.1", port: 4781, strictPort: true, proxy: paperProxy },
+  preview: { host: "127.0.0.1", port: 4781, strictPort: true, proxy: paperProxy },
   build: {
     outDir: "dist",
     sourcemap: false,
     rollupOptions: {
+      // Two independent entry points: the legacy command center (index.html)
+      // and the new Trading Desk (trading.html). Neither rewrites the other.
+      // Paths are relative to the Vite root (project dir).
+      input: {
+        main: "index.html",
+        trading: "trading.html",
+      },
       output: {
         /**
          * WHY THERE IS NO `three` ENTRY HERE

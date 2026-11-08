@@ -1,0 +1,28 @@
+{
+  "generated_utc": "2026-11-08T02:35:14.180Z",
+  "layer": "engine-data-isolation-real-orders",
+  "database": "independent throwaway sqlite (not the live runtime DB)",
+  "engine_modified": false,
+  "checks": {
+    "session_id_distinct": true,
+    "cookie_token_distinct": true,
+    "A_sid": "ebe78f90-bbad-4df0-aec5-c0960cde7c6f",
+    "B_sid": "08d106d0-2af9-4e47-80f8-70b1b4ee724d",
+    "A_order_accepted": true,
+    "B_order_accepted": true,
+    "A_sees_1000SATS_position": true,
+    "B_sees_ETH_position": true,
+    "B_does_NOT_see_1000SATS_position": true,
+    "A_does_NOT_see_ETH_position": true,
+    "B_does_NOT_see_A_order": true,
+    "A_does_NOT_see_B_order": true,
+    "A_has_events": true,
+    "B_has_events": true,
+    "B_events_not_A_events": true,
+    "A_specific_event_count": 3,
+    "B_specific_event_count": 3,
+    "unauthenticated_rejected": true,
+    "forged_token_rejected": true
+  },
+  "all_passed": true
+}

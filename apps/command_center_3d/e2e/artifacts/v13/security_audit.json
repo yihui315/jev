@@ -1,0 +1,30 @@
+{
+  "generated_utc": "2026-11-08T04:52:55.455Z",
+  "task": "T02-independent-security-audit",
+  "api_base": "http://127.0.0.1:4791",
+  "engine_modified": false,
+  "note": "Token = HMAC-SHA256(payload, PAPER_LEDGER_SECRET) with exp claim; verifyToken rejects invalid sig, expired/missing exp, oversized token. Cross-session read impossible: audit/account derive session from the signed token.",
+  "checks": {
+    "A_session_created": true,
+    "B_session_created": true,
+    "session_id_distinct": true,
+    "cookie_distinct": true,
+    "A_order_filled": true,
+    "B_order_filled": true,
+    "A_audit_session_scoped": true,
+    "B_audit_session_scoped": true,
+    "A_audit_has_no_B_order": true,
+    "B_audit_has_no_A_order": true,
+    "A_audit_symbols_only_1000SATS": true,
+    "B_audit_symbols_only_ETH": true,
+    "A_account_only_sees_A": true,
+    "B_account_only_sees_B": true,
+    "anonymous_audit_rejected_401": true,
+    "anonymous_account_rejected_401": true,
+    "forged_cookie_rejected_401": true,
+    "tampered_signature_rejected_401": true,
+    "garbage_cookie_rejected_401": true,
+    "no_signature_segment_rejected_401": true
+  },
+  "all_passed": true
+}
