@@ -32,12 +32,25 @@ Pages Functions, and verifies:
 3. authenticated `/api/jev/paper/account` => 200 (real backend live on D1)
 
 Honesty notes (no fabrication):
-- Market marks are currently UNAVAILABLE — Cloudflare edge egress to
-  `data-api.binance.vision` is HTTP 403 (Binance blocks cloud egress IPs). MARKET
-  orders are honestly rejected when no mark is available; no synthetic fills.
-- `engine_modified=false`, `real_money=false` are asserted by the gateway.
-- Account isolation, ledger persistence and restart recovery are verified against
-  the `jev-paper-staging` D1 database. See `JEV_CLOUDFLARE_STAGING_ACCEPTANCE.md`.
+- **Real market data is restored via a gateway transport adapter.** The frozen
+  engine requests `data-api.binance.vision` (measured 403 from the CF edge;
+  Binance global hosts return 451). The gateway injects the engine's NATIVE
+  `env.__fetch` hook (`dbFetch(env) => env.__fetch || fetch`) to repoint those
+  requests to `api.binance.us` (measured 200). Engine source and D1 ledger are
+  byte-for-byte unmodified; upstream response bodies pass through unchanged —
+  real prices, no cache, no synthesis, no re-scoring.
+- `api.binance.us` is **Binance.US SPOT**, a DIFFERENT venue from the Binance.com
+  global book. Only `BTCUSDT` / `ETHUSDT` exist there. `ORDIUSDT` /
+  `1000SATSUSDT` are filtered from the multi-symbol ticker query and their
+  orders are **honestly rejected** (`MARKET_HTTP_400`) — never faked.
+- `paper_equity_snapshots` has **0 rows (NO_DATA)**: the frozen engine does not
+  write that table and the V45 equity collector is not deployed here. Real-time
+  equity IS computed from verified marks in `paper/account` (`markQuality:
+  verified`). Do not confuse the two. See the acceptance report for the blocker.
+- `engine_modified=false`, `real_money=false`, `ENABLE_REAL_TRADING=false`.
+- Account isolation (including audit counts), ledger persistence and restart
+  recovery are verified against `jev-paper-staging` D1. See
+  `JEV_CLOUDFLARE_STAGING_ACCEPTANCE.md`.
 
 Cloudflare Pages is public by default. This staging uses a fail-closed Pages
 middleware (`functions/_middleware.js`) that requires Basic authentication over

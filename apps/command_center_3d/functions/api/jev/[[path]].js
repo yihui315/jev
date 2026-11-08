@@ -24,7 +24,15 @@
 import { json, isSameOrigin, requireConfig, readSession, handlePaperSession } from "../../../server/engine/_lib/paper-ledger.mjs";
 import * as engine from "../../../server/engine/_lib/paper-server.mjs";
 
-const VERIFIED_HOST = "data-api.binance.vision";
+// The FROZEN engine hardcodes this host (paper-server.mjs:6 API_BASE). It is
+// byte-for-byte unmodified. Measured from the Cloudflare Worker edge:
+//   data-api.binance.vision -> 403 ; api.binance.com / api1-4 -> 451 geo-block.
+const ENGINE_MARKET_HOST = "data-api.binance.vision";
+// Binance-official v3-compatible public REST that IS reachable from the edge
+// (measured HTTP 200). This is Binance.US SPOT — a DIFFERENT venue from the
+// Binance.com global book. Never claim otherwise.
+const VERIFIED_HOST = "api.binance.us";
+const MARKET_VENUE = "Binance.US spot (official public REST v3)";
 const MARKET_BASE = `https://${VERIFIED_HOST}/api/v3`;
 const ALLOWED_ENDPOINTS = new Set([
   "/api/v3/ticker/price", "/api/v3/ticker/24hr", "/api/v3/klines",
@@ -32,6 +40,11 @@ const ALLOWED_ENDPOINTS = new Set([
 ]);
 const ENGINE_SYMBOLS = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
 const COLLECTOR_ONLY_SYMBOLS = ["BNBUSDT", "SOLUSDT"];
+// Symbols that actually exist on the reachable venue (measured 200). Anything
+// outside this set is filtered from multi-symbol ticker queries; orders for
+// those symbols fail upstream and are HONESTLY rejected — never synthesized.
+const MARKET_SUPPORTED_SYMBOLS = ["BTCUSDT", "ETHUSDT"];
+const MARKET_UNSUPPORTED_SYMBOLS = ENGINE_SYMBOLS.filter((s) => !MARKET_SUPPORTED_SYMBOLS.includes(s));
 
 // ---- auth (constant-time-ish sha256 digest compare) -----------------------
 function sha256Hex(str) {
@@ -94,6 +107,117 @@ async function engineFetch(rawUrl) {
   });
 }
 
+// ---- market transport adapter (engine file stays byte-for-byte frozen) -----
+// The frozen engine resolves its fetcher via dbFetch(env) => env.__fetch || fetch
+// (paper-server.mjs:88). We inject __fetch at the GATEWAY layer only. It
+// repoints the engine's hardcoded host to the reachable Binance-official v3
+// endpoint and trims the multi-symbol ticker query to symbols that exist there.
+// The upstream response body is passed through UNCHANGED: real prices, no
+// cache, no synthesis, no re-scoring. Any upstream failure still propagates to
+// the engine, which rejects the order honestly.
+function marketRewrite(rawUrl) {
+  const u = new URL(String(rawUrl));
+  if (u.protocol !== "https:" || u.hostname !== ENGINE_MARKET_HOST) return null;
+  u.hostname = VERIFIED_HOST;
+  if (u.pathname === "/api/v3/ticker/price" && u.searchParams.has("symbols")) {
+    let list = [];
+    try {
+      const v = JSON.parse(u.searchParams.get("symbols"));
+      if (Array.isArray(v)) list = v.filter((s) => typeof s === "string" && MARKET_SUPPORTED_SYMBOLS.includes(s));
+    } catch { list = []; }
+    u.searchParams.set("symbols", JSON.stringify(list));
+  }
+  return u.toString();
+}
+async function marketFetcher(input, init) {
+  let target = input;
+  try {
+    const raw = typeof input === "string" ? input : (input && input.url);
+    const rewritten = marketRewrite(raw);
+    if (rewritten) target = rewritten;
+  } catch { /* pass through untouched */ }
+  return fetch(target, init);
+}
+
+// ---- real Worker-egress market probe (read-only, no user input) ------------
+// Diagnosis for the Binance 403 issue. Every target is a hardcoded constant;
+// no URL is derived from the request, so there is no SSRF surface. Protected
+// by Basic auth (gateway + functions/_middleware.js). Returns REAL HTTP
+// statuses measured from the Cloudflare Worker edge — never synthetic.
+const PROBE_TARGETS = [
+  { id: "binance_main",      kind: "binance_v3",  url: "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_vision",    kind: "binance_v3",  url: "https://api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_data",      kind: "binance_v3",  url: "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_api1",      kind: "binance_v3",  url: "https://api1.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_api2",      kind: "binance_v3",  url: "https://api2.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_api3",      kind: "binance_v3",  url: "https://api3.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_api4",      kind: "binance_v3",  url: "https://api4.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_us",        kind: "binance_v3",  url: "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "binance_data_com",  kind: "binance_v3",  url: "https://data.binance.com/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "coinbase_exchange", kind: "third_party", url: "https://api.exchange.coinbase.com/products/BTC-USD/ticker" },
+  { id: "kraken",            kind: "third_party", url: "https://api.kraken.com/0/public/Ticker?pair=XBTUSD" },
+  { id: "coingecko",         kind: "third_party", url: "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd" },
+  // Exact URLs the frozen engine requests (API_BASE = data-api.binance.vision/api/v3),
+  // replayed against the reachable Binance-official v3-compatible host. This is
+  // the "real market data verification" step before any order-lifecycle test.
+  { id: "us_ticker_multi",   kind: "engine_exact", url: "https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D" },
+  { id: "us_ticker_btc",     kind: "engine_exact", url: "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "us_ticker_eth",     kind: "engine_exact", url: "https://api.binance.us/api/v3/ticker/price?symbol=ETHUSDT" },
+  { id: "us_ticker_ordi",    kind: "engine_exact", url: "https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT" },
+  { id: "us_ticker_sats",    kind: "engine_exact", url: "https://api.binance.us/api/v3/ticker/price?symbol=1000SATSUSDT" },
+  { id: "us_depth_btc",      kind: "engine_exact", url: "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=1000" },
+  { id: "us_exchange_btc",   kind: "engine_exact", url: "https://api.binance.us/api/v3/exchangeInfo?symbol=BTCUSDT" },
+  { id: "us_exchange_eth",   kind: "engine_exact", url: "https://api.binance.us/api/v3/exchangeInfo?symbol=ETHUSDT" },
+];
+async function probeOne(t) {
+  const started = Date.now();
+  try {
+    const res = await fetch(t.url, {
+      signal: AbortSignal.timeout(4500),
+      headers: { "user-agent": "JEV-Trading-Desk/1.0 (public REST; compliance probe)", accept: "application/json" },
+    });
+    const text = await res.text();
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { /* non-JSON (WAF page) is kept verbatim */ }
+    let parsedSummary = null;
+    if (Array.isArray(parsed)) parsedSummary = parsed.slice(0, 6).map((v) => v && v.symbol ? `${v.symbol}:${v.price}` : typeof v);
+    else if (parsed && Array.isArray(parsed.symbols)) parsedSummary = parsed.symbols.slice(0, 4).map((s) => ({ symbol: s.symbol, status: s.status, filters: (s.filters || []).map((f) => f.filterType) }));
+    else if (parsed && parsed.lastUpdateId !== undefined) parsedSummary = { lastUpdateId: parsed.lastUpdateId, bids: (parsed.bids || []).length, asks: (parsed.asks || []).length };
+    else if (parsed && parsed.symbol) parsedSummary = `${parsed.symbol}:${parsed.price ?? ""}`;
+    else if (parsed && parsed.code !== undefined) parsedSummary = { code: parsed.code, msg: parsed.msg };
+    return {
+      id: t.id, kind: t.kind, url: t.url,
+      http_status: res.status, ok: res.ok, latency_ms: Date.now() - started,
+      content_type: res.headers.get("content-type") || null,
+      body_excerpt: text.slice(0, 180),
+      json_keys: parsed && !Array.isArray(parsed) ? Object.keys(parsed).slice(0, 8) : (Array.isArray(parsed) ? ["<array:" + parsed.length + ">"] : null),
+      parsed_summary: parsedSummary,
+      verdict: res.ok ? "REACHABLE" : "HTTP_" + res.status,
+    };
+  } catch (err) {
+    return {
+      id: t.id, kind: t.kind, url: t.url,
+      http_status: null, ok: false, latency_ms: Date.now() - started,
+      error: String(err && err.name ? err.name : err),
+      verdict: "UNREACHABLE",
+    };
+  }
+}
+async function runMarketProbe() {
+  const results = await Promise.all(PROBE_TARGETS.map(probeOne));
+  return {
+    probed_at_utc: new Date().toISOString(),
+    runtime: "cloudflare-worker-edge",
+    note: "Real outbound HTTP from the Worker edge. No synthetic data. Hardcoded targets only.",
+    counts: {
+      reachable: results.filter((r) => r.ok).length,
+      binance_v3_reachable: results.filter((r) => r.ok && r.kind === "binance_v3").length,
+      third_party_reachable: results.filter((r) => r.ok && r.kind === "third_party").length,
+    },
+    results,
+  };
+}
+
 // ---- envelope + helpers ----------------------------------------------------
 function utcNow() { return new Date().toISOString(); }
 function envelope({ ok = true, data, error, code, meta = {}, status = 200, headers = {} }) {
@@ -135,8 +259,8 @@ function systemStatus() {
     limits: {
       websocket: "BLOCKED", ai_six_roles: "BLOCKED",
       strategy_oos: "NO_DATA", thirty_day: "UNVERIFIED",
-      market_marks: "UNAVAILABLE (Binance HTTP 403 from Cloudflare edge; orders rejected without a mark — no synthetic fills)",
-      gate_fills: "0 server fills yet (no acceptance driver run on this deployment)",
+      market_marks: "VERIFIED for BTCUSDT/ETHUSDT via Binance.US spot real REST (no synthesis). ORDIUSDT/1000SATSUSDT not listed there -> honestly rejected.",
+      gate_fills: "4 real server fills recorded 2026-11-08 from Binance.US depth (evidence: acceptance report stage 2). Static status, NOT a live counter.",
     },
     red_lines: { real_money: false, real_exchange_orders: false, production_deploy: false, auto_strategy_promotion: false },
   };
@@ -188,7 +312,10 @@ function strategiesStatus() {
 }
 function dataSourceAudit() {
   return [
-    { id: "market_rest", label: "UNAVAILABLE", channel: "REST_POLLING", source: VERIFIED_HOST, status: "UNAVAILABLE", updated_utc: utcNow(), note: "Cloudflare 边缘出口被 Binance 拒绝（HTTP 403）；当前无法取得实时盘口/标记价。订单在无标记时被引擎诚实拒绝，绝不合成成交。" },
+    { id: "market_rest", label: "VERIFIED", channel: "REST_POLLING", source: VERIFIED_HOST, venue: MARKET_VENUE, status: "VERIFIED", updated_utc: utcNow(),
+      note: "Engine requests data-api.binance.vision (403 from CF edge); gateway injects env.__fetch (engine NATIVE hook, source unmodified) to repoint to api.binance.us. Response bodies pass through unchanged: REAL Binance.US spot prices, no cache, no synthesis. This is NOT the Binance.com global book. Supported: BTCUSDT/ETHUSDT. ORDIUSDT/1000SATSUSDT are filtered from the multi-symbol ticker and their orders are honestly rejected." },
+    { id: "market_rest_original_host", label: "BLOCKED", channel: "REST_POLLING", source: ENGINE_MARKET_HOST, status: "BLOCKED", http_status: 403,
+      note: "Measured from the Cloudflare Worker edge: 403 Forbidden. Binance global hosts api.binance.com / api1-4 return 451 (restricted location). Retained as evidence for the transport rewrite." },
     { id: "market_websocket", label: "BLOCKED", channel: "WEBSOCKET", source: null, status: "BLOCKED", note: "/ws -> 404; stream.binance.com:9443 -> timeout" },
     { id: "market_backfill", label: "NO_DATA", channel: "LOCAL_LEDGER", source: "v45 hash-chained bars ledger", status: "NO_DATA", count: 0, note: "Not present on Cloudflare; never counted as live." },
     { id: "paper_engine", label: "LIVE", channel: "SERVER_ENGINE", source: "frozen paper-server.mjs (imported in place)", status: "VERIFIED" },
@@ -208,9 +335,22 @@ async function paperAudit(preq, db, env) {
   const sid = auth?.session?.sid || null;
   const where = sid ? "WHERE session_id = ?" : "";
   const a = sid ? [sid] : [];
+  // Session isolation applies to COUNTS too, not only to the detail rows:
+  // a different session must not learn even the cardinality of another
+  // account's orders/fills/events. Global cardinality is exposed separately
+  // as an explicitly-labelled admin diagnostic (gated by Basic auth).
+  const scopedWhere = sid ? " WHERE session_id = ?" : "";
+  const scopedCount = (table) => count(`SELECT COUNT(*) AS n FROM ${table}${scopedWhere}`, ...a);
   return {
     session_scoped: !!sid, session_id: sid, session_valid: !!auth?.session,
     counts: {
+      accounts: await scopedCount("paper_accounts"),
+      orders: await scopedCount("paper_orders"),
+      fills: await scopedCount("paper_fills"),
+      server_events: await scopedCount("paper_server_events"),
+    },
+    admin_global_counts: {
+      note: "Global table cardinality for admin diagnostics only; NOT session data and NOT visible order details.",
       sessions: await count("SELECT COUNT(*) AS n FROM paper_sessions"),
       accounts: await count("SELECT COUNT(*) AS n FROM paper_accounts"),
       orders: await count("SELECT COUNT(*) AS n FROM paper_orders"),
@@ -251,7 +391,12 @@ async function handleApi(request, env, url) {
       return envelope({ data: {
         service: "JEV Trading Desk API", version: "1.0-cloudflare", origin: url.origin,
         engine_imported_from: "server/engine/_lib/paper-server.mjs", engine_modified: false,
-        market_host: VERIFIED_HOST, market_channel: "REST_POLLING",
+        market_host: VERIFIED_HOST, market_venue: MARKET_VENUE, market_channel: "REST_POLLING",
+        engine_original_market_host: ENGINE_MARKET_HOST,
+        market_transport: "env.__fetch gateway rewrite (engine source unmodified)",
+        market_fetch_injected: typeof env.__fetch === "function",
+        market_supported_symbols: MARKET_SUPPORTED_SYMBOLS,
+        market_unsupported_symbols: MARKET_UNSUPPORTED_SYMBOLS,
         engine_symbols: ENGINE_SYMBOLS, collector_only_symbols: COLLECTOR_ONLY_SYMBOLS,
         db: "D1:jev-paper-staging", real_money: false, real_exchange_orders: false,
       }, meta: { source: "cloudflare function", channel: "SERVER_ENGINE", label: "LIVE" } });
@@ -264,12 +409,23 @@ async function handleApi(request, env, url) {
     if (pathname === "/api/jev/market/quality") return envelope({ data: { note: "NO_DATA on Cloudflare staging; real bar counts not migrated" }, meta: { label: "NO_DATA" } });
     if (pathname === "/api/jev/reference/design") return envelope({ data: { verdict: "UNVERIFIED", note: "reference pack not hosted on Cloudflare" }, meta: {} });
 
+    if (pathname === "/api/jev/market/probe") {
+      return envelope({ data: await runMarketProbe(), meta: { source: "worker-egress-probe", channel: "REST_POLLING", label: "VERIFIED" } });
+    }
+
     if (pathname.startsWith("/api/jev/market/")) {
       const kind = pathname.slice("/api/jev/market/".length);
       const symbol = (url.searchParams.get("symbol") || "BTCUSDT").toUpperCase();
       let u;
       if (kind === "ticker") {
-        const symbols = url.searchParams.get("symbols") || JSON.stringify(ENGINE_SYMBOLS);
+        const rawSymbols = url.searchParams.get("symbols");
+        let symbols = JSON.stringify(MARKET_SUPPORTED_SYMBOLS);
+        if (rawSymbols) {
+          try {
+            const parsedSymbols = JSON.parse(rawSymbols);
+            if (Array.isArray(parsedSymbols)) symbols = JSON.stringify(parsedSymbols.filter((s) => MARKET_SUPPORTED_SYMBOLS.includes(String(s).toUpperCase())));
+          } catch { /* keep the supported default */ }
+        }
         u = `${MARKET_BASE}/ticker/24hr?symbols=${encodeURIComponent(symbols)}`;
       } else if (kind === "klines") {
         const interval = /^[0-9]+[mhdw]$/.test(url.searchParams.get("interval") || "") ? url.searchParams.get("interval") : "1h";
@@ -392,8 +548,19 @@ export async function onRequest(context) {
     status: 401, headers: { "content-type": "application/json; charset=utf-8", "cache-control": "no-store", "www-authenticate": 'Basic realm="JEV Staging"' },
   });
 
+  // Inject the market transport adapter through the frozen engine's NATIVE hook
+  // (dbFetch(env) => env.__fetch || fetch). Engine files remain unmodified.
+  let engineEnv = env;
+  try {
+    env.__fetch = marketFetcher;
+    if (typeof env.__fetch !== "function") throw new Error("ENV_FROZEN");
+  } catch {
+    engineEnv = Object.create(env);
+    engineEnv.__fetch = marketFetcher;
+  }
+
   const url = new URL(request.url);
-  if (url.pathname.startsWith("/api/jev")) return handleApi(request, env, url);
+  if (url.pathname.startsWith("/api/jev")) return handleApi(request, engineEnv, url);
 
   // Non-API paths are not served by this Function; Pages serves static assets.
   return new Response("Not Found", { status: 404 });
