@@ -38,7 +38,7 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
       - name: Verify preview authentication and disabled Paper API
-        run: node cloud/tests/cf-pages-gate.test.mjs
+        run: node cloud/tests/cf-pages-gate.check.mjs
       - name: Build UI-only staging
         env:
           VITE_CLOUDFLARE_STATIC_PREVIEW: '1'
