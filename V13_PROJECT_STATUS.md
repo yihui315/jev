@@ -41,7 +41,7 @@
   # 经 GitHub MCP 或 gh 创建 DRAFT PR：base=master, head=feature/jev-trading-desk-v1，保持 draft 不 merge
   ```
 - **PR 基线确认**：远端默认分支为 `master`（非 `main`）；既有 PR #2 属旧 `feat/jev-trading-workbench` 工作线，与本次 V1.3 无关，不合并、不重复。
-- **CI**：远端仓库当前无 `.github/workflows`（已核查 origin/master 与分支均无），故暂无 CI 可触发；CI 配置为后续待办（见 §6）。
+- **CI**：分支已含 `.github/workflows/ci.yml`（已修正触发分支为 `feature/**` 与 PR→`master`）；推送分支 / 开 PR 后自动触发 typecheck·build·单测（实时 Binance 探针为非阻塞）。
 
 ## 3. 红线遵守
 

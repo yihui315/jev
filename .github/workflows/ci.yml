@@ -2,9 +2,9 @@ name: JEV Command Center — Trading Workbench CI
 
 on:
   push:
-    branches: ["feat/jev-trading-workbench", "feat/**", "main"]
+    branches: ["feat/jev-trading-workbench", "feat/**", "feature/**", "main", "master"]
   pull_request:
-    branches: ["main"]
+    branches: ["main", "master"]
 
 permissions:
   contents: read

@@ -53,7 +53,7 @@
 cd D:/jev-trading-desk
 git push -u origin feature/jev-trading-desk-v1          # 普通推送，禁止 --force
 # 经 GitHub MCP 创建 DRAFT PR：owner=yihui315, repo=jev, base=master, head=feature/jev-trading-desk-v1, draft=true
-# 添加 .github/workflows/ci.yml（Node + 构建 + 测试）后触发 CI
+# 分支已含修正后的 .github/workflows/ci.yml（触发分支 feature/**、PR→master）；推送并开 PR 即自动触发 CI
 ```
 
 ## 7. 结论
