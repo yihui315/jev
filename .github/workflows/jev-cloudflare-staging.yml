@@ -84,7 +84,7 @@ jobs:
           echo "### JEV protected Pages preview" >> "$GITHUB_STEP_SUMMARY"
           echo "- URL: $URL/trading.html" >> "$GITHUB_STEP_SUMMARY"
           echo "- Status: UI-only (all /api/jev/* BLOCKED), NOT a Paper Trading cloud deployment" >> "$GITHUB_STEP_SUMMARY"
-      - name: HTTPS smoke: anonymous denied, authenticated UI, paper denied
+      - name: "HTTPS smoke: anonymous denied, authenticated UI, paper denied"
         shell: bash
         run: |
           set -euo pipefail
