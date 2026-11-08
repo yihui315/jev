@@ -1,0 +1,14 @@
+# JEV Cloud Staging — Cloudflare Pages + Functions + D1.
+# Paper-only. NEVER real trading. This config is the deployment contract; the
+# runtime red lines (ENABLE_REAL_TRADING=false, preview auth, ledger secret) are
+# enforced inside the Function AND must be supplied as bindings/secrets below.
+name = "jev-cloud-staging"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-11-08"
+compatibility_flags = ["nodejs_compat"]
+
+# Real D1 binding consumed by the frozen engine via env.PAPER_DB.
+[[d1_databases]]
+binding = "PAPER_DB"
+database_name = "jev-paper-staging"
+database_id = "55b690ec-732f-4f34-8b42-084dd15ee164"

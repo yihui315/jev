@@ -10,6 +10,8 @@
 // server-authoritative engine. WebSocket is not used — the market channel is
 // REST_POLLING and is labelled as such everywhere.
 
+import { authHeader } from "./previewAuth";
+
 export const API_BASE = "/api/jev";
 
 export type Label = "LIVE" | "BACKFILL" | "BLOCKED" | "NO_DATA" | "UNAVAILABLE" | "VERIFIED";
@@ -77,10 +79,15 @@ export async function jevFetch<T = unknown>(
   const base = API_BASE.endsWith("/") ? API_BASE.slice(0, -1) : API_BASE;
   const rel = path.startsWith("/") ? path : "/" + path;
   const url = base + rel;
+  const headers: Record<string, string> = { "content-type": "application/json", accept: "application/json" };
+  // Attach the preview Basic credentials when present so the staging gate is
+  // satisfied. Absent credentials → the Function returns 401 and the UI prompts.
+  const ah = authHeader();
+  if (ah) headers["authorization"] = ah;
   try {
     const res = await fetch(url, {
       method: opts.method ?? "GET",
-      headers: { "content-type": "application/json", accept: "application/json" },
+      headers,
       body: opts.body === undefined ? undefined : JSON.stringify(opts.body),
       signal: ctrl.signal,
       credentials: "same-origin",
