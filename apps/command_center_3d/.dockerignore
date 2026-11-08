@@ -1,0 +1,17 @@
+node_modules
+.vite-cache
+dist
+server/runtime
+runtime
+.dev.vars
+.env*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+.git
+screenshots
+artifacts
+e2e/artifacts
+**/logs
+*.log
