@@ -1,0 +1,102 @@
+name: JEV Cloudflare Pages Staging — authenticated UI-only
+on:
+  push:
+    branches: [feat/jev-cloudflare-staging]
+    paths:
+      - 'apps/command_center_3d/**'
+      - '.github/workflows/jev-cloudflare-staging.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: cloudflare-jev-preview
+  cancel-in-progress: false
+jobs:
+  verify-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: apps/command_center_3d
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
+      JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
+      CF_PROJECT: jev-trading-desk-staging-yihui315
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/command_center_3d/package-lock.json
+      - name: Install exact dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Verify preview authentication and disabled Paper API
+        run: node cloud/tests/cf-pages-gate.test.mjs
+      - name: Build UI-only staging
+        env:
+          VITE_CLOUDFLARE_STATIC_PREVIEW: '1'
+        run: npm run build
+      - name: Check available Cloudflare deploy authorization (fail closed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          missing=0
+          for key in CLOUDFLARE_ACCOUNT_ID CLOUDFLARE_API_TOKEN JEV_PREVIEW_USER JEV_PREVIEW_PASSWORD; do
+            if [ -z "${!key:-}" ]; then echo "::error::Missing GitHub Actions secret: $key"; missing=1; fi
+          done
+          if [ "$missing" -ne 0 ]; then exit 1; fi
+          if [ "${#JEV_PREVIEW_PASSWORD}" -lt 20 ]; then echo "::error::JEV_PREVIEW_PASSWORD must be >= 20 characters"; exit 1; fi
+      - name: Install Wrangler
+        run: npm install --no-save --no-audit --no-fund wrangler@4
+      - name: Find or create isolated Cloudflare Pages project
+        shell: bash
+        run: |
+          set -euo pipefail
+          status=$(curl -sS -o "$RUNNER_TEMP/cf-project-check.json" -w '%{http_code}' \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" \
+            "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/$CF_PROJECT")
+          if [ "$status" = 404 ]; then
+            npx wrangler pages project create "$CF_PROJECT" --production-branch=never-release-staging
+          elif [ "$status" != 200 ]; then
+            echo "::error::Cloudflare project API returned HTTP $status"; exit 1
+          fi
+      - name: Install encrypted preview credentials at Cloudflare
+        shell: bash
+        run: |
+          set -euo pipefail
+          printf '%s' "$JEV_PREVIEW_USER" | npx wrangler pages secret put JEV_PREVIEW_USER --project-name="$CF_PROJECT" --env=preview
+          printf '%s' "$JEV_PREVIEW_PASSWORD" | npx wrangler pages secret put JEV_PREVIEW_PASSWORD --project-name="$CF_PROJECT" --env=preview
+      - name: Upload Pages preview — never deploy production
+        shell: bash
+        run: |
+          set -euo pipefail
+          npx wrangler pages deploy dist --project-name="$CF_PROJECT" --branch=feat/jev-cloudflare-staging 2>&1 | tee "$RUNNER_TEMP/jev-cf-deploy.log"
+          URL=$(grep -oE 'https://[A-Za-z0-9.-]+\.pages\.dev' "$RUNNER_TEMP/jev-cf-deploy.log" | tail -1 || true)
+          if [ -z "$URL" ]; then echo "::error::Missing Pages preview URL; not verified"; exit 1; fi
+          echo "PREVIEW_URL=$URL" >> "$GITHUB_ENV"
+          echo "### JEV protected Pages preview" >> "$GITHUB_STEP_SUMMARY"
+          echo "- URL: $URL/trading.html" >> "$GITHUB_STEP_SUMMARY"
+          echo "- Status: UI-only (all /api/jev/* BLOCKED), NOT a Paper Trading cloud deployment" >> "$GITHUB_STEP_SUMMARY"
+      - name: HTTPS smoke: anonymous denied, authenticated UI, paper denied
+        shell: bash
+        run: |
+          set -euo pipefail
+          for i in $(seq 1 20); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' "$PREVIEW_URL/trading.html" || true)
+            if [ "$status" = 401 ]; then break; fi
+            sleep 3
+          done
+          test "$status" = 401
+          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+            "$PREVIEW_URL/trading.html" -o "$RUNNER_TEMP/jev-preview.html"
+          test -s "$RUNNER_TEMP/jev-preview.html"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" "$PREVIEW_URL/api/jev/paper/account")
+          test "$status" = 503

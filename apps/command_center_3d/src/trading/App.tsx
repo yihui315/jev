@@ -46,7 +46,11 @@ export function TradingApp() {
     return () => window.removeEventListener("hashchange", onHash);
   }, []);
 
-  const meta: Record<PageId, string> = {
+  const cloudPreview = import.meta.env.VITE_CLOUDFLARE_STATIC_PREVIEW === "1";
+  const meta: Record<PageId, string> = cloudPreview ? {
+    command: "BLOCKED", workbench: "BLOCKED", universe: "BLOCKED",
+    strategy: "NO_DATA", account: "BLOCKED", team: "BLOCKED",
+  } : {
     command: "VERIFIED", workbench: "LIVE", universe: "LIVE",
     strategy: "NO_DATA", account: "LIVE", team: "BLOCKED",
   };
@@ -65,6 +69,7 @@ export function TradingApp() {
           <jev-content/>) becomes TWO separate grid cells, dropping the content
           into the 232px sidebar column and leaving col 2 empty. */}
       <main className="jev-main">
+        {cloudPreview && <div role="status" style={{ padding: "10px 16px", background: "#46311a", color: "#ffe2b0", borderBottom: "1px solid #865a22", fontSize: "13px" }}>Cloudflare Preview · UI ONLY · Paper Trading / AI 服务未接通，所有下单请求被服务端阻断。非实盘交易。</div>}
         {page === "command" && <AICommandCenter topbar={topbar} />}
         {page === "workbench" && <TradingWorkbench topbar={topbar} />}
         {page === "universe" && <MarketUniverse3D topbar={topbar} />}
