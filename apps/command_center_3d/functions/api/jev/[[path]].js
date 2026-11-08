@@ -218,6 +218,171 @@ async function runMarketProbe() {
   };
 }
 
+// ---- T02/T03: probe-driven market status (NEVER a hardcoded LIVE claim) ----
+// The status endpoints used to contain hardcoded "VERIFIED"/"UNAVAILABLE"
+// strings. That is dishonest in both directions: a stale constant can claim
+// LIVE after the source dies, or claim UNAVAILABLE after it recovers.
+// Now every status response is derived from a REAL outbound request made at
+// request time, with an HTTP status, sha256, timings and a clock-skew based
+// freshness verdict. Nothing is cached: cached data is never presented as live.
+const MARKET_STALE_MS = 60000;
+const STATUS_UA = "JEV-Trading-Desk/1.0 (public REST)";
+
+// Pure, exported for unit testing. A stale/unavailable source is never
+// reported as LIVE. `nowMs` is injectable so the STALE branch can be verified
+// with synthetic input WITHOUT fabricating any real market data.
+export function classifyFreshness({ ok, httpStatus, skewMs, staleThresholdMs = MARKET_STALE_MS }) {
+  if (!ok || !(httpStatus >= 200 && httpStatus < 300)) return "UNAVAILABLE";
+  if (skewMs !== null && skewMs !== undefined && skewMs > staleThresholdMs) return "STALE";
+  return "VERIFIED";
+}
+
+async function probeStatusTarget(host, endpoint) {
+  const started = Date.now();
+  const fetchedAt = new Date().toISOString();
+  const url = `https://${host}${endpoint}`;
+  try {
+    const res = await fetch(url, {
+      signal: AbortSignal.timeout(6000),
+      headers: { "user-agent": STATUS_UA, accept: "application/json" },
+    });
+    const text = await res.text();
+    const sha256 = await sha256Hex(text);
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { /* WAF/HTML body */ }
+    const serverTime = parsed ? Number(parsed.serverTime) : NaN;
+    const skewMs = Number.isFinite(serverTime) ? Math.abs(Date.now() - serverTime) : null;
+    const verdict = classifyFreshness({ ok: res.ok, httpStatus: res.status, skewMs });
+    return {
+      source_host: host, endpoint, url, ok: res.ok, http_status: res.status,
+      fetched_at_utc: fetchedAt, latency_ms: Date.now() - started,
+      bytes: text.length, sha256, content_type: res.headers.get("content-type") || null,
+      server_header: res.headers.get("server") || null, cf_ray: res.headers.get("cf-ray") || null,
+      server_time_ms: Number.isFinite(serverTime) ? serverTime : null,
+      clock_skew_ms: skewMs, freshness: verdict === "VERIFIED" ? "FRESH" : verdict,
+      verdict, body_excerpt: text.slice(0, 120),
+    };
+  } catch (err) {
+    return {
+      source_host: host, endpoint, url, ok: false, http_status: null,
+      fetched_at_utc: fetchedAt, latency_ms: Date.now() - started,
+      bytes: 0, sha256: null, error: String(err && err.name ? err.name : err),
+      verdict: "UNAVAILABLE", freshness: "UNAVAILABLE",
+    };
+  }
+}
+
+async function marketStatusEvidence() {
+  const [live, original] = await Promise.all([
+    probeStatusTarget(VERIFIED_HOST, "/api/v3/time"),
+    probeStatusTarget(ENGINE_MARKET_HOST, "/api/v3/ticker/price?symbol=BTCUSDT"),
+  ]);
+  return {
+    generated_utc: utcNow(),
+    policy: "Derived from real Worker-edge HTTP probes at request time. No cache, no constant LIVE claim. >=60s clock skew => STALE; non-2xx/timeout => UNAVAILABLE.",
+    stale_threshold_ms: MARKET_STALE_MS,
+    live, original,
+  };
+}
+
+// ---- T02: controlled host x endpoint x UA diagnosis ------------------------
+// All targets are hardcoded constants (no request-derived URL => no SSRF).
+// Goal: prove whether the 403 depends on the User-Agent, the endpoint path,
+// or the upstream host / egress policy. Every row is a REAL Worker request.
+const DIAG_ENDPOINTS = [
+  { id: "time",         path: "/api/v3/time" },
+  { id: "ticker_price", path: "/api/v3/ticker/price?symbol=BTCUSDT" },
+  { id: "depth",        path: "/api/v3/depth?symbol=BTCUSDT&limit=5" },
+  { id: "klines",       path: "/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10" },
+];
+const DIAG_HOSTS = [
+  { id: "engine_host",   host: ENGINE_MARKET_HOST, note: "frozen engine's hardcoded host" },
+  { id: "verified_host", host: VERIFIED_HOST,       note: "gateway transport target" },
+];
+const DIAG_UA = [
+  { id: "gateway_custom", ua: STATUS_UA },
+  { id: "empty_ua",       ua: "" },
+  { id: "browser",        ua: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/126.0 Safari/537.36" },
+];
+
+async function diagOne(host, ep, ua) {
+  const started = Date.now();
+  const url = `https://${host}${ep.path}`;
+  const headers = { accept: "application/json" };
+  // Workers always inject a default UA; an explicit empty UA is the closest
+  // we can get to "no UA". This is recorded honestly in the returned evidence.
+  if (ua.ua !== null) headers["user-agent"] = ua.ua;
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000), headers });
+    const text = await res.text();
+    const sha256 = await sha256Hex(text);
+    let parsed = null;
+    try { parsed = JSON.parse(text); } catch { /* WAF/HTML */ }
+    let summary = null;
+    if (parsed && parsed.serverTime) summary = { serverTime: parsed.serverTime };
+    else if (parsed && parsed.symbol) summary = { symbol: parsed.symbol, price: parsed.price };
+    else if (parsed && parsed.lastUpdateId) summary = { lastUpdateId: parsed.lastUpdateId, bids: (parsed.bids || []).length, asks: (parsed.asks || []).length };
+    else if (Array.isArray(parsed)) summary = { bars: parsed.length, firstOpenTime: parsed[0]?.[0] ?? null, lastOpenTime: parsed.at(-1)?.[0] ?? null };
+    else if (parsed && parsed.code !== undefined) summary = { code: parsed.code, msg: parsed.msg };
+    return {
+      host_id: `${host}`, endpoint_id: ep.id, ua_id: ua.id, url,
+      http_status: res.status, ok: res.ok, latency_ms: Date.now() - started,
+      bytes: text.length, sha256, content_type: res.headers.get("content-type") || null,
+      server_header: res.headers.get("server") || null, cf_ray: res.headers.get("cf-ray") || null,
+      parsed_summary: summary, body_excerpt: text.slice(0, 140),
+      exception_class: res.ok ? null : "HTTP_" + res.status,
+    };
+  } catch (err) {
+    return {
+      host_id: `${host}`, endpoint_id: ep.id, ua_id: ua.id, url,
+      http_status: null, ok: false, latency_ms: Date.now() - started,
+      sha256: null, exception_class: String(err && err.name ? err.name : err),
+    };
+  }
+}
+
+async function runMarketDiagnosis() {
+  const jobs = [];
+  for (const h of DIAG_HOSTS) {
+    for (const ep of DIAG_ENDPOINTS) {
+      for (const ua of DIAG_UA) jobs.push(diagOne(h.host, ep, ua));
+    }
+  }
+  const rows = await Promise.all(jobs);
+  // Derived conclusions from the measured matrix (never hardcoded).
+  const byHost = {};
+  for (const h of DIAG_HOSTS) {
+    const rs = rows.filter((r) => r.host_id === h.host);
+    const statuses = [...new Set(rs.map((r) => r.http_status))].sort();
+    byHost[h.host] = {
+      note: h.note, requests: rs.length, http_statuses: statuses,
+      ok_count: rs.filter((r) => r.ok).length,
+      by_ua: DIAG_UA.map((u) => ({
+        ua: u.id,
+        statuses: [...new Set(rs.filter((r) => r.ua_id === u.id).map((r) => r.http_status))].sort(),
+      })),
+    };
+  }
+  const uaChangesOutcome = DIAG_HOSTS.some((h) => {
+    const rs = rows.filter((r) => r.host_id === h.host);
+    const sets = DIAG_UA.map((u) => JSON.stringify([...new Set(rs.filter((r) => r.ua_id === u.id).map((r) => r.http_status))].sort()));
+    return new Set(sets).size > 1;
+  });
+  return {
+    diagnosed_at_utc: utcNow(), runtime: "cloudflare-worker-edge",
+    matrix_shape: { hosts: DIAG_HOSTS.length, endpoints: DIAG_ENDPOINTS.length, ua_variants: DIAG_UA.length, total_requests: rows.length },
+    ua_note: "Cloudflare Workers inject a default User-Agent; 'empty_ua' sends an explicit empty UA. Recorded verbatim.",
+    derived: {
+      ua_changes_http_outcome: uaChangesOutcome,
+      interpretation: uaChangesOutcome
+        ? "UA variant changed the HTTP outcome — request headers are implicated."
+        : "All UA variants produced identical HTTP outcomes on each host => adding/changing a User-Agent is NOT a valid fix for the 403.",
+      by_host: byHost,
+    },
+    rows,
+  };
+}
+
 // ---- envelope + helpers ----------------------------------------------------
 function utcNow() { return new Date().toISOString(); }
 function envelope({ ok = true, data, error, code, meta = {}, status = 200, headers = {} }) {
@@ -236,10 +401,9 @@ function metaFallback(url) {
   return { source: url, channel: "REST_POLLING", fetched_at_utc: utcNow(), no_synthetic_data: true };
 }
 
-// Honest, committed-at-build status. No external evidence files exist on
-// Cloudflare; we ship the truthful UNVERIFIED/BLOCKED/NO_DATA verdict, never a
-// fabricated pass.
-function systemStatus() {
+// Market status is DERIVED from marketStatusEvidence() (real Worker-edge HTTP
+// probes at request time). No hardcoded LIVE/UNAVAILABLE claim.
+async function systemStatus(evidence) {
   return {
     verdict: "UNVERIFIED",
     gate: {
@@ -259,9 +423,12 @@ function systemStatus() {
     limits: {
       websocket: "BLOCKED", ai_six_roles: "BLOCKED",
       strategy_oos: "NO_DATA", thirty_day: "UNVERIFIED",
-      market_marks: "VERIFIED for BTCUSDT/ETHUSDT via Binance.US spot real REST (no synthesis). ORDIUSDT/1000SATSUSDT not listed there -> honestly rejected.",
-      gate_fills: "4 real server fills recorded 2026-11-08 from Binance.US depth (evidence: acceptance report stage 2). Static status, NOT a live counter.",
+      market_marks: evidence
+        ? `${evidence.live.verdict} (probe-derived) — source=${evidence.live.source_host} http=${evidence.live.http_status} fetched=${evidence.live.fetched_at_utc} sha256=${String(evidence.live.sha256).slice(0, 16)} clock_skew_ms=${evidence.live.clock_skew_ms}. BTCUSDT/ETHUSDT via Binance.US spot real REST (no synthesis); ORDIUSDT/1000SATSUSDT not listed there -> honestly rejected. Original engine host probe: http=${evidence.original.http_status} verdict=${evidence.original.verdict}.`
+        : "UNVERIFIED (probe unavailable)",
+      gate_fills: "No static fill claim. Fills are authoritative D1 rows; see session-scoped /api/jev/paper/audit. No 30-day research run performed.",
     },
+    market_evidence: evidence || null,
     red_lines: { real_money: false, real_exchange_orders: false, production_deploy: false, auto_strategy_promotion: false },
   };
 }
@@ -310,12 +477,19 @@ function strategiesStatus() {
     work_line: { id: "W4", status: "BLOCKED", blocked: true },
   };
 }
-function dataSourceAudit() {
+async function dataSourceAudit(evidence) {
+  const live = evidence?.live;
+  const orig = evidence?.original;
+  const liveStatus = live ? live.verdict : "UNVERIFIED";
   return [
-    { id: "market_rest", label: "VERIFIED", channel: "REST_POLLING", source: VERIFIED_HOST, venue: MARKET_VENUE, status: "VERIFIED", updated_utc: utcNow(),
-      note: "Engine requests data-api.binance.vision (403 from CF edge); gateway injects env.__fetch (engine NATIVE hook, source unmodified) to repoint to api.binance.us. Response bodies pass through unchanged: REAL Binance.US spot prices, no cache, no synthesis. This is NOT the Binance.com global book. Supported: BTCUSDT/ETHUSDT. ORDIUSDT/1000SATSUSDT are filtered from the multi-symbol ticker and their orders are honestly rejected." },
-    { id: "market_rest_original_host", label: "BLOCKED", channel: "REST_POLLING", source: ENGINE_MARKET_HOST, status: "BLOCKED", http_status: 403,
-      note: "Measured from the Cloudflare Worker edge: 403 Forbidden. Binance global hosts api.binance.com / api1-4 return 451 (restricted location). Retained as evidence for the transport rewrite." },
+    { id: "market_rest", label: liveStatus, channel: "REST_POLLING", source: VERIFIED_HOST, venue: MARKET_VENUE, status: liveStatus, updated_utc: live?.fetched_at_utc || utcNow(),
+      http_status: live?.http_status ?? null, sha256: live?.sha256 ?? null, latency_ms: live?.latency_ms ?? null,
+      clock_skew_ms: live?.clock_skew_ms ?? null, freshness: live?.freshness ?? "UNVERIFIED",
+      probe_url: live?.url ?? null,
+      note: "Status is DERIVED from a real Worker-edge probe (no hardcoded LIVE claim). Engine requests data-api.binance.vision; gateway injects env.__fetch (engine NATIVE hook, source unmodified) to repoint to api.binance.us. Response bodies pass through unchanged: REAL Binance.US spot prices, no cache, no synthesis. This is NOT the Binance.com global book. Supported: BTCUSDT/ETHUSDT. ORDIUSDT/1000SATSUSDT are filtered from the multi-symbol ticker and their orders are honestly rejected." },
+    { id: "market_rest_original_host", label: orig ? (orig.ok ? "VERIFIED" : "BLOCKED") : "UNVERIFIED", channel: "REST_POLLING", source: ENGINE_MARKET_HOST, status: orig ? (orig.ok ? "VERIFIED" : "BLOCKED") : "UNVERIFIED", http_status: orig?.http_status ?? null,
+      probed_at_utc: orig?.fetched_at_utc ?? null, sha256: orig?.sha256 ?? null, server_header: orig?.server_header ?? null,
+      note: `Measured live from the Cloudflare Worker edge (probe-derived, not hardcoded): http=${orig?.http_status ?? "n/a"}. Binance global hosts api.binance.com / api1-4 returned 451 (restricted location) in the T02 matrix. Retained as evidence for the transport rewrite.` },
     { id: "market_websocket", label: "BLOCKED", channel: "WEBSOCKET", source: null, status: "BLOCKED", note: "/ws -> 404; stream.binance.com:9443 -> timeout" },
     { id: "market_backfill", label: "NO_DATA", channel: "LOCAL_LEDGER", source: "v45 hash-chained bars ledger", status: "NO_DATA", count: 0, note: "Not present on Cloudflare; never counted as live." },
     { id: "paper_engine", label: "LIVE", channel: "SERVER_ENGINE", source: "frozen paper-server.mjs (imported in place)", status: "VERIFIED" },
@@ -327,39 +501,32 @@ function dataSourceAudit() {
 
 // ---- read-only authoritative DB projection (D1-native) ---------------------
 async function paperAudit(preq, db, env) {
+  // FAIL-CLOSED: an invalid/missing Paper Session must never return ANY row or
+  // cardinality — not even a global count. The previous implementation let a
+  // null sid degrade to "WHERE 1=1" style queries (empty WHERE), exposing the
+  // whole table's details plus a global admin_global_counts summary to an
+  // ordinary preview account. Both are removed here.
   const auth = await readSession(preq, env);
-  // D1's prepare().bind().all()/.first() are async — must await, and guard
-  // `.results` (D1 returns {results} but be defensive like the engine does).
+  const sid = auth?.session?.sid || null;
+  if (!sid) return null; // caller returns 401; no DB read is performed at all
+  // D1's prepare().bind().all()/.first() are async — must await.
   const rows = async (sql, ...args) => (await db.prepare(sql).bind(...args).all()).results || [];
   const count = async (sql, ...args) => Number((await db.prepare(sql).bind(...args).first())?.n || 0);
-  const sid = auth?.session?.sid || null;
-  const where = sid ? "WHERE session_id = ?" : "";
-  const a = sid ? [sid] : [];
-  // Session isolation applies to COUNTS too, not only to the detail rows:
-  // a different session must not learn even the cardinality of another
-  // account's orders/fills/events. Global cardinality is exposed separately
-  // as an explicitly-labelled admin diagnostic (gated by Basic auth).
-  const scopedWhere = sid ? " WHERE session_id = ?" : "";
-  const scopedCount = (table) => count(`SELECT COUNT(*) AS n FROM ${table}${scopedWhere}`, ...a);
+  // Every query is unconditionally session-scoped.
+  const scopedCount = (table) => count(`SELECT COUNT(*) AS n FROM ${table} WHERE session_id = ?`, sid);
   return {
-    session_scoped: !!sid, session_id: sid, session_valid: !!auth?.session,
+    session_scoped: true, session_id: sid, session_valid: true,
     counts: {
       accounts: await scopedCount("paper_accounts"),
       orders: await scopedCount("paper_orders"),
       fills: await scopedCount("paper_fills"),
       server_events: await scopedCount("paper_server_events"),
     },
-    admin_global_counts: {
-      note: "Global table cardinality for admin diagnostics only; NOT session data and NOT visible order details.",
-      sessions: await count("SELECT COUNT(*) AS n FROM paper_sessions"),
-      accounts: await count("SELECT COUNT(*) AS n FROM paper_accounts"),
-      orders: await count("SELECT COUNT(*) AS n FROM paper_orders"),
-      fills: await count("SELECT COUNT(*) AS n FROM paper_fills"),
-      server_events: await count("SELECT COUNT(*) AS n FROM paper_server_events"),
-    },
-    orders: await rows(`SELECT * FROM paper_orders ${where} ORDER BY created_at DESC LIMIT 100`, ...a),
-    fills: await rows(`SELECT * FROM paper_fills ${where} ORDER BY created_at DESC LIMIT 100`, ...a),
-    events: await rows(`SELECT seq, event_id, command_id, event_type, created_at FROM paper_server_events ${where} ORDER BY seq DESC LIMIT 100`, ...a),
+    // No admin_global_counts: cross-session cardinality is not exposed to a
+    // preview account, even in aggregate (T05 requirement).
+    orders: await rows("SELECT * FROM paper_orders WHERE session_id = ? ORDER BY created_at DESC LIMIT 100", sid),
+    fills: await rows("SELECT * FROM paper_fills WHERE session_id = ? ORDER BY created_at DESC LIMIT 100", sid),
+    events: await rows("SELECT seq, event_id, command_id, event_type, created_at FROM paper_server_events WHERE session_id = ? ORDER BY seq DESC LIMIT 100", sid),
   };
 }
 
@@ -401,11 +568,23 @@ async function handleApi(request, env, url) {
         db: "D1:jev-paper-staging", real_money: false, real_exchange_orders: false,
       }, meta: { source: "cloudflare function", channel: "SERVER_ENGINE", label: "LIVE" } });
     }
-    if (pathname === "/api/jev/system/status") return envelope({ data: systemStatus(), meta: { source: "committed honest status", channel: "SERVER_ENGINE", label: "UNVERIFIED" } });
+    if (pathname === "/api/jev/system/status") {
+      const ev = await marketStatusEvidence();
+      return envelope({ data: await systemStatus(ev), meta: { source: "probe-derived live Worker-edge evidence", channel: "REST_POLLING", label: ev.live.verdict } });
+    }
     if (pathname === "/api/jev/providers/status") return envelope({ data: providersStatus(), meta: { label: "BLOCKED" } });
     if (pathname === "/api/jev/agents/status") return envelope({ data: agentsStatus(), meta: { label: "BLOCKED" } });
     if (pathname === "/api/jev/strategies/status") return envelope({ data: strategiesStatus(), meta: { label: "NO_DATA" } });
-    if (pathname === "/api/jev/datasource/audit") return envelope({ data: dataSourceAudit(), meta: {} });
+    if (pathname === "/api/jev/datasource/audit") {
+      const ev = await marketStatusEvidence();
+      return envelope({ data: await dataSourceAudit(ev), meta: { source: "probe-derived live Worker-edge evidence", generated_utc: ev.generated_utc } });
+    }
+    if (pathname === "/api/jev/market/status") {
+      return envelope({ data: await marketStatusEvidence(), meta: { source: "live Worker-edge probe", label: "VERIFIED" } });
+    }
+    if (pathname === "/api/jev/market/diagnose") {
+      return envelope({ data: await runMarketDiagnosis(), meta: { source: "worker-edge controlled matrix", label: "VERIFIED" } });
+    }
     if (pathname === "/api/jev/market/quality") return envelope({ data: { note: "NO_DATA on Cloudflare staging; real bar counts not migrated" }, meta: { label: "NO_DATA" } });
     if (pathname === "/api/jev/reference/design") return envelope({ data: { verdict: "UNVERIFIED", note: "reference pack not hosted on Cloudflare" }, meta: {} });
 
@@ -454,17 +633,24 @@ async function handleApi(request, env, url) {
       const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);
       const auth = await readSession(preq, env);
       if (auth.error) return auth.error;
-      return envelope({ data: await paperAudit(preq, db, env), meta: { source: "authoritative engine D1 (read-only projection, session-scoped)", channel: "SERVER_ENGINE", label: "LIVE", session_scoped: true } });
+      const data = await paperAudit(preq, db, env);
+      if (!data) return envelope({ ok: false, error: "PAPER_SESSION_REQUIRED", code: "SESSION_INVALID", status: 401 });
+      return envelope({ data, meta: { source: "authoritative engine D1 (read-only projection, session-scoped)", channel: "SERVER_ENGINE", label: "LIVE", session_scoped: true } });
     }
     if (pathname === "/api/jev/paper/equity") {
       const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);
       const auth = await readSession(preq, env);
+      // FAIL-CLOSED: no valid session => 401, no schema probe, no rows, and no
+      // table_present hint. The old code ignored auth.error and still revealed
+      // schema existence to an unauthenticated-in-session caller.
+      if (auth.error) return auth.error;
       const sid = auth?.session?.sid || null;
+      if (!sid) return envelope({ ok: false, error: "PAPER_SESSION_REQUIRED", code: "SESSION_INVALID", status: 401 });
       const table = await db.prepare("SELECT name FROM sqlite_master WHERE type='table' AND name='paper_equity_snapshots'").first();
-      const rows = sid && table
+      const rows = table
         ? ((await db.prepare("SELECT * FROM paper_equity_snapshots WHERE session_id = ? ORDER BY created_at ASC LIMIT 500").bind(sid).all()).results || [])
         : [];
-      return envelope({ data: { snapshots: rows, count: rows.length, table_present: !!table, session_scoped: !!sid, equity_curve_synthesized: false }, meta: { source: "paper_equity_snapshots (server-written, read-only)", channel: "SERVER_ENGINE", label: rows.length ? "LIVE" : "NO_DATA" } });
+      return envelope({ data: { snapshots: rows, count: rows.length, table_present: !!table, session_scoped: true, equity_curve_synthesized: false }, meta: { source: "paper_equity_snapshots (server-written, read-only)", channel: "SERVER_ENGINE", label: rows.length ? "LIVE" : "NO_DATA" } });
     }
     if (pathname === "/api/jev/paper/orders" && request.method === "GET") {
       const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);

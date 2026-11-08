@@ -40,6 +40,8 @@ jobs:
         run: npm run typecheck
       - name: Verify preview auth + real-backend gateway fail-closed
         run: node cloud/tests/cf-pages-gate.check.mjs
+      - name: Market status classifier (STALE / UNAVAILABLE regression)
+        run: node cloud/tests/market-freshness.check.mjs
       - name: Build staging (real Paper Trading backend)
         run: npm run build
       - name: Check available Cloudflare deploy authorization (fail closed)
@@ -95,9 +97,22 @@ jobs:
             sleep 3
           done
           test "$status" = 401
-          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
-            "$PREVIEW_URL/trading.html" -o "$RUNNER_TEMP/jev-preview.html"
+          # Cloudflare clean-URLs redirect /trading.html -> /trading (308).
+          # -L is required or the assertion below sees an empty redirect body.
+          curl --fail --location --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+            "$PREVIEW_URL/trading" -o "$RUNNER_TEMP/jev-preview.html"
           test -s "$RUNNER_TEMP/jev-preview.html"
-          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+          # Two-layer auth: /api/jev/paper/account needs BOTH preview Basic and
+          # a valid Paper Session cookie. Basic-only correctly returns 401.
+          anon=$(curl --silent --output /dev/null --write-out '%{http_code}' \
             --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" "$PREVIEW_URL/api/jev/paper/account")
+          test "$anon" = 401
+          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+            -X POST -H 'content-type: application/json' \
+            -d '{"account":"ci_smoke","initialCash":"10000"}' \
+            -c "$RUNNER_TEMP/jev-cookies.txt" "$PREVIEW_URL/api/jev/paper/session" \
+            -o "$RUNNER_TEMP/jev-session.json"
+          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" -b "$RUNNER_TEMP/jev-cookies.txt" \
+            "$PREVIEW_URL/api/jev/paper/account")
           test "$status" = 200
