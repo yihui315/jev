@@ -21,6 +21,10 @@
     {
       "path": "vendor/nr_trusted/migrations/0003_fixed_point.sql",
       "git_blob_sha": "60075d41e9935e6c07531785ec9e2d8227d08fe7"
+    },
+    {
+      "path": "vendor/nr_trusted/functions/_lib/decimal.mjs",
+      "git_blob_sha": "36e73ae6c405ba0fd3c29b25ff216b5e80607e5d"
     }
   ]
 }
