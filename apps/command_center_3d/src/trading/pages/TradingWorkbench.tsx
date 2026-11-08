@@ -214,8 +214,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table" style={{ marginTop: 10 }}>
             <thead><tr><th>持仓</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>未实现</th></tr></thead>
             <tbody>
-                {Object.values(a.positions).map((p: any) => (
-                <tr key={p.symbol}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
+                {Object.entries(a.positions).map(([sym, p]: any) => (
+                <tr key={sym}><td>{sym}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -245,7 +245,7 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
             <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
             <tbody>
               {ev.data.events.map((e: any) => (
-                <tr key={e.seq}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+                <tr key={`${e.seq}-${e.eventType}`}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
               ))}
             </tbody>
           </table>

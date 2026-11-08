@@ -510,7 +510,15 @@ async function handle(req, res) {
     }
     if (pathname.startsWith("/api/jev/paper/orders/") && pathname.endsWith("/cancel")) {
       const id = decodeURIComponent(pathname.split("/")[5] || "");
-      const preq = buildEngineRequest(req, "/api/paper/orders/" + id + "/cancel", "", bodyText);
+      // Frozen engine requires the cancel body to contain EXACTLY a valid
+      // clientActionId ({8,100}); any extra/odd field is rejected with
+      // INVALID_CANCEL. The UI historically sent {cancel:true}, which fails.
+      // The adapter (non-frozen isolation layer) normalizes the body here.
+      let incoming = {};
+      try { incoming = bodyText ? JSON.parse(bodyText) : {}; } catch { incoming = {}; }
+      const caValid = typeof incoming.clientActionId === "string" && /^[a-zA-Z0-9._:-]{8,100}$/.test(incoming.clientActionId);
+      const clientActionId = caValid ? incoming.clientActionId : "cancel-" + Date.now() + "-" + Math.random().toString(36).slice(2, 10);
+      const preq = buildEngineRequest(req, "/api/paper/orders/" + id + "/cancel", "", JSON.stringify({ clientActionId }));
       const r = await engine.handlePaperOrderCancel(preq, env, id);
       return engineResponse(r, { route: "order_cancel" });
     }

@@ -1,0 +1,393 @@
+{
+  "generated_utc": "2026-11-08T03:36:13.764Z",
+  "checks": {
+    "session_created": true,
+    "page_command_rendered": true,
+    "page_workbench_rendered": true,
+    "page_universe_rendered": true,
+    "page_strategy_rendered": true,
+    "page_account_rendered": true,
+    "page_team_rendered": true,
+    "market_switch": true,
+    "market_switch_BTCUSDT": true,
+    "market_switch_ETHUSDT": true,
+    "market_switch_1000SATSUSDT": true,
+    "limit_order_open": true,
+    "limit_order_canceled": true,
+    "market_order_filled": true,
+    "position_present": true,
+    "same_session_consistency": true,
+    "cash_decreased_after_buy": true,
+    "event_replay_present": true,
+    "event_has_seq_type_time": true,
+    "datasource_audit_ok": true,
+    "audit_drawer_opens": true,
+    "audit_honest_no_websocket_live": true,
+    "offline_unreachable": true,
+    "online_recovered": true,
+    "cookie_secure": true,
+    "cookie_httponly": true,
+    "cookie_samesite_strict": true,
+    "cookie_path_api": true,
+    "zero_unexplained_console_errors": true,
+    "dual_session_isolation_passed": true,
+    "A_cookie": true,
+    "B_cookie": true,
+    "cookies_distinct": true,
+    "A_sees_1000SATS": true,
+    "B_sees_ETH": true,
+    "A_not_ETH": true,
+    "B_not_1000SATS": true,
+    "anon_audit_401": true
+  },
+  "artifacts": [
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_command.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_workbench.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_universe.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_strategy.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_account.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_team.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_workbench.png",
+    "D:\\jev-trading-desk\\apps\\command_center_3d\\e2e\\artifacts\\v12\\accept_audit_drawer.png"
+  ],
+  "pages": {
+    "command": {
+      "title_seen": "JEV Trading Desk | 1AI 交易指挥中心",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* AI 交易指挥中心 VERIFIED 数据审计 2026-11-08 03:36:21 UTC 关键事实（必须诚实区分）： 服务端 Paper Tradin",
+      "rendered": true
+    },
+    "workbench": {
+      "title_seen": "JEV Trading Desk | 2专业交易工作台",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* 专业交易工作台 LIVE 数据审计 2026-11-08 03:36:37 UTC 本页所有行情为 真实公开 REST 数据（Binance Vision ",
+      "rendered": true
+    },
+    "universe": {
+      "title_seen": "JEV Trading Desk | 33D 市场宇宙",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* 3D 市场宇宙 LIVE 数据审计 2026-11-08 03:36:26 UTC 3D 视图为 态势感知，立方体高度/颜色编码各资产 24h 涨跌幅（真实",
+      "rendered": true
+    },
+    "strategy": {
+      "title_seen": "JEV Trading Desk | 4策略竞赛实验室",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* 策略竞赛实验室 NO_DATA 数据审计 2026-11-08 03:36:29 UTC 策略实验室当前不展示任何绩效数字。 没有真实 OOS（样本外）样本",
+      "rendered": true
+    },
+    "account": {
+      "title_seen": "JEV Trading Desk | 5模拟交易账户",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* 模拟交易账户 LIVE 数据审计 2026-11-08 03:36:31 UTC 账户、持仓、委托、成交、事件全部来自服务端权威 Paper 引擎的真实 S",
+      "rendered": true
+    },
+    "team": {
+      "title_seen": "JEV Trading Desk | 6AI 专家团队",
+      "body_head": "JEV Trading Desk V1.0 · 自主增长交易终端 1 AI 交易指挥中心 2 专业交易工作台 3 3D 市场宇宙 4 策略竞赛实验室 5 模拟交易账户 6 AI 专家团队 统一后端数据适配层 所有页面共用 /api/jev/* AI 专家团队 BLOCKED 数据审计 2026-11-08 03:36:34 UTC AI 六角色当前全部 BLOCKED。 真实 Provider 凭",
+      "rendered": true
+    }
+  },
+  "network_log": [
+    {
+      "url": "http://127.0.0.1:4781/api/jev/system/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/agents/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/providers/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=BTCUSDT&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=BTCUSDT&limit=30",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=BTCUSDT&interval=1h&limit=200",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%2C%22BNBUSDT%22%2C%22SOLUSDT%22%5D",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/strategies/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/quality",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=100",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/equity",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/replay",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/agents/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/providers/status",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/session",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=BTCUSDT&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=BTCUSDT&interval=1h&limit=200",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=BTCUSDT&limit=30",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=ETHUSDT&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=ETHUSDT&interval=1h&limit=200",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=ETHUSDT&limit=30",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/depth?symbol=1000SATSUSDT&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/klines?symbol=1000SATSUSDT&interval=1h&limit=200",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/trades?symbol=1000SATSUSDT&limit=30",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/ticker?symbols=%5B%221000SATSUSDT%22%5D",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 201,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders/O-6f73a76c-60af-4ac1-8286-82d6ca62c6d5/cancel",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 201,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/events?after=0&limit=20",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/datasource/audit",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/market/quality",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/reference/design",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/health",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/orders",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    },
+    {
+      "url": "http://127.0.0.1:4781/api/jev/paper/account",
+      "status": 200,
+      "type": "Fetch"
+    }
+  ],
+  "console_errors": [],
+  "cookie_audit": {
+    "name": "nr_paper_session",
+    "httpOnly": true,
+    "secure": true,
+    "sameSite": "Strict",
+    "path": "/api/",
+    "domain": "127.0.0.1"
+  },
+  "git_sha": "f1de01e8f7fc981ebe0a10523dcd4634492821f6",
+  "all_passed": true
+}

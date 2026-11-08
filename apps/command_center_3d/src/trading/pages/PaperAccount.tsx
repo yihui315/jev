@@ -127,7 +127,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
               <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
               <tbody>
                 {events.data.events.map((e: any) => (
-                  <tr key={e.seq}><td>{e.seq ?? "—"}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+                  <tr key={`${e.seq}-${e.eventType}`}><td>{e.seq ?? "—"}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
                 ))}
               </tbody>
             </table>

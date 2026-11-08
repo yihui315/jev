@@ -152,7 +152,7 @@ export async function placePaperOrder(body: PlaceOrderBody) {
 export async function cancelPaperOrder(orderId: string) {
   return jevFetch(`/paper/orders/${encodeURIComponent(orderId)}/cancel`, {
     method: "POST",
-    body: { cancel: true },
+    body: { clientActionId: makeIds("cancel").clientOrderId },
   });
 }
 
