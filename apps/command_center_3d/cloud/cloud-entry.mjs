@@ -1,3 +1,4 @@
+import './verify-engine-vendor.mjs';
 // Container entrypoint: exits if staging auth/persistent volume is not configured.
 import { spawn } from 'node:child_process';
 import { readFile, stat } from 'node:fs/promises';
@@ -20,6 +21,6 @@ const adapter=spawn(process.execPath,['--experimental-sqlite','--no-warnings','s
 adapter.on('exit',code=>{console.error('paper adapter exited',code);process.exit(1)});
 const port=Number(process.env.PORT||8080);
 if(!Number.isInteger(port)||port<1||port>65535)throw new Error('INVALID_PORT');
-const gateway=createGateway({staticDir:path.join(cwd,'dist'),previewUser:process.env.JEV_PREVIEW_USER,previewPassword:process.env.JEV_PREVIEW_PASSWORD,healthPath:process.env.JEV_ADAPTER_HEALTH_PATH||'/health'});
+const gateway=createGateway({staticDir:path.join(cwd,'dist'),previewUser:process.env.JEV_PREVIEW_USER,previewPassword:process.env.JEV_PREVIEW_PASSWORD,healthPath:process.env.JEV_ADAPTER_HEALTH_PATH||'/api/jev/health'});
 gateway.listen(port,'0.0.0.0',()=>console.log(`JEV staging gateway listening port ${port}; paper-only; auth enabled`));
 for(const signal of ['SIGTERM','SIGINT'])process.on(signal,()=>{adapter.kill('SIGTERM');gateway.close(()=>process.exit(0));});
