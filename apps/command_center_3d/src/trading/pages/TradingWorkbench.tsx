@@ -214,8 +214,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table" style={{ marginTop: 10 }}>
             <thead><tr><th>持仓</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>未实现</th></tr></thead>
             <tbody>
-                {Object.values(a.positions).map((p: any, pi: number) => (
-                <tr key={p.symbol ?? pi}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
+                {Object.values(a.positions).map((p: any) => (
+                <tr key={p.symbol}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -229,8 +229,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table">
             <thead><tr><th>ID</th><th>标的</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>状态</th><th>成交</th></tr></thead>
             <tbody>
-                {orders.data.orders.map((o: any, oi: number) => (
-                <tr key={o.id ?? oi}><td>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{fmtQty(o.filledQty)}</td></tr>
+                {orders.data.orders.map((o: any) => (
+                <tr key={o.id}><td>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{fmtQty(o.filledQty)}</td></tr>
               ))}
             </tbody>
           </table>
@@ -244,8 +244,8 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
           <table className="jev-table">
             <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
             <tbody>
-              {ev.data.events.map((e: any, i: number) => (
-                <tr key={e.seq ?? i}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+              {ev.data.events.map((e: any) => (
+                <tr key={e.seq}><td>{e.seq}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
               ))}
             </tbody>
           </table>
@@ -291,9 +291,9 @@ export function TradingWorkbench({ topbar }: { topbar: React.ReactNode }) {
             {INTERVALS.map((i) => <button key={i} className={interval === i ? "on" : ""} onClick={() => setInterval(i)}>{i}</button>)}
           </div>
           <div className="spacer" style={{ flex: 1 }} />
-          {ticker.data?.map((t: any, ti: number) => {
+          {ticker.data?.map((t: any) => {
             const chg = Number(t.priceChangePercent);
-            return <span key={t.symbol ?? ti} className="jev-metric" style={{ minWidth: 110 }}><span className="label">{t.symbol}</span><span className={`value sm ${chg >= 0 ? "jev-up" : "jev-down"}`}>{fmtPrice(t.lastPrice)}</span></span>;
+            return <span key={t.symbol} className="jev-metric" style={{ minWidth: 110 }}><span className="label">{t.symbol}</span><span className={`value sm ${chg >= 0 ? "jev-up" : "jev-down"}`}>{fmtPrice(t.lastPrice)}</span></span>;
           })}
         </div>
 
@@ -303,8 +303,8 @@ export function TradingWorkbench({ topbar }: { topbar: React.ReactNode }) {
           <OrderBook symbol={symbol} />
           <Panel title="逐笔成交" sub={symbol} right={<StatusPill label="LIVE" />}>
             <StateView q={trades} emptyText="暂无成交" />
-            {trades.data?.map((t: any, trI: number) => (
-              <div className="jev-row" key={t.id ?? trI} style={{ justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
+            {trades.data?.map((t: any) => (
+              <div className="jev-row" key={t.id} style={{ justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>
                 <span className="jev-up">{fmtPrice(t.price)}</span>
                 <span>{fmtQty(t.qty)}</span>
                 <span style={{ color: "var(--muted)" }}>{new Date(Number(t.time)).toLocaleTimeString("en-US")}</span>

@@ -9,7 +9,6 @@ import { TopBar } from "../components/Shell";
 
 export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
   const [sessionReady, setSessionReady] = useState(false);
-  const session = useJevQuery<any>("paper/session", { enabled: !sessionReady });
 
   // Ensure a server session exists once on mount (cookie is HttpOnly+Secure).
   useEffect(() => {
@@ -80,8 +79,8 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
               <table className="jev-table">
                 <thead><tr><th>标的</th><th>数量</th><th>均价</th><th>现价</th><th>市值</th><th>未实现</th></tr></thead>
                 <tbody>
-                  {s.positions.map((p: any, i: number) => (
-                    <tr key={p.symbol ?? i}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
+                  {s.positions.map((p: any) => (
+                    <tr key={p.symbol}><td>{p.symbol}</td><td>{fmtQty(p.qty)}</td><td>{fmtPrice(p.avgPrice)}</td><td>{fmtPrice(p.mark)}</td><td>{fmtUsd(p.marketValue)}</td><td className={p.unrealizedPnl >= 0 ? "jev-up" : "jev-down"}>{fmtUsd(p.unrealizedPnl)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -96,7 +95,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
                 <thead><tr><th>捕获时间</th><th>净值</th><th>现金</th></tr></thead>
                 <tbody>
                   {equity.data.snapshots.map((e: any, i: number) => (
-                    <tr key={i}><td>{e.captured_at}</td><td>{fmtUsd(e.equity)}</td><td>{fmtUsd(e.cash)}</td></tr>
+                    <tr key={e.captured_at ?? i}><td>{e.captured_at}</td><td>{fmtUsd(e.equity)}</td><td>{fmtUsd(e.cash)}</td></tr>
                   ))}
                 </tbody>
               </table>
@@ -111,8 +110,8 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
             <table className="jev-table">
               <thead><tr><th>clientOrderId</th><th>标的</th><th>方向</th><th>类型</th><th>数量</th><th>成交价</th><th>状态</th><th>操作</th></tr></thead>
               <tbody>
-                  {orders.data.orders.map((o: any, oi: number) => (
-                    <tr key={o.id ?? oi}><td style={{ textAlign: "left" }}>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{o.status === "NEW" || o.status === "PARTIALLY_FILLED" ? <button className="jev-link" onClick={() => cancel(o.id)}>撤单</button> : "—"}</td></tr>
+                  {orders.data.orders.map((o: any) => (
+                    <tr key={o.id}><td style={{ textAlign: "left" }}>{o.clientOrderId}</td><td>{o.symbol}</td><td className={o.side === "BUY" ? "jev-up" : "jev-down"}>{o.side}</td><td>{o.type}</td><td>{fmtQty(o.qty)}</td><td>{o.avgFillPrice ? fmtPrice(o.avgFillPrice) : "—"}</td><td>{o.status}</td><td>{o.status === "NEW" || o.status === "PARTIALLY_FILLED" ? <button className="jev-link" onClick={() => cancel(o.id)}>撤单</button> : "—"}</td></tr>
                   ))}
               </tbody>
             </table>
@@ -127,8 +126,8 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
             <table className="jev-table">
               <thead><tr><th>seq</th><th>事件类型</th><th>时间</th></tr></thead>
               <tbody>
-                {events.data.events.map((e: any, ei: number) => (
-                  <tr key={e.seq ?? ei}><td>{e.seq ?? "—"}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
+                {events.data.events.map((e: any) => (
+                  <tr key={e.seq}><td>{e.seq ?? "—"}</td><td style={{ textAlign: "left" }}>{e.eventType}</td><td>{e.createdAt}</td></tr>
                 ))}
               </tbody>
             </table>

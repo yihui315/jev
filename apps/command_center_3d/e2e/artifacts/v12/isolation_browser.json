@@ -1,0 +1,23 @@
+{
+  "generated_utc": "2026-11-08T02:58:19.056Z",
+  "layer": "real-browser-two-chrome-profiles",
+  "engine_modified": false,
+  "profiles": "two independent --user-data-dir Chrome instances (separate cookie jars); browser auto-stores+returns per-profile Secure session cookie",
+  "checks": {
+    "A_session_created": true,
+    "B_session_created": true,
+    "A_cookie_auto_stored": true,
+    "B_cookie_auto_stored": true,
+    "cookies_distinct": true,
+    "A_token_preview": "eyJ2IjoxLCJzaWQiOi...",
+    "B_token_preview": "eyJ2IjoxLCJzaWQiOi...",
+    "A_order_filled": true,
+    "B_order_filled": true,
+    "A_sees_1000SATS": true,
+    "B_sees_ETH": true,
+    "A_does_NOT_see_ETH": true,
+    "B_does_NOT_see_1000SATS": true,
+    "anonymous_audit_rejected": true
+  },
+  "all_passed": true
+}

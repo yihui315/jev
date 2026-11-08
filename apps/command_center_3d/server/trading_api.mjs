@@ -208,7 +208,9 @@ async function paperAudit(preq) {
     },
     orders: rows(`SELECT * FROM paper_orders ${where} ORDER BY created_at DESC LIMIT 100`, ...a),
     fills: rows(`SELECT * FROM paper_fills ${where} ORDER BY created_at DESC LIMIT 100`, ...a),
-    events: rows("SELECT seq, event_id, command_id, event_type, created_at FROM paper_server_events ORDER BY seq DESC LIMIT 100"),
+    // T02: events are session-scoped. Without this filter an authenticated audit
+    // would still leak every session's server-event chain.
+    events: rows(`SELECT seq, event_id, command_id, event_type, created_at FROM paper_server_events ${where} ORDER BY seq DESC LIMIT 100`, ...a),
   };
 }
 
@@ -443,10 +445,17 @@ async function handle(req, res) {
 
     // paper engine routes - the ONLY order path; browser never computes fills
     if (pathname === "/api/jev/paper/audit") {
+      // T02: fail-closed. An unauthenticated audit request must NOT fall through
+      // to a cross-session projection (paperAudit returns ALL sessions/orders/
+      // fills/events when no valid session is present). Gate first — note we pass
+      // the normalized engine Request (preq), not the raw Node request, because
+      // the frozen ledger's readSession expects a WHATWG Request (.headers.get).
       const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText);
+      const auth = await ledger.readSession(preq, env);
+      if (auth.error) return auth.error;
       return envelope({ data: await paperAudit(preq),
-                        meta: { source: "authoritative engine SQLite (read-only projection)",
-                                channel: "SERVER_ENGINE", label: "LIVE" } });
+                        meta: { source: "authoritative engine SQLite (read-only projection, session-scoped)",
+                                channel: "SERVER_ENGINE", label: "LIVE", session_scoped: true } });
     }
     // Real equity snapshots ONLY. When the table is empty the answer is an
     // empty array (NO DATA), never a synthesized curve.

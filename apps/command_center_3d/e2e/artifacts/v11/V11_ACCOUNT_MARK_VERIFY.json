@@ -1,0 +1,14 @@
+{
+  "generated_utc": "2026-11-07T22:26:18.440Z",
+  "holding_table": {
+    "found": false
+  },
+  "server_account_probe": {
+    "keys": [
+      "ok",
+      "error"
+    ],
+    "account_present": false,
+    "position_1000SATS": null
+  }
+}
