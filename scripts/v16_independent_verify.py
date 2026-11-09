@@ -585,6 +585,16 @@ def check6():
         return "PENDING", detail
 
     hits = []
+    # QA2-D3 root fix (same class as the V1.5 T7 checker fix): scan ONLY the
+    # lines V1.6 actually added/changed vs the baseline, not whole files.
+    # Rationale: a modified tracked file carries pre-existing baseline lines
+    # (e.g. the frozen gateway's env.PAPER_LEDGER_SECRET red-line references,
+    # present since V1.4) that are NOT V1.6 content and are NOT secrets — the
+    # whole-file scope produced false positives in CI (run 42627150397) while
+    # local pre-commit runs missed modified tracked files entirely (HEAD was
+    # still the baseline). Diff-aware scanning keeps every ADDED line fully
+    # scanned (no assertion deleted, none weakened) and makes local == CI.
+    added_lines = _added_lines_vs_base()
     for p in sorted(changed):
         abs_p = ROOT + "/" + p
         if not os.path.isfile(abs_p):
@@ -593,14 +603,44 @@ def check6():
             text = open(abs_p, "r", encoding="utf-8", errors="replace").read()
         except OSError:
             continue
+        scope = added_lines.get(p)  # None => untracked file: scan whole file
         for ln, line in enumerate(text.splitlines(), 1):
+            if scope is not None and ln not in scope:
+                continue
             for name, rx in SENSITIVE_PATTERNS:
                 if rx.search(line):
                     hits.append({"file": p, "line": ln, "pattern": name})
     detail["hits"] = hits
+    detail["scan_scope"] = "lines added vs baseline (untracked files: whole file)"
     detail["scanned_files"] = sorted(changed)
     detail["brief"] = f"扫描 {len(changed)} 个 V1.6 新增/修改文件, 命中 {len(hits)} 处"
     return ("FAIL" if hits else "PASS"), detail
+
+
+def _added_lines_vs_base():
+    """Map {file: set(line_no)} for lines ADDED vs BASE (tracked files only).
+
+    Parses `git diff BASE --unified=0` hunk headers (+c,d). Files not present
+    in the diff (untracked) are absent from the map and get whole-file scans.
+    """
+    out = {}
+    try:
+        raw = git_text("diff", "--unified=0", BASE)
+    except subprocess.CalledProcessError:
+        return out
+    cur = None
+    for line in raw.splitlines():
+        if line.startswith("+++ b/"):
+            cur = line[6:].strip().replace("\\", "/")
+            out.setdefault(cur, set())
+        elif line.startswith("@@") and cur is not None:
+            m = re.search(r"\+(\d+)(?:,(\d+))?", line)
+            if m:
+                start = int(m.group(1))
+                count = int(m.group(2)) if m.group(2) is not None else 1
+                if count > 0:
+                    out[cur].update(range(start, start + count))
+    return out
 
 
 # ----------------------------------------------------------------------------
