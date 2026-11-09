@@ -5,7 +5,7 @@
   "task_mode": "LONG-RUN / AUTONOMOUS / FAIL-CLOSED",
   "branch": "feature/v16-market-provenance-hardening",
   "baseline_sha": "bfb3206",
-  "last_verified_head": "acc8433c867947b2f536841f00684034a1ac347b",
+  "last_verified_head": "bc2a5cbef48fed2f5a77710f2698c2f5ba71b96e",
   "pr": "https://github.com/yihui315/jev/pull/6",
   "pr_state": "draft / open / 未合并",
   "overall_verdict": {
@@ -105,11 +105,10 @@
     {
       "id": "PHASE_9",
       "name": "GitHub CI 与 PR 收口 / GitHub CI & PR Wrap",
-      "status": "PARTIAL",
-      "summary": "本地修复与新增已单提交（commit c5bd2ec，9 文件：d1-shim.mjs、e2e_real_engine.mjs、run-all.mjs、V16_FINAL_SIGNOFF.md、V16_AI_PAPER_E2E.md、V16_NIGHT_TASK_STATUS.json、v16_ai_contract_tests.json、e2e_real_engine.json、independent_verify.json）。但**远端推送被环境阻断**：① 沙箱代理拒绝 git 的 CONNECT 隧道（502 Bad Gateway）；② GitHub 连接器仅有读权限，push_files 写操作返回 403 Resource not accessible by integration。纪律仍守：不删失败断言、不自动合并、不接 Staging D1、不真实资金交易。",
-      "evidence": ["local commit c5bd2ec (9 files)", "reports/evidence/v16_ai/v16_ai_contract_tests.json (network_calls=0)", "git push: CONNECT tunnel 502", "github MCP push_files: 403 (read-only integration)"],
-      "blocking_reason": "远端写权限/出网受限：需主理人在 GitHub 连接器授权 contents:write，或在本地手动 `git push origin feature/v16-market-provenance-hardening`（本机 git 凭证可直连时）。",
-      "next_action": "解除写权限后重推；更新 PR #6 描述；触发 CI 核验双门禁（verifier + AI Mock 契约 network_calls=0）；记录真实 Run ID。"
+      "status": "DONE",
+      "summary": "本地修复与新增已随 commit 7dbc2f8（9 文件）提交，并补录本报告 commit bc2a5cb。已通过代理 127.0.0.1:10808 + 本机 GCM 凭据 fast-forward 推送 acc8433..bc2a5cb 至 origin（非 force、未碰 Release、PR #6 维持 Draft）。最新 SHA bc2a5cb 上 4 个 workflow 全部 success：v16-market-provenance.yml（PR 42712800491 / push 42712789106）、ci.yml（42712789223）、Cloud Staging Docker Runtime Gate（42712800228）。双门禁逐步全绿：V1.5 回归 8/8/95、V1.6 新套件 8/8/104、AI Mock 契约 120/120（network_calls=0）、冻结引擎完整性 + 敏感串扫描 0 命中、TS/Build 通过。纪律仍守：不删失败断言、不自动合并、不接 Staging D1、不真实资金交易。",
+      "evidence": ["commit 7dbc2f8 (9 files)", "commit bc2a5cb (本报告)", "remote HEAD == bc2a5cb (fast-forward)", "CI runs 42712800491/42712789106/42712789223/42712800228 all success", "reports/evidence/v16_ai/v16_ai_contract_tests.json (network_calls=0)"],
+      "next_action": "PR #6 描述随 P4 更新（SHA / CI Run ID / Mock 结果 / Real Provider 结果）；轨道 B 仍待 Provider 凭据解锁与独立 QA 交叉复核。"
     },
     {
       "id": "PHASE_10",
@@ -121,9 +120,9 @@
     }
   ],
   "ci_status": {
-    "last_green_run": "42628475303",
-    "last_green_sha": "93b30d4",
-    "red_line": "v16_ai_contract_tests.json environment.network_calls === 0 (当前实测 0，满足)",
+    "last_green_runs": ["42712800491", "42712789106", "42712789223", "42712800228"],
+    "last_green_sha": "bc2a5cb",
+    "red_line": "v16_ai_contract_tests.json environment.network_calls === 0 (当前实测 0，满足，CI step 复验通过)",
     "verifier_engine_tree_hash_unchanged": true
   },
   "evidence_inventory": {
