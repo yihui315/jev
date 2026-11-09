@@ -3,7 +3,12 @@
  * No credentials, no tokens, no secrets are ever read or stored here.
  */
 
-export const COLLECTOR_VERSION = "v45-equity-collector/1.0.0";
+// Runtime build version (V1.6), exposed via the runCycle summary / V1.6 tests.
+export const COLLECTOR_VERSION = "v45-equity-collector/1.6.0";
+// Frozen V1.5 audit label written into v45_snapshot_provenance.collector_version.
+// The byte-frozen V1.5 T5 regression asserts this EXACT value (H1), so the
+// frozen audit label is deliberately NOT folded into the runtime build version.
+export const PROVENANCE_COLLECTOR_VERSION = "v45-equity-collector/1.0.0";
 export const FORMULA_VERSION = "v45-equity-fp/1";
 
 // ---- market source (HARDCODED, fail-closed) --------------------------------

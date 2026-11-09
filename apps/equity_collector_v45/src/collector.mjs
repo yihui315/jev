@@ -1,5 +1,5 @@
 /**
- * V45 Equity Collector — INDEPENDENT Scheduled Worker.
+ * V45 Equity Collector — INDEPENDENT Scheduled Worker (V1.6 hardened).
  *
  * Ownership: READ-ONLY w.r.t. the frozen trading ledger.
  *   - READS:  paper_sessions, paper_accounts (state_json / state_hash / version)
@@ -9,6 +9,13 @@
  *
  * ENABLE_REAL_TRADING must be false semantics. Real trading / real funds are
  * never connected. No credentials or tokens are read, printed or stored.
+ *
+ * V1.6 (M3 FAIL-CLOSED): every cycle really calls market-guard.evaluateCycle.
+ * On ANY guard failure we DOWNGRADE to an UNKNOWN row (marks={}, equity=0,
+ * dataQuality=UNKNOWN, a specific errorCode + failureClass) but STILL write the
+ * provenance audit row. We never throw past the cycle, never skip the audit,
+ * never fabricate a price. History peak uses partition.selectHistoryPeak so a
+ * different (exchange,market) can never pollute peak / drawdown.
  *
  * Entrypoints:
  *   - scheduled(controller, env, ctx): one collection cycle per cron tick.
@@ -23,6 +30,9 @@ import { COLLECTOR_VERSION } from "./constants.mjs";
 import { fetchMarket } from "./market.mjs";
 import { buildSnapshot, snapshotInsertStatement, initialCashFp } from "./compute.mjs";
 import { buildProvenance, provenanceInsertStatement } from "./provenance.mjs";
+import { EXCHANGE_US, MARKET_SPOT, buildMarkContracts } from "./market-contract.mjs";
+import { resolveNetworkContext, evaluateCycle, classifyMarketFailure } from "./market-guard.mjs";
+import { selectHistoryPeak } from "./partition.mjs";
 
 function assertNoRealTrading(env) {
   const v = env && env.ENABLE_REAL_TRADING;
@@ -34,6 +44,14 @@ function assertNoRealTrading(env) {
 async function countSnapshots(db) {
   const r = await db.prepare("SELECT COUNT(*) AS n FROM paper_equity_snapshots").first();
   return Number((r && r.n) || 0);
+}
+
+/** VERIFIED (exchange,market) keys already present in this (session,generation) series. */
+async function priorMarketKeys(db, sessionId, generation) {
+  const r = await db.prepare(
+    "SELECT DISTINCT exchange, market FROM v45_snapshot_provenance WHERE session_id = ? AND generation = ? AND data_quality = 'VERIFIED' AND exchange <> 'UNKNOWN' AND market <> 'UNKNOWN'"
+  ).bind(String(sessionId), generation).all();
+  return (r.results || []).map((row) => row.exchange + "|" + row.market);
 }
 
 /**
@@ -53,6 +71,10 @@ export async function runCycle(env, options = {}) {
   const cycleKey = options.cycleKey || ("adhoc:" + nowIso);
   const fetcher = options.fetcher || (env && typeof env.__fetch === "function" ? env.__fetch : globalThis.fetch);
   const engineSha256 = await computeEngineSha256();
+  // Deterministic network_context (contract 3.2): injected fetcher => local
+  // test shim; explicit env value wins; otherwise UNKNOWN -> fail-closed.
+  const fetcherInjected = !!options.fetcher || (env && typeof env.__fetch === "function");
+  const networkContext = resolveNetworkContext({ env, fetcherInjected });
 
   // FAIL-CLOSED: only VALID sessions (exists, not revoked, not expired).
   // No valid session => no account rows => ZERO snapshot writes.
@@ -83,26 +105,93 @@ export async function runCycle(env, options = {}) {
       const generation = Number(account.generation || 1);
       const market = await fetchMarket(fetcher, held, { nowMs });
 
-      // Per-(session, generation) history peak using VERIFIED snapshots ONLY.
-      const peakRow = await db.prepare(
-        "SELECT MAX(equity) AS peak FROM paper_equity_snapshots WHERE session_id = ? AND generation = ? AND mark_quality = 'verified'"
-      ).bind(String(row.session_id), generation).first();
-      const historyPeakFp = peakRow ? peakRow.peak : null;
+      // (M2) one COMPLETE contract record per symbol.
+      const contracts = buildMarkContracts({ market, marks: market.marks, networkContext });
+      const markContractsJson = JSON.stringify(contracts);
 
-      const marksInfo = {
-        marks: market.marks,
-        marksJson: market.marksJson,
-        markQuality: market.markQuality,
-        source: market.source,
-        missing: market.missing,
-      };
+      // (M3) REAL fail-closed guard call. priorMarketKeys let the guard reject a
+      // cycle that would mix a second market into an existing VERIFIED series.
+      const priorKeys = await priorMarketKeys(db, row.session_id, generation);
+      const guard = evaluateCycle({
+        exchange: EXCHANGE_US,
+        market: MARKET_SPOT,
+        sourceHost: market.sourceHost,
+        priceTsSource: market.priceTsSource,
+        networkContext,
+        contracts,
+        priorMarketKeys: priorKeys,
+        freshnessVerdict: market.freshnessVerdict,
+        httpStatus: market.httpStatus,
+        payloadSha256: market.payloadSha256,
+        foreignMarketDeclared: market.foreignMarketDeclared,
+        fallbackUsed: false,
+        usedLastGoodPrice: false,
+        autoFallback: false,
+        historyProvenance: [],
+      });
+
+      const wasVerified = market.dataQuality === "VERIFIED";
+      let marksInfo, errorCode, failureClass, exchange, mkt, priceTsSource, effectiveDataQuality;
+
+      if (guard.ok && wasVerified) {
+        // Healthy VERIFIED path: keep ALL V1.5 behaviour / return fields.
+        marksInfo = {
+          marks: market.marks, marksJson: market.marksJson,
+          markQuality: market.markQuality, source: market.source, missing: market.missing,
+        };
+        errorCode = market.errorCode;                 // null on the healthy path
+        failureClass = "NONE";
+        exchange = EXCHANGE_US; mkt = MARKET_SPOT;
+        priceTsSource = market.priceTsSource;        // exchange_serverTime
+        effectiveDataQuality = "VERIFIED";
+      } else {
+        // DOWNGRADE, never skip (contract 3.3 / H8): UNKNOWN row, marks={},
+        // equity=0, still fully audited. Keep the honest market-layer errorCode
+        // when the market layer already failed; otherwise use the guard code.
+        marksInfo = {
+          marks: {}, marksJson: "{}",
+          markQuality: "unknown", source: market.source, missing: market.missing,
+        };
+        errorCode = wasVerified ? guard.errorCode : market.errorCode;
+        failureClass = wasVerified ? guard.failureClass : classifyMarketFailure(market);
+        exchange = "UNKNOWN"; mkt = "UNKNOWN";
+        priceTsSource = "UNKNOWN";
+        effectiveDataQuality = "UNKNOWN";
+      }
+      const partitionKey = exchange + "|" + mkt;
+
+      // (M3.4) REPLACES the old "SELECT MAX(equity) ... WHERE mark_quality='verified'".
+      // Peak is now restricted to the SAME (exchange,market) with proven data.
+      const historyPeakFp = await selectHistoryPeak(db, {
+        sessionId: row.session_id, generation, exchange, market: mkt,
+      });
+
       const snapshot = await buildSnapshot(row, marksInfo, historyPeakFp, nowMs, {
         sessionId: row.session_id, generation, cycleKey,
         accountVersion: Number(row.version), stateHash: row.state_hash,
       });
+
+      // Market-like object for buildProvenance: all V1.5 fields + overridden
+      // errorCode / dataQuality so the audit row reflects the final verdict.
+      const provMarket = {
+        ...market,
+        errorCode,
+        dataQuality: effectiveDataQuality,
+        markQuality: marksInfo.markQuality,
+      };
+      const v16 = {
+        exchange,
+        market: mkt,
+        price_ts_source: priceTsSource,
+        network_context: networkContext,
+        venue: market.venue,
+        failure_class: failureClass,
+        mark_contracts_json: markContractsJson,
+        market_partition_key: partitionKey,
+      };
       const provenance = buildProvenance({
-        snapshot, market, cycleKey, engineSha256,
-        initialCashFp: initialCashFp(row), nowMs,
+        snapshot, market: provMarket, cycleKey, engineSha256,
+        initialCashFp: initialCashFp(row), nowMs, v16,
       });
 
       const s1 = snapshotInsertStatement(snapshot);
@@ -127,11 +216,11 @@ export async function runCycle(env, options = {}) {
         equityPeak: snapshot.equityPeak,
         drawdown: snapshot.drawdown,
         markQuality: snapshot.markQuality,
-        dataQuality: market.dataQuality,
+        dataQuality: effectiveDataQuality,
         freshnessVerdict: market.freshnessVerdict,
         freshnessMs: market.freshnessMs,
         clockSkewMs: market.clockSkewMs,
-        errorCode: market.errorCode,
+        errorCode,
         httpStatus: market.httpStatus,
         missingMarks: market.missing,
         createdAt: snapshot.createdAt,
@@ -177,7 +266,43 @@ async function fetch(request, env, ctx) {
   }
   const cycleKey = u.searchParams.get("cycle_key") || ("fetch:" + new Date().toISOString());
   const nowMs = u.searchParams.has("now_ms") ? Number(u.searchParams.get("now_ms")) : Date.now();
-  const fetcher = env && typeof env.__fetch === "function" ? env.__fetch : globalThis.fetch;
+
+  // TEST-ONLY controlled fault injection (cloud E2E negatives). This whole
+  // block is UNREACHABLE in production: it sits behind the 403 gate above, and
+  // scheduled() never reads `fault`. After acceptance V45_TEST_TRIGGER is set
+  // back to false, so no `fault` parameter can ever be honoured on the edge.
+  // With no `fault`, behaviour is byte-for-byte the V1.5 path (real globalThis
+  // fetch, or the injected env.__fetch used by the local harness).
+  const fault = u.searchParams.get("fault");
+  let fetcher = env && typeof env.__fetch === "function" ? env.__fetch : globalThis.fetch;
+  if (fault === "transport") {
+    fetcher = async () => { throw new TypeError("fetch failed (simulated outage)"); };
+  } else if (fault === "http503") {
+    fetcher = async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/api/v3/ticker/price") {
+        return new Response("simulated upstream 503", { status: 503 });
+      }
+      return new Response(JSON.stringify({ serverTime: Date.now() }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    };
+  } else if (fault === "global_host") {
+    fetcher = async (url) => {
+      const path = new URL(url).pathname;
+      if (path === "/api/v3/ticker/price") {
+        // Adversarial payload claiming a DIFFERENT market; the §3 guard (or the
+        // market layer) MUST reject it as UNKNOWN. The label is an IDENTITY
+        // tag, never a hostname (H4/T7 forbid a Global host literal in src).
+        return new Response(JSON.stringify([
+          { symbol: "BTCUSDT", price: "1.0", exchange: "Binance Global spot" },
+        ]), { status: 200, headers: { "content-type": "application/json" } });
+      }
+      return new Response(JSON.stringify({ serverTime: Date.now() }), {
+        status: 200, headers: { "content-type": "application/json" },
+      });
+    };
+  }
   const summary = await runCycle(env, { cycleKey, nowMs, fetcher });
   return jsonResponse(summary, 200);
 }

@@ -1,17 +1,23 @@
 /**
  * v45_snapshot_provenance row builder + idempotent INSERT.
  * The frozen paper_equity_snapshots table is NOT altered: every extra audit
- * field lives in this new table, keyed by snapshot_id (FK).
+ * field lives in this table, keyed by snapshot_id (FK).
+ *
+ * V1.6: COLUMNS gains the 8 market-provenance columns (contract 1.2). They are
+ * supplied by the caller via `v16` (built by collector.mjs from the guard).
+ * INSERT OR IGNORE is UNCHANGED, so the generated SQL keeps its
+ * "INSERT OR IGNORE INTO" prefix (V1.5 T7) and the cycle stays idempotent.
  */
-import { COLLECTOR_VERSION, FORMULA_VERSION } from "./constants.mjs";
+import { PROVENANCE_COLLECTOR_VERSION, FORMULA_VERSION } from "./constants.mjs";
 
-export function buildProvenance({ snapshot, market, cycleKey, engineSha256, initialCashFp, nowMs }) {
+export function buildProvenance({ snapshot, market, cycleKey, engineSha256, initialCashFp, nowMs, v16 }) {
+  const v = v16 || {};
   return {
     snapshot_id: snapshot.snapshotId,
     session_id: snapshot.sessionId,
     generation: snapshot.generation,
     cycle_key: cycleKey,
-    collector_version: COLLECTOR_VERSION,
+    collector_version: PROVENANCE_COLLECTOR_VERSION,
     engine_sha256: engineSha256,
     formula_version: FORMULA_VERSION,
     input_state_hash: snapshot.stateHash,
@@ -34,6 +40,15 @@ export function buildProvenance({ snapshot, market, cycleKey, engineSha256, init
     error_code: market.errorCode,
     latency_ms: market.latencyMs,
     created_at: new Date(nowMs).toISOString(),
+    // ---- V1.6 market-provenance columns (M1/M2/M3) -------------------------
+    exchange: v.exchange,
+    market: v.market,
+    price_ts_source: v.price_ts_source,
+    network_context: v.network_context,
+    venue: v.venue,
+    failure_class: v.failure_class,
+    mark_contracts_json: v.mark_contracts_json,
+    market_partition_key: v.market_partition_key,
   };
 }
 
@@ -44,6 +59,9 @@ const COLUMNS = [
   "payload_sha256", "price_ts", "fetched_at", "freshness_ms", "freshness_verdict",
   "clock_skew_ms", "data_quality", "mark_quality", "missing_marks_json",
   "time_probe_ok", "error_code", "latency_ms", "created_at",
+  // ---- V1.6 market-provenance columns --------------------------------------
+  "exchange", "market", "price_ts_source", "network_context", "venue",
+  "failure_class", "mark_contracts_json", "market_partition_key",
 ];
 
 export function provenanceInsertStatement(p) {

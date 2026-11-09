@@ -1,0 +1,516 @@
+{
+  "overall": "PASS",
+  "generated_utc": "2026-11-09T13:18:12.521Z",
+  "started_utc": "2026-11-09T13:18:12.283Z",
+  "runner": "apps/command_center_3d/server/ai/tests/run-all.mjs",
+  "environment": {
+    "node": "v22.22.2",
+    "platform": "win32",
+    "arch": "x64",
+    "network_calls": 0
+  },
+  "counts": {
+    "suites": 9,
+    "checks": 83,
+    "passed": 83,
+    "failed": 0
+  },
+  "results": [
+    {
+      "id": "t1_decision_schema",
+      "title": "Decision schema: whitelist, types, ranges, HOLD/BUY/SELL shape",
+      "duration_ms": 2,
+      "passed": 13,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "valid HOLD is accepted and normalized",
+          "pass": true,
+          "detail": "errors=0"
+        },
+        {
+          "name": "valid BUY MARKET is accepted",
+          "pass": true,
+          "detail": "quantity=0.001"
+        },
+        {
+          "name": "valid SELL LIMIT is accepted",
+          "pass": true,
+          "detail": "limitPrice=61000"
+        },
+        {
+          "name": "unknown extra field is rejected",
+          "pass": true,
+          "detail": "DECISION_UNKNOWN_FIELD"
+        },
+        {
+          "name": "HOLD carrying quantity/limitPrice is rejected",
+          "pass": true,
+          "detail": "DECISION_HOLD_SHAPE x2"
+        },
+        {
+          "name": "BUY without quantity is rejected",
+          "pass": true,
+          "detail": "DECISION_RANGE"
+        },
+        {
+          "name": "BUY with zero/negative quantity is rejected",
+          "pass": true,
+          "detail": "0 / -1 / string rejected"
+        },
+        {
+          "name": "confidence outside [0,1] is rejected",
+          "pass": true,
+          "detail": "1.5 / -0.1 / string rejected"
+        },
+        {
+          "name": "enum violations are rejected",
+          "pass": true,
+          "detail": "action/orderType/side enums enforced"
+        },
+        {
+          "name": "missing required field is rejected",
+          "pass": true,
+          "detail": "DECISION_MISSING_FIELD"
+        },
+        {
+          "name": "LIMIT without limitPrice is rejected",
+          "pass": true,
+          "detail": "limitPrice required for LIMIT"
+        },
+        {
+          "name": "schema document matches the validator field set",
+          "pass": true,
+          "detail": "fields=13"
+        },
+        {
+          "name": "canonicalize is key-order independent",
+          "pass": true,
+          "detail": "stable"
+        }
+      ]
+    },
+    {
+      "id": "t2_provider_errors",
+      "title": "Provider adapter: request build, SSRF guard, timeout/error classification",
+      "duration_ms": 3,
+      "passed": 18,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "openai request targets /v1/chat/completions with bearer header",
+          "pass": true,
+          "detail": "https://api.openai.com/v1/chat/completions"
+        },
+        {
+          "name": "openai-compatible baseUrl is appended, never doubled",
+          "pass": true,
+          "detail": "no double /v1"
+        },
+        {
+          "name": "ollama loopback endpoint needs no key and sends no authorization",
+          "pass": true,
+          "detail": "no auth header"
+        },
+        {
+          "name": "SSRF guard rejects http to a non-loopback host",
+          "pass": true,
+          "detail": "PROVIDER_URL_FORBIDDEN"
+        },
+        {
+          "name": "SSRF guard rejects private https hosts",
+          "pass": true,
+          "detail": "RFC1918 + metadata host rejected"
+        },
+        {
+          "name": "missing credential fails closed before any request",
+          "pass": true,
+          "detail": "NOT_CONNECTED"
+        },
+        {
+          "name": "401/403 classify as AUTH_FAILED",
+          "pass": true,
+          "detail": "401 + 403"
+        },
+        {
+          "name": "404 classifies as MODEL_UNAVAILABLE with evidence",
+          "pass": true,
+          "detail": "MODEL_UNAVAILABLE"
+        },
+        {
+          "name": "400 with a model error classifies as MODEL_UNAVAILABLE, other 400 as INVALID_RESPONSE",
+          "pass": true,
+          "detail": "model-vs-shape split"
+        },
+        {
+          "name": "429 classifies as RATE_LIMITED and is retryable",
+          "pass": true,
+          "detail": "RATE_LIMITED"
+        },
+        {
+          "name": "5xx classifies as SERVER_ERROR",
+          "pass": true,
+          "detail": "SERVER_ERROR"
+        },
+        {
+          "name": "200 with non-JSON / empty content is INVALID_RESPONSE",
+          "pass": true,
+          "detail": "3 malformed shapes"
+        },
+        {
+          "name": "successful 200 returns content and is not retryable",
+          "pass": true,
+          "detail": "content parsed"
+        },
+        {
+          "name": "timeout classifies as TIMEOUT via timeout flag and via elapsed budget",
+          "pass": true,
+          "detail": "both paths"
+        },
+        {
+          "name": "generic network failure is NOT_CONNECTED, not TIMEOUT",
+          "pass": true,
+          "detail": "NOT_CONNECTED"
+        },
+        {
+          "name": "performRequest converts an AbortError into timedOut data",
+          "pass": true,
+          "detail": "timedOut=true"
+        },
+        {
+          "name": "describeRequest redacts the credential (only presence is exposed)",
+          "pass": true,
+          "detail": "header value never serialized"
+        },
+        {
+          "name": "models discovery URL is /v1/models",
+          "pass": true,
+          "detail": "/v1/models"
+        }
+      ]
+    },
+    {
+      "id": "t3_risk_gate",
+      "title": "Risk gate: whitelist, verified context, freshness, notional limits, confidence immunity",
+      "duration_ms": 5,
+      "passed": 13,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "fresh verified context + small notional is approved",
+          "pass": true,
+          "detail": "notional_usd=60"
+        },
+        {
+          "name": "symbol outside the cloud whitelist is rejected even with max confidence",
+          "pass": true,
+          "detail": "RISK_SYMBOL_NOT_ALLOWED"
+        },
+        {
+          "name": "missing market context is rejected",
+          "pass": true,
+          "detail": "RISK_CONTEXT_MISSING"
+        },
+        {
+          "name": "unknown mark_quality is rejected (verified only)",
+          "pass": true,
+          "detail": "RISK_CONTEXT_NOT_VERIFIED"
+        },
+        {
+          "name": "stale snapshot is rejected",
+          "pass": true,
+          "detail": "RISK_CONTEXT_STALE age=600000ms"
+        },
+        {
+          "name": "context from a different symbol is rejected",
+          "pass": true,
+          "detail": "RISK_SYMBOL_MISMATCH"
+        },
+        {
+          "name": "expired context (expires_at) is rejected",
+          "pass": true,
+          "detail": "RISK_CONTEXT_EXPIRED"
+        },
+        {
+          "name": "notional above the server limit is rejected",
+          "pass": true,
+          "detail": "RISK_LIMIT_EXCEEDED notional_usd=6000"
+        },
+        {
+          "name": "quantity above the server limit is rejected",
+          "pass": true,
+          "detail": "RISK_LIMIT_EXCEEDED"
+        },
+        {
+          "name": "confidence cannot flip a rejection (0.01 vs 1.0 identical verdict)",
+          "pass": true,
+          "detail": "verdict depends on context/limits only"
+        },
+        {
+          "name": "HOLD is approved as a no-order decision",
+          "pass": true,
+          "detail": "RISK_HOLD_NO_ORDER"
+        },
+        {
+          "name": "schema-invalid decision is rejected before any risk maths",
+          "pass": true,
+          "detail": "RISK_INVALID_DECISION"
+        },
+        {
+          "name": "db-backed context: stored 1e8 mark price is loaded and used",
+          "pass": true,
+          "detail": "reference_price_usd=60000"
+        }
+      ]
+    },
+    {
+      "id": "t4_idempotency",
+      "title": "Execution idempotency and risk-approval precondition",
+      "duration_ms": 38,
+      "passed": 8,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "first execute submits once and links the order",
+          "pass": true,
+          "detail": "calls=1"
+        },
+        {
+          "name": "second execute of the same decision_id does not call the engine",
+          "pass": true,
+          "detail": "engine calls stayed at 1"
+        },
+        {
+          "name": "decision_order_links has exactly one row per (decision, order)",
+          "pass": true,
+          "detail": "UNIQUE enforced"
+        },
+        {
+          "name": "a risk-rejected decision cannot be executed",
+          "pass": true,
+          "detail": "EXECUTE_NOT_APPROVED engine calls=0"
+        },
+        {
+          "name": "a HOLD decision is not executable",
+          "pass": true,
+          "detail": "DECISION_IS_HOLD"
+        },
+        {
+          "name": "unknown decision_id returns 404 and never calls the engine",
+          "pass": true,
+          "detail": "DECISION_NOT_FOUND"
+        },
+        {
+          "name": "missing paper session (401) keeps the decision retryable",
+          "pass": true,
+          "detail": "retry succeeded after session restored"
+        },
+        {
+          "name": "creating the same decision twice yields one row (duplicate flag)",
+          "pass": true,
+          "detail": "rows=1"
+        }
+      ]
+    },
+    {
+      "id": "t5_data_mode",
+      "title": "data_mode isolation: BLOCKED real path, explicit mock path",
+      "duration_ms": 24,
+      "passed": 9,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "empty env: providers verdict is BLOCKED, nothing claims CONNECTED",
+          "pass": true,
+          "detail": "providers=6"
+        },
+        {
+          "name": "real decision without a credential is refused and writes nothing",
+          "pass": true,
+          "detail": "PROVIDER_BLOCKED rows=0"
+        },
+        {
+          "name": "mock decision is labelled mock in D1 and in the result",
+          "pass": true,
+          "detail": "data_mode=mock"
+        },
+        {
+          "name": "mock mode may not borrow a real provider id",
+          "pass": true,
+          "detail": "DATA_MODE_MISMATCH"
+        },
+        {
+          "name": "provider test with no credential is BLOCKED and sends no request",
+          "pass": true,
+          "detail": "BLOCKED, requests=0"
+        },
+        {
+          "name": "provider test reports AUTH_FAILED from a real 401, never CONNECTED",
+          "pass": true,
+          "detail": "AUTH_FAILED"
+        },
+        {
+          "name": "provider test reports CONNECTED only on a real 200 with content",
+          "pass": true,
+          "detail": "CONNECTED on 200 only"
+        },
+        {
+          "name": "real decision path works end-to-end on an injected transport and is stored as real",
+          "pass": true,
+          "detail": "data_mode=real, hashes present"
+        },
+        {
+          "name": "real decision surfaces provider timeout as TIMEOUT and writes nothing",
+          "pass": true,
+          "detail": "TIMEOUT rows=0"
+        }
+      ]
+    },
+    {
+      "id": "t6_persistence_attribution",
+      "title": "Persistence, hashes, run projection and attribution via decision_order_links",
+      "duration_ms": 23,
+      "passed": 6,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "decision row round-trips 1e8 fixed point and JSON flags",
+          "pass": true,
+          "detail": "row ok, status=APPROVED"
+        },
+        {
+          "name": "run projection lists decisions with their links",
+          "pass": true,
+          "detail": "count=1 links=1"
+        },
+        {
+          "name": "execute + attribution yields real order/fill performance",
+          "pass": true,
+          "detail": "realizedPnl=0.12345678"
+        },
+        {
+          "name": "empty database reports NO_DATA, not zero performance",
+          "pass": true,
+          "detail": "NO_DATA"
+        },
+        {
+          "name": "strategy filter and data_mode grouping are honoured",
+          "pass": true,
+          "detail": "filtered=1"
+        },
+        {
+          "name": "strategy listing is read-only and degrades to NO_DATA",
+          "pass": true,
+          "detail": "NO_DATA"
+        }
+      ]
+    },
+    {
+      "id": "t7_redaction",
+      "title": "Secret redaction: code, schema columns, status projection, persisted rows",
+      "duration_ms": 68,
+      "passed": 5,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "no credential-shaped string in server/ai sources or migrations",
+          "pass": true,
+          "detail": "scanned 22 files"
+        },
+        {
+          "name": "ai_decisions / ai_market_contexts have no secret-bearing column",
+          "pass": true,
+          "detail": "columns=35"
+        },
+        {
+          "name": "provider status never returns a credential value",
+          "pass": true,
+          "detail": "last4 only"
+        },
+        {
+          "name": "provider error messages echoing a key are redacted",
+          "pass": true,
+          "detail": "invalid key sk-*** rejected"
+        },
+        {
+          "name": "persisted decision row contains no header or credential material",
+          "pass": true,
+          "detail": "row columns=27"
+        }
+      ]
+    },
+    {
+      "id": "t8_role_mapping",
+      "title": "Six-role mapping: 6 rows, no code rename, OWNER-DECIDED draft",
+      "duration_ms": 3,
+      "passed": 4,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "mapping covers all six V1.6 requirement roles once",
+          "pass": true,
+          "detail": "Market Analyst | Strategy Researcher | Risk Officer | Execution Planner | Performance Analyst | Supervisor"
+        },
+        {
+          "name": "every mapped code role exists in the frozen orchestrator vocabulary",
+          "pass": true,
+          "detail": "SPOTTER,PRIOR,EDGE,TAKER,CLOSER"
+        },
+        {
+          "name": "mapping is marked as an owner-decided draft and renames nothing",
+          "pass": true,
+          "detail": "OWNER-DECIDED DRAFT (pending owner sign-off)"
+        },
+        {
+          "name": "documentation carries the same draft mapping",
+          "pass": true,
+          "detail": "D:/jev-v16-wt/v16/docs/JEV_AI_DECISION_SCHEMA.md"
+        }
+      ]
+    },
+    {
+      "id": "t9_gateway_routes",
+      "title": "Gateway: AI routes behind red lines + Basic auth, BLOCKED without credentials",
+      "duration_ms": 61,
+      "passed": 7,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "GET /api/jev/ai/providers returns BLOCKED without credentials",
+          "pass": true,
+          "detail": "verdict=BLOCKED providers=6"
+        },
+        {
+          "name": "POST /api/jev/ai/providers/test is 409 BLOCKED, not 200 CONNECTED",
+          "pass": true,
+          "detail": "409 SECRET_REF_UNRESOLVED"
+        },
+        {
+          "name": "GET /api/jev/ai/strategies is read-only and degrades to NO_DATA",
+          "pass": true,
+          "detail": "NO_DATA"
+        },
+        {
+          "name": "POST /api/jev/ai/decisions without dataMode is rejected before any work",
+          "pass": true,
+          "detail": "DATA_MODE_REQUIRED"
+        },
+        {
+          "name": "unknown AI route is a 404, not a silent pass",
+          "pass": true,
+          "detail": "UNKNOWN_ROUTE"
+        },
+        {
+          "name": "red line: ENABLE_REAL_TRADING != false closes every AI route",
+          "pass": true,
+          "detail": "RED_LINE"
+        },
+        {
+          "name": "Basic auth is required before any AI route",
+          "pass": true,
+          "detail": "401"
+        }
+      ]
+    }
+  ]
+}

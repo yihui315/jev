@@ -82,6 +82,10 @@ export async function fetchMarket(fetcher, heldSymbols, { nowMs = Date.now() } =
   let httpStatus = null, payloadSha256 = null, latencyMs = 0, errorCode = null;
   let tickerOk = false, tickerDateHeader = null;
   const rawMarks = {};
+  // V1.6 M3: an upstream response may declare a DIFFERENT exchange/market in
+  // its payload. That is a market-mixing attempt, not a quote. The whole cycle
+  // must fail closed BEFORE any mark is admitted (QA-M3 / QA-T3-5).
+  let foreignMarketDeclared = null;
   let sourceUrl = `${MARKET_BASE}${TIME_ENDPOINT}`;
   if (querySymbols.length) {
     const url = `${MARKET_BASE}${MARKET_ENDPOINT}?symbols=${encodeURIComponent(JSON.stringify(querySymbols))}`;
@@ -98,12 +102,27 @@ export async function fetchMarket(fetcher, heldSymbols, { nowMs = Date.now() } =
         const items = Array.isArray(parsed) ? parsed : [parsed];
         for (const it of items) {
           if (!it || typeof it.symbol !== "string") continue;
+          const declaredExchange = it.exchange ?? it.venue ?? null;
+          const declaredHost = it.source_host ?? it.sourceHost ?? null;
+          const foreignExchange = declaredExchange != null &&
+            String(declaredExchange) !== "Binance.US" &&
+            String(declaredExchange) !== MARKET_VENUE;
+          const foreignHost = declaredHost != null && String(declaredHost) !== MARKET_HOST;
+          if (foreignExchange || foreignHost) {
+            foreignMarketDeclared = { symbol: it.symbol, exchange: declaredExchange, host: declaredHost };
+            continue;
+          }
           const price = D(it.price);       // 1e8 fixed-point BigInt
           if (price > 0n) rawMarks[it.symbol] = price;
         }
         tickerOk = true;
       }
     } catch (e) { errorCode = "MARKET_" + String((e && e.name) || e); }
+    if (!errorCode && foreignMarketDeclared) {
+      // NEVER partially adopt: one foreign-market item poisons the whole cycle.
+      for (const k of Object.keys(rawMarks)) delete rawMarks[k];
+      errorCode = "MARKET_SOURCE_NOT_VERIFIED";
+    }
   } else if (unlisted.length) {
     errorCode = "NO_VENUE_QUOTABLE_SYMBOLS";   // e.g. ORDI / 1000SATS only
   } else {
@@ -112,10 +131,16 @@ export async function fetchMarket(fetcher, heldSymbols, { nowMs = Date.now() } =
   }
 
   // (4) price timestamp + freshness (fail-closed: STALE is NOT usable).
-  let priceTsMs;
-  if (serverTimeMs != null) priceTsMs = serverTimeMs;
-  else if (tickerDateHeader) { const d = Date.parse(tickerDateHeader); priceTsMs = Number.isFinite(d) ? d : nowMs; }
-  else priceTsMs = nowMs;
+  // V1.6 (contract 3.1): record the price timestamp SOURCE explicitly.
+  //   /time success -> exchange_serverTime ; parsed HTTP Date -> http_date ;
+  //   otherwise -> received_at (local clock), which is NEVER VERIFIED.
+  let priceTsMs, priceTsSource;
+  if (serverTimeMs != null) { priceTsMs = serverTimeMs; priceTsSource = "exchange_serverTime"; }
+  else if (tickerDateHeader) {
+    const d = Date.parse(tickerDateHeader);
+    if (Number.isFinite(d)) { priceTsMs = d; priceTsSource = "http_date"; }
+    else { priceTsMs = nowMs; priceTsSource = "received_at"; }
+  } else { priceTsMs = nowMs; priceTsSource = "received_at"; }
   const clockSkewMs = serverTimeMs != null ? Math.abs(nowMs - serverTimeMs) : null;
   const freshnessMs = Math.abs(nowMs - priceTsMs);
   const freshnessVerdict = classifyFreshness({
@@ -144,8 +169,13 @@ export async function fetchMarket(fetcher, heldSymbols, { nowMs = Date.now() } =
     source: SOURCE,
     sourceHost: MARKET_HOST, endpoint: MARKET_ENDPOINT, sourceUrl,
     venue: MARKET_VENUE,
+    // V1.6: a payload item that declared a non-US market poisons the cycle.
+    // Exposed as a boolean so collector.mjs can feed it to the §3 guard
+    // (rule 6, MARKET_SOURCE_NOT_VERIFIED) for defense in depth.
+    foreignMarketDeclared: foreignMarketDeclared != null,
     httpStatus, payloadSha256,
     priceTs: new Date(priceTsMs).toISOString(),
+    priceTsSource,
     fetchedAt,
     freshnessMs, freshnessVerdict, clockSkewMs,
     timeProbeOk, timeErr, errorCode, latencyMs,

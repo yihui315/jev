@@ -74,9 +74,10 @@ CREATE INDEX IF NOT EXISTS idx_equity_snapshots_account
 CREATE INDEX IF NOT EXISTS idx_equity_snapshots_quality
   ON paper_equity_snapshots(mark_quality, created_at);
 
--- ---- NEW: V45 provenance (foreign key -> frozen snapshot table) ------------
--- One row per snapshot. The frozen table is NOT modified; every extra audit
--- field lives here. INSERT OR IGNORE makes the whole cycle idempotent.
+-- ---- NEW: V45 provenance (V1.6 FINAL STATE; 8 market-provenance columns) --
+-- One row per snapshot. The frozen paper_equity_snapshots table is NOT
+-- modified; every extra audit field lives here. INSERT OR IGNORE makes the
+-- whole cycle idempotent. New columns carry FAIL-CLOSED market identity.
 CREATE TABLE IF NOT EXISTS v45_snapshot_provenance (
   snapshot_id TEXT PRIMARY KEY NOT NULL,
   session_id TEXT NOT NULL,
@@ -87,24 +88,33 @@ CREATE TABLE IF NOT EXISTS v45_snapshot_provenance (
   formula_version TEXT NOT NULL,
   input_state_hash TEXT NOT NULL,
   input_marks_json TEXT NOT NULL DEFAULT '{}',
-  initial_cash_fp INTEGER,             -- 1e8 fixed point, replay basis
-  source_host TEXT NOT NULL,           -- api.binance.us
-  endpoint TEXT NOT NULL,              -- /api/v3/ticker/price
+  initial_cash_fp INTEGER,
+  source_host TEXT NOT NULL,
+  endpoint TEXT NOT NULL,
   source_url TEXT NOT NULL,
-  http_status INTEGER,                 -- null on network failure
-  payload_sha256 TEXT,                 -- sha256 of the raw HTTP body
-  price_ts TEXT NOT NULL,              -- ISO-8601 UTC price timestamp
-  fetched_at TEXT NOT NULL,            -- ISO-8601 UTC local fetch time
-  freshness_ms INTEGER NOT NULL,       -- age of the price
+  http_status INTEGER,
+  payload_sha256 TEXT,
+  price_ts TEXT NOT NULL,
+  fetched_at TEXT NOT NULL,
+  freshness_ms INTEGER NOT NULL,
   freshness_verdict TEXT NOT NULL CHECK (freshness_verdict IN ('FRESH','STALE','UNKNOWN')),
-  clock_skew_ms INTEGER,               -- |localNow - serverTime|, null if /time failed
+  clock_skew_ms INTEGER,
   data_quality TEXT NOT NULL CHECK (data_quality IN ('VERIFIED','UNKNOWN')),
   mark_quality TEXT NOT NULL CHECK (mark_quality IN ('verified','unknown')),
   missing_marks_json TEXT NOT NULL DEFAULT '[]',
   time_probe_ok INTEGER NOT NULL DEFAULT 0,
-  error_code TEXT,                     -- honest failure reason, never fabricated
+  error_code TEXT,
   latency_ms INTEGER NOT NULL,
   created_at TEXT NOT NULL,
+  -- ---- V1.6 market-provenance columns (M1/M2/M3) ---------------------------
+  exchange TEXT NOT NULL CHECK (exchange IN ('Binance.US','Binance Global spot','UNKNOWN')),
+  market TEXT NOT NULL CHECK (market IN ('spot','perp','UNKNOWN')),
+  price_ts_source TEXT NOT NULL CHECK (price_ts_source IN ('exchange_serverTime','trade_time','http_date','received_at','UNKNOWN')),
+  network_context TEXT NOT NULL CHECK (length(network_context) > 0),
+  venue TEXT NOT NULL,
+  failure_class TEXT NOT NULL CHECK (failure_class IN ('NONE','TRANSPORT','HTTP_ERROR','VENUE_BUSINESS','STALE','MARKET_MIXING','HISTORY_UNPROVEN','UNIT_MISMATCH','PAYLOAD_UNVERIFIED','UNKNOWN')),
+  mark_contracts_json TEXT NOT NULL DEFAULT '{}',
+  market_partition_key TEXT NOT NULL CHECK (market_partition_key = exchange || '|' || market),
   FOREIGN KEY(snapshot_id) REFERENCES paper_equity_snapshots(snapshot_id)
 );
 
@@ -112,3 +122,5 @@ CREATE INDEX IF NOT EXISTS idx_v45_prov_session_cycle
   ON v45_snapshot_provenance(session_id, cycle_key);
 CREATE INDEX IF NOT EXISTS idx_v45_prov_quality
   ON v45_snapshot_provenance(data_quality, fetched_at);
+CREATE INDEX IF NOT EXISTS idx_v45_prov_partition
+  ON v45_snapshot_provenance(session_id, generation, exchange, market, data_quality);

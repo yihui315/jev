@@ -746,6 +746,16 @@ export async function onRequest(context) {
   }
 
   const url = new URL(request.url);
+  // V1.6 Track B AI routes. Lazily imported so the red-line and market-whitelist
+  // lines above stay untouched; the handler runs only after every check passed.
+  if (url.pathname.startsWith("/api/jev/ai/")) {
+    const { handleAiApi } = await import("../../../server/ai/gateway-routes.mjs");
+    const ai = await handleAiApi(request, env, url, {
+      envelope, buildEngineRequest, fetchVerified, engine, engineEnv, sha256Hex,
+      marketBase: MARKET_BASE, marketSupportedSymbols: MARKET_SUPPORTED_SYMBOLS, marketVenue: MARKET_VENUE,
+    });
+    if (ai) return ai;
+  }
   if (url.pathname.startsWith("/api/jev")) return handleApi(request, engineEnv, url);
 
   // Non-API paths are not served by this Function; Pages serves static assets.

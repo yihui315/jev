@@ -1,0 +1,123 @@
+{
+  "schema": "jev-v16-qa-d1fix-verification/v1",
+  "qa_role": "v16-qa3 (independent QA, incremental re-review of the QA2-D1 fix; read-only + test runs)",
+  "workspace": "D:/jev-v16-wt/v16",
+  "branch": "feature/v16-market-provenance-hardening",
+  "head": "bfb320603367b2e8ec7b01f96864312f63ad2e6a",
+  "at_utc": "2026-11-09T13:40:00Z",
+  "scope_note": "Incremental re-review ONLY: the QA2-D1 fix (guard rule 8 + 3 regression assertions) and its side claims (C2 redeploy, report calibre). NOT a redo of the full phase-2 acceptance. Every PASS below is backed by a command I executed myself in this session; anything I could not personally execute is marked NOT_VERIFIED_THIS_ROUND and never counted as PASS.",
+  "evidence_handling": "Both suites rewrite shared evidence JSONs. I backed up reports/evidence/v16 (21 files) and apps/equity_collector_v45/evidence (20 files) to D:/jev-v16-wt/_qa3_backup BEFORE running, captured my run outputs, then restored and verified restoration byte-for-byte (restored_files=41, mismatch=0; restored v16 summary generatedAt=2026-11-09T13:20:17.712Z, v15 summary 13:20:13.757Z).",
+  "checks": [
+    {
+      "id": "S1_suite_v15_rerun",
+      "name": "V1.5 suite independent rerun (expect 8/8, 95 checks, exit 0)",
+      "pass": true,
+      "command": "node apps/equity_collector_v45/tests/run-all.mjs",
+      "exit_code": 0,
+      "detail": "8/8 verdict=PASS (T0..T7 all exit=0). My run's evidence summary: generatedAt=2026-11-09T13:25:11.293Z, overall=PASS, counts={total:8,pass:8,fail:0}, sum(checks)=95. Node v22.22.2. Fresh timestamps (13:25 vs pre-existing 13:20 evidence) prove a new run, not a copied evidence file."
+    },
+    {
+      "id": "S2_suite_v16_rerun",
+      "name": "V1.6 suite independent rerun (expect 8/8, 104 assertions, exit 0)",
+      "pass": true,
+      "command": "node apps/equity_collector_v45/tests/v16/run-all.mjs",
+      "exit_code": 0,
+      "detail": "8/8 verdict=PASS; checks per group 12/10/20/15/11/14/11/11 = 104; assertions={total:104,passed:104,failed:0}. V16_T3 went 17 -> 20 (the 3 new QA2_D1_* assertions). My run's evidence summary generatedAt=2026-11-09T13:25:25.693Z (fresh). All 8 subgroup exitCode=0, verdict=PASS."
+    },
+    {
+      "id": "D1_reproduction_unknown_context",
+      "name": "QA2-D1 scenario independently reproduced through real runCycle (fail-closed now)",
+      "pass": true,
+      "command": "node D:/jev-v16-wt/_qa3_d1_probe.mjs  (TEMP probe, lives OUTSIDE the repo; isolated node:sqlite in-memory DB via tests/lib/harness.mjs openDb/makeState/insertSession/insertAccount; real runCycle driven with env = {EQ_DB, ENABLE_REAL_TRADING:'false'} — NO MARKET_NETWORK_CONTEXT, NO __fetch injection; globalThis.fetch serves a healthy /time + ticker)",
+      "exit_code": 0,
+      "detail": "P1 (7/7 checks): 1 snapshot + 1 provenance row written; data_quality='UNKNOWN', mark_quality='unknown', error_code='MARKET_CONTEXT_UNRESOLVED', failure_class='UNKNOWN', equity=0, marks_json='{}', network_context='UNKNOWN'; cycle summary verified=0 / unknown=1. This is the EXACT scenario in which the previous QA reproduced the fail-open defect (their run wrote data_quality='VERIFIED', equity=17495177000000). The same input now fails closed while provenance is still written (H8)."
+    },
+    {
+      "id": "D1_positive_control",
+      "name": "Positive control: resolved MARKET_NETWORK_CONTEXT still produces VERIFIED",
+      "pass": true,
+      "command": "node D:/jev-v16-wt/_qa3_d1_probe.mjs (P2 block: env.MARKET_NETWORK_CONTEXT='local_test_shim', fresh isolated DB, same healthy globalThis.fetch)",
+      "exit_code": 0,
+      "detail": "P2 (5/5 checks): data_quality='VERIFIED', mark_quality='verified', network_context='local_test_shim', equity=17495177000000 (identical to the pre-fix fail-open equity value — same prices, now legitimately VERIFIED), error_code=null. Rule 8 does not break the legitimate path."
+    },
+    {
+      "id": "D1_non_vacuity",
+      "name": "Non-vacuity: pre-fix 7-rule evaluation still passes on the D1 input",
+      "pass": true,
+      "command": "node D:/jev-v16-wt/_qa3_d1_probe.mjs (P3 block: locally rebuilt evaluation using the 7 exported validators EXCLUDING rule 8, applied to the same UNKNOWN-ctx input)",
+      "exit_code": 0,
+      "detail": "All 7 old rules (market_identity, market_mixing, price_ts_source, unit_contract, freshness_payload, source_host, history_provenance) return pass=true on the D1 input -> a pre-fix guard would yield ok=true. Therefore the new assertions genuinely discriminate fixed vs unfixed behaviour; they are not tautologies."
+    },
+    {
+      "id": "FIX_additive_source_review",
+      "name": "Fix is additive: 7 existing error codes + 7 existing rules unchanged; rule 8 inserted after market_identity",
+      "pass": true,
+      "command": "read apps/equity_collector_v45/src/market-guard.mjs (full file) + 13-case evaluateCycle reachability probe",
+      "exit_code": 0,
+      "detail": "ERROR_CODES (src/market-guard.mjs:11-23): the 7 original code strings are verbatim intact (MARKET_IDENTITY_INVALID, MARKET_MIXING_REJECTED, PRICE_TS_SOURCE_UNVERIFIED, UNIT_CONTRACT_MISMATCH, MARKET_STALE_OR_PAYLOAD_UNVERIFIED, MARKET_SOURCE_NOT_VERIFIED, HISTORY_PROVENANCE_UNPROVEN); MARKET_CONTEXT_UNRESOLVED is appended with an explanatory comment. validateNetworkContext is a NEW function (:57-63); the 7 existing validators (validateMarketIdentity :66, validateMarketMixing :102, validatePriceTsSource :110, validateUnitContracts :129, validateFreshnessPayload :146, validateSourceHost :166, validateHistoryProvenance :184) are unchanged in logic and failure_class mapping vs the contract the previous QA checked in phase 2. evaluateCycle inserts exactly one new run('network_context', ...) at :221, immediately after market_identity, before market_mixing. Reachability probe: 13/13 — healthy input ok=true (all 8 checks pass, checks order confirmed), each of the 7 old codes still fires with the same failureClass (IDENTITY/UNKNOWN, MIXING/MARKET_MIXING, TS/UNKNOWN, UNIT/UNIT_MISMATCH, STALE->STALE, 503/no-sha->PAYLOAD_UNVERIFIED, fallback+foreign->UNKNOWN, history->HISTORY_UNPROVEN), and rule 8 fires MARKET_CONTEXT_UNRESOLVED/UNKNOWN. Corroboration: collector.mjs line anchors cited by the previous QA (guard call :115, downgrade branch :147-160, selectHistoryPeak :165) still match exactly, i.e. collector.mjs was not touched by this fix."
+    },
+    {
+      "id": "FIX_old_test_files_baseline",
+      "name": "Old V1.5 test files still byte-identical to bfb3206 baseline (spot check, 4 files)",
+      "pass": true,
+      "command": "git -C D:/jev-v16-wt/v16 show bfb3206:apps/equity_collector_v45/<path> | sha256sum  vs  sha256sum <worktree>",
+      "exit_code": 0,
+      "detail": "4/4 MATCH (exceeds the 2-3 required): tests/t0_market_probe.mjs=4cb10925..., tests/t3_outage_recovery.mjs=98d50ef4..., tests/lib/harness.mjs=9ab2cfbe..., tests/run-all.mjs=d4f250dd... — all equal to the sha256 anchors documented in V16_MIXING_GUARD_TESTS.md section 8. Combined with the 95-check rerun (S1) on these byte-identical files, no old assertion was deleted or loosened."
+    },
+    {
+      "id": "FIX_new_assertions_real",
+      "name": "The 3 QA2_D1_* assertions are real, executed, and non-vacuous",
+      "pass": true,
+      "command": "read apps/equity_collector_v45/tests/v16/v16_t3_failure_classes.mjs:85-121 + my rerun's group evidence",
+      "exit_code": 0,
+      "detail": "Source: QA2_D1_unknown_network_context_rejected asserts ok===false AND checks['network_context'].code===ERROR_CODES.MARKET_CONTEXT_UNRESOLVED AND failureClass==='UNKNOWN'; QA2_D1_missing_network_context_rejected asserts undefined input -> MARKET_CONTEXT_UNRESOLVED; QA2_D1_resolved_network_context_passes_rule8 asserts checks['network_context'].pass===true. In MY rerun all 3 executed and passed with real measured details (not boolean placeholders): firstFail='MARKET_CONTEXT_UNRESOLVED', ctxCheck={code:'MARKET_CONTEXT_UNRESOLVED',failureClass:'UNKNOWN'} / {code:null,failureClass:'NONE'}. Non-vacuity proven by D1_non_vacuity. Note: these 3 assertions exercise evaluateCycle directly (unit level); the end-to-end runCycle reproduction is my own D1_reproduction_unknown_context, so the coverage gap I flag below is closed by MY evidence, not only by the in-repo assertions."
+    },
+    {
+      "id": "FROZEN_engine",
+      "name": "Frozen engine untouched (git status empty + tree sha256)",
+      "pass": true,
+      "command": "git -C D:/jev-v16-wt/v16 status --short -- apps/command_center_3d/server/engine/  (empty) ; git ls-tree -r HEAD -- apps/command_center_3d/server/engine/ | sha256 (algorithm: raw ls-tree lines joined with \\n, no trailing newline)",
+      "exit_code": 0,
+      "detail": "git status output: EMPTY (zero modifications). file_count=15, tree_sha256=aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad == expected anchor."
+    },
+    {
+      "id": "REPORT_cloud_e2e_calibre",
+      "name": "V16_CLOUD_E2E.md states the 11-VERIFIED calibre explicitly",
+      "pass": true,
+      "command": "grep reports/V16_CLOUD_E2E.md",
+      "exit_code": 0,
+      "detail": "Found verbatim: '统计口径（QA 阶段 2 裁定）：11 条 VERIFIED = 10 条采集器真实 US 输出（C1×1+C2+C3+C7，各 2-3 verified）+ 1 条 C8 手工预置的对抗哨兵行（v16_FIXTURE_ADVERSARIAL，仅用于验证峰值不被污染，禁止计入采集器成绩）'. The calibre exists and is unambiguous."
+    },
+    {
+      "id": "C2_deploy_evidence",
+      "name": "C2 side-fix: deploy_ok structured + redeploy with final source (evidence-level verification)",
+      "pass": true,
+      "command": "read reports/evidence/v16/cloud/v16_worker_deploy.json + v16_entry_closed.json; recompute sha256 of apps/equity_collector_v45/src/* and compare to deploy JSON source_sha256",
+      "exit_code": 0,
+      "detail": "v16_worker_deploy.json: deploy_ok=true, deploy_ok_method='wrangler exit 0 AND independent Cloudflare API script readback HTTP 200 (QA2-D2 fix; replaces keyword sniffing)', wrangler_exit=0, script_readback_http=200, trigger_at_deploy='false', at_utc=2026-11-09T13:21:53.93Z. I recomputed all 13 deployed source sha256 against the current workspace: 13/13 MATCH, including the FIXED market-guard.mjs (3f3ea23d...) and collector.mjs (78165718...) — i.e. the redeploy really used the post-fix source. v16_entry_closed.json (13:22:23Z) records 3 probes all HTTP 403 TEST_TRIGGER_DISABLED, one explicitly labelled 'after QA2-D1 guard rule 8 fix redeploy'. wrangler.toml vars explicitly set MARKET_NETWORK_CONTEXT='cloudflare_pages_edge_runtime_prod' (production misconfiguration risk mitigated)."
+    },
+    {
+      "id": "C2_entry_403_live",
+      "name": "Live HTTPS probe of the production entry by THIS QA",
+      "pass": false,
+      "status": "NOT_VERIFIED_THIS_ROUND",
+      "command": "curl https://jev-v45-equity-collector-v16.xall315.workers.dev/__v45/collect?cycle_key=QA3-D1FIX-PROBE (also &fault=transport variant)",
+      "exit_code": 56,
+      "detail": "NOT a product defect — an environment limitation: this QA session's network egress cannot reach workers.dev (local proxy returns 502 on CONNECT; direct no-proxy attempt times out, exit 28; WebFetch also fails). The 403-closed state therefore rests on: (a) the previous QA's OWN pre-fix live probe (VERIFIED by v16-qa2 at 13:13Z), (b) v16_entry_closed.json post-fix probes (owner evidence), (c) 13/13 source sha match + API readback 200 proving the deployed artefact is the audited code. No VERIFIED claim made by me for the post-fix live 403."
+    }
+  ],
+  "limitations_and_observations": [
+    "The 3 in-repo QA2_D1_* assertions call evaluateCycle directly (unit level); they do NOT drive runCycle end-to-end with a missing env context. The end-to-end fail-closed behaviour is nevertheless proven — by MY out-of-repo probe (D1_reproduction_unknown_context), which used the same method as the original defect discovery. Optional future hardening: add one such end-to-end assertion to the suite.",
+    "Live post-fix 403 probe not executable from this session (network egress); see C2_entry_403_live. Recommend the final signoff quote v16_entry_closed.json or re-probe from an unrestricted host.",
+    "The D1 fix causes a production misconfiguration (missing MARKET_NETWORK_CONTEXT + no injected fetcher) to silently downgrade every cycle to UNKNOWN rows — this is the intended fail-closed design (documented in phase 2 and in wrangler.toml the var is explicitly set), but ops monitoring should alert on error_code='MARKET_CONTEXT_UNRESOLVED' bursts.",
+    "My probe script D:/jev-v16-wt/_qa3_d1_probe.mjs and backup dir D:/jev-v16-wt/_qa3_backup are outside the repo (never part of the delivery); they can be deleted after signoff."
+  ],
+  "summary": {
+    "checks_total": 12,
+    "pass": 11,
+    "fail": 0,
+    "not_verified_this_round": 1,
+    "sign_off": "PASS",
+    "decision": "The QA2-D1 fix is verified end-to-end by my own isolated reproduction. Phase-2 conditions C1 (fix + regression assertions) and C2 (structured deploy_ok + redeploy on final source) are cleared; C3 was already non-blocking; C4 calibre is written into V16_CLOUD_E2E.md and spot-checked. No new defects found. Overall phase-2 conclusion may be lifted from GO WITH CONDITIONS to GO for the audited scope; the standing gates (Staging D1 onboarding NO-GO, production promotion / auto-trading NO-GO, V1.5 GO unchanged) remain."
+  }
+}

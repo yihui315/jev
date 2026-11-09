@@ -1,0 +1,34 @@
+{
+  "schema": "jev-v16-isolated-d1/v1",
+  "note": "Redacted evidence. No token/secret plaintext is stored here or in the repository.",
+  "created_utc": "2026-11-09T05:50:19.760Z",
+  "created_with": "least-privilege account-owned token cf_api_token_v15 (5 permission groups)",
+  "v16_isolated_d1": {
+    "uuid": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+    "name": "jev-v45-equity-v16-isolated-test",
+    "version": "production",
+    "purpose": "V1.6 market provenance hardening E2E only; NEVER jev-paper-staging / Night Researcher / real funds",
+    "initial_tables": ["_cf_KV"],
+    "write_probe": {
+      "create_http": 200,
+      "insert_http": 200,
+      "select_count": 1,
+      "probe_table_dropped": true,
+      "verdict": "READ_WRITE_OK"
+    }
+  },
+  "v15_baseline_d1_readonly": {
+    "uuid": "cf5cf033-3796-4de1-b295-93f35a8ce82e",
+    "paper_equity_snapshots_rows": 12,
+    "v45_snapshot_provenance_rows": 12,
+    "mark_quality_split": { "verified": 9, "unknown": 3 },
+    "modified": false,
+    "verdict": "V15_EVIDENCE_PRESERVED_UNCHANGED"
+  },
+  "hard_gates": {
+    "staging_d1_touched": false,
+    "night_researcher_d1_touched": false,
+    "real_funds_touched": false,
+    "enable_real_trading": "false"
+  }
+}

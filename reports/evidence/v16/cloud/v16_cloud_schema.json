@@ -1,0 +1,323 @@
+{
+  "schema": "jev-v16-cloud-schema/v1",
+  "at_utc": "2026-11-09T12:52:45.432496+00:00",
+  "db": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+  "migration": [
+    {
+      "label": "0001_v45_base",
+      "file": "D:/jev-v16-wt/v16/apps/equity_collector_v45/migrations/0001_v45_base.sql",
+      "file_sha256": "ce7f24198d9cb4f0c1229552a76f2976430cb03c20b5012c19f65830e6980f37",
+      "statements": 10,
+      "applied": [
+        {
+          "i": 1,
+          "sha256": "5d0838ae7ec2b418a9818d0fe7aa76b7df8ff80f03b57ef62f6b8b649197b97a",
+          "prefix": "CREATE TABLE IF NOT EXISTS paper_sessions (   session_id TEXT PRIMARY KEY NOT NULL,   crea",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 2,
+          "sha256": "2c2cb46194e8eef84fa3f8015f453057df458f1ca6a31f6a33a168876f4dd320",
+          "prefix": "CREATE TABLE IF NOT EXISTS paper_accounts (   session_id TEXT PRIMARY KEY NOT NULL,   vers",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 3,
+          "sha256": "f2edb1903dc406c9b56eb4b5dae3e816723e86738bf7bcc601199982812a81fb",
+          "prefix": "CREATE TABLE IF NOT EXISTS paper_orders (   order_id TEXT PRIMARY KEY NOT NULL,   session_",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 4,
+          "sha256": "72d206624ff2e9dab4912bc7d269e675a1b849b12ca4efdbea6ac21f872dd4b7",
+          "prefix": "CREATE TABLE IF NOT EXISTS paper_server_events (   seq INTEGER PRIMARY KEY AUTOINCREMENT, ",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 5,
+          "sha256": "827b56f07cb04d05f4b7e67b53f4731afe644abda98e249d56ef6b52b4dfaaa3",
+          "prefix": "CREATE TABLE IF NOT EXISTS paper_equity_snapshots (   snapshot_id TEXT PRIMARY KEY NOT NUL",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 6,
+          "sha256": "1cb9a0e6ebc65edcbecfb07caf8176081f8bfe5c8dfeaa1728238af06f2c009e",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_equity_snapshots_account   ON paper_equity_snapshots(sessio",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 7,
+          "sha256": "46a5e21300ce09c8e4e239df9c12adc819efbf6c78b0cd09f03ce91dfd0636e4",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_equity_snapshots_quality   ON paper_equity_snapshots(mark_q",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 8,
+          "sha256": "71cf82d7c8a297f870ce2330cd4d432792c12c1e49537f016860d81328b425bd",
+          "prefix": "CREATE TABLE IF NOT EXISTS v45_snapshot_provenance (   snapshot_id TEXT PRIMARY KEY NOT NU",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 9,
+          "sha256": "87262cbfccd191d51b07f13f7ec8fc122990bab413b2935bfa86fce1aceaf620",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_v45_prov_session_cycle   ON v45_snapshot_provenance(session",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 10,
+          "sha256": "1142755977ef5bf4105795e7fff63783136cbdcc355738f127f5fb67a3ad3954",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_v45_prov_quality   ON v45_snapshot_provenance(data_quality,",
+          "ok": true,
+          "http": 200,
+          "error": null
+        }
+      ],
+      "verdict": "APPLIED_ALL"
+    },
+    {
+      "label": "0002_market_provenance",
+      "file": "D:/jev-v16-wt/v16/apps/equity_collector_v45/migrations/0002_market_provenance.sql",
+      "file_sha256": "a7295ef8f683427594abb03bde0ba42d214ce8785f28d50a99e69e95a91cba74",
+      "statements": 9,
+      "applied": [
+        {
+          "i": 1,
+          "sha256": "f110dc38c05163132f34c015436b396b33f28949dbf781d5fcfbfffe9b80bb1e",
+          "prefix": "CREATE TABLE IF NOT EXISTS v45_snapshot_provenance_v2 (   snapshot_id TEXT PRIMARY KEY NOT",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 2,
+          "sha256": "576f142c13afba326e30f5b7f805dd6d66aef77b5f6a08c3c363f7b7d9234b8b",
+          "prefix": "INSERT OR IGNORE INTO v45_snapshot_provenance_v2 (   snapshot_id, session_id, generation, ",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 3,
+          "sha256": "c55289889119935a657c5e5877b24572c65bea41a87ca42d166d56be0808ecb3",
+          "prefix": "ALTER TABLE v45_snapshot_provenance RENAME TO v45_snapshot_provenance_v1_legacy",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 4,
+          "sha256": "e72fea7af550fc57464e01f7df925f4017fb18f3bfbef8904f420a2fc136c7d8",
+          "prefix": "ALTER TABLE v45_snapshot_provenance_v2 RENAME TO v45_snapshot_provenance",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 5,
+          "sha256": "a4043578b781b5b3d41d2da307f95e628da833ad0c1d74550ac23f90e154aac8",
+          "prefix": "DROP INDEX IF EXISTS idx_v45_prov_session_cycle",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 6,
+          "sha256": "36c67dff34e9909ad7f136bd56624b96e7ef17c1cc42d29343df963c88475060",
+          "prefix": "DROP INDEX IF EXISTS idx_v45_prov_quality",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 7,
+          "sha256": "87262cbfccd191d51b07f13f7ec8fc122990bab413b2935bfa86fce1aceaf620",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_v45_prov_session_cycle   ON v45_snapshot_provenance(session",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 8,
+          "sha256": "1142755977ef5bf4105795e7fff63783136cbdcc355738f127f5fb67a3ad3954",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_v45_prov_quality   ON v45_snapshot_provenance(data_quality,",
+          "ok": true,
+          "http": 200,
+          "error": null
+        },
+        {
+          "i": 9,
+          "sha256": "b795fc5ec3823f9728bb45349f0705f5ae4a03d1839ce5d75381ad46606e9b30",
+          "prefix": "CREATE INDEX IF NOT EXISTS idx_v45_prov_partition   ON v45_snapshot_provenance(session_id,",
+          "ok": true,
+          "http": 200,
+          "error": null
+        }
+      ],
+      "verdict": "APPLIED_ALL"
+    }
+  ],
+  "active_ddl": "CREATE TABLE \"v45_snapshot_provenance\" (\n  snapshot_id TEXT PRIMARY KEY NOT NULL,\n  session_id TEXT NOT NULL,\n  generation INTEGER NOT NULL,\n  cycle_key TEXT NOT NULL,\n  collector_version TEXT NOT NULL,\n  engine_sha256 TEXT NOT NULL,\n  formula_version TEXT NOT NULL,\n  input_state_hash TEXT NOT NULL,\n  input_marks_json TEXT NOT NULL DEFAULT '{}',\n  initial_cash_fp INTEGER,\n  source_host TEXT NOT NULL,\n  endpoint TEXT NOT NULL,\n  source_url TEXT NOT NULL,\n  http_status INTEGER,\n  payload_sha256 TEXT,\n  price_ts TEXT NOT NULL,\n  fetched_at TEXT NOT NULL,\n  freshness_ms INTEGER NOT NULL,\n  freshness_verdict TEXT NOT NULL CHECK (freshness_verdict IN ('FRESH','STALE','UNKNOWN')),\n  clock_skew_ms INTEGER,\n  data_quality TEXT NOT NULL CHECK (data_quality IN ('VERIFIED','UNKNOWN')),\n  mark_quality TEXT NOT NULL CHECK (mark_quality IN ('verified','unknown')),\n  missing_marks_json TEXT NOT NULL DEFAULT '[]',\n  time_probe_ok INTEGER NOT NULL DEFAULT 0,\n  error_code TEXT,\n  latency_ms INTEGER NOT NULL,\n  created_at TEXT NOT NULL,\n  exchange TEXT NOT NULL CHECK (exchange IN ('Binance.US','Binance Global spot','UNKNOWN')),\n  market TEXT NOT NULL CHECK (market IN ('spot','perp','UNKNOWN')),\n  price_ts_source TEXT NOT NULL CHECK (price_ts_source IN ('exchange_serverTime','trade_time','http_date','received_at','UNKNOWN')),\n  network_context TEXT NOT NULL CHECK (length(network_context) > 0),\n  venue TEXT NOT NULL,\n  failure_class TEXT NOT NULL CHECK (failure_class IN ('NONE','TRANSPORT','HTTP_ERROR','VENUE_BUSINESS','STALE','MARKET_MIXING','HISTORY_UNPROVEN','UNIT_MISMATCH','PAYLOAD_UNVERIFIED','UNKNOWN')),\n  mark_contracts_json TEXT NOT NULL DEFAULT '{}',\n  market_partition_key TEXT NOT NULL CHECK (market_partition_key = exchange || '|' || market),\n  FOREIGN KEY(snapshot_id) REFERENCES paper_equity_snapshots(snapshot_id)\n)",
+  "columns": [
+    "snapshot_id",
+    "session_id",
+    "generation",
+    "cycle_key",
+    "collector_version",
+    "engine_sha256",
+    "formula_version",
+    "input_state_hash",
+    "input_marks_json",
+    "initial_cash_fp",
+    "source_host",
+    "endpoint",
+    "source_url",
+    "http_status",
+    "payload_sha256",
+    "price_ts",
+    "fetched_at",
+    "freshness_ms",
+    "freshness_verdict",
+    "clock_skew_ms",
+    "data_quality",
+    "mark_quality",
+    "missing_marks_json",
+    "time_probe_ok",
+    "error_code",
+    "latency_ms",
+    "created_at",
+    "exchange",
+    "market",
+    "price_ts_source",
+    "network_context",
+    "venue",
+    "failure_class",
+    "mark_contracts_json",
+    "market_partition_key"
+  ],
+  "composed_schema_sql_columns": [
+    "snapshot_id",
+    "session_id",
+    "generation",
+    "cycle_key",
+    "collector_version",
+    "engine_sha256",
+    "formula_version",
+    "input_state_hash",
+    "input_marks_json",
+    "initial_cash_fp",
+    "source_host",
+    "endpoint",
+    "source_url",
+    "http_status",
+    "payload_sha256",
+    "price_ts",
+    "fetched_at",
+    "freshness_ms",
+    "freshness_verdict",
+    "clock_skew_ms",
+    "data_quality",
+    "mark_quality",
+    "missing_marks_json",
+    "time_probe_ok",
+    "error_code",
+    "latency_ms",
+    "created_at",
+    "exchange",
+    "market",
+    "price_ts_source",
+    "network_context",
+    "venue",
+    "failure_class",
+    "mark_contracts_json",
+    "market_partition_key"
+  ],
+  "checks": [
+    {
+      "name": "0001_applied_all",
+      "pass": true,
+      "detail": "APPLIED_ALL"
+    },
+    {
+      "name": "0002_applied_all",
+      "pass": true,
+      "detail": "APPLIED_ALL"
+    },
+    {
+      "name": "legacy_table_preserved",
+      "pass": true,
+      "detail": "v45_snapshot_provenance_v1_legacy DDL present"
+    },
+    {
+      "name": "active_table_has_35_columns",
+      "pass": true,
+      "detail": 35
+    },
+    {
+      "name": "all_8_new_columns_present",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "ddl_has_exchange_check",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "ddl_has_market_check",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "ddl_has_price_ts_source_check",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "ddl_has_partition_selfcheck",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "frozen_snapshot_ddl_unchanged",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "migration_result_matches_schema_sql_columns",
+      "pass": true,
+      "detail": {
+        "migration": 35,
+        "schema_sql": 35,
+        "diff": []
+      }
+    },
+    {
+      "name": "legacy_rows_zero_on_fresh_db",
+      "pass": true,
+      "detail": [
+        {
+          "n": 0
+        }
+      ]
+    }
+  ],
+  "verdict": "PASS"
+}

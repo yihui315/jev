@@ -1,0 +1,266 @@
+{
+  "schema": "jev-v16-cloud-e2e/v1",
+  "at_utc": "2026-11-09T12:56:28.429753+00:00",
+  "db": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+  "rows": 34,
+  "verified": 10,
+  "unknown": 23,
+  "checks": [
+    {
+      "name": "rows_written",
+      "pass": true,
+      "detail": 34
+    },
+    {
+      "name": "provenance_join_complete_every_snapshot",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "provenance_mark_quality_matches_snapshot",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "verified_rows_all_binance_us_spot",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "verified_price_ts_source_not_local_clock",
+      "pass": true,
+      "detail": [
+        "exchange_serverTime"
+      ]
+    },
+    {
+      "name": "network_context_not_unknown",
+      "pass": true,
+      "detail": [
+        "cloudflare_pages_edge_runtime_prod"
+      ]
+    },
+    {
+      "name": "failure_class_none_on_verified",
+      "pass": true,
+      "detail": [
+        "NONE"
+      ]
+    },
+    {
+      "name": "partition_key_self_consistent",
+      "pass": true,
+      "detail": [
+        "Binance Global spot|spot",
+        "UNKNOWN|UNKNOWN",
+        "UNKNOWN|UNKNOWN"
+      ]
+    },
+    {
+      "name": "source_url_host_matches_exchange",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "mark_contracts_are_symbol_keyed_objects",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "mark_contracts_complete_per_symbol",
+      "pass": true,
+      "detail": []
+    },
+    {
+      "name": "unknown_rows_keep_audit_evidence",
+      "pass": true,
+      "detail": [
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "MARKET_STALE_OR_PAYLOAD_UNVERIFIED"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "MARKET_STALE_OR_PAYLOAD_UNVERIFIED"
+        },
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "MARKET_STALE_OR_PAYLOAD_UNVERIFIED"
+        },
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "sid": "v16-FIXTURE-btc",
+          "err": "MARKET_TypeError"
+        }
+      ]
+    },
+    {
+      "name": "unknown_rows_have_no_fabricated_equity",
+      "pass": true,
+      "detail": {
+        "unknown_rows": 23,
+        "bad": []
+      }
+    },
+    {
+      "name": "unknown_rows_never_counted_as_verified_peak",
+      "pass": true,
+      "detail": null
+    },
+    {
+      "name": "fault_v16-cloud-C4-outage_all_unknown",
+      "pass": true,
+      "detail": [
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS",
+          "fc": "VENUE_BUSINESS"
+        },
+        {
+          "sid": "v16-FIXTURE-btc",
+          "err": "MARKET_TypeError",
+          "fc": "TRANSPORT"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "PRICE_TS_SOURCE_UNVERIFIED",
+          "fc": "UNKNOWN"
+        },
+        {
+          "sid": "v16-FIXTURE-eth",
+          "err": "MARKET_TypeError",
+          "fc": "TRANSPORT"
+        }
+      ]
+    },
+    {
+      "name": "fault_v16-cloud-C5-http_all_unknown",
+      "pass": true,
+      "detail": [
+        {
+          "sid": "v16-FIXTURE-eth",
+          "err": "MARKET_HTTP_503",
+          "fc": "HTTP_ERROR"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "MARKET_STALE_OR_PAYLOAD_UNVERIFIED",
+          "fc": "PAYLOAD_UNVERIFIED"
+        },
+        {
+          "sid": "v16-FIXTURE-btc",
+          "err": "MARKET_HTTP_503",
+          "fc": "HTTP_ERROR"
+        },
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS",
+          "fc": "VENUE_BUSINESS"
+        }
+      ]
+    },
+    {
+      "name": "fault_v16-cloud-C6-global_all_unknown",
+      "pass": true,
+      "detail": [
+        {
+          "sid": "v16-FIXTURE-btc",
+          "err": "MARKET_SOURCE_NOT_VERIFIED",
+          "fc": "UNKNOWN"
+        },
+        {
+          "sid": "v16-FIXTURE-cash",
+          "err": "MARKET_STALE_OR_PAYLOAD_UNVERIFIED",
+          "fc": "PAYLOAD_UNVERIFIED"
+        },
+        {
+          "sid": "v16-FIXTURE-eth",
+          "err": "MARKET_SOURCE_NOT_VERIFIED",
+          "fc": "UNKNOWN"
+        },
+        {
+          "sid": "v16-FIXTURE-ordi",
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS",
+          "fc": "VENUE_BUSINESS"
+        }
+      ]
+    },
+    {
+      "name": "mixed_market_cycle_rejected",
+      "pass": true,
+      "detail": [
+        {
+          "sid": "v16-FIXTURE-mixed",
+          "err": "MARKET_MIXING_REJECTED",
+          "fc": "MARKET_MIXING"
+        }
+      ]
+    },
+    {
+      "name": "adversarial_global_row_present_and_labelled",
+      "pass": true,
+      "detail": {
+        "count": 1,
+        "exchange": "Binance Global spot"
+      }
+    },
+    {
+      "name": "mixed_market_peak_not_contaminated",
+      "pass": true,
+      "detail": {
+        "max_verified_peak": 24989122000000,
+        "mixed_new_rows": [
+          {
+            "eq": 0,
+            "peak": 0,
+            "err": "MARKET_MIXING_REJECTED"
+          }
+        ]
+      }
+    },
+    {
+      "name": "C1_idempotent_one_row_per_session",
+      "pass": true,
+      "detail": {
+        "rows": 4,
+        "sessions": 4
+      }
+    },
+    {
+      "name": "replay_peak_all_match",
+      "pass": true,
+      "detail": "10/10"
+    },
+    {
+      "name": "replay_drawdown_all_match",
+      "pass": true,
+      "detail": "10/10"
+    },
+    {
+      "name": "v15_original_12_rows_preserved",
+      "pass": true,
+      "detail": [
+        {
+          "n": 12
+        }
+      ]
+    }
+  ],
+  "verdict": "PASS",
+  "note": "All accounts are explicitly labelled v16-FIXTURE-*; no real trading results."
+}

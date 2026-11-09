@@ -1,0 +1,152 @@
+{
+  "id": "V16_U",
+  "file": "v16_u1_u5_units.mjs",
+  "label": "u1_u5_units",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"v16_u1_u5_units\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T13:20:16.487Z\",\"finishedAt\":\"2026-11-09T13:20:16.495Z\",\"meta\":{\"coverage\":\"QA-U1..U5\"},\"checks\":[{\"name\":\"U1_1000sats_unit_multiplier_equals_1000\",\"pass\":true,\"detail\":{\"unit_multiplier\":1000}},{\"name\":\"U1_1000sats_base_asset_is_1000SATS\",\"pass\":true,\"detail\":{\"base_asset\":\"1000SATS\"}},{\"name\":\"U1_1000sats_quote_asset_is_USDT\",\"pass\":true,\"detail\":{\"quote_asset\":\"USDT\"}},{\"name\":\"U1_1000sats_price_unit_explicit\",\"pass\":true,\"detail\":{\"price_unit\":\"USDT per 1 (1000SATS) unit = 1000 SATS\"}},{\"name\":\"U1_1000sats_global_identification_only\",\"pass\":true,\"detail\":{\"exchange\":\"Binance Global spot\"}},{\"name\":\"U5_1000sats_status_blocked\",\"pass\":true,\"detail\":{\"status\":\"BLOCKED\",\"reason\":\"GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED\"}},{\"name\":\"U5_ordi_blocked_not_listed_on_us\",\"pass\":true,\"detail\":{\"status\":\"BLOCKED\",\"reason\":\"NOT_LISTED_ON_BINANCE_US\"}},{\"name\":\"U2_inverse_round_trip_restores_quote\",\"pass\":true,\"detail\":{\"quote\":0.000008,\"perSats\":7.999999999999999e-9,\"back\":0.000008}},{\"name\":\"U2_1000x_sentinel\",\"pass\":true,\"detail\":{\"perSats\":7.999999999999999e-9,\"times1000\":0.000008,\"quote\":0.000008}},{\"name\":\"U3_sats_series_conflict_detected\",\"pass\":true,\"detail\":{\"conflict\":true,\"identicalMultiplier\":false}},{\"name\":\"U3_parallel_sats_rejected\",\"pass\":true,\"detail\":{\"code\":\"UNIT_CONTRACT_MISMATCH\"}},{\"name\":\"U4_wrong_unit_multiplier_rejected\",\"pass\":true,\"detail\":{\"code\":\"UNIT_CONTRACT_MISMATCH\"}},{\"name\":\"U5_blocked_symbol_in_series_rejected\",\"pass\":true,\"detail\":{\"code\":\"UNIT_CONTRACT_MISMATCH\"}},{\"name\":\"U1_buildMarkContracts_carries_unit_1000\",\"pass\":true,\"detail\":{\"1000SATSUSDT\":{\"exchange\":\"Binance Global spot\",\"market\":\"spot\",\"symbol\":\"1000SATSUSDT\",\"base_asset\":\"1000SATS\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 (1000SATS) unit = 1000 SATS\",\"unit_multiplier\":1000,\"status\":\"BLOCKED\",\"reason\":\"GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED\",\"price_ts\":\"t\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/x\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"t\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"p\",\"data_quality\":\"UNKNOWN\"}}}],\"extra\":{\"quote\":0.000008,\"perSats\":7.999999999999999e-9,\"back\":0.000008}}\n",
+  "stderr": "",
+  "result": {
+    "testId": "v16_u1_u5_units",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T13:20:16.487Z",
+    "finishedAt": "2026-11-09T13:20:16.495Z",
+    "meta": {
+      "coverage": "QA-U1..U5"
+    },
+    "checks": [
+      {
+        "name": "U1_1000sats_unit_multiplier_equals_1000",
+        "pass": true,
+        "detail": {
+          "unit_multiplier": 1000
+        }
+      },
+      {
+        "name": "U1_1000sats_base_asset_is_1000SATS",
+        "pass": true,
+        "detail": {
+          "base_asset": "1000SATS"
+        }
+      },
+      {
+        "name": "U1_1000sats_quote_asset_is_USDT",
+        "pass": true,
+        "detail": {
+          "quote_asset": "USDT"
+        }
+      },
+      {
+        "name": "U1_1000sats_price_unit_explicit",
+        "pass": true,
+        "detail": {
+          "price_unit": "USDT per 1 (1000SATS) unit = 1000 SATS"
+        }
+      },
+      {
+        "name": "U1_1000sats_global_identification_only",
+        "pass": true,
+        "detail": {
+          "exchange": "Binance Global spot"
+        }
+      },
+      {
+        "name": "U5_1000sats_status_blocked",
+        "pass": true,
+        "detail": {
+          "status": "BLOCKED",
+          "reason": "GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED"
+        }
+      },
+      {
+        "name": "U5_ordi_blocked_not_listed_on_us",
+        "pass": true,
+        "detail": {
+          "status": "BLOCKED",
+          "reason": "NOT_LISTED_ON_BINANCE_US"
+        }
+      },
+      {
+        "name": "U2_inverse_round_trip_restores_quote",
+        "pass": true,
+        "detail": {
+          "quote": 0.000008,
+          "perSats": 7.999999999999999e-9,
+          "back": 0.000008
+        }
+      },
+      {
+        "name": "U2_1000x_sentinel",
+        "pass": true,
+        "detail": {
+          "perSats": 7.999999999999999e-9,
+          "times1000": 0.000008,
+          "quote": 0.000008
+        }
+      },
+      {
+        "name": "U3_sats_series_conflict_detected",
+        "pass": true,
+        "detail": {
+          "conflict": true,
+          "identicalMultiplier": false
+        }
+      },
+      {
+        "name": "U3_parallel_sats_rejected",
+        "pass": true,
+        "detail": {
+          "code": "UNIT_CONTRACT_MISMATCH"
+        }
+      },
+      {
+        "name": "U4_wrong_unit_multiplier_rejected",
+        "pass": true,
+        "detail": {
+          "code": "UNIT_CONTRACT_MISMATCH"
+        }
+      },
+      {
+        "name": "U5_blocked_symbol_in_series_rejected",
+        "pass": true,
+        "detail": {
+          "code": "UNIT_CONTRACT_MISMATCH"
+        }
+      },
+      {
+        "name": "U1_buildMarkContracts_carries_unit_1000",
+        "pass": true,
+        "detail": {
+          "1000SATSUSDT": {
+            "exchange": "Binance Global spot",
+            "market": "spot",
+            "symbol": "1000SATSUSDT",
+            "base_asset": "1000SATS",
+            "quote_asset": "USDT",
+            "price_unit": "USDT per 1 (1000SATS) unit = 1000 SATS",
+            "unit_multiplier": 1000,
+            "status": "BLOCKED",
+            "reason": "GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED",
+            "price_ts": "t",
+            "price_ts_source": "exchange_serverTime",
+            "source_host": "api.binance.us",
+            "source_url": "https://api.binance.us/x",
+            "network_context": "local_test_shim",
+            "fetched_at": "t",
+            "freshness_ms": 0,
+            "freshness_verdict": "FRESH",
+            "payload_sha256": "p",
+            "data_quality": "UNKNOWN"
+          }
+        }
+      }
+    ],
+    "extra": {
+      "quote": 0.000008,
+      "perSats": 7.999999999999999e-9,
+      "back": 0.000008
+    }
+  },
+  "capturedAt": "2026-11-09T13:20:16.513Z",
+  "node": "v22.22.2"
+}
