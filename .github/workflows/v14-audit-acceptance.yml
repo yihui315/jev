@@ -1,16 +1,189 @@
-# JEV V1.4 audit acceptance — staged, no push trigger yet.
-name: JEV V1.4 - Audit acceptance (staged)
+# JEV V1.4 audit-branch replica of v14-acceptance.yml.
+# push-triggered because this workflow is not registered on the default branch.
+# JEV V1.4 — independent acceptance jobs (T02–T05 regression).
+# MANUAL ONLY (workflow_dispatch): it must never add a red/green check to PR #4
+# until the five deployment secrets are configured by the repository owner.
+# Every job fails CLOSED on missing auth and records BLOCKED, never a fake PASS.
+name: JEV V1.4 — Cloudflare acceptance (audit branch, 4 jobs)
+
 on:
+  push:
+    branches: [feature/v14-ci-audit-20261109]
+    paths: ['.github/workflows/v14-audit-acceptance.yml']
   workflow_dispatch:
     inputs:
       base_url:
-        description: "Staging URL"
+        description: "Deployment URL to test (must be a *.pages.dev staging deploy)"
         required: true
         default: "https://jev-cloud-staging.pages.dev"
+
 permissions:
   contents: read
+
 jobs:
-  placeholder:
+  local-gates:
+    name: "T01 · local gates + status regression (no secrets needed)"
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/command_center_3d
     steps:
-      - run: echo "placeholder - will be replaced by the full 4-job acceptance suite"
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/command_center_3d/package-lock.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run typecheck
+      - run: node cloud/tests/cf-pages-gate.check.mjs
+      - run: node cloud/tests/market-freshness.check.mjs
+      - run: npm run build
+
+  market-diagnosis:
+    name: "T02/T03 · real market diagnosis + provenance"
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
+      JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
+    steps:
+      - name: Fail closed if credentials are absent
+        if: ${{ env.JEV_PREVIEW_USER == '' || env.JEV_PREVIEW_PASSWORD == '' }}
+        run: |
+          echo "::warning::BLOCKED — JEV_PREVIEW_USER / JEV_PREVIEW_PASSWORD secrets are not configured. No market test was executed."
+          echo "### T02/T03: BLOCKED (preview credentials absent)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Real Worker-edge host x endpoint x UA matrix
+        if: ${{ env.JEV_PREVIEW_USER != '' && env.JEV_PREVIEW_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+            "$BASE_URL/api/jev/market/diagnose" -o diag.json
+          python3 - <<'PY'
+          import json, sys
+          d = json.load(open('diag.json'))
+          assert d['ok'], 'diagnose endpoint did not return ok'
+          x = d['data']
+          assert x['matrix_shape']['total_requests'] == 24, x['matrix_shape']
+          assert x['derived']['ua_changes_http_outcome'] is False, 'UA changed HTTP outcome: re-open 403 root-cause analysis'
+          us = x['derived']['by_host']['api.binance.us']['http_statuses']
+          assert us == [200], f'verified host not reachable: {us}'
+          print(f"T02/T03 PASS: {x['matrix_shape']['total_requests']} real Worker-edge requests, UA-independent 403, verified host {us}")
+          PY
+      - name: Provenance (hash / timestamp / freshness)
+        if: ${{ env.JEV_PREVIEW_USER != '' && env.JEV_PREVIEW_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+            "$BASE_URL/api/jev/market/status" -o status.json
+          python3 - <<'PY'
+          import json
+          d = json.load(open('status.json'))['data']
+          live, orig = d['live'], d['original']
+          assert live['verdict'] == 'VERIFIED', live
+          assert live['http_status'] == 200 and len(live['sha256'] or '') == 64, live
+          assert live['clock_skew_ms'] is not None and live['clock_skew_ms'] < d['stale_threshold_ms'], live
+          print(f"T03 PASS: probe-derived VERIFIED, sha256={live['sha256'][:16]}, skew={live['clock_skew_ms']}ms, original host http={orig['http_status']}")
+          PY
+
+  paper-trading-e2e:
+    name: "T04 · Paper Trading lifecycle (isolated staging account)"
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
+      JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
+    steps:
+      - name: Fail closed if credentials are absent
+        if: ${{ env.JEV_PREVIEW_USER == '' || env.JEV_PREVIEW_PASSWORD == '' }}
+        run: echo "::warning::BLOCKED — preview credentials absent; no Paper Trading test executed."
+      - name: OPEN -> CANCELED, FILLED -> POSITION, idempotency, risk rejects
+        if: ${{ env.JEV_PREVIEW_USER != '' && env.JEV_PREVIEW_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="$BASE_URL"; U="$JEV_PREVIEW_USER"; P="$JEV_PREVIEW_PASSWORD"
+          J="$RUNNER_TEMP/jev"; mkdir -p "$J"
+          call () { curl --silent --show-error --user "$U:$P" "$@"; }
+          call -X POST -H 'content-type: application/json' \
+            -d '{"account":"ci_v14_e2e","initialCash":"10000"}' \
+            -c "$J/cookies" "$B/api/jev/paper/session" -o "$J/session.json"
+          # LIMIT -> OPEN
+          call -b "$J/cookies" -X POST -H 'content-type: application/json' \
+            -d '{"clientOrderId":"ci-v14-limit-0001","confirmationId":"ci-v14-conf-limit1","symbol":"BTCUSDT","side":"BUY","type":"LIMIT","quantity":0.01,"limitPrice":40000.00}' \
+            "$B/api/jev/paper/orders" -o "$J/limit.json"
+          OID=$(python3 -c "import json;print(json.load(open('$J/limit.json'))['data']['order']['id'])")
+          python3 -c "import json;assert json.load(open('$J/limit.json'))['data']['order']['status']=='OPEN'"
+          # OPEN -> CANCELED
+          call -b "$J/cookies" -X POST -H 'content-type: application/json' \
+            -d '{"clientActionId":"ci-v14-cancel0001"}' \
+            "$B/api/jev/paper/orders/$OID/cancel" -o "$J/cancel.json"
+          python3 -c "import json;assert json.load(open('$J/cancel.json'))['data']['order']['status']=='CANCELED'"
+          # MARKET -> FILLED
+          call -b "$J/cookies" -X POST -H 'content-type: application/json' \
+            -d '{"clientOrderId":"ci-v14-market001","confirmationId":"ci-v14-conf-mkt01","symbol":"BTCUSDT","side":"BUY","type":"MARKET","quantity":0.01}' \
+            "$B/api/jev/paper/orders" -o "$J/market.json"
+          python3 - <<PY
+          import json
+          b=json.load(open('$J/market.json'))['data']
+          assert b['order']['status']=='FILLED', b['order']['status']
+          assert len(b['fills'])>0 and all(f.get('fee') for f in b['fills'])
+          assert b['account']['positions'], 'no position after FILLED'
+          print('T04 PASS: OPEN->CANCELED, FILLED with', len(b['fills']), 'real fills + fees + position')
+          PY
+          # idempotency: same clientOrderId must not create a second fill
+          call -b "$J/cookies" -X POST -H 'content-type: application/json' \
+            -d '{"clientOrderId":"ci-v14-market001","confirmationId":"ci-v14-conf-mkt01","symbol":"BTCUSDT","side":"BUY","type":"MARKET","quantity":0.01}' \
+            "$B/api/jev/paper/orders" -o "$J/dup.json"
+          python3 -c "import json;b=json.load(open('$J/dup.json'))['data'];assert b['duplicate'] is True and len(b['fills'])==0"
+          echo "T04 PASS: duplicate clientOrderId produced 0 new fills" >> "$GITHUB_STEP_SUMMARY"
+
+  d1-security:
+    name: "T05 · D1 session isolation + fail-closed"
+    runs-on: ubuntu-latest
+    env:
+      BASE_URL: ${{ inputs.base_url }}
+      JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
+      JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
+    steps:
+      - name: Fail closed if credentials are absent
+        if: ${{ env.JEV_PREVIEW_USER == '' || env.JEV_PREVIEW_PASSWORD == '' }}
+        run: echo "::warning::BLOCKED — preview credentials absent; no D1 security test executed."
+      - name: Invalid sessions must leak nothing
+        if: ${{ env.JEV_PREVIEW_USER != '' && env.JEV_PREVIEW_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="$BASE_URL"; U="$JEV_PREVIEW_USER"; P="$JEV_PREVIEW_PASSWORD"
+          for EP in paper/audit paper/equity paper/account paper/events paper/replay; do
+            code=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --user "$U:$P" "$B/api/jev/$EP")
+            test "$code" = 401 || { echo "::error::$EP without Paper Session returned $code, expected 401"; exit 1; }
+          done
+          echo "T05 PASS: 5 read routes return 401 without a valid Paper Session (no data field)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Cross-session isolation (no aggregate leakage)
+        if: ${{ env.JEV_PREVIEW_USER != '' && env.JEV_PREVIEW_PASSWORD != '' }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="$BASE_URL"; U="$JEV_PREVIEW_USER"; P="$JEV_PREVIEW_PASSWORD"; J="$RUNNER_TEMP/jev2"; mkdir -p "$J"
+          call () { curl --silent --show-error --user "$U:$P" "$@"; }
+          call -X POST -H 'content-type: application/json' -d '{"account":"ci_v14_a","initialCash":"10000"}' \
+            -c "$J/ca" "$B/api/jev/paper/session" -o /dev/null
+          call -X POST -H 'content-type: application/json' -d '{"account":"ci_v14_b","initialCash":"10000"}' \
+            -c "$J/cb" "$B/api/jev/paper/session" -o /dev/null
+          call -b "$J/ca" -X POST -H 'content-type: application/json' \
+            -d '{"clientOrderId":"ci-v14-iso-a0001","confirmationId":"ci-v14-iso-conf01","symbol":"BTCUSDT","side":"BUY","type":"MARKET","quantity":0.01}' \
+            "$B/api/jev/paper/orders" -o /dev/null
+          call -b "$J/ca" "$B/api/jev/paper/audit" -o "$J/aa"
+          call -b "$J/cb" "$B/api/jev/paper/audit" -o "$J/ab"
+          python3 - <<PY
+          import json
+          a=json.load(open('$J/aa'))['data']; b=json.load(open('$J/ab'))['data']
+          assert a['counts']['orders']>=1, a['counts']
+          assert b['counts']['orders']==0 and len(b['orders'])==0 and len(b['fills'])==0, b['counts']
+          assert 'admin_global_counts' not in b, 'aggregate cross-session cardinality is exposed'
+          print('T05 PASS: session A orders=',a['counts']['orders'],'session B orders=0, no global aggregate')
+          PY
