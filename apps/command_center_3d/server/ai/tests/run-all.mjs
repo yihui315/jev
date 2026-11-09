@@ -18,12 +18,13 @@ import * as t6 from "./t6_persistence_attribution.mjs";
 import * as t7 from "./t7_redaction.mjs";
 import * as t8 from "./t8_role_mapping.mjs";
 import * as t9 from "./t9_gateway_routes.mjs";
+import * as e2e from "./e2e_real_engine.mjs";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = join(HERE, "..", "..", "..", "..", "..");
 const OUT_DIR = join(REPO_ROOT, "reports", "evidence", "v16_ai");
 const OUT_FILE = join(OUT_DIR, "v16_ai_contract_tests.json");
-const MODULES = [t1, t2, t3, t4, t5, t6, t7, t8, t9];
+const MODULES = [t1, t2, t3, t4, t5, t6, t7, t8, t9, e2e];
 
 function write(line) { process.stdout.write(line + "\n"); }
 

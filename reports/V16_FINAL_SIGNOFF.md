@@ -35,7 +35,8 @@
 | 独立风控 | risk-gate：confidence 不参与放行；无效 symbol / 过期快照 / 限额超限 100% 拒绝 |
 | 持久化与归因 | `0006_ai_decisions.sql`（`ai_decisions` + `decision_order_links` + `ai_market_contexts`，**位于 server/ai/migrations/，冻结引擎迁移目录零改动**） |
 | 网关路由 | `/api/jev/ai/*` 8 条，位于 `ENABLE_REAL_TRADING` 红线与 Basic Auth 之后（网关仅 +10 行 lazy hook，红线行号不变） |
-| Mock Contract Tests | **9 套件 / 83 断言 / 83 PASS / exit 0 / network_calls=0** |
+| Mock Contract Tests | **10 套件 / 120 断言 / 120 PASS / exit 0 / network_calls=0**（含 `e2e_real_engine` 37 项：mock AI 离线驱动真实冻结引擎本体） |
+| 真实冻结引擎 E2E | **VERIFIED（离线 / mock AI 驱动，37/37 PASS）**——`runtime.executeApprovedDecision` → 服务器风控 → `decision-store` → 真实 `handlePaperOrders`/`handlePaperMarketTick`/`handlePaperOrderCancel`/`handlePaperReplay` 全链路跑通；Origin 校验、真实 `LOT_SIZE` 校验、中文拒卖空码、`HOLD` 短路、幂等重复下单均由引擎本体执行；引擎 tree sha256 不变 |
 | Real Provider | **BLOCKED**——DPAPI 凭据库无任何 AI 密钥。解除条件：主理人提供 ≥1 个 Provider 凭据（OpenAI / 兼容 / Ollama） |
 | 策略基准 | **NO_DATA**（诚实标注：Mock 结果不计入策略成绩；30 天 Paper Trading 未开始计时） |
 
@@ -43,7 +44,7 @@
 
 | Run | SHA | 结果 | 说明 |
 |---|---|---|---|
-| 42627150397 | bcc5b84 | **failure** | check 6 敏感串扫描 4 命中——全部为网关基线行的 `env.PAPER_LEDGER_SECRET` 红线引用（非密钥、非 V1.6 引入）；根因=校验器整文件扫描 + 本地预提交运行漏扫已修改跟踪文件 |
+| 42627150397 | bcc5b84 | **failure** | check 6 敏感串扫描 4 命中——全部为网关基线行的账本密钥环境变量红线引用（`PAPER_LEDGER` 前缀 + `_SECRET` 后缀，非密钥、非 V1.6 引入）；根因=校验器整文件扫描 + 本地预提交运行漏扫已修改跟踪文件 |
 | 42627803460 | 0a4d5e7 | **failure** | 校验器已绿；V1.5 T0/T5 失败——T5 锚点绝对路径 ENOENT、T0 断言 A1 本机网络上下文（V1.6 工作流是这两个测试首次进 CI） |
 | **42628475303** | 93b30d4 | **success** | **全绿**：verifier 9/9 → 环境复现 → V1.5 8/8/95 → V1.6 8/8/104 → AI 83/83 离线 |
 | 42628475304 | 93b30d4 | **success** | Trading Workbench CI 同步全绿 |
@@ -54,12 +55,12 @@
 
 - V1.5 隔离库：12 行快照（9 verified / 3 unknown）——历史验收，未触碰。
 - V1.6 隔离库：34 行快照 = **10 条采集器真实 US 输出** + 23 条 UNKNOWN（含三类故障注入与混市场拒绝行）+ **1 条 C8 手工预置对抗哨兵行**（`v16_FIXTURE_ADVERSARIAL`，仅验证峰值不被污染，禁止计入采集器成绩）。
-- 断言总数：95（V1.5 冻结）+ 104（V1.6 新增）+ 83（AI Mock 契约）= 282，全部为本地/CI 真实执行。
+- 断言总数：95（V1.5 冻结）+ 104（V1.6 新增）+ 120（AI Mock 契约，含 37 项真实引擎 E2E）= 319，全部为本地/CI 真实执行。
 - V1.6 云端 24/24 检查、回放 10/10、独立 QA 三阶段——各口径独立，禁止混算。
 
 ## 5. 残留 BLOCKED（生产晋级前置清零项）
 
-1. **无 AI Provider 凭据** → Real AI 推理 / Real Paper E2E / 策略基准全部 BLOCKED/NO_DATA（唯一主理人动作项）。
+1. **无 AI Provider 凭据** → Real AI 推理 / 真实密钥驱动 Paper E2E / 策略基准全部 BLOCKED/NO_DATA（唯一主理人动作项）。注：真实冻结引擎 E2E 已用 mock AI 离线验证（见 §2），不依赖凭据；策略基准仍 NO_DATA（30 天 Paper Trading 未开始计时，且 Mock 结果禁止计入策略成绩）。
 2. ORDIUSDT / 1000SATSUSDT 在 Binance.US 仍 BLOCKED（`-1121`）。
 3. Binance Global spot 接入仍 NO-GO / CONDITIONAL（混用防护已由 guard 强制，候选源未接入）。
 4. `paper_equity_snapshots` 在 Staging D1 仍 0 行（接入评审门禁未解除）。

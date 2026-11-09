@@ -14,9 +14,15 @@ export class D1Shim {
     this.writeLog = [];
   }
   prepare(sql) { return new Statement(this, sql); }
-  batch(statements) {
-    for (const s of statements) s._exec();
-    return Promise.resolve({ success: true });
+  // Real D1 executes every statement in the batch and returns one result per
+  // statement, each carrying `meta.changes` — the frozen engine's commitState
+  // reads results[0].meta.changes to confirm the account row was updated. The
+  // prior no-op batch made commitState reject every order (changes !== 1), so it
+  // could never exercise the real engine. This mirrors D1's batch contract.
+  async batch(statements) {
+    const out = [];
+    for (const s of statements) out.push(await s.run());
+    return out;
   }
   exec(sql) { this._record(sql); this.db.exec(sql); }
   _record(sql) {

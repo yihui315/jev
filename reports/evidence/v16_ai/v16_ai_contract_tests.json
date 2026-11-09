@@ -1,7 +1,7 @@
 {
   "overall": "PASS",
-  "generated_utc": "2026-11-09T13:18:12.521Z",
-  "started_utc": "2026-11-09T13:18:12.283Z",
+  "generated_utc": "2026-11-09T16:31:43.955Z",
+  "started_utc": "2026-11-09T16:31:43.626Z",
   "runner": "apps/command_center_3d/server/ai/tests/run-all.mjs",
   "environment": {
     "node": "v22.22.2",
@@ -10,9 +10,9 @@
     "network_calls": 0
   },
   "counts": {
-    "suites": 9,
-    "checks": 83,
-    "passed": 83,
+    "suites": 10,
+    "checks": 120,
+    "passed": 120,
     "failed": 0
   },
   "results": [
@@ -192,7 +192,7 @@
     {
       "id": "t3_risk_gate",
       "title": "Risk gate: whitelist, verified context, freshness, notional limits, confidence immunity",
-      "duration_ms": 5,
+      "duration_ms": 7,
       "passed": 13,
       "failed": 0,
       "checks": [
@@ -266,7 +266,7 @@
     {
       "id": "t4_idempotency",
       "title": "Execution idempotency and risk-approval precondition",
-      "duration_ms": 38,
+      "duration_ms": 41,
       "passed": 8,
       "failed": 0,
       "checks": [
@@ -315,7 +315,7 @@
     {
       "id": "t5_data_mode",
       "title": "data_mode isolation: BLOCKED real path, explicit mock path",
-      "duration_ms": 24,
+      "duration_ms": 19,
       "passed": 9,
       "failed": 0,
       "checks": [
@@ -408,14 +408,14 @@
     {
       "id": "t7_redaction",
       "title": "Secret redaction: code, schema columns, status projection, persisted rows",
-      "duration_ms": 68,
+      "duration_ms": 93,
       "passed": 5,
       "failed": 0,
       "checks": [
         {
           "name": "no credential-shaped string in server/ai sources or migrations",
           "pass": true,
-          "detail": "scanned 22 files"
+          "detail": "scanned 23 files"
         },
         {
           "name": "ai_decisions / ai_market_contexts have no secret-bearing column",
@@ -442,7 +442,7 @@
     {
       "id": "t8_role_mapping",
       "title": "Six-role mapping: 6 rows, no code rename, OWNER-DECIDED draft",
-      "duration_ms": 3,
+      "duration_ms": 4,
       "passed": 4,
       "failed": 0,
       "checks": [
@@ -464,14 +464,14 @@
         {
           "name": "documentation carries the same draft mapping",
           "pass": true,
-          "detail": "D:/jev-v16-wt/v16/docs/JEV_AI_DECISION_SCHEMA.md"
+          "detail": "C:/Users/Administrator/WorkBuddy/jev-v16/docs/JEV_AI_DECISION_SCHEMA.md"
         }
       ]
     },
     {
       "id": "t9_gateway_routes",
       "title": "Gateway: AI routes behind red lines + Basic auth, BLOCKED without credentials",
-      "duration_ms": 61,
+      "duration_ms": 60,
       "passed": 7,
       "failed": 0,
       "checks": [
@@ -509,6 +509,200 @@
           "name": "Basic auth is required before any AI route",
           "pass": true,
           "detail": "401"
+        }
+      ]
+    },
+    {
+      "id": "e2e_real_engine",
+      "title": "E2E: mock AI -> real frozen paper engine (offline)",
+      "duration_ms": 64,
+      "passed": 37,
+      "failed": 0,
+      "checks": [
+        {
+          "name": "mock BUY decision -> server risk gate APPROVED + persisted (confidence ignored)",
+          "pass": true,
+          "detail": "decision_id=dec-ff8ce2fbd9ab8c07975e67a97c7c5267"
+        },
+        {
+          "name": "execute APPROVED BUY -> REAL engine FILLED (market order)",
+          "pass": true,
+          "detail": "orderId=O-e961c5fe-8091-466a-bea3-69109594976c fills=1"
+        },
+        {
+          "name": "REAL engine persisted order+fills+link (not a stub counter)",
+          "pass": true,
+          "detail": "orders=1 fills=1 links=1"
+        },
+        {
+          "name": "equity reconciliation: engine summary.equity = cash + qty*mark",
+          "pass": true,
+          "detail": "equity=9999.9199596"
+        },
+        {
+          "name": "scenario scBuyFill",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "SELL decision APPROVED when position exists",
+          "pass": true,
+          "detail": "dec-d3f3daaafde9158b3cda51f6f09a926d"
+        },
+        {
+          "name": "execute SELL -> REAL engine FILLED, position reduced, realized pnl recorded",
+          "pass": true,
+          "detail": "fills=1 pnlRows=1"
+        },
+        {
+          "name": "scenario scSellAfterBuy",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "execute same decision twice -> 2nd is duplicate, engine not called twice",
+          "pass": true,
+          "detail": "orders=1"
+        },
+        {
+          "name": "scenario scExecIdempotency",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "HOLD decision cannot be executed (DECISION_IS_HOLD, engine untouched)",
+          "pass": true,
+          "detail": "orders=0"
+        },
+        {
+          "name": "scenario scHoldNoExec",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "decision for non-whitelisted symbol -> risk REJECTED (independent gate)",
+          "pass": true,
+          "detail": "code=RISK_SYMBOL_NOT_ALLOWED"
+        },
+        {
+          "name": "scenario scRejectSymbol",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "decision with stale market context -> risk REJECTED",
+          "pass": true,
+          "detail": "code=RISK_CONTEXT_STALE"
+        },
+        {
+          "name": "scenario scRejectStale",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "createDecision twice with identical input -> 2nd is duplicate",
+          "pass": true,
+          "detail": "decision_id=dec-79ade2819e9697d7b0ffd78dd78f15d7"
+        },
+        {
+          "name": "scenario scDecisionIdempotency",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "SELL with no position -> REAL engine REJECTED (no naked short)",
+          "pass": true,
+          "detail": "code=现货模拟账户没有足够可卖持仓；不支持裸卖空"
+        },
+        {
+          "name": "scenario scSellNoPosition",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "LIMIT BUY below market -> REAL engine OPEN (not filled)",
+          "pass": true,
+          "detail": "orderId=O-b252defd-256d-4b60-8d95-f6147c02f47f"
+        },
+        {
+          "name": "market tick drops price into limit -> REAL engine FILLS via processLimitOrders",
+          "pass": true,
+          "detail": "changed=true"
+        },
+        {
+          "name": "scenario scLimitOpenThenFill",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "LIMIT BUY OPEN -> cancel -> REAL engine CANCELED, no position",
+          "pass": true,
+          "detail": "orderId=O-ab0cdf64-5c15-497e-8e79-f77aa6886cd6"
+        },
+        {
+          "name": "scenario scLimitCancel",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "same clientOrderId submitted twice -> 2nd duplicate, same orderId",
+          "pass": true,
+          "detail": "orderId=O-7907881e-8d5f-4a23-9efa-7484bcb652c9"
+        },
+        {
+          "name": "scenario scOrderIdempotency",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "REAL engine rejects order with no session cookie (401)",
+          "pass": true,
+          "detail": "status=401"
+        },
+        {
+          "name": "scenario scNoSession",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "event-replay hash chain verifies after real engine trades",
+          "pass": true,
+          "detail": "snapshots=2"
+        },
+        {
+          "name": "scenario scReplay",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "performanceSummary is NO_DATA when zero decisions (no zeroed claim)",
+          "pass": true,
+          "detail": "status=NO_DATA"
+        },
+        {
+          "name": "scenario scPerfNoData",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "performanceSummary is RECORDED with fills after a real engine trade",
+          "pass": true,
+          "detail": "decisions=1 fills=1"
+        },
+        {
+          "name": "scenario scPerfRecorded",
+          "pass": true,
+          "detail": "ok"
+        },
+        {
+          "name": "zero real network egress (global fetch guarded; engine used synthetic market)",
+          "pass": true,
+          "detail": "synthetic_fetch_calls=44"
+        },
+        {
+          "name": "real engine exercised in every order/tick scenario",
+          "pass": true,
+          "detail": "engine_scenarios=9"
         }
       ]
     }
