@@ -1,3 +1,4 @@
+# JEV-V14 audit: re-run after five Actions Secrets were configured; no logic change.
 name: JEV Cloudflare Pages Staging — authenticated real-backend (Paper Trading on D1)
 on:
   push:
