@@ -1,4 +1,5 @@
 # JEV-V14 audit: re-run after five Actions Secrets were configured; no logic change.
+# CI fix: bounded readiness retries for a freshly created Pages deployment.
 name: JEV Cloudflare Pages Staging — authenticated real-backend (Paper Trading on D1)
 on:
   push:
@@ -105,15 +106,40 @@ jobs:
           test -s "$RUNNER_TEMP/jev-preview.html"
           # Two-layer auth: /api/jev/paper/account needs BOTH preview Basic and
           # a valid Paper Session cookie. Basic-only correctly returns 401.
-          anon=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-            --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" "$PREVIEW_URL/api/jev/paper/account")
+          # A freshly created Pages deployment can serve its auth middleware
+          # before the D1 binding / secrets are propagated to the edge. Retry
+          # ONLY bounded transient non-expected responses. Every original
+          # assertion is kept (and strengthened); persistent failure still fails.
+          anon=""
+          for i in $(seq 1 20); do
+            anon=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" "$PREVIEW_URL/api/jev/paper/account" || true)
+            if [ "$anon" = 401 ]; then break; fi
+            echo "::warning::preview auth not ready (attempt $i, HTTP $anon); retrying in 3s"
+            sleep 3
+          done
           test "$anon" = 401
-          curl --fail --silent --show-error --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
-            -X POST -H 'content-type: application/json' \
-            -d '{"account":"ci_smoke","initialCash":"10000"}' \
-            -c "$RUNNER_TEMP/jev-cookies.txt" "$PREVIEW_URL/api/jev/paper/session" \
-            -o "$RUNNER_TEMP/jev-session.json"
-          status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
-            --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" -b "$RUNNER_TEMP/jev-cookies.txt" \
-            "$PREVIEW_URL/api/jev/paper/account")
+          session_status=""
+          for i in $(seq 1 20); do
+            session_status=$(curl --silent --show-error \
+              -o "$RUNNER_TEMP/jev-session.json" -w '%{http_code}' \
+              --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" \
+              -X POST -H 'content-type: application/json' \
+              -d '{"account":"ci_smoke","initialCash":"10000"}' \
+              -c "$RUNNER_TEMP/jev-cookies.txt" "$PREVIEW_URL/api/jev/paper/session" || true)
+            if [ "$session_status" = 200 ]; then break; fi
+            echo "::warning::paper/session not ready (attempt $i, HTTP $session_status); retrying in 3s"
+            sleep 3
+          done
+          test "$session_status" = 200
+          python3 -c "import json,sys; d=json.load(open(sys.argv[1])); assert d.get('ok') is True and d['data'].get('session')=='created'" "$RUNNER_TEMP/jev-session.json"
+          status=""
+          for i in $(seq 1 10); do
+            status=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+              --user "$JEV_PREVIEW_USER:$JEV_PREVIEW_PASSWORD" -b "$RUNNER_TEMP/jev-cookies.txt" \
+              "$PREVIEW_URL/api/jev/paper/account" || true)
+            if [ "$status" = 200 ]; then break; fi
+            echo "::warning::paper/account not ready (attempt $i, HTTP $status); retrying in 3s"
+            sleep 3
+          done
           test "$status" = 200
