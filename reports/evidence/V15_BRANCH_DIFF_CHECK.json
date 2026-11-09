@@ -1,0 +1,121 @@
+{
+  "total": 12,
+  "pass": 12,
+  "fail": 0,
+  "results": [
+    {
+      "check": "workflow_from_feat:.github/workflows/jev-cloudflare-staging.yml",
+      "pass": true,
+      "detail": {
+        "head_sha256": "1a25769ca6b5010aa7bdbebabb316fe1bd5ec8e39872d59d181a2cb48d50a6dd",
+        "feat_sha256": "1a25769ca6b5010aa7bdbebabb316fe1bd5ec8e39872d59d181a2cb48d50a6dd"
+      }
+    },
+    {
+      "check": "workflow_from_feat:.github/workflows/v14-acceptance.yml",
+      "pass": true,
+      "detail": {
+        "head_sha256": "a19c557e951d6eb96d7736dc89831eacc9d0d2ddc6db0c09745e4eb5b26a7b50",
+        "feat_sha256": "a19c557e951d6eb96d7736dc89831eacc9d0d2ddc6db0c09745e4eb5b26a7b50"
+      }
+    },
+    {
+      "check": "report_from_audit:reports/V14_AUDIT_BRANCH.md",
+      "pass": true,
+      "detail": {
+        "head_sha256": "b7d4af47111345c4e8d2ac5a2ab6802f45d1dadd356e26ce57569adb16596dd6",
+        "audit_sha256": "b7d4af47111345c4e8d2ac5a2ab6802f45d1dadd356e26ce57569adb16596dd6"
+      }
+    },
+    {
+      "check": "report_from_audit:reports/V14_GITHUB_CI_SIGNOFF.md",
+      "pass": true,
+      "detail": {
+        "head_sha256": "c9ad01ad363605086c1d923f03db9b615df002d70c4ffee02e33029b7ea3be10",
+        "audit_sha256": "c9ad01ad363605086c1d923f03db9b615df002d70c4ffee02e33029b7ea3be10"
+      }
+    },
+    {
+      "check": "duplicate_audit_workflow_absent",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/v14-audit-acceptance.yml",
+        "present_on_audit_branch": true
+      }
+    },
+    {
+      "check": "frozen_engine_byte_identical",
+      "pass": true,
+      "detail": {
+        "HEAD": {
+          "sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+          "files": 15
+        },
+        "origin/feat/jev-cloudflare-staging": {
+          "sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+          "files": 15
+        },
+        "origin/feature/v14-ci-audit-20261109": {
+          "sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+          "files": 15
+        },
+        "ce8d570": {
+          "sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+          "files": 15
+        }
+      }
+    },
+    {
+      "check": "assertion_present:session')=='created'",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/jev-cloudflare-staging.yml",
+        "needle": "session')=='created'"
+      }
+    },
+    {
+      "check": "assertion_present:preview auth not ready",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/jev-cloudflare-staging.yml",
+        "needle": "preview auth not ready"
+      }
+    },
+    {
+      "check": "assertion_present:test \"$status\" = 200",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/jev-cloudflare-staging.yml",
+        "needle": "test \"$status\" = 200"
+      }
+    },
+    {
+      "check": "assertion_present:duplicate must point at the original o",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/v14-acceptance.yml",
+        "needle": "duplicate must point at the original order"
+      }
+    },
+    {
+      "check": "assertion_present:assert b['duplicate'] is True",
+      "pass": true,
+      "detail": {
+        "path": ".github/workflows/v14-acceptance.yml",
+        "needle": "assert b['duplicate'] is True"
+      }
+    },
+    {
+      "check": "both_branch_histories_preserved",
+      "pass": true,
+      "detail": {
+        "parents": [
+          "7f26e1f70f275a76a38c939448ea4b6441fef86a",
+          "9923067c8d0b9c84f0c5392f86ad888a897ea378"
+        ],
+        "note": "no force push, no squash, no rebase"
+      }
+    }
+  ],
+  "verdict": "PASS"
+}
