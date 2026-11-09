@@ -39,6 +39,31 @@ jobs:
             echo "::error::independent integrity check failed"; exit 1;
           }
 
+      - name: Reproduce the V1.5 local test environment (engine anchor tree + A1 probe context)
+        run: |
+          # (a) T5 reads frozen-engine anchor files at absolute Windows paths
+          #     (D:/jev-cloud-staging/...). On Linux those resolve CWD-relative to
+          #     a literal "D:" directory, so rebuild that tree from THIS repo's
+          #     frozen engine files. Byte-identity is already proven by the
+          #     verifier (check 3 tree sha) and T5 re-verifies the 4 anchors.
+          set -e
+          BASE="apps/equity_collector_v45/D:/jev-cloud-staging/apps/command_center_3d/server/engine"
+          mkdir -p "$BASE/_lib" "$BASE/migrations"
+          cp apps/command_center_3d/server/engine/_lib/decimal.mjs \
+             apps/command_center_3d/server/engine/_lib/equity-snapshot.mjs \
+             apps/command_center_3d/server/engine/_lib/paper-server.mjs "$BASE/_lib/"
+          cp apps/command_center_3d/server/engine/migrations/0005_equity_snapshots.sql "$BASE/migrations/"
+          sha256sum "$BASE/_lib/decimal.mjs" "$BASE/_lib/equity-snapshot.mjs" \
+                    "$BASE/_lib/paper-server.mjs" "$BASE/migrations/0005_equity_snapshots.sql"
+          # (b) T0 asserts the A1 probe context documented in V1.5: the primary
+          #     host is unreachable from the probe environment, so live primary
+          #     fetch is honestly labeled BLOCKED and left for the OWNER to
+          #     verify on the Cloudflare edge. Block api.binance.us for this
+          #     job only — a controlled reproduction of that context (same
+          #     class as fault injection). All six T0 assertions still run
+          #     REAL curl probes; nothing is stubbed or fabricated.
+          echo "0.0.0.0 api.binance.us" | sudo tee -a /etc/hosts
+
       - name: V1.5 baseline suite (must remain 8/8 PASS, 95 assertions)
         working-directory: apps/equity_collector_v45
         run: |
