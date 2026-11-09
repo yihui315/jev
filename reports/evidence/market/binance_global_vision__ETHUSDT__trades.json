@@ -1,0 +1,55 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ETHUSDT",
+  "endpoint": "trades",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/trades?symbol=ETHUSDT&limit=1",
+    "path": "/api/v3/trades?symbol=ETHUSDT&limit=1",
+    "probe_ts_utc": "2026-11-09T04:24:45.498+00:00",
+    "probe_ts_epoch_ms": 1794198285498,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:46 GMT",
+      "x_mbx_uuid": "2c0fb154-b217-4853-8126-b42aeb35f529",
+      "x_mbx_used_weight": "108",
+      "x_mbx_used_weight_1m": "108",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 149,
+    "body_sha256": "66bbedd72ee8d932c8a2f8372822573f146c732efa633feefedd4cf28de0a56d",
+    "body_sha256_short16": "66bbedd72ee8d932",
+    "body_excerpt_500": "[{\"id\":4494904568,\"price\":\"2141.73000000\",\"qty\":\"0.24390000\",\"quoteQty\":\"522.36794700\",\"time\":1794198285343,\"isBuyerMaker\":false,\"isBestMatch\":true}]",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "trade_count": 1,
+      "last_trade_id": 4494904568,
+      "last_trade_price": "2141.73000000",
+      "last_trade_qty": "0.24390000",
+      "last_trade_time_ms": 1794198285343,
+      "last_trade_time_utc": "2026-11-09T04:24:45.343+00:00",
+      "isBuyerMaker": false
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.347,
+    "is_cloudflare_html_block": false
+  }
+}

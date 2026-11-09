@@ -1,0 +1,111 @@
+{
+  "schema": "jev-v15-evidence/v1",
+  "note": "Redacted evidence. No token/secret plaintext is stored in this repository.",
+  "p0_token_rotation": {
+    "old_token": {
+      "id": "86ba72a91fb934bce8eb8da30d3c97b2",
+      "name": "young-credit-afaa",
+      "policies": 1,
+      "permission_groups": 290,
+      "resources": "account-wide *",
+      "high_risk_groups": [
+        "Account API Tokens Read",
+        "Account API Tokens Write",
+        "Workers Admin",
+        "Secrets Store Read",
+        "Secrets Store Write"
+      ]
+    },
+    "new_token": {
+      "id": "8ead4d5c86a4165149955dce0404370f",
+      "name": "jev-v15-staging-least-privilege",
+      "policies": 1,
+      "permission_groups": 5,
+      "groups": [
+        "Pages Read",
+        "Pages Write",
+        "D1 Read",
+        "D1 Write",
+        "Workers Scripts Write"
+      ],
+      "expires_on": "2027-02-07T15:59:59Z"
+    },
+    "created_utc": "2026-11-09T04:21:37Z",
+    "secret_updated_utc": "2026-11-09T04:22:48Z",
+    "github_secret_put_http": 204,
+    "secrets_present": 5,
+    "ci_run_id": 42561524124,
+    "ci_conclusion": "success",
+    "ci_steps": "14/14 SUCCESS",
+    "deploy_id": "3da51661-cb7e-4929-840e-adb9eac0a3ba",
+    "deploy_url": "https://3da51661.jev-cloud-staging.pages.dev",
+    "new_token_last_used_utc": "2026-11-09T04:23:48Z",
+    "revoked_utc": "2026-11-09T04:25:37Z",
+    "delete_http": 200,
+    "post_revoke": {
+      "old_verify_http": 401,
+      "new_verify_http": 200,
+      "new_pages_http": 200,
+      "new_list_tokens_http": 403
+    },
+    "verdict": "VERIFIED_ROTATED"
+  },
+  "p1_branch_integration": {
+    "base": "ce8d570",
+    "feat_head": "7f26e1f",
+    "audit_head": "9923067",
+    "integration_commit": "e92391b",
+    "merge_parents": 2,
+    "diff_check": "12/12 PASS",
+    "duplicate_workflow_excluded": ".github/workflows/v14-audit-acceptance.yml"
+  },
+  "hard_gates": {
+    "enable_real_trading": {
+      "value_hidden_by_api": "secret_text",
+      "constructive_proof": "[[path]].js:719 returns 500 RED_LINE unless env.ENABLE_REAL_TRADING === \"false\"; POST /api/jev/paper/session -> 200 session=created",
+      "http": 200
+    },
+    "staging_d1_bindings": {
+      "PAPER_DB": "55b690ec-732f-4f34-8b42-084dd15ee164"
+    },
+    "night_researcher_d1_bindings": {
+      "production": {},
+      "preview": {}
+    },
+    "staging_paper_equity_snapshots_rows": 0,
+    "frozen_engine": {
+      "files": 15,
+      "tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+      "refs_identical": [
+        "ce8d570",
+        "7f26e1f",
+        "9923067",
+        "e92391b"
+      ]
+    },
+    "force_push": false,
+    "d1_deleted": false,
+    "release_merged": false,
+    "pr4_modified": false
+  },
+  "isolated_test_d1": {
+    "uuid": "cf5cf033-3796-4de1-b295-93f35a8ce82e",
+    "name": "jev-v45-equity-isolated-test",
+    "created_utc": "2026-11-09T04:22:17Z",
+    "created_with": "new least-privilege token",
+    "write_probe": "CREATE/INSERT/SELECT 3/3 http 200 success"
+  },
+  "edge_market_probe": {
+    "captured_utc": "2026-11-09T04:24:20Z",
+    "source_host": "api.binance.us",
+    "endpoint": "/api/v3/time",
+    "http_status": 200,
+    "freshness": "FRESH",
+    "verdict": "VERIFIED",
+    "clock_skew_ms": 38,
+    "sha256": "63ea381f9f35483cc9ea449c0e382130c1abb06d5868084cf6cadf676518b9ec",
+    "original_host": "data-api.binance.vision",
+    "original_http_status": 403,
+    "original_verdict": "UNAVAILABLE"
+  }
+}

@@ -1,0 +1,55 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ORDIUSDT",
+  "endpoint": "trades",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/trades?symbol=ORDIUSDT&limit=1",
+    "path": "/api/v3/trades?symbol=ORDIUSDT&limit=1",
+    "probe_ts_utc": "2026-11-09T04:24:46.890+00:00",
+    "probe_ts_epoch_ms": 1794198286890,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:48 GMT",
+      "x_mbx_uuid": "4bffde66-fe49-4a26-8532-911fada22c3f",
+      "x_mbx_used_weight": "157",
+      "x_mbx_used_weight_1m": "157",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 144,
+    "body_sha256": "4e8fd9bce85a4eceb3a6b9f28a8c2d7700cb9e613c8c50bc83e2cbe10cf08bac",
+    "body_sha256_short16": "4e8fd9bce85a4ece",
+    "body_excerpt_500": "[{\"id\":177711039,\"price\":\"3.09900000\",\"qty\":\"26.66000000\",\"quoteQty\":\"82.61934000\",\"time\":1794198269352,\"isBuyerMaker\":true,\"isBestMatch\":true}]",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "trade_count": 1,
+      "last_trade_id": 177711039,
+      "last_trade_price": "3.09900000",
+      "last_trade_qty": "26.66000000",
+      "last_trade_time_ms": 1794198269352,
+      "last_trade_time_utc": "2026-11-09T04:24:29.352+00:00",
+      "isBuyerMaker": true
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.399,
+    "is_cloudflare_html_block": false
+  }
+}

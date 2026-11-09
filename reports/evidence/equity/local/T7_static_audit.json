@@ -1,0 +1,128 @@
+{
+  "id": "T7",
+  "file": "t7_static_audit.mjs",
+  "label": "static_audit",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T7_static_audit\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:03.456Z\",\"finishedAt\":\"2026-11-09T04:44:03.488Z\",\"meta\":{\"scope\":\"src/*.mjs (vendor/ excluded from the 'own code' checks)\"},\"checks\":[{\"name\":\"no_forbidden_host_in_own_src\",\"pass\":true,\"detail\":{\"files\":[\"collector.mjs\",\"compute.mjs\",\"constants.mjs\",\"engine-anchor.mjs\",\"hash.mjs\",\"market.mjs\",\"provenance.mjs\",\"replay.mjs\"],\"note\":\"comments explaining the ban are allowed; executable references are not\"}},{\"name\":\"primary_host_is_binance_us\",\"pass\":true,\"detail\":null},{\"name\":\"no_fetchMarks_call\",\"pass\":true,\"detail\":null},{\"name\":\"no_collectEquitySnapshots_call\",\"pass\":true,\"detail\":null},{\"name\":\"no_buildEquityRiskBasis_call\",\"pass\":true,\"detail\":null},{\"name\":\"no_write_to_paper_accounts\",\"pass\":true,\"detail\":null},{\"name\":\"no_write_to_server_events_or_orders\",\"pass\":true,\"detail\":null},{\"name\":\"all_writes_are_insert_or_ignore\",\"pass\":true,\"detail\":{\"snapshot_sql\":\"INSERT OR IGNORE INTO paper_equity_snapshots (snapshot_id, s\",\"provenance_sql\":\"INSERT OR IGNORE INTO v45_snapshot_provenance (snapshot_id, \"}},{\"name\":\"deterministic_id_uses_only_5_stable_fields\",\"pass\":true,\"detail\":{\"note\":\"id must not include prices, marks, equity or wall-clock time\"}},{\"name\":\"real_trading_red_line_enforced\",\"pass\":true,\"detail\":null},{\"name\":\"no_console_logging_in_src\",\"pass\":true,\"detail\":null},{\"name\":\"no_credential_references_in_src\",\"pass\":true,\"detail\":null},{\"name\":\"wrangler_binding_is_EQ_DB\",\"pass\":true,\"detail\":null},{\"name\":\"wrangler_marks_isolated_db\",\"pass\":true,\"detail\":null}],\"extra\":{\"own_files\":[\"collector.mjs\",\"compute.mjs\",\"constants.mjs\",\"engine-anchor.mjs\",\"hash.mjs\",\"market.mjs\",\"provenance.mjs\",\"replay.mjs\"],\"generated_insert_prefixes\":[\"INSERT OR IGNORE INTO paper_equity_snaps\",\"INSERT OR IGNORE INTO v45_snapshot_prove\"],\"verdict_labels\":{\"static_compliance\":\"VERIFIED (source inspection)\"}}}\n",
+  "stderr": "",
+  "result": {
+    "testId": "T7_static_audit",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:03.456Z",
+    "finishedAt": "2026-11-09T04:44:03.488Z",
+    "meta": {
+      "scope": "src/*.mjs (vendor/ excluded from the 'own code' checks)"
+    },
+    "checks": [
+      {
+        "name": "no_forbidden_host_in_own_src",
+        "pass": true,
+        "detail": {
+          "files": [
+            "collector.mjs",
+            "compute.mjs",
+            "constants.mjs",
+            "engine-anchor.mjs",
+            "hash.mjs",
+            "market.mjs",
+            "provenance.mjs",
+            "replay.mjs"
+          ],
+          "note": "comments explaining the ban are allowed; executable references are not"
+        }
+      },
+      {
+        "name": "primary_host_is_binance_us",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_fetchMarks_call",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_collectEquitySnapshots_call",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_buildEquityRiskBasis_call",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_write_to_paper_accounts",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_write_to_server_events_or_orders",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "all_writes_are_insert_or_ignore",
+        "pass": true,
+        "detail": {
+          "snapshot_sql": "INSERT OR IGNORE INTO paper_equity_snapshots (snapshot_id, s",
+          "provenance_sql": "INSERT OR IGNORE INTO v45_snapshot_provenance (snapshot_id, "
+        }
+      },
+      {
+        "name": "deterministic_id_uses_only_5_stable_fields",
+        "pass": true,
+        "detail": {
+          "note": "id must not include prices, marks, equity or wall-clock time"
+        }
+      },
+      {
+        "name": "real_trading_red_line_enforced",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_console_logging_in_src",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "no_credential_references_in_src",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "wrangler_binding_is_EQ_DB",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "wrangler_marks_isolated_db",
+        "pass": true,
+        "detail": null
+      }
+    ],
+    "extra": {
+      "own_files": [
+        "collector.mjs",
+        "compute.mjs",
+        "constants.mjs",
+        "engine-anchor.mjs",
+        "hash.mjs",
+        "market.mjs",
+        "provenance.mjs",
+        "replay.mjs"
+      ],
+      "generated_insert_prefixes": [
+        "INSERT OR IGNORE INTO paper_equity_snaps",
+        "INSERT OR IGNORE INTO v45_snapshot_prove"
+      ],
+      "verdict_labels": {
+        "static_compliance": "VERIFIED (source inspection)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:03.496Z",
+  "node": "v22.22.2"
+}
