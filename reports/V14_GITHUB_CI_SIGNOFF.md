@@ -92,6 +92,7 @@ OAuth scopes 含 `pages(write) d1(write)`，但本次**未执行任何部署/写
 | Run ID | 分支 / SHA | 事件 | 结论 | 明细 |
 |---|---|---|---|---|
 | `42552663076` | `feature/v14-ci-audit-20261109` / `376c5de` | push | **SUCCESS** | Job1 `Typecheck · Build · Unit tests (mock)` 全 10 步 SUCCESS；Job2 `Real Binance market-data probe (non-blocking)` 全 7 步 SUCCESS（GitHub Runner 真实网络请求） |
+| `42553150646` | 同分支 / `13c33d6`（报告提交） | push | **SUCCESS** | Job1 `Typecheck · Build · Unit tests (mock)` SUCCESS；Job2 `Real Binance market-data probe (non-blocking)` SUCCESS → 报告提交再次验证同一门禁 |
 | `42552657165` | 同分支 / `ce8d570` | push | **CANCELLED** | concurrency 取消旧 run，**不计 PASS** |
 | `42531381544` | `feat/jev-cloudflare-staging` / `ce8d570` | push | **FAILURE** | step 1–8 SUCCESS（含 `Market status classifier` 单测）；step 9 Secrets 门禁 FAILURE；step 10–14 全 **skipped** |
 | `42531381446` / `42531386865` | `ce8d570` | push / PR | SUCCESS | Trading Workbench CI / Docker Runtime Gate |
