@@ -44,7 +44,7 @@ jobs:
     name: "T02/T03 · real market diagnosis + provenance"
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ inputs.base_url }}
+      BASE_URL: ${{ inputs.base_url || 'https://jev-cloud-staging.pages.dev' }}
       JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
       JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
     steps:
@@ -92,7 +92,7 @@ jobs:
     name: "T04 · Paper Trading lifecycle (isolated staging account)"
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ inputs.base_url }}
+      BASE_URL: ${{ inputs.base_url || 'https://jev-cloud-staging.pages.dev' }}
       JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
       JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
     steps:
@@ -144,7 +144,7 @@ jobs:
     name: "T05 · D1 session isolation + fail-closed"
     runs-on: ubuntu-latest
     env:
-      BASE_URL: ${{ inputs.base_url }}
+      BASE_URL: ${{ inputs.base_url || 'https://jev-cloud-staging.pages.dev' }}
       JEV_PREVIEW_USER: ${{ secrets.JEV_PREVIEW_USER }}
       JEV_PREVIEW_PASSWORD: ${{ secrets.JEV_PREVIEW_PASSWORD }}
     steps:
