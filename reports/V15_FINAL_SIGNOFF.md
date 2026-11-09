@@ -141,3 +141,46 @@
 - **接入 `jev-paper-staging` = NO-GO；生产晋级 = NO-GO。**  blocker 未清零（#1–#9）。
 - 本轮**未**合并任何 Release、未修改 PR #4、未强推、未删 D1、未改冻结引擎、未开启真实交易、
   未伪造任何样本或收益。
+
+---
+
+## 10. 增补 A1 — 迟到交付的独立 QA 清单（本提交新增，§1–§9 原文保留）
+
+> **本 Signoff §1–§9 是提交 `887ac54`（2026-11-09 12:51:00 +08:00）时的原文快照**，未改写、未 `amend`、未强推。
+> `market-auditor` 的只读复核清单 `MARKET_MIXING_GUARD_CHECKLIST.md` 在 **12:54:48** 才落地（晚 3m48s），
+> 因此**未进入当时的 PR #5 证据链**。现补录并做精度修正，完整裁决见
+> `reports/V15_QA_ADDENDUM_ADJUDICATION.md`，机器证据见 `reports/evidence/V15_QA_ADDENDUM_EVIDENCE.json`。
+
+### 10.1 补录证据
+
+| 项 | 值 |
+|---|---|
+| QA 清单入仓 | `reports/V15_QA_MIXING_GUARD_CHECKLIST.md`（逐字节复制，341 行，sha256 `23658972…c6d83fe6`） |
+| 清单性质 | 独立 QA 只读复核：未改 `v15-dev`、未跑其测试、未写云端、未碰凭据 |
+| 核心结论 | 单源 / fail-closed / 不回写 / 幂等实现扎实，但 `v45_snapshot_provenance` 缺 `(exchange, market)` 组合键；**现有 8/8 PASS、95 断言不能证明「不得无标识混用」规则被满足** |
+
+### 10.2 精度修正（不改变主决策）
+
+| 位置 | 原口径 | 修正口径 |
+|---|---|---|
+| TL;DR「P3 真实市场覆盖」 | `GO（核查完成）` | **市场覆盖核查 = GO（不变）**；**「不得混用」合规判定 = UNVERIFIED / NO-GO（新增）** |
+| TL;DR 统计行 | `PASS 24 / FAIL 0 / BLOCKED 9` | `PASS 24 / FAIL 0 / **BLOCKED 10**`（PASS 数不增加；新增为派生门禁，非新缺陷、非新完成项） |
+| §8 #2 | 「独立 QA 建议」 | 精确到 QA 清单 §6.1.1：7 个必补字段 + 6 个同源缺口（`ts_source` / `failure_class` / `unit_multiplier` / `venue` / `symbol` / `book_ts_source`） |
+| §8 新增 #10 | — | **HIGH**：「不得混用」规则当前**不可判定**；为 #2 的派生项，非独立新缺陷；清零条件见裁决 §5 |
+| §9 条件 | 补齐 #2、完成 #3 接入评审、保持 #4/#5 | 追加：**#10 合规可判定性须随 #2 一并复验，且由独立 QA 复核** |
+| §9 生产晋级 | NO-GO（#1–#9 未清零） | **NO-GO（#1–#10 未清零），结论不变** |
+
+### 10.3 三态口径与不做清单
+
+- `VERIFIED`：P0 轮换、P1 12/12 差异回归、P2 行为层 8/8 + 云端 12 行 / 回放 12/12、P3 三上下文行情核查 —— **保持，不回退**。
+- `UNVERIFIED`：「不得混用」合规判定 —— **既非 PASS 也非 FAIL**，缺 `(exchange, market)` 键导致 SQL 层不可判定。
+- `BLOCKED / 待补字段`：7 必补 + 6 同源 —— **不是自动 FAIL**，现有单一 `api.binance.us` 主源交付在语境下有效；**也不能写成已满足**。
+- **本轮不改** schema / collector 源码 / 冻结引擎 15 文件 / 冻结表 / 已通过的 8 组测试与 95 断言；**不删、不放宽、不重写任何断言**；不重跑已通过测试；不接入 Global 来源；不接入 Staging 或真实资金。
+- 原因：加列必须同步扩展 T1 `provenance_complete_fields` 与 T2 `all_fields_identical_across_3_runs` 的断言列集合，否则「加列后测试形同虚设」；这属于新开发 + 独立 QA 复验周期，不能改完就自称绿。
+- M1 最小充分集（`exchange` / `market` / `price_ts_source` / `network_context` + payload 单位约定）登记为 **V1.6 或「接入 Staging 评审」前置门禁**，是否提前启动由主理人决定。
+
+### 10.4 决策与 CI
+
+- **V1.5 加固 GO / 接入 Staging NO-GO / 生产晋级 NO-GO — 三项主决策全部不变。**
+- 纯文档与证据增补，零代码变更，`[skip ci]`：**未触发新 CI**，最新 CI Run 仍为 **`42563795444`**（2 Job SUCCESS）。
+- PR #5 仍为 Draft / open / base `release/jcc-v1.3-final`，未合并；本增补同步写入 PR 正文。
