@@ -132,7 +132,10 @@ jobs:
           call -b "$J/cookies" -X POST -H 'content-type: application/json' \
             -d '{"clientOrderId":"ci-v14-market001","confirmationId":"ci-v14-conf-mkt01","symbol":"BTCUSDT","side":"BUY","type":"MARKET","quantity":0.01}' \
             "$B/api/jev/paper/orders" -o "$J/dup.json"
-          python3 -c "import json;b=json.load(open('$J/dup.json'))['data'];assert b['duplicate'] is True and len(b['fills'])==0"
+          # Real contract: a duplicate response has NO 'fills' key; it echoes
+          # the original orderId/orderStatus instead. Assert both no new fills
+          # AND that the duplicate points back at the original order.
+          python3 -c "import json;b=json.load(open('$J/dup.json'))['data'];m=json.load(open('$J/market.json'))['data'];assert b['duplicate'] is True;assert not (b.get('fills') or []);assert b['orderId']==m['order']['id"], 'duplicate must point at the original order'"
           echo "T04 PASS: duplicate clientOrderId produced 0 new fills" >> "$GITHUB_STEP_SUMMARY"
 
   d1-security:
