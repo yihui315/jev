@@ -13,7 +13,7 @@
 | 真实冻结引擎 E2E（mock AI 离线驱动） | **VERIFIED 37/37 PASS，network_calls=0** |
 | Mock 契约层（10 套件） | **120/120 PASS，exit 0，network_calls=0** |
 | 轨道 A（Market Provenance） | **GO（不变）** |
-| Real Provider 通路 | **BLOCKED（无凭据）** |
+| Real Provider 通路 | **BLOCKED（P2 审计实证：6 secretRef 全 NOT SET + Ollama 不可达，见 §9）** |
 | 远端推送 | **DONE（`bc2a5cb` 已 fast-forward 至 `origin`，PR #6 维持 Draft，未碰 Release）** |
 | GitHub CI 双门禁（`bc2a5cb`） | **GREEN（4 个 workflow 全部 success，见 §8）** |
 | 生产晋级 / 自动交易 | **NO-GO** |
@@ -139,4 +139,25 @@ Job：**`V1.5 baseline (8 groups / 95 assertions) + V1.6 new suites` → success
 | AI Mock 契约（含 37 真实引擎 E2E） | 120/120 PASS（network_calls=0） | 120 |
 | **合计** | **全 PASS** | **319** |
 
-—— 夜间自主执行收口。轨道 A 可进入「接入 Staging 评审」讨论；轨道 B 等待 Provider 凭据与写权限解锁。CI 双门禁已在 `bc2a5cb` 实证全绿，但**整体 V1.6 GO 仍受 Real Provider BLOCKED + PHASE_8 独立 QA 交叉复核未完成约束**，未宣布。
+## 9. P2 — 真实 AI Provider 凭据审计（结果：REAL_PROVIDER_BLOCKED）
+
+> 审计口径：代码侧 `server/ai/runtime.mjs` 的 Provider 注册表定义 6 个 `secretRef`（凭据名）：`OPENAI_API_KEY`（cloud）、`MINIMAX_API_KEY`、`DASHSCOPE_API_KEY`、`DEEPSEEK_API_KEY`、`OPENROUTER_API_KEY`（cloud）、`OLLAMA_API_KEY`（local, optional）。运行时由 `env[secretRef]` 解析凭据值，代码内零硬编码密钥；Ollama 默认走 `http://127.0.0.1:11434`（loopback only）。
+
+### 9.1 实测结果（本沙箱环境，2026-11-10）
+
+| 检查项 | 结果 |
+|---|---|
+| 6 个 secretRef 环境变量（OPENAI / MINIMAX / DASHSCOPE / DEEPSEEK / OPENROUTER / OLLAMA_API_KEY） | **全部 NOT SET**（运行时不存在） |
+| 本地 Ollama 监听 `127.0.0.1:11434` / `localhost:11434` | **不可达（HTTP 000）** |
+| 仓库内 `.env` | 仅 `config/.env.example` 模板，所有值空，默认 `JCC_PROVIDER=mock`（零密钥） |
+| WorkBuddy 平台内部 Token（`JCC_CONTROL_TOKEN` / `WORKBUDDY_VLM_AUTH_TOKEN` / `CODEBUDDY_DOCUMENT_TOKEN` / `WORKBUDDY_PAC_RPC_TOKEN`） | **显式排除**：属平台 / RPC / VLM 鉴权令牌，非 OpenAI / OpenAI-compatible API Key，禁止用于 AI 推理 |
+| 本 Agent 自身 LLM（平台模型服务） | **显式排除**：属 WorkBuddy 平台模型服务，非主理人配发的 OpenAI API Key；按约束「不得将 ChatGPT 登录态误当 OpenAI API Key」，不充作 JEV 应用的 Real Provider |
+
+### 9.2 结论
+
+- **REAL_PROVIDER_BLOCKED 维持**：本环境无任何可用真实 AI Provider 凭据，OpenAI / OpenAI-compatible / 本地 Ollama 三条路径均不可达。
+- **未做真实 AI 推理、未伪造决策**：PHASE_3（真实 AI 最小推理）、PHASE_5/6 的 `REAL_AI_INFERENCE` / `REAL_MARKET_PAPER` 口径、以及 P3「真实 AI → 真实行情 → 决策 → 风控 → 虚拟订单 → D1 → 权益快照」联调，**均仍 BLOCKED**。
+- **不造假**：未用平台 Token 冒充 API Key，未用本 Agent 模型冒充 JEV 真实 Provider，未编造任何延迟 / Token / 费用 / 决策数据。
+- **解除条件**：在 `runtime.mjs` 的 6 个 secretRef 之一注入真实密钥（或起一个监听 `127.0.0.1:11434` 的 Ollama 服务），随后按 P2 → P3 推进并据实记录 Provider / 模型 / 延迟 / Token / 费用 / 标准化决策。
+
+—— 夜间自主执行收口。轨道 A 可进入「接入 Staging 评审」讨论；轨道 B 等待 Provider 凭据解锁（P2 审计见 §9）与 PHASE_8 独立 QA 交叉复核。CI 双门禁已在 `bc2a5cb` 实证全绿，但**整体 V1.6 GO 仍受 Real Provider BLOCKED + PHASE_8 独立 QA 交叉复核未完成约束**，未宣布。P4（PR #6 描述同步）待主理人侧可写凭据或维持现状——本报告与 `V16_NIGHT_TASK_STATUS.json` 已随提交推送，作为 PR #6 的权威夜间交付物。

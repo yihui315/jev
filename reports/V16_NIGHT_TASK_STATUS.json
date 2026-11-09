@@ -57,9 +57,9 @@
       "name": "真实 AI 最小推理 / Real AI Min Inference",
       "status": "BLOCKED",
       "summary": "dataMode:\"real\" 真实推理链路无法验证；无密钥时返回 409 PROVIDER_BLOCKED 且不写入决策行（已断言 rows=0）。",
-      "evidence": ["server/ai/tests/t5_data_mode.mjs", "reports/V16_AI_PAPER_E2E.md §2"],
-      "blocking_reason": "无 AI Provider 凭据（唯一主理人动作项）。",
-      "next_action": "等待凭据；解除后执行 V16_AI_PAPER_E2E.md 步骤 1-3。"
+      "evidence": ["server/ai/tests/t5_data_mode.mjs", "reports/V16_AI_PAPER_E2E.md §2", "P2 audit 2026-11-10: runtime.mjs 6 secretRefs (OPENAI/MINIMAX/DASHSCOPE/DEEPSEEK/OPENROUTER/OLLAMA_API_KEY) ALL NOT SET in runtime env; local Ollama 127.0.0.1:11434 unreachable; platform tokens (JCC_CONTROL_TOKEN/WORKBUDDY_VLM_AUTH_TOKEN/CODEBUDDY_DOCUMENT_TOKEN/WORKBUDDY_PAC_RPC_TOKEN) explicitly excluded; agent's own LLM excluded (not an OpenAI API key)"],
+      "blocking_reason": "无可用 AI Provider 凭据：runtime.mjs 的 6 个 secretRef 在本环境全部 NOT SET，本地 Ollama 不可达；平台内部 Token 与本 Agent 模型均不计入（按规约排除）。唯一主理人动作项：注入任一 secretRef 真实密钥或起 Ollama 服务。",
+      "next_action": "等待凭据；解除后执行 V16_AI_PAPER_E2E.md 步骤 1-3（P2→P3 联调）。"
     },
     {
       "id": "PHASE_4",
