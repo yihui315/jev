@@ -13,7 +13,7 @@
 | 真实冻结引擎 E2E（mock AI 离线驱动） | **VERIFIED 37/37 PASS，network_calls=0** |
 | Mock 契约层（10 套件） | **120/120 PASS，exit 0，network_calls=0** |
 | 轨道 A（Market Provenance） | **GO（不变）** |
-| Real Provider 通路 | **BLOCKED（P2 审计实证：6 secretRef 全 NOT SET + Ollama 不可达，见 §9）** |
+| Real Provider 通路 | **BLOCKED（凭据已写入 vault 但 DashScope 401 拒签；需正确 API-KEY / AK-SK，见 §9.3）** |
 | 远端推送 | **DONE（`bc2a5cb` 已 fast-forward 至 `origin`，PR #6 维持 Draft，未碰 Release）** |
 | GitHub CI 双门禁（`bc2a5cb`） | **GREEN（4 个 workflow 全部 success，见 §8）** |
 | 生产晋级 / 自动交易 | **NO-GO** |
@@ -66,7 +66,7 @@
 
 - ✅ **真实引擎 E2E 已验证** —— 之前报告写「未做真实 Paper 下单 E2E」，现用 mock AI 离线驱动**生产冻结引擎本体**跑通，引擎侧 Origin 校验、`LOT_SIZE` 校验、中文拒卖空码、HOLD 短路、幂等重复下单全部是引擎真实执行，不是假计数器。
 - ✅ **本地成果已推送远端** —— `acc8433..bc2a5cb` 经代理 `127.0.0.1:10808` + 本机 GCM 凭据 fast-forward 推送；远端 HEAD 已确认为 `bc2a5cb`（= 本地 HEAD），PR #6 维持 Draft，未 force push、未碰 Release。
-- ❌ **Real Provider 仍 BLOCKED** —— 本机 DPAPI 凭据库无 AI 密钥，`dataMode:"real"` 真实推理链路无法验证；此项与「真实引擎 E2E」正交，互不替代。
+- ❌ **Real Provider 仍 BLOCKED** —— 主理人已配发 Alibaba 百炼 / DashScope 密钥并写入 `config/.env`，但两条密钥在 DashScope 以 Bearer 被拒签（HTTP 401，疑为 AK/SK 类或无效 / 过期）；`dataMode:"real"` 真实推理链路仍无法验证；此项与「真实引擎 E2E」正交，互不替代。
 - ❌ **未做云端真实下单** —— 离线 E2E 未经过云端 Worker + 真实密钥 + 真实行情；不宣称「AI 已能自动下单」。
 - ❌ **未伪造任何证据** —— 无假绿、无删失败断言、无代填样本。
 
@@ -139,7 +139,7 @@ Job：**`V1.5 baseline (8 groups / 95 assertions) + V1.6 new suites` → success
 | AI Mock 契约（含 37 真实引擎 E2E） | 120/120 PASS（network_calls=0） | 120 |
 | **合计** | **全 PASS** | **319** |
 
-## 9. P2 — 真实 AI Provider 凭据审计（结果：REAL_PROVIDER_BLOCKED）
+## 9. P2 — 真实 AI Provider 凭据审计与实测（结果：REAL_PROVIDER_BLOCKED · 凭据已配但拒签）
 
 > 审计口径：代码侧 `server/ai/runtime.mjs` 的 Provider 注册表定义 6 个 `secretRef`（凭据名）：`OPENAI_API_KEY`（cloud）、`MINIMAX_API_KEY`、`DASHSCOPE_API_KEY`、`DEEPSEEK_API_KEY`、`OPENROUTER_API_KEY`（cloud）、`OLLAMA_API_KEY`（local, optional）。运行时由 `env[secretRef]` 解析凭据值，代码内零硬编码密钥；Ollama 默认走 `http://127.0.0.1:11434`（loopback only）。
 
@@ -155,9 +155,26 @@ Job：**`V1.5 baseline (8 groups / 95 assertions) + V1.6 new suites` → success
 
 ### 9.2 结论
 
-- **REAL_PROVIDER_BLOCKED 维持**：本环境无任何可用真实 AI Provider 凭据，OpenAI / OpenAI-compatible / 本地 Ollama 三条路径均不可达。
+- **REAL_PROVIDER_BLOCKED 维持（子类：凭据已配但拒签）**：主理人已配发 Alibaba 百炼 / DashScope 密钥并写入 `config/.env`；但两条密钥在 DashScope 两个端点均以 Bearer 被拒签（HTTP 401 `invalid_api_key`），真实推理仍不可达。原因最可能是密钥为 AccessKeySecret（SK）类（缺 AccessKeyId + SignV1），或无效 / 过期 / 转录错误。
 - **未做真实 AI 推理、未伪造决策**：PHASE_3（真实 AI 最小推理）、PHASE_5/6 的 `REAL_AI_INFERENCE` / `REAL_MARKET_PAPER` 口径、以及 P3「真实 AI → 真实行情 → 决策 → 风控 → 虚拟订单 → D1 → 权益快照」联调，**均仍 BLOCKED**。
 - **不造假**：未用平台 Token 冒充 API Key，未用本 Agent 模型冒充 JEV 真实 Provider，未编造任何延迟 / Token / 费用 / 决策数据。
-- **解除条件**：在 `runtime.mjs` 的 6 个 secretRef 之一注入真实密钥（或起一个监听 `127.0.0.1:11434` 的 Ollama 服务），随后按 P2 → P3 推进并据实记录 Provider / 模型 / 延迟 / Token / 费用 / 标准化决策。
+- **解除条件**：取得 DashScope **Model Studio API-KEY**（Bearer 直用），或 **AccessKeyId + AccessKeySecret** 对（实现 AK/SK SignV1），或任一其他 OpenAI-compatible 直接 API Key；随后按 P2 → P3 推进并据实记录 Provider / 模型 / 延迟 / Token / 费用 / 标准化决策。当前 `config/.env` 已就位，仅需替换 / 补全密钥即可激活 `qwen` provider。
 
-—— 夜间自主执行收口。轨道 A 可进入「接入 Staging 评审」讨论；轨道 B 等待 Provider 凭据解锁（P2 审计见 §9）与 PHASE_8 独立 QA 交叉复核。CI 双门禁已在 `bc2a5cb` 实证全绿，但**整体 V1.6 GO 仍受 Real Provider BLOCKED + PHASE_8 独立 QA 交叉复核未完成约束**，未宣布。P4（PR #6 描述同步）待主理人侧可写凭据或维持现状——本报告与 `V16_NIGHT_TASK_STATUS.json` 已随提交推送，作为 PR #6 的权威夜间交付物。
+### 9.3 实测续：主理人配发凭据后的真实调用（2026-11-10）
+
+> 主理人于本日提供凭据并指示「记录凭证内保存 备用」。已安全写入本地密钥库 `config/.env`（gitignored，不进版本库、不透出明文）；映射 `DASHSCOPE_API_KEY` + `JEV_AI_QWEN_BASE_URL`（→ registry providerId `qwen`，OpenAI-compatible）。
+
+| 检查项 | 结果 |
+|---|---|
+| `config/.env` 写入与 git 忽略 | ✅ 已写入；`git check-ignore config/.env` 命中（不进版本库） |
+| 沙箱出网至 `dashscope.aliyuncs.com`（经代理 `127.0.0.1:10808`） | ✅ 可达（curl 经代理 `CONNECT` 成功，RTT 级延迟 ~0.2–0.6s） |
+| 主密钥 `sk-sp-…`（Bearer）— OpenAI-compatible `/compatible-mode/v1/chat/completions` | ❌ **HTTP 401 `invalid_api_key`** |
+| 主密钥 `sk-sp-…`（Bearer）— 原生 `/api/v1/services/aigc/.../generation` | ❌ **HTTP 401 `InvalidApiKey`** |
+| 备用密钥 `sk-cp-…`（Bearer）— OpenAI-compatible 端点 | ❌ **HTTP 401 `invalid_api_key`** |
+| 密钥污染排查（CR / 空白 / 长度） | ✅ 115 字符、无 CR/WS、尾部 `WYXxMA` 与原始一致（非传输污染） |
+
+**判定**：两条百炼密钥在 DashScope 两个端点均以 Bearer 被拒签（401），与 Model Studio API-KEY 行为不符，最可能是 **Alibaba Cloud AccessKeySecret（SK）类凭据**（需配对 AccessKeyId + SignatureV1，本次未提供 AccessKeyId），或无效 / 过期 / 转录错误。故 Real Provider 真实推理仍 BLOCKED——但已从「无任何凭据」推进到「凭据已配但鉴权层拒签」。
+
+**下一步（待主理人）**：① 提供 DashScope **Model Studio API-KEY**（Bearer 直用）；② 提供 **AccessKeyId + AccessKeySecret** 对以便实现 AK/SK SignV1；③ 或改提供任一其他 OpenAI-compatible 服务的直接 API Key。`JEV_API_KEY`（`apikey_…`）为 JEV 自有真实 Provider 密钥（对应 `JCC_PROVIDER=real`），与 AI 推理适配器无关，已一并保存备用。
+
+—— 夜间自主执行收口。轨道 A 可进入「接入 Staging 评审」讨论；轨道 B 等待**正确** Provider 凭据（已配但 DashScope 拒签，见 §9.3）与 PHASE_8 独立 QA 交叉复核。CI 双门禁已在 `bc2a5cb` 实证全绿，但**整体 V1.6 GO 仍受 Real Provider BLOCKED + PHASE_8 独立 QA 交叉复核未完成约束**，未宣布。P4（PR #6 描述同步）待主理人侧可写凭据或维持现状——本报告与 `V16_NIGHT_TASK_STATUS.json` 已随提交推送，作为 PR #6 的权威夜间交付物。
