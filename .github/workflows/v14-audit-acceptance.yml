@@ -1,0 +1,16 @@
+# JEV V1.4 audit acceptance — staged, no push trigger yet.
+name: JEV V1.4 - Audit acceptance (staged)
+on:
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Staging URL"
+        required: true
+        default: "https://jev-cloud-staging.pages.dev"
+permissions:
+  contents: read
+jobs:
+  placeholder:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "placeholder - will be replaced by the full 4-job acceptance suite"
