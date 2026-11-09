@@ -1,0 +1,172 @@
+{
+  "captured_at_utc": "2026-11-09T04:41:05.857026+00:00",
+  "scale": 100000000,
+  "initial_cash_fp": 1000000000000,
+  "rows": 12,
+  "peak_matches": 12,
+  "drawdown_matches": 12,
+  "replay": [
+    {
+      "session_id": "v45-FIXTURE-alpha",
+      "cycle_key": "v45-cloud-C1",
+      "equity": 1012597260000,
+      "stored_peak": 1012597260000,
+      "replayed_peak": 1012597260000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-alpha",
+      "cycle_key": "v45-cloud-C2",
+      "equity": 1012597260000,
+      "stored_peak": 1012597260000,
+      "replayed_peak": 1012597260000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-alpha",
+      "cycle_key": "v45-cloud-C3",
+      "equity": 1012597260000,
+      "stored_peak": 1012597260000,
+      "replayed_peak": 1012597260000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-beta",
+      "cycle_key": "v45-cloud-C1",
+      "equity": 757365200000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 24263480,
+      "replayed_drawdown": 24263480,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-beta",
+      "cycle_key": "v45-cloud-C2",
+      "equity": 757365200000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 24263480,
+      "replayed_drawdown": 24263480,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-beta",
+      "cycle_key": "v45-cloud-C3",
+      "equity": 757365200000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 24263480,
+      "replayed_drawdown": 24263480,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-cash",
+      "cycle_key": "v45-cloud-C1",
+      "equity": 1000000000000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-cash",
+      "cycle_key": "v45-cloud-C2",
+      "equity": 1000000000000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-cash",
+      "cycle_key": "v45-cloud-C3",
+      "equity": 1000000000000,
+      "stored_peak": 1000000000000,
+      "replayed_peak": 1000000000000,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "verified",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-ordi",
+      "cycle_key": "v45-cloud-C1",
+      "equity": 0,
+      "stored_peak": 0,
+      "replayed_peak": 0,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "unknown",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-ordi",
+      "cycle_key": "v45-cloud-C2",
+      "equity": 0,
+      "stored_peak": 0,
+      "replayed_peak": 0,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "unknown",
+      "peak_match": true,
+      "dd_match": true
+    },
+    {
+      "session_id": "v45-FIXTURE-ordi",
+      "cycle_key": "v45-cloud-C3",
+      "equity": 0,
+      "stored_peak": 0,
+      "replayed_peak": 0,
+      "stored_drawdown": 0,
+      "replayed_drawdown": 0,
+      "mark_quality": "unknown",
+      "peak_match": true,
+      "dd_match": true
+    }
+  ],
+  "idempotency": [
+    {
+      "cycle_key": "v45-cloud-C1",
+      "rows_": 4,
+      "distinct_ids": 4
+    },
+    {
+      "cycle_key": "v45-cloud-C2",
+      "rows_": 4,
+      "distinct_ids": 4
+    },
+    {
+      "cycle_key": "v45-cloud-C3",
+      "rows_": 4,
+      "distinct_ids": 4
+    }
+  ],
+  "verdict": "PASS"
+}

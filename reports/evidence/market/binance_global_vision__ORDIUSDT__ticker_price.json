@@ -1,0 +1,51 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ORDIUSDT",
+  "endpoint": "ticker_price",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=ORDIUSDT",
+    "path": "/api/v3/ticker/price?symbol=ORDIUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:46.185+00:00",
+    "probe_ts_epoch_ms": 1794198286185,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:47 GMT",
+      "x_mbx_uuid": "be4f39e1-87d0-49e3-a29b-ea07a1f033be",
+      "x_mbx_used_weight": "130",
+      "x_mbx_used_weight_1m": "130",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 42,
+    "body_sha256": "3a92baba54a842fe9c4ddb6edcfe625aaa6bc9ffc8e74b30491656db9bc7e66b",
+    "body_sha256_short16": "3a92baba54a842fe",
+    "body_excerpt_500": "{\"symbol\":\"ORDIUSDT\",\"price\":\"3.09900000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "ORDIUSDT",
+      "price": "3.09900000",
+      "price_unit": "quote_asset per 1 base_asset (see exchangeInfo.quoteAsset)"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.317,
+    "is_cloudflare_html_block": false
+  }
+}

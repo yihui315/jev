@@ -1,0 +1,531 @@
+{
+  "probe_schema": "jev-v15-market-index/1.0",
+  "generated_ts_utc": "2026-11-09T04:24:22.303+00:00",
+  "finished_ts_utc": "2026-11-09T04:24:52.608+00:00",
+  "environment": {
+    "python": "3.13.14",
+    "proxy": "http://127.0.0.1:52498",
+    "http_proxy": "http://127.0.0.1:52498",
+    "no_proxy": "",
+    "credentials_used": false,
+    "remote_writes": false
+  },
+  "sources": {
+    "binance_us": {
+      "base": "https://api.binance.us",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "note": "V1.4 designated source; US-regulated market, DISTINCT from Binance Global"
+    },
+    "binance_global_vision": {
+      "base": "https://data-api.binance.vision",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "note": "Binance official public market-data host for the GLOBAL spot market"
+    }
+  },
+  "symbols": [
+    "BTCUSDT",
+    "ETHUSDT",
+    "ORDIUSDT",
+    "1000SATSUSDT"
+  ],
+  "total_requests": 34,
+  "ok_count": 17,
+  "transport_failure_count": 17,
+  "api_error_count": 0,
+  "rows": [
+    {
+      "evidence_file": "binance_global_vision__1000SATSUSDT__bookTicker.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "826d9746622aadb0",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "0.00000840",
+        "askPrice": "0.00000842"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__1000SATSUSDT__exchangeInfo.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "c37361c85ff7ea5c",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "1000SATS",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__1000SATSUSDT__ticker_price.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "860be520b7172193",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "0.00000841"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__1000SATSUSDT__trades.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "da6437026dd621ae",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "0.00000841",
+        "last_trade_time_ms": 1794198192522
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__BTCUSDT__bookTicker.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "0c719ee28b0e8a8e",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "74936.00000000",
+        "askPrice": "74936.01000000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__BTCUSDT__exchangeInfo.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "a96f4117c525d100",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "BTC",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__BTCUSDT__ticker_price.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "c9fd9e01f74e85df",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "74936.01000000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__BTCUSDT__trades.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "276e551ee81ea5db",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "74936.01000000",
+        "last_trade_time_ms": 1794198284544
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ETHUSDT__bookTicker.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "cbe72895ef738994",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "2141.72000000",
+        "askPrice": "2141.73000000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ETHUSDT__exchangeInfo.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "65152f67bf310f11",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "ETH",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ETHUSDT__ticker_price.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "1b6fa4c91c43a31b",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "2141.73000000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ETHUSDT__trades.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "66bbedd72ee8d932",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "2141.73000000",
+        "last_trade_time_ms": 1794198285343
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ORDIUSDT__bookTicker.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "586b899910331088",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "3.09800000",
+        "askPrice": "3.10000000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ORDIUSDT__exchangeInfo.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "4b88e64396fbff2c",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "ORDI",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ORDIUSDT__ticker_price.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "3a92baba54a842fe",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "3.09900000"
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__ORDIUSDT__trades.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "4e8fd9bce85a4ece",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "3.09900000",
+        "last_trade_time_ms": 1794198269352
+      }
+    },
+    {
+      "evidence_file": "binance_global_vision__SERVER__time.json",
+      "exchange": "Binance Global (data-api.binance.vision)",
+      "market": "spot",
+      "symbol": "SERVER",
+      "endpoint": "time",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "2dd83440c7aaa4ec",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "serverTime": 1794198283687
+      }
+    },
+    {
+      "evidence_file": "binance_us__1000SATSUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "bookTicker",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__1000SATSUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__1000SATSUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "ticker_price",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__1000SATSUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "trades",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__BTCUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "bookTicker",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__BTCUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__BTCUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "ticker_price",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__BTCUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "BTCUSDT",
+      "endpoint": "trades",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ETHUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "bookTicker",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ETHUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ETHUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "ticker_price",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ETHUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ETHUSDT",
+      "endpoint": "trades",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ORDIUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "bookTicker",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ORDIUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ORDIUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "ticker_price",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__ORDIUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "ORDIUSDT",
+      "endpoint": "trades",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    },
+    {
+      "evidence_file": "binance_us__SERVER__time.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "symbol": "SERVER",
+      "endpoint": "time",
+      "http_status": null,
+      "server": null,
+      "body_sha256_short16": null,
+      "classification": "TRANSPORT_FAILURE",
+      "api_error_code": null,
+      "key_fields": {}
+    }
+  ]
+}

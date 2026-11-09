@@ -1,0 +1,45 @@
+# =============================================================================
+# V45 Equity Collector — ISOLATED TEST Worker configuration (EXAMPLE).
+#
+# !!! ISOLATED TEST D1 ONLY !!!
+# binding name MUST be EQ_DB.
+# DO NOT point this binding at "jev-paper-staging" (the V1.4 frozen paper
+# engine D1). DO NOT point it at Night Researcher production D1. DO NOT point
+# it at any real-money / production account database.
+# This Worker is READ-ONLY with respect to paper_accounts / paper_server_events
+# / paper_orders / paper_fills; it only appends to paper_equity_snapshots and
+# v45_snapshot_provenance on the isolated test DB.
+#
+# ENABLE_REAL_TRADING is forced to "false". Real trading is never connected.
+# Creating the cloud isolated D1 and deploying is the OWNER's (主理人) job;
+# this repo never performs any cloud write operation.
+# =============================================================================
+
+name = "jev-v45-equity-collector"
+main = "src/collector.mjs"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+# --- ISOLATED TEST D1 ONLY ---------------------------------------------------
+[[d1_databases]]
+binding = "EQ_DB"
+database_name = "jev-v45-equity-ISOLATED-TEST"
+database_id = "<FILL_WITH_ISOLATED_TEST_D1_ID_ONLY>"
+
+# One collection cycle per cron tick. cycle_key is derived from
+# controller.scheduledTime so the same tick is idempotent (INSERT OR IGNORE).
+[triggers]
+crons = ["*/5 * * * *"]
+
+[vars]
+ENABLE_REAL_TRADING = "false"
+# The fetch() test trigger is DISABLED by default. Set to "true" ONLY inside an
+# isolated local test environment. In production leave it "false" so the
+# controlled fetch() entry point returns 403 and cannot be driven externally.
+V45_TEST_TRIGGER = "false"
+COLLECTOR_VERSION = "v45-equity-collector/1.0.0"
+
+# Market source is HARDCODED to Binance.US (verified reachable from the
+# Cloudflare edge in V1.4). data-api.binance.vision is FORBIDDEN as a primary
+# source (WAF 403 at the edge, and it wrongly lists ORDIUSDT/1000SATSUSDT which
+# are NOT listed on Binance.US). No API key / token is required or stored.

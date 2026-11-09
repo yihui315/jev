@@ -1,0 +1,53 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "BTCUSDT",
+  "endpoint": "bookTicker",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+    "path": "/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:43.678+00:00",
+    "probe_ts_epoch_ms": 1794198283678,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:44 GMT",
+      "x_mbx_uuid": "b823d9cc-0fbe-41f8-816a-54f41de2adb3",
+      "x_mbx_used_weight": "34",
+      "x_mbx_used_weight_1m": "34",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 120,
+    "body_sha256": "0c719ee28b0e8a8eca015db2630d2ab2b8cd71629ee2ffef102a27f9878aff40",
+    "body_sha256_short16": "0c719ee28b0e8a8e",
+    "body_excerpt_500": "{\"symbol\":\"BTCUSDT\",\"bidPrice\":\"74936.00000000\",\"bidQty\":\"0.76389000\",\"askPrice\":\"74936.01000000\",\"askQty\":\"7.02971000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "BTCUSDT",
+      "bidPrice": "74936.00000000",
+      "bidQty": "0.76389000",
+      "askPrice": "74936.01000000",
+      "askQty": "7.02971000"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.325,
+    "is_cloudflare_html_block": false
+  }
+}

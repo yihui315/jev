@@ -1,0 +1,54 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ORDIUSDT",
+  "endpoint": "exchangeInfo",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/exchangeInfo?symbol=ORDIUSDT",
+    "path": "/api/v3/exchangeInfo?symbol=ORDIUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:45.855+00:00",
+    "probe_ts_epoch_ms": 1794198285855,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:46 GMT",
+      "x_mbx_uuid": "d58b5f69-c7e5-4804-9613-f640e523725a",
+      "x_mbx_used_weight": "128",
+      "x_mbx_used_weight_1m": "128",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 5326,
+    "body_sha256": "4b88e64396fbff2c4bebc9edacff317ab19ebb8f9bfe4b395ab8576a715847f1",
+    "body_sha256_short16": "4b88e64396fbff2c",
+    "body_excerpt_500": "{\"timezone\":\"UTC\",\"serverTime\":1794198286904,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":\"SECOND\",\"intervalNum\":10,\"limit\":100},{\"rateLimitType\":\"ORDERS\",\"interval\":\"DAY\",\"intervalNum\":1,\"limit\":200000},{\"rateLimitType\":\"RAW_REQUESTS\",\"interval\":\"MINUTE\",\"intervalNum\":5,\"limit\":300000}],\"exchangeFilters\":[],\"symbols\":[{\"symbol\":\"ORDIUSDT\",\"status\":\"TRADING\",\"baseAsset\":\"ORDI\",\"baseAssetPrecision\":8,\"quoteA",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "ORDIUSDT",
+      "status": "TRADING",
+      "baseAsset": "ORDI",
+      "quoteAsset": "USDT",
+      "isSpotTradingAllowed": true,
+      "permissions": []
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.32,
+    "is_cloudflare_html_block": false
+  }
+}

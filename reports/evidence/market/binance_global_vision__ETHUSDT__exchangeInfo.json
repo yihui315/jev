@@ -1,0 +1,54 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ETHUSDT",
+  "endpoint": "exchangeInfo",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/exchangeInfo?symbol=ETHUSDT",
+    "path": "/api/v3/exchangeInfo?symbol=ETHUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:44.399+00:00",
+    "probe_ts_epoch_ms": 1794198284399,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:45 GMT",
+      "x_mbx_uuid": "62879ea3-fb22-4fb0-8530-9269313f4748",
+      "x_mbx_used_weight": "79",
+      "x_mbx_used_weight_1m": "79",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 5336,
+    "body_sha256": "65152f67bf310f114751f4183700d677d5720dd05a8a363715b8e48b185f4f58",
+    "body_sha256_short16": "65152f67bf310f11",
+    "body_excerpt_500": "{\"timezone\":\"UTC\",\"serverTime\":1794198285483,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":\"SECOND\",\"intervalNum\":10,\"limit\":100},{\"rateLimitType\":\"ORDERS\",\"interval\":\"DAY\",\"intervalNum\":1,\"limit\":200000},{\"rateLimitType\":\"RAW_REQUESTS\",\"interval\":\"MINUTE\",\"intervalNum\":5,\"limit\":300000}],\"exchangeFilters\":[],\"symbols\":[{\"symbol\":\"ETHUSDT\",\"status\":\"TRADING\",\"baseAsset\":\"ETH\",\"baseAssetPrecision\":8,\"quoteAss",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "ETHUSDT",
+      "status": "TRADING",
+      "baseAsset": "ETH",
+      "quoteAsset": "USDT",
+      "isSpotTradingAllowed": true,
+      "permissions": []
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.36,
+    "is_cloudflare_html_block": false
+  }
+}
