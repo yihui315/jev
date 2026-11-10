@@ -1,0 +1,18 @@
+{
+  "schema": "day14-exp-v1",
+  "realMarket": true,
+  "provider": "MiniMax-M3",
+  "networkContext": "sandbox_proxy_egress_binance_us",
+  "maxCycles": 60,
+  "virtualCapitalUsdt": 10000,
+  "maxNotionalPerTrade": 200,
+  "maxTrades": 6,
+  "maxExposurePct": 0.2,
+  "dailyLossBreachPct": 1,
+  "drawdownBreachPct": 2,
+  "callBudgetUsd": 5,
+  "feeRate": 0.001,
+  "slippagePct": 0.015,
+  "enableRealTrading": false,
+  "allowBuySell": false
+}

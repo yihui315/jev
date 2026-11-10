@@ -1,0 +1,23 @@
+{
+  "sha": "8da71f8e6b2f",
+  "cycles": 12,
+  "calls": 12,
+  "costUsd": 0,
+  "paused": false,
+  "pauseReason": null,
+  "qa": {
+    "pass": true,
+    "checks": [
+      "snapshots.jsonl written",
+      "decisions.jsonl written",
+      "risk.jsonl written",
+      "provider_health.jsonl written",
+      "equity.jsonl written",
+      "state.json written",
+      "config freeze intact",
+      "no real trading (allowBuySell=false)",
+      "no main/Release touched"
+    ],
+    "note": "PREP build — no model inference executed; full persistence (5 journals) + freeze + pause verified."
+  }
+}
