@@ -1,8 +1,8 @@
 {
-  "cycle": 12,
+  "cycle": 8,
   "paused": false,
   "pauseReason": null,
-  "calls": 12,
+  "calls": 8,
   "costUsd": 0,
   "providerFails": 0
 }

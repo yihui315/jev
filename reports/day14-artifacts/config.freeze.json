@@ -14,5 +14,6 @@
   "feeRate": 0.001,
   "slippagePct": 0.015,
   "enableRealTrading": false,
-  "allowBuySell": false
+  "allowBuySell": false,
+  "riskGateModule": "server/ai/risk-gate.mjs"
 }

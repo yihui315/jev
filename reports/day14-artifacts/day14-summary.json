@@ -1,7 +1,7 @@
 {
-  "sha": "8da71f8e6b2f",
-  "cycles": 12,
-  "calls": 12,
+  "sha": "e28e230b6a5e",
+  "cycles": 8,
+  "calls": 8,
   "costUsd": 0,
   "paused": false,
   "pauseReason": null,
@@ -14,10 +14,25 @@
       "provider_health.jsonl written",
       "equity.jsonl written",
       "state.json written",
-      "config freeze intact",
+      "day14-anchor.json written (tamper anchor)",
+      "config freeze intact (write-once + verify)",
+      "formal risk gate wired: YES",
       "no real trading (allowBuySell=false)",
       "no main/Release touched"
     ],
-    "note": "PREP build — no model inference executed; full persistence (5 journals) + freeze + pause verified."
+    "note": "PREP build — no model inference executed; full persistence (5 journals) + freeze + anchor + pause verified."
+  },
+  "anchor": {
+    "root": "b1068183a3ee5d854588724432e9df23641ab66676ebab8b569b0908e4ea716e",
+    "freezeHash": "d4edce64c48bf15ab6803ce9ea08a164404d84642c61065d74550d7983208658",
+    "journalTips": {
+      "market": "ddb65dfe347c69489a6742fe4977261f66baa2ede08f16a9ec4c786a54d75b10",
+      "decision": "2f1c545ccff821523b1182867595c143b1054d7ce6c9c10fc7d630985f87cae7",
+      "risk": "0def278f82d41e8dc8caf0fccccfdeeaa463649e88030640305ab8fbec8bd836",
+      "provider": "2e6e4918f9ae54a18743123d8c804055fb747f68065f5cea7262e4a349846291",
+      "equity": "9fa187b55d33c4e51ffdd5d141931c7edcf4940b16e0b40c66e51cb1dc13ff3c"
+    },
+    "generatedAt": "2026-11-10T14:48:50.424Z",
+    "note": "local anchor; external anchor = commit SHA once pushed"
   }
 }
