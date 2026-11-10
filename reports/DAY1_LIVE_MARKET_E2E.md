@@ -13,7 +13,7 @@
 - **symbol**: BTCUSDT
 - **source_url**: https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT (PROBE_FAILED_000)
 - **source_host**: api.binance.us
-- **timestamp**: 2026-11-10T01:24:03.915Z
+- **timestamp**: 2026-11-10T01:29:44.296Z
 - **freshness_ms**: null
 - **freshness_verdict**: UNKNOWN
 - **payload_sha256**: 3a85213196b11e652ebd73e098492e106129d233cf8f4ee3d9e6c1137acaa18c
