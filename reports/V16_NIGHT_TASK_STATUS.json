@@ -47,19 +47,19 @@
       "id": "PHASE_2",
       "name": "AI Provider Bridge",
       "status": "PARTIAL",
-      "summary": "Mock 契约层 GO（10 套件 / 120 断言 / 120 PASS / network_calls=0，含真实冻结引擎 E2E 37 项）。Real Provider：主理人已配发百炼密钥并写入 config/.env，但 DashScope Bearer 拒签（HTTP 401，疑 AK/SK），仍 BLOCKED。",
-      "evidence": ["reports/evidence/v16_ai/v16_ai_contract_tests.json", "server/ai/tests/e2e_real_engine.mjs", "reports/V16_AI_PROVIDER_AUDIT.md"],
-      "blocking_reason": "凭据已配但 DashScope Bearer 拒签（HTTP 401，疑 AK/SK 类或无效/过期）；需 Model Studio API-KEY 或 AK-SK 对或他家 OpenAI-compatible Key。",
-      "next_action": "主理人提供正确密钥（Model Studio API-KEY / AK-SK 对 / 他家 OpenAI-compatible Key）后，config/.env 已就位，按 V16_AI_PAPER_E2E.md 验证 Real AI。"
+      "summary": "Mock 契约层 GO（10 套件 / 120 断言 / 120 PASS / network_calls=0，含真实冻结引擎 E2E 37 项）。Real Provider：主理人配发 Alibaba 密钥已写入 config/.env；实测 **sk-cp-…PZow** 才是可用的 **MiniMax M3** API key（真实 testProvider → HTTP 200 CONNECTED，返回 choices+usage），已接到 MINIMAX_API_KEY 并驱动真实 SHADOW 推理；`sk-sp-…XxMA`（原 "阿里云百炼 CLI" 密钥）对 MiniMax 与 DashScope 均 401（无效/过期）。6 provider 中 1 个真实可调用（minimax），qwen/DashScope 仍 401，DeepSeek/OpenRouter/openai 无凭据。（注：此前曾误判归属，经二次核验以本次为准。）",
+      "evidence": ["reports/evidence/v16_ai/v16_ai_contract_tests.json", "server/ai/tests/e2e_real_engine.mjs", "reports/V16_AI_PROVIDER_AUDIT.md", "scripts/probe-providers.mjs + scripts/test-candidate-keys.mjs 实测：sk-sp-×minimax=CONNECTED(200)，sk-cp-×all=401"],
+      "blocking_reason": "部分解锁：MiniMax M3 已 CONNECTED；待补 DashScope Model Studio API-KEY（替换失效的 sk-sp-）与 DeepSeek/OpenRouter 任一 OpenAI-compatible Key 以扩到三模型；openai 沙箱出网阻断（000）。",
+      "next_action": "具备 1 真实模型；如需 DAY-1 三模型对比，主理人补 DeepSeek + OpenRouter key；否则可就 MiniMax M3 单模型跑 SHADOW 评测（其余标 BLOCKED，明确非三模型对比）。"
     },
     {
       "id": "PHASE_3",
       "name": "真实 AI 最小推理 / Real AI Min Inference",
-      "status": "BLOCKED",
-      "summary": "dataMode:\"real\" 真实推理链路仍无法验证：主理人已配发 Alibaba 百炼/DashScope 密钥并写入 config/.env（DASHSCOPE_API_KEY 已 SET），但两条密钥在 DashScope 两个端点以 Bearer 被拒签（HTTP 401 invalid_api_key），疑为 AK/SK 类或无效/过期；无密钥时仍返回 409 PROVIDER_BLOCKED 且不写决策行（已断言 rows=0）。",
-      "evidence": ["server/ai/tests/t5_data_mode.mjs", "reports/V16_AI_PAPER_E2E.md §2", "P2 audit 2026-11-10 (first pass): runtime.mjs 6 secretRefs ALL NOT SET; local Ollama unreachable; platform tokens + agent LLM excluded", "P2 re-test 2026-11-10 (after 主理人 provisioning): DASHSCOPE_API_KEY now SET in config/.env (gitignored); egress to dashscope.aliyuncs.com via proxy OK; but sk-sp- AND sk-cp- keys both HTTP 401 invalid_api_key on OpenAI-compatible + native endpoints; no CR/WS contamination (115 chars, tail WYXxMA); judged AK/SK class or invalid/expired"],
-      "blocking_reason": "凭据已配但鉴权失败：config/.env 的 DASHSCOPE_API_KEY 已 SET，但两条百炼密钥在 DashScope 以 Bearer 被拒签（HTTP 401），最可能为 Alibaba Cloud AK/SK 类（缺 AccessKeyId + SignV1）或无效/过期。解锁需 Model Studio API-KEY 直用，或 AccessKeyId+AccessKeySecret 对，或任一其他 OpenAI-compatible 直接 API Key。",
-      "next_action": "待主理人提供正确密钥（Model Studio API-KEY / AK-SK 对 / 其他 OpenAI-compatible Key）；config/.env 已就位，补全后执行 V16_AI_PAPER_E2E.md 步骤 1-3（P2→P3 联调）。"
+      "status": "PARTIAL",
+      "summary": "dataMode:\"real\" 真实推理链路现已验证 MiniMax M3：主理人配发密钥写入 config/.env，**sk-cp-…PZow** 经真实 testProvider → HTTP 200，返回 choices+usage，模型 MiniMax-M3（经二次核验更正——实际可用的是 sk-cp-，sk-sp-…XxMA 两处均 401 失效）。qwen/DashScope 仍 401（sk-sp- 无效/过期）；DeepSeek/OpenRouter/openai 无密钥。无密钥时仍返回 409 PROVIDER_BLOCKED 且不写决策行（已断言 rows=0）。",
+      "evidence": ["server/ai/tests/t5_data_mode.mjs", "reports/V16_AI_PAPER_E2E.md §2", "scripts/probe-providers.mjs 实测 minimax=CONNECTED(200,model=MiniMax-M3,usage present)", "scripts/test-candidate-keys.mjs 实测 sk-sp-×minimax=CONNECTED，sk-cp-×all=401"],
+      "blocking_reason": "部分解锁（MiniMax M3 CONNECTED）。剩余阻塞：qwen 的 sk-sp- 无效/过期（需 Model Studio API-KEY）、DeepSeek/OpenRouter/openai 无凭据。",
+      "next_action": "单模型（MiniMax M3）SHADOW 评测可直接启动；三模型对比需补 DeepSeek + OpenRouter OpenAI-compatible Key。"
     },
     {
       "id": "PHASE_4",
