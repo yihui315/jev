@@ -2,7 +2,7 @@
 
 > Generated: 2026-11-10T22:00 (GMT+8)
 > 仓库: yihui315/jev ｜ 分支: `feature/v16-market-provenance-hardening` ｜ PR #6: **Draft**
-> 本地 HEAD: `8da71f8`（较远端 `b102ca7` ahead 7，见 `GITHUB_REST_PUSH_RECOVERY.md`）
+> 本地 HEAD: `3f00c3d`（较远端 `b102ca7` ahead 8；含本 T05 提交 `3f00c3d`；此前 T01–T04 报告基于 ahead 7 的 `8da71f8` 状态，已并入本提交）
 > 纪律红线: `ENABLE_REAL_TRADING=false` / `allowBuySell=false` / 未碰 main·Release / 无真实资金
 
 ---
