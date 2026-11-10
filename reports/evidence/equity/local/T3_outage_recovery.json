@@ -1,0 +1,444 @@
+{
+  "id": "T3",
+  "file": "t3_outage_recovery.mjs",
+  "label": "outage_recovery",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T3_outage_recovery\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:01.975Z\",\"finishedAt\":\"2026-11-09T04:44:02.039Z\",\"meta\":{\"scenarios\":[\"ok\",\"throw\",\"http503\",\"missing\",\"nonpositive\",\"recover\",\"unlisted_symbols\"]},\"checks\":[{\"name\":\"s1_has_6_snapshots\",\"pass\":true,\"detail\":{\"count\":6}},{\"name\":\"ok_and_recover_are_verified\",\"pass\":true,\"detail\":{\"c0\":\"verified\",\"c5\":\"verified\"}},{\"name\":\"four_outage_cycles_are_unknown\",\"pass\":true,\"detail\":[{\"k\":\"c1_throw\",\"q\":\"unknown\"},{\"k\":\"c2_503\",\"q\":\"unknown\"},{\"k\":\"c3_missing\",\"q\":\"unknown\"},{\"k\":\"c4_nonpositive\",\"q\":\"unknown\"}]},{\"name\":\"outage_rows_have_no_fabricated_price\",\"pass\":true,\"detail\":[{\"k\":\"c1_throw\",\"eq\":0,\"marks\":\"{}\",\"dq\":\"UNKNOWN\"},{\"k\":\"c2_503\",\"eq\":0,\"marks\":\"{}\",\"dq\":\"UNKNOWN\"},{\"k\":\"c3_missing\",\"eq\":0,\"marks\":\"{}\",\"dq\":\"UNKNOWN\"},{\"k\":\"c4_nonpositive\",\"eq\":0,\"marks\":\"{}\",\"dq\":\"UNKNOWN\"}]},{\"name\":\"outage_rows_are_audit_only_peak_zero\",\"pass\":true,\"detail\":[{\"k\":\"c1_throw\",\"peak\":0,\"dd\":0},{\"k\":\"c2_503\",\"peak\":0,\"dd\":0},{\"k\":\"c3_missing\",\"peak\":0,\"dd\":0},{\"k\":\"c4_nonpositive\",\"peak\":0,\"dd\":0}]},{\"name\":\"honest_error_codes\",\"pass\":true,\"detail\":{\"throw\":\"MARKET_TypeError\",\"http503\":\"MARKET_HTTP_503\",\"http_status_503\":503,\"missing\":\"MISSING_OR_UNLISTED_SYMBOL\",\"nonpositive\":\"MISSING_OR_UNLISTED_SYMBOL\"}},{\"name\":\"recover_is_fresh_verified\",\"pass\":true,\"detail\":{\"dq\":\"VERIFIED\",\"fresh\":\"FRESH\"}},{\"name\":\"recover_peak_uses_verified_only\",\"pass\":true,\"detail\":{\"c0_equity\":17495177000000,\"recover_equity\":17000000000000,\"recover_peak\":17495177000000,\"recover_dd\":2830363,\"expected_dd\":2830363}},{\"name\":\"unlisted_symbols_always_unknown\",\"pass\":true,\"detail\":{\"count\":6,\"sample\":{\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"}}},{\"name\":\"unlisted_symbols_no_venue_quotable\",\"pass\":true,\"detail\":[\"NO_VENUE_QUOTABLE_SYMBOLS\"]},{\"name\":\"replay_all_rows_match_with_unknown\",\"pass\":true,\"detail\":[{\"c\":\"c0_ok\",\"q\":\"verified\",\"match\":true},{\"c\":\"c1_throw\",\"q\":\"unknown\",\"match\":true},{\"c\":\"c2_503\",\"q\":\"unknown\",\"match\":true},{\"c\":\"c3_missing\",\"q\":\"unknown\",\"match\":true},{\"c\":\"c4_nonpositive\",\"q\":\"unknown\",\"match\":true},{\"c\":\"c5_recover\",\"q\":\"verified\",\"match\":true}]}],\"extra\":{\"cycles\":[{\"key\":\"c0_ok\",\"mode\":\"ok\",\"written\":2,\"verified\":1,\"unknown\":1},{\"key\":\"c1_throw\",\"mode\":\"throw\",\"written\":2,\"verified\":0,\"unknown\":2},{\"key\":\"c2_503\",\"mode\":\"http503\",\"written\":2,\"verified\":0,\"unknown\":2},{\"key\":\"c3_missing\",\"mode\":\"missing\",\"written\":2,\"verified\":0,\"unknown\":2},{\"key\":\"c4_nonpositive\",\"mode\":\"nonpositive\",\"written\":2,\"verified\":0,\"unknown\":2},{\"key\":\"c5_recover\",\"mode\":\"ok\",\"written\":2,\"verified\":1,\"unknown\":1}],\"s1_rows\":[{\"cycle\":\"c0_ok\",\"equity\":17495177000000,\"peak\":17495177000000,\"dd\":0,\"q\":\"verified\",\"dq\":\"VERIFIED\",\"err\":null,\"http\":200,\"marks\":\"{\\\"BTCUSDT\\\":\\\"74951.77000000\\\"}\"},{\"cycle\":\"c1_throw\",\"equity\":0,\"peak\":0,\"dd\":0,\"q\":\"unknown\",\"dq\":\"UNKNOWN\",\"err\":\"MARKET_TypeError\",\"http\":null,\"marks\":\"{}\"},{\"cycle\":\"c2_503\",\"equity\":0,\"peak\":0,\"dd\":0,\"q\":\"unknown\",\"dq\":\"UNKNOWN\",\"err\":\"MARKET_HTTP_503\",\"http\":503,\"marks\":\"{}\"},{\"cycle\":\"c3_missing\",\"equity\":0,\"peak\":0,\"dd\":0,\"q\":\"unknown\",\"dq\":\"UNKNOWN\",\"err\":\"MISSING_OR_UNLISTED_SYMBOL\",\"http\":200,\"marks\":\"{}\"},{\"cycle\":\"c4_nonpositive\",\"equity\":0,\"peak\":0,\"dd\":0,\"q\":\"unknown\",\"dq\":\"UNKNOWN\",\"err\":\"MISSING_OR_UNLISTED_SYMBOL\",\"http\":200,\"marks\":\"{}\"},{\"cycle\":\"c5_recover\",\"equity\":17000000000000,\"peak\":17495177000000,\"dd\":2830363,\"q\":\"verified\",\"dq\":\"VERIFIED\",\"err\":null,\"http\":200,\"marks\":\"{\\\"BTCUSDT\\\":\\\"70000.00000000\\\"}\"}],\"unlisted_rows\":[{\"cycle\":\"c0_ok\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"},{\"cycle\":\"c1_throw\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"},{\"cycle\":\"c2_503\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"},{\"cycle\":\"c3_missing\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"},{\"cycle\":\"c4_nonpositive\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"},{\"cycle\":\"c5_recover\",\"q\":\"unknown\",\"eq\":0,\"err\":\"NO_VENUE_QUOTABLE_SYMBOLS\"}],\"replay\":{\"seed\":10000000000000,\"count\":6,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_9d6efab6cdedd098ec325e9a62e1431efb7769cd8e6aae62309a8e05ac2adefb\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":\"c0_ok\",\"mark_quality\":\"verified\",\"equity\":17495177000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_3f336a81263b929284ccbe0012e80882bc0cbc429b5d15a33545bfade5795b6f\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":\"c1_throw\",\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_a40541ac42db5f775ac8f59b5940ae318ab44d801b9cf410eea1562f5e1e61ee\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":\"c2_503\",\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_aebc14928b6a63b4fefb5589ed05b68428b114883d9656563e52d0b1f370592b\",\"created_at\":\"2026-02-02T02:43:00.000Z\",\"cycle_key\":\"c3_missing\",\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_cf1228cd175d7d366339b0fa5ab679bfb5cae11cf4ac716d521330d3d222d293\",\"created_at\":\"2026-02-02T02:44:00.000Z\",\"cycle_key\":\"c4_nonpositive\",\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_2860ec3d9e2bbed1f6a0444d52e68997db88213f8aee5202bad28ff73c9d6e48\",\"created_at\":\"2026-02-02T02:45:00.000Z\",\"cycle_key\":\"c5_recover\",\"mark_quality\":\"verified\",\"equity\":17000000000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":2830363,\"recomputed_dd\":2830363,\"match\":true}]},\"verdict_labels\":{\"outage_fail_closed_and_no_backfill\":\"VERIFIED\",\"ordi_sats_unknown\":\"VERIFIED (real api.binance.us Invalid-symbol probe in T0)\",\"live_market_fetch_from_this_process\":\"UNVERIFIED / BLOCKED (local proxy cannot reach api.binance.us)\"}}}\n",
+  "stderr": "(node:796) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "T3_outage_recovery",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:01.975Z",
+    "finishedAt": "2026-11-09T04:44:02.039Z",
+    "meta": {
+      "scenarios": [
+        "ok",
+        "throw",
+        "http503",
+        "missing",
+        "nonpositive",
+        "recover",
+        "unlisted_symbols"
+      ]
+    },
+    "checks": [
+      {
+        "name": "s1_has_6_snapshots",
+        "pass": true,
+        "detail": {
+          "count": 6
+        }
+      },
+      {
+        "name": "ok_and_recover_are_verified",
+        "pass": true,
+        "detail": {
+          "c0": "verified",
+          "c5": "verified"
+        }
+      },
+      {
+        "name": "four_outage_cycles_are_unknown",
+        "pass": true,
+        "detail": [
+          {
+            "k": "c1_throw",
+            "q": "unknown"
+          },
+          {
+            "k": "c2_503",
+            "q": "unknown"
+          },
+          {
+            "k": "c3_missing",
+            "q": "unknown"
+          },
+          {
+            "k": "c4_nonpositive",
+            "q": "unknown"
+          }
+        ]
+      },
+      {
+        "name": "outage_rows_have_no_fabricated_price",
+        "pass": true,
+        "detail": [
+          {
+            "k": "c1_throw",
+            "eq": 0,
+            "marks": "{}",
+            "dq": "UNKNOWN"
+          },
+          {
+            "k": "c2_503",
+            "eq": 0,
+            "marks": "{}",
+            "dq": "UNKNOWN"
+          },
+          {
+            "k": "c3_missing",
+            "eq": 0,
+            "marks": "{}",
+            "dq": "UNKNOWN"
+          },
+          {
+            "k": "c4_nonpositive",
+            "eq": 0,
+            "marks": "{}",
+            "dq": "UNKNOWN"
+          }
+        ]
+      },
+      {
+        "name": "outage_rows_are_audit_only_peak_zero",
+        "pass": true,
+        "detail": [
+          {
+            "k": "c1_throw",
+            "peak": 0,
+            "dd": 0
+          },
+          {
+            "k": "c2_503",
+            "peak": 0,
+            "dd": 0
+          },
+          {
+            "k": "c3_missing",
+            "peak": 0,
+            "dd": 0
+          },
+          {
+            "k": "c4_nonpositive",
+            "peak": 0,
+            "dd": 0
+          }
+        ]
+      },
+      {
+        "name": "honest_error_codes",
+        "pass": true,
+        "detail": {
+          "throw": "MARKET_TypeError",
+          "http503": "MARKET_HTTP_503",
+          "http_status_503": 503,
+          "missing": "MISSING_OR_UNLISTED_SYMBOL",
+          "nonpositive": "MISSING_OR_UNLISTED_SYMBOL"
+        }
+      },
+      {
+        "name": "recover_is_fresh_verified",
+        "pass": true,
+        "detail": {
+          "dq": "VERIFIED",
+          "fresh": "FRESH"
+        }
+      },
+      {
+        "name": "recover_peak_uses_verified_only",
+        "pass": true,
+        "detail": {
+          "c0_equity": 17495177000000,
+          "recover_equity": 17000000000000,
+          "recover_peak": 17495177000000,
+          "recover_dd": 2830363,
+          "expected_dd": 2830363
+        }
+      },
+      {
+        "name": "unlisted_symbols_always_unknown",
+        "pass": true,
+        "detail": {
+          "count": 6,
+          "sample": {
+            "q": "unknown",
+            "eq": 0,
+            "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+          }
+        }
+      },
+      {
+        "name": "unlisted_symbols_no_venue_quotable",
+        "pass": true,
+        "detail": [
+          "NO_VENUE_QUOTABLE_SYMBOLS"
+        ]
+      },
+      {
+        "name": "replay_all_rows_match_with_unknown",
+        "pass": true,
+        "detail": [
+          {
+            "c": "c0_ok",
+            "q": "verified",
+            "match": true
+          },
+          {
+            "c": "c1_throw",
+            "q": "unknown",
+            "match": true
+          },
+          {
+            "c": "c2_503",
+            "q": "unknown",
+            "match": true
+          },
+          {
+            "c": "c3_missing",
+            "q": "unknown",
+            "match": true
+          },
+          {
+            "c": "c4_nonpositive",
+            "q": "unknown",
+            "match": true
+          },
+          {
+            "c": "c5_recover",
+            "q": "verified",
+            "match": true
+          }
+        ]
+      }
+    ],
+    "extra": {
+      "cycles": [
+        {
+          "key": "c0_ok",
+          "mode": "ok",
+          "written": 2,
+          "verified": 1,
+          "unknown": 1
+        },
+        {
+          "key": "c1_throw",
+          "mode": "throw",
+          "written": 2,
+          "verified": 0,
+          "unknown": 2
+        },
+        {
+          "key": "c2_503",
+          "mode": "http503",
+          "written": 2,
+          "verified": 0,
+          "unknown": 2
+        },
+        {
+          "key": "c3_missing",
+          "mode": "missing",
+          "written": 2,
+          "verified": 0,
+          "unknown": 2
+        },
+        {
+          "key": "c4_nonpositive",
+          "mode": "nonpositive",
+          "written": 2,
+          "verified": 0,
+          "unknown": 2
+        },
+        {
+          "key": "c5_recover",
+          "mode": "ok",
+          "written": 2,
+          "verified": 1,
+          "unknown": 1
+        }
+      ],
+      "s1_rows": [
+        {
+          "cycle": "c0_ok",
+          "equity": 17495177000000,
+          "peak": 17495177000000,
+          "dd": 0,
+          "q": "verified",
+          "dq": "VERIFIED",
+          "err": null,
+          "http": 200,
+          "marks": "{\"BTCUSDT\":\"74951.77000000\"}"
+        },
+        {
+          "cycle": "c1_throw",
+          "equity": 0,
+          "peak": 0,
+          "dd": 0,
+          "q": "unknown",
+          "dq": "UNKNOWN",
+          "err": "MARKET_TypeError",
+          "http": null,
+          "marks": "{}"
+        },
+        {
+          "cycle": "c2_503",
+          "equity": 0,
+          "peak": 0,
+          "dd": 0,
+          "q": "unknown",
+          "dq": "UNKNOWN",
+          "err": "MARKET_HTTP_503",
+          "http": 503,
+          "marks": "{}"
+        },
+        {
+          "cycle": "c3_missing",
+          "equity": 0,
+          "peak": 0,
+          "dd": 0,
+          "q": "unknown",
+          "dq": "UNKNOWN",
+          "err": "MISSING_OR_UNLISTED_SYMBOL",
+          "http": 200,
+          "marks": "{}"
+        },
+        {
+          "cycle": "c4_nonpositive",
+          "equity": 0,
+          "peak": 0,
+          "dd": 0,
+          "q": "unknown",
+          "dq": "UNKNOWN",
+          "err": "MISSING_OR_UNLISTED_SYMBOL",
+          "http": 200,
+          "marks": "{}"
+        },
+        {
+          "cycle": "c5_recover",
+          "equity": 17000000000000,
+          "peak": 17495177000000,
+          "dd": 2830363,
+          "q": "verified",
+          "dq": "VERIFIED",
+          "err": null,
+          "http": 200,
+          "marks": "{\"BTCUSDT\":\"70000.00000000\"}"
+        }
+      ],
+      "unlisted_rows": [
+        {
+          "cycle": "c0_ok",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "cycle": "c1_throw",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "cycle": "c2_503",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "cycle": "c3_missing",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "cycle": "c4_nonpositive",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        },
+        {
+          "cycle": "c5_recover",
+          "q": "unknown",
+          "eq": 0,
+          "err": "NO_VENUE_QUOTABLE_SYMBOLS"
+        }
+      ],
+      "replay": {
+        "seed": 10000000000000,
+        "count": 6,
+        "allMatch": true,
+        "rows": [
+          {
+            "snapshot_id": "v45eq_9d6efab6cdedd098ec325e9a62e1431efb7769cd8e6aae62309a8e05ac2adefb",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": "c0_ok",
+            "mark_quality": "verified",
+            "equity": 17495177000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_3f336a81263b929284ccbe0012e80882bc0cbc429b5d15a33545bfade5795b6f",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": "c1_throw",
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_a40541ac42db5f775ac8f59b5940ae318ab44d801b9cf410eea1562f5e1e61ee",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": "c2_503",
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_aebc14928b6a63b4fefb5589ed05b68428b114883d9656563e52d0b1f370592b",
+            "created_at": "2026-02-02T02:43:00.000Z",
+            "cycle_key": "c3_missing",
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_cf1228cd175d7d366339b0fa5ab679bfb5cae11cf4ac716d521330d3d222d293",
+            "created_at": "2026-02-02T02:44:00.000Z",
+            "cycle_key": "c4_nonpositive",
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_2860ec3d9e2bbed1f6a0444d52e68997db88213f8aee5202bad28ff73c9d6e48",
+            "created_at": "2026-02-02T02:45:00.000Z",
+            "cycle_key": "c5_recover",
+            "mark_quality": "verified",
+            "equity": 17000000000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 2830363,
+            "recomputed_dd": 2830363,
+            "match": true
+          }
+        ]
+      },
+      "verdict_labels": {
+        "outage_fail_closed_and_no_backfill": "VERIFIED",
+        "ordi_sats_unknown": "VERIFIED (real api.binance.us Invalid-symbol probe in T0)",
+        "live_market_fetch_from_this_process": "UNVERIFIED / BLOCKED (local proxy cannot reach api.binance.us)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:02.049Z",
+  "node": "v22.22.2"
+}

@@ -1,0 +1,29 @@
+{
+  "schema": "jev-v16-migration-dryrun/v1",
+  "note": "Offline SQLite syntax/semantics dry-run only; no cloud D1 was written.",
+  "engine": "python3 sqlite3 in-memory, PRAGMA foreign_keys=ON",
+  "files": [
+    "apps/equity_collector_v45/migrations/0001_v45_base.sql",
+    "apps/equity_collector_v45/migrations/0002_market_provenance.sql"
+  ],
+  "statements": { "0001": 10, "0002": 9 },
+  "all_statements_applied": true,
+  "final_active_table_columns": 35,
+  "new_columns": ["exchange", "market", "price_ts_source", "network_context", "venue", "failure_class", "mark_contracts_json", "market_partition_key"],
+  "indexes": ["idx_equity_snapshots_account", "idx_equity_snapshots_quality", "idx_v45_prov_partition", "idx_v45_prov_quality", "idx_v45_prov_session_cycle"],
+  "legacy_table_preserved": "v45_snapshot_provenance_v1_legacy",
+  "legacy_rows_after_migration": 1,
+  "backfilled_history_row": {
+    "exchange": "UNKNOWN",
+    "market": "UNKNOWN",
+    "price_ts_source": "UNKNOWN",
+    "network_context": "UNKNOWN",
+    "venue": "UNKNOWN",
+    "failure_class": "HISTORY_UNPROVEN",
+    "mark_contracts_json": "{}",
+    "market_partition_key": "UNKNOWN|UNKNOWN",
+    "data_quality": "VERIFIED"
+  },
+  "interpretation": "History rows keep their original data_quality but are marked HISTORY_UNPROVEN, so the V1.6 partition peak query excludes them. No default value fabricates a real market source.",
+  "verdict": "PASS"
+}

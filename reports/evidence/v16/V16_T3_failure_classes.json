@@ -1,0 +1,235 @@
+{
+  "id": "V16_T3",
+  "file": "v16_t3_failure_classes.mjs",
+  "label": "failure_classes",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"v16_t3_failure_classes\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T13:20:15.175Z\",\"finishedAt\":\"2026-11-09T13:20:15.241Z\",\"meta\":{\"coverage\":\"QA-T3-1 + QA-T3-5\"},\"checks\":[{\"name\":\"three_unknown_rows_written\",\"pass\":true,\"detail\":{\"count\":3}},{\"name\":\"QA_T3_1_transport_failure_class_structured\",\"pass\":true,\"detail\":{\"got\":\"TRANSPORT\",\"errorCode\":\"MARKET_TypeError\"}},{\"name\":\"QA_T3_1_http_error_failure_class_structured\",\"pass\":true,\"detail\":{\"got\":\"HTTP_ERROR\",\"errorCode\":\"MARKET_HTTP_503\"}},{\"name\":\"QA_T3_1_venue_business_failure_class_structured\",\"pass\":true,\"detail\":{\"got\":\"VENUE_BUSINESS\",\"errorCode\":\"MISSING_OR_UNLISTED_SYMBOL\"}},{\"name\":\"unknown_rows_still_write_provenance\",\"pass\":true,\"detail\":[{\"c\":\"c_throw\",\"dq\":\"UNKNOWN\"},{\"c\":\"c_503\",\"dq\":\"UNKNOWN\"},{\"c\":\"c_missing\",\"dq\":\"UNKNOWN\"}]},{\"name\":\"unknown_rows_no_fabricated_price\",\"pass\":true,\"detail\":[{\"c\":\"c_throw\",\"eq\":0,\"marks\":\"{}\"},{\"c\":\"c_503\",\"eq\":0,\"marks\":\"{}\"},{\"c\":\"c_missing\",\"eq\":0,\"marks\":\"{}\"}]},{\"name\":\"honest_market_layer_error_codes_preserved\",\"pass\":true,\"detail\":{\"throw\":\"MARKET_TypeError\",\"http503\":\"MARKET_HTTP_503\",\"missing\":\"MISSING_OR_UNLISTED_SYMBOL\"}},{\"name\":\"QA_T3_5_global_host_injection_rejected\",\"pass\":true,\"detail\":{\"host\":\"api.binance.com\",\"code\":\"MARKET_SOURCE_NOT_VERIFIED\"}},{\"name\":\"QA_T3_5_cycle_source_host_check_fails_closed\",\"pass\":true,\"detail\":{\"ok\":false,\"firstFail\":\"MARKET_IDENTITY_INVALID\",\"sourceHostCheck\":{\"name\":\"source_host\",\"pass\":false,\"code\":\"MARKET_SOURCE_NOT_VERIFIED\",\"failureClass\":\"UNKNOWN\"}}},{\"name\":\"QA2_D1_unknown_network_context_rejected\",\"pass\":true,\"detail\":{\"ok\":false,\"firstFail\":\"MARKET_CONTEXT_UNRESOLVED\",\"ctxCheck\":{\"name\":\"network_context\",\"pass\":false,\"code\":\"MARKET_CONTEXT_UNRESOLVED\",\"failureClass\":\"UNKNOWN\"}}},{\"name\":\"QA2_D1_missing_network_context_rejected\",\"pass\":true,\"detail\":{\"firstFail\":\"MARKET_CONTEXT_UNRESOLVED\"}},{\"name\":\"QA2_D1_resolved_network_context_passes_rule8\",\"pass\":true,\"detail\":{\"ctxCheck\":{\"name\":\"network_context\",\"pass\":true,\"code\":null,\"failureClass\":\"NONE\"}}},{\"name\":\"FAULT_transport_injected_outage_is_unknown_transport_row\",\"pass\":true,\"detail\":{\"status\":200,\"prov\":1,\"dq\":\"UNKNOWN\",\"fc\":\"TRANSPORT\",\"errorCode\":\"MARKET_TypeError\"}},{\"name\":\"FAULT_http503_injected_is_unknown_http_error_row\",\"pass\":true,\"detail\":{\"status\":200,\"fc\":\"HTTP_ERROR\",\"errorCode\":\"MARKET_HTTP_503\"}},{\"name\":\"FAULT_global_host_rejected_as_unverified_market\",\"pass\":true,\"detail\":{\"status\":200,\"errorCode\":\"MARKET_SOURCE_NOT_VERIFIED\",\"dq\":\"UNKNOWN\",\"markContracts\":\"{}\"}},{\"name\":\"FAULT_trigger_false_returns_403_before_fault_handling\",\"pass\":true,\"detail\":{\"status\":403,\"note\":\"V45_TEST_TRIGGER !== 'true' must short-circuit before fault is read\"}},{\"name\":\"FAULT_no_fault_path_matches_v15_verified_behavior\",\"pass\":true,\"detail\":{\"status\":200,\"dq\":\"VERIFIED\",\"fc\":\"NONE\"}},{\"name\":\"FAULT_unknown_rows_mark_contracts_json_is_object_not_array\",\"pass\":true,\"detail\":[\"{}\",\"{}\",\"{}\"]},{\"name\":\"FAULT_scheduled_never_reads_fault_static\",\"pass\":true,\"detail\":{\"scheduledHasFault\":false,\"triggerGuardPresent\":true}},{\"name\":\"FAULT_src_uses_identity_label_no_forbidden_global_host\",\"pass\":true,\"detail\":{\"note\":\"src top-level uses the identity label, never a Global host literal (H4/T7)\"}}],\"extra\":{\"rows\":3,\"faults\":[\"transport\",\"http503\",\"global_host\"]}}\n",
+  "stderr": "(node:11748) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "v16_t3_failure_classes",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T13:20:15.175Z",
+    "finishedAt": "2026-11-09T13:20:15.241Z",
+    "meta": {
+      "coverage": "QA-T3-1 + QA-T3-5"
+    },
+    "checks": [
+      {
+        "name": "three_unknown_rows_written",
+        "pass": true,
+        "detail": {
+          "count": 3
+        }
+      },
+      {
+        "name": "QA_T3_1_transport_failure_class_structured",
+        "pass": true,
+        "detail": {
+          "got": "TRANSPORT",
+          "errorCode": "MARKET_TypeError"
+        }
+      },
+      {
+        "name": "QA_T3_1_http_error_failure_class_structured",
+        "pass": true,
+        "detail": {
+          "got": "HTTP_ERROR",
+          "errorCode": "MARKET_HTTP_503"
+        }
+      },
+      {
+        "name": "QA_T3_1_venue_business_failure_class_structured",
+        "pass": true,
+        "detail": {
+          "got": "VENUE_BUSINESS",
+          "errorCode": "MISSING_OR_UNLISTED_SYMBOL"
+        }
+      },
+      {
+        "name": "unknown_rows_still_write_provenance",
+        "pass": true,
+        "detail": [
+          {
+            "c": "c_throw",
+            "dq": "UNKNOWN"
+          },
+          {
+            "c": "c_503",
+            "dq": "UNKNOWN"
+          },
+          {
+            "c": "c_missing",
+            "dq": "UNKNOWN"
+          }
+        ]
+      },
+      {
+        "name": "unknown_rows_no_fabricated_price",
+        "pass": true,
+        "detail": [
+          {
+            "c": "c_throw",
+            "eq": 0,
+            "marks": "{}"
+          },
+          {
+            "c": "c_503",
+            "eq": 0,
+            "marks": "{}"
+          },
+          {
+            "c": "c_missing",
+            "eq": 0,
+            "marks": "{}"
+          }
+        ]
+      },
+      {
+        "name": "honest_market_layer_error_codes_preserved",
+        "pass": true,
+        "detail": {
+          "throw": "MARKET_TypeError",
+          "http503": "MARKET_HTTP_503",
+          "missing": "MISSING_OR_UNLISTED_SYMBOL"
+        }
+      },
+      {
+        "name": "QA_T3_5_global_host_injection_rejected",
+        "pass": true,
+        "detail": {
+          "host": "api.binance.com",
+          "code": "MARKET_SOURCE_NOT_VERIFIED"
+        }
+      },
+      {
+        "name": "QA_T3_5_cycle_source_host_check_fails_closed",
+        "pass": true,
+        "detail": {
+          "ok": false,
+          "firstFail": "MARKET_IDENTITY_INVALID",
+          "sourceHostCheck": {
+            "name": "source_host",
+            "pass": false,
+            "code": "MARKET_SOURCE_NOT_VERIFIED",
+            "failureClass": "UNKNOWN"
+          }
+        }
+      },
+      {
+        "name": "QA2_D1_unknown_network_context_rejected",
+        "pass": true,
+        "detail": {
+          "ok": false,
+          "firstFail": "MARKET_CONTEXT_UNRESOLVED",
+          "ctxCheck": {
+            "name": "network_context",
+            "pass": false,
+            "code": "MARKET_CONTEXT_UNRESOLVED",
+            "failureClass": "UNKNOWN"
+          }
+        }
+      },
+      {
+        "name": "QA2_D1_missing_network_context_rejected",
+        "pass": true,
+        "detail": {
+          "firstFail": "MARKET_CONTEXT_UNRESOLVED"
+        }
+      },
+      {
+        "name": "QA2_D1_resolved_network_context_passes_rule8",
+        "pass": true,
+        "detail": {
+          "ctxCheck": {
+            "name": "network_context",
+            "pass": true,
+            "code": null,
+            "failureClass": "NONE"
+          }
+        }
+      },
+      {
+        "name": "FAULT_transport_injected_outage_is_unknown_transport_row",
+        "pass": true,
+        "detail": {
+          "status": 200,
+          "prov": 1,
+          "dq": "UNKNOWN",
+          "fc": "TRANSPORT",
+          "errorCode": "MARKET_TypeError"
+        }
+      },
+      {
+        "name": "FAULT_http503_injected_is_unknown_http_error_row",
+        "pass": true,
+        "detail": {
+          "status": 200,
+          "fc": "HTTP_ERROR",
+          "errorCode": "MARKET_HTTP_503"
+        }
+      },
+      {
+        "name": "FAULT_global_host_rejected_as_unverified_market",
+        "pass": true,
+        "detail": {
+          "status": 200,
+          "errorCode": "MARKET_SOURCE_NOT_VERIFIED",
+          "dq": "UNKNOWN",
+          "markContracts": "{}"
+        }
+      },
+      {
+        "name": "FAULT_trigger_false_returns_403_before_fault_handling",
+        "pass": true,
+        "detail": {
+          "status": 403,
+          "note": "V45_TEST_TRIGGER !== 'true' must short-circuit before fault is read"
+        }
+      },
+      {
+        "name": "FAULT_no_fault_path_matches_v15_verified_behavior",
+        "pass": true,
+        "detail": {
+          "status": 200,
+          "dq": "VERIFIED",
+          "fc": "NONE"
+        }
+      },
+      {
+        "name": "FAULT_unknown_rows_mark_contracts_json_is_object_not_array",
+        "pass": true,
+        "detail": [
+          "{}",
+          "{}",
+          "{}"
+        ]
+      },
+      {
+        "name": "FAULT_scheduled_never_reads_fault_static",
+        "pass": true,
+        "detail": {
+          "scheduledHasFault": false,
+          "triggerGuardPresent": true
+        }
+      },
+      {
+        "name": "FAULT_src_uses_identity_label_no_forbidden_global_host",
+        "pass": true,
+        "detail": {
+          "note": "src top-level uses the identity label, never a Global host literal (H4/T7)"
+        }
+      }
+    ],
+    "extra": {
+      "rows": 3,
+      "faults": [
+        "transport",
+        "http503",
+        "global_host"
+      ]
+    }
+  },
+  "capturedAt": "2026-11-09T13:20:15.259Z",
+  "node": "v22.22.2"
+}

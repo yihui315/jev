@@ -1,0 +1,68 @@
+{
+  "schema": "jev-v16-cloud-reset/v1",
+  "at_utc": "2026-11-09T12:51:35.437860+00:00",
+  "db": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+  "reason": "discard non-evidence smoke run before official E2E",
+  "log": [
+    {
+      "stmt": "DROP INDEX idx_v45_prov_partition",
+      "ok": true
+    },
+    {
+      "stmt": "DROP INDEX idx_v45_prov_quality",
+      "ok": true
+    },
+    {
+      "stmt": "DROP INDEX idx_v45_prov_session_cycle",
+      "ok": true
+    },
+    {
+      "stmt": "DROP INDEX idx_equity_snapshots_quality",
+      "ok": true
+    },
+    {
+      "stmt": "DROP INDEX idx_equity_snapshots_account",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE v45_snapshot_provenance",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE v45_snapshot_provenance_v1_legacy",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE v45_snapshot_provenance_v2",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE paper_equity_snapshots",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE paper_server_events",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE paper_orders",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE paper_accounts",
+      "ok": true
+    },
+    {
+      "stmt": "DROP TABLE paper_sessions",
+      "ok": true
+    }
+  ],
+  "remaining_tables": [
+    "_cf_KV",
+    "sqlite_sequence"
+  ],
+  "remaining_business_tables": [],
+  "note": "system tables (_cf_KV, sqlite_*) excluded from the verdict by design",
+  "v15_d1_touched": false,
+  "verdict": "PASS"
+}

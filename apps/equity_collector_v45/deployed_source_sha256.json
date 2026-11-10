@@ -1,0 +1,26 @@
+{
+  "schema": "jev-v16-deployed-source-sha256/v1",
+  "worker": "jev-v45-equity-collector-v16",
+  "note": "sha256 of every deployed src file at the FINAL V1.6 source state (includes QA2-D1 guard rule 8 fix). Deployment via v16_deploy.py (structured deploy_ok judgement).",
+  "source_sha256": {
+    "collector.mjs": "781657189784257e54071395110c7fe10cd75cebffd024a3c36ff9e116bb4f7c",
+    "compute.mjs": "9ea3caeeef1d0a7dc0976dc1a16d5c4bf70e88523b930069da304be7873ee0f4",
+    "constants.mjs": "fafb96e857e33b0e71f947d6716608d04d8b3e7f1dbfb67fa32894c4857e9454",
+    "engine-anchor.mjs": "0d1a87af87ef41967b9fb42f4fc0038f90df9491fbcca5a7b8a867553e3f6be0",
+    "hash.mjs": "63d626ff8a761d0a297f498b3278d5e24d80b1ace28dd911afd93c972b4a13ee",
+    "market-contract.mjs": "1da744c92f4b7970cf0f77913f40e3f75006788a3fa481b5826be9ae4e7acde1",
+    "market-guard.mjs": "3f3ea23d1c2082a099c466aee2edd9a397be366d53d58ed4e45004bd449cd086",
+    "market.mjs": "89265bd2e604626c73315003a0fbc8ee8c2269db1c5461244b2fcafcd6631784",
+    "partition.mjs": "39ae277249a87de913626eb71766ab7f197add0045e896f9107559fa3581db06",
+    "provenance.mjs": "b6c29deb42763537e43e93830011ed130813f081863ebd40c21833a044b95e46",
+    "replay.mjs": "cfcf05e61ee754faa237d16a86b8f616edc0ee9d1ff0b83ff3ca690e258c9930",
+    "vendor/decimal.mjs": "5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d",
+    "vendor/equity-snapshot.mjs": "d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74"
+  },
+  "source_combined_sha256": "43d2931434d9cfb9359b4fe16cf4410585f01e49eb82bbbed51fb45ebaaf2ccc",
+  "files": 13,
+  "trigger_at_deploy": "false",
+  "wrangler_exit": 0,
+  "script_readback_http": 200,
+  "deploy_ok": true
+}

@@ -1,0 +1,21 @@
+# V45 Equity Collector — ISOLATED TEST deployment (owner-managed).
+# D1 binding is the isolated test DB ONLY. Never jev-paper-staging / Night Researcher.
+name = "jev-v45-equity-collector-isolated"
+main = "src/collector.mjs"
+compatibility_date = "2026-01-01"
+compatibility_flags = ["nodejs_compat"]
+
+[[d1_databases]]
+binding = "EQ_DB"
+database_name = "jev-v45-equity-isolated-test"
+database_id = "cf5cf033-3796-4de1-b295-93f35a8ce82e"
+
+# Scheduled Worker contract retained; isolated test uses a yearly tick so
+# automatic cycles cannot interfere with deterministic controlled tests.
+[triggers]
+crons = ["0 0 1 1 *"]
+
+[vars]
+ENABLE_REAL_TRADING = "false"
+V45_TEST_TRIGGER = "false"
+COLLECTOR_VERSION = "v45-equity-collector/1.0.0"

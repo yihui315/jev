@@ -1,0 +1,701 @@
+{
+  "tool": "v16_independent_verify.py",
+  "role": "独立 QA（只读，不实现代码，不替工程师签字）",
+  "phase": "阶段 1 — 基线完整性 + 静态契约检查（中间态快照）",
+  "generatedAt": "2026-11-09T15:43:18.025816+00:00",
+  "mode": "full",
+  "root": "C:/Users/Administrator/WorkBuddy/jev-v16",
+  "root_derivation": "Path(__file__).resolve().parents[1]（无硬编码盘符）",
+  "baseline": "bfb3206",
+  "baseline_object_available": true,
+  "exit_code_semantics": {
+    "baseline": "全 PASS -> 0；有 FAIL（含 PENDING 转换）-> 1；不得出现 PENDING",
+    "full": "全 PASS -> 0；有 FAIL -> 1；仅 PENDING 无 FAIL -> 2"
+  },
+  "legend": {
+    "PASS": "该检查已验证通过",
+    "FAIL": "该检查已验证且违反契约（含浅克隆降级）",
+    "PENDING": "依赖的交付物尚未存在/尚未改造，未验证（不是 PASS，也不是违规判定；baseline 模式禁止出现）"
+  },
+  "summary": {
+    "PASS": 9,
+    "FAIL": 0,
+    "PENDING": 0,
+    "exit_code": 0
+  },
+  "checks": [
+    {
+      "check": "1. V1.5 旧测试逐字节不变（H1）",
+      "pass": "PASS",
+      "detail": {
+        "baseline": "bfb3206",
+        "method": "逐文件: git show bfb3206:<path> 的 blob 字节 vs 当前工作树文件字节, 比较 sha256",
+        "files": [
+          {
+            "path": "apps/equity_collector_v45/tests/run-all.mjs",
+            "baseline_sha256": "d4f250dd6d31bab3bc5618621c6afa29da58f7b48a92ee096d647265d5e25601",
+            "current_sha256": "d4f250dd6d31bab3bc5618621c6afa29da58f7b48a92ee096d647265d5e25601",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/lib/d1-shim.mjs",
+            "baseline_sha256": "b0b4002df12954b376f6e07385615ef8312cc2556efc1c5cf874b62aba50c53c",
+            "current_sha256": "b0b4002df12954b376f6e07385615ef8312cc2556efc1c5cf874b62aba50c53c",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/lib/harness.mjs",
+            "baseline_sha256": "9ab2cfbe51046a2ca0747dbab610be78e58f970e6107a8f295a69945056a2c87",
+            "current_sha256": "9ab2cfbe51046a2ca0747dbab610be78e58f970e6107a8f295a69945056a2c87",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t0_market_probe.mjs",
+            "baseline_sha256": "4cb109252901550eb7867651c879a94421031158e828b110afbddf101dd59459",
+            "current_sha256": "4cb109252901550eb7867651c879a94421031158e828b110afbddf101dd59459",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t1_multi_cycle.mjs",
+            "baseline_sha256": "b3619f37afef0379afe329dd6b144f98793d48ed46dd4134ef2495fc21ff6529",
+            "current_sha256": "b3619f37afef0379afe329dd6b144f98793d48ed46dd4134ef2495fc21ff6529",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t2_idempotency.mjs",
+            "baseline_sha256": "70fb01b36d983a6e6b2c41aefb30cb74414682b2cc50a14ef857f636954b082b",
+            "current_sha256": "70fb01b36d983a6e6b2c41aefb30cb74414682b2cc50a14ef857f636954b082b",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t3_outage_recovery.mjs",
+            "baseline_sha256": "98d50ef45e4764d35ecd463ff801e9afd0196ecede76508e449353514965674e",
+            "current_sha256": "98d50ef45e4764d35ecd463ff801e9afd0196ecede76508e449353514965674e",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t4_account_isolation.mjs",
+            "baseline_sha256": "e115294a878f52d2f65f4333502ad8cf386ba1597f5af030b8cc588e51533cd2",
+            "current_sha256": "e115294a878f52d2f65f4333502ad8cf386ba1597f5af030b8cc588e51533cd2",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t5_replay_readonly.mjs",
+            "baseline_sha256": "f0145e39fa382e7223115e1d926be69c3330fec22297b0e2e4f6dbe175cee5eb",
+            "current_sha256": "f0145e39fa382e7223115e1d926be69c3330fec22297b0e2e4f6dbe175cee5eb",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t6_session_failclosed.mjs",
+            "baseline_sha256": "9542db9038fedf9221450be0433a71344332e050145c9677caa18ee05a416d9c",
+            "current_sha256": "9542db9038fedf9221450be0433a71344332e050145c9677caa18ee05a416d9c",
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t7_static_audit.mjs",
+            "baseline_sha256": "bdc9e215fc5a2cefaac569161d53ce5c8b73025e222131c3d3f74c2b71bf08f3",
+            "current_sha256": "bdc9e215fc5a2cefaac569161d53ce5c8b73025e222131c3d3f74c2b71bf08f3",
+            "equal": true
+          }
+        ],
+        "compared": 11,
+        "equal": 11,
+        "brief": "11/11 个旧测试文件与基线逐字节一致"
+      }
+    },
+    {
+      "check": "2. 旧断言总数 = 95（H3，运行时 evidence + 静态计数双判据）",
+      "pass": "PASS",
+      "detail": {
+        "method": "主判据: 读 V1.5 运行时 evidence summary.json，要求 overall=PASS、counts={total:8,pass:8,fail:0}、sum(len(results[].checks))=95；辅判据: 静态 R.check( 计数与 bfb3206 基线逐文件相等（配合检查 1 的逐字节 sha256）。两个判据都满足才 PASS，任一不满足 FAIL。",
+        "expected_runtime": {
+          "overall": "PASS",
+          "counts": {
+            "total": 8,
+            "pass": 8,
+            "fail": 0
+          },
+          "assertions": 95
+        },
+        "runtime_evidence_sources": [
+          "apps/equity_collector_v45/evidence/summary.json",
+          "reports/evidence/equity/local/summary.json"
+        ],
+        "note": "95 是运行时 RESULT_JSON checks 总数；源码静态 R.check( 仅 92 处，差额来自 t5_replay_readonly.mjs 的 for 循环（1 个静态调用按 4 个 ENGINE_ANCHOR_PATHS key 动态生成 4 条断言，故 92-1+4=95）。本项不再把「与 95 不等属口径差异」写成 PASS。",
+        "runtime_evidence_attempts": [
+          {
+            "source": "apps/equity_collector_v45/evidence/summary.json",
+            "present": false
+          },
+          {
+            "source": "reports/evidence/equity/local/summary.json",
+            "present": true,
+            "overall": "PASS",
+            "counts": {
+              "total": 8,
+              "pass": 8,
+              "fail": 0
+            },
+            "assertions": 95,
+            "per_group": [
+              [
+                "T0",
+                6
+              ],
+              [
+                "T1",
+                14
+              ],
+              [
+                "T2",
+                8
+              ],
+              [
+                "T3",
+                11
+              ],
+              [
+                "T4",
+                14
+              ],
+              [
+                "T5",
+                20
+              ],
+              [
+                "T6",
+                8
+              ],
+              [
+                "T7",
+                14
+              ]
+            ],
+            "criterion_pass": true
+          }
+        ],
+        "runtime_evidence_source": "reports/evidence/equity/local/summary.json",
+        "runtime_evidence_is_current_run": false,
+        "runtime_main_criterion_pass": true,
+        "runtime_evidence_caveat": "当前 runner 的本轮 evidence 未提供，回落至 V1.5 归档（被 git 跟踪）。归档只能证明基线断言数量/措辞，不能证明本轮源码的运行时 8/8 PASS；本轮运行时结果由 CI 的 V1.5 套件步骤及阶段 2 独立重跑验证。",
+        "static_calls_current": 92,
+        "static_calls_baseline": 92,
+        "static_per_file": [
+          {
+            "path": "apps/equity_collector_v45/tests/t0_market_probe.mjs",
+            "current": 6,
+            "baseline": 6,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t1_multi_cycle.mjs",
+            "current": 14,
+            "baseline": 14,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t2_idempotency.mjs",
+            "current": 8,
+            "baseline": 8,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t3_outage_recovery.mjs",
+            "current": 11,
+            "baseline": 11,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t4_account_isolation.mjs",
+            "current": 14,
+            "baseline": 14,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t5_replay_readonly.mjs",
+            "current": 17,
+            "baseline": 17,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t6_session_failclosed.mjs",
+            "current": 8,
+            "baseline": 8,
+            "equal": true
+          },
+          {
+            "path": "apps/equity_collector_v45/tests/t7_static_audit.mjs",
+            "current": 14,
+            "baseline": 14,
+            "equal": true
+          }
+        ],
+        "static_aux_criterion_pass": true,
+        "brief": "主判据运行时 evidence=通过（来源 reports/evidence/equity/local/summary.json，断言 95，overall=PASS）；辅判据静态 R.check( 92 vs 基线 92=相等；两个判据都满足 -> PASS"
+      }
+    },
+    {
+      "check": "3. 冻结引擎零改动（H2，tree sha256 + 15 文件）",
+      "pass": "PASS",
+      "detail": {
+        "engine_path": "apps/command_center_3d/server/engine/",
+        "baseline_object_available": true,
+        "note": "契约/任务的 server/engine/ 为简写；git pathspec 相对 repo 根，真实冻结引擎位于该路径。本项用 HEAD 的 ls-tree 与锚点比对，不依赖 git show 基线对象。",
+        "algorithm": "git ls-tree -r HEAD -- <engine> 的原始行（完整 repo 路径，格式 mode type sha\\tpath），过滤空行后用 \\n 连接且末尾不带换行，取 utf-8 字节算 sha256",
+        "file_count": 15,
+        "expected_file_count": 15,
+        "tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+        "expected_tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+        "files": [
+          "apps/command_center_3d/server/engine/_lib/agent-orchestrator.mjs",
+          "apps/command_center_3d/server/engine/_lib/ai-core.mjs",
+          "apps/command_center_3d/server/engine/_lib/decimal.mjs",
+          "apps/command_center_3d/server/engine/_lib/equity-snapshot.mjs",
+          "apps/command_center_3d/server/engine/_lib/paper-ledger.mjs",
+          "apps/command_center_3d/server/engine/_lib/paper-server.mjs",
+          "apps/command_center_3d/server/engine/_lib/service-auth.mjs",
+          "apps/command_center_3d/server/engine/_lib/strategy-events.mjs",
+          "apps/command_center_3d/server/engine/_lib/strategy-registry.mjs",
+          "apps/command_center_3d/server/engine/_lib/verification.mjs",
+          "apps/command_center_3d/server/engine/migrations/0001_paper_ledger.sql",
+          "apps/command_center_3d/server/engine/migrations/0002_server_paper_engine.sql",
+          "apps/command_center_3d/server/engine/migrations/0003_fixed_point.sql",
+          "apps/command_center_3d/server/engine/migrations/0004_strategy_registry.sql",
+          "apps/command_center_3d/server/engine/migrations/0005_equity_snapshots.sql"
+        ],
+        "brief": "15 文件, tree_sha256=aec5d1b7cc26… 与锚点一致"
+      }
+    },
+    {
+      "check": "4. 冻结权益快照表 DDL 对基线逐字节一致（H2）",
+      "pass": "PASS",
+      "detail": {
+        "table": "paper_equity_snapshots",
+        "mode": "full",
+        "method": "抽取 CREATE TABLE ... paper_equity_snapshots (...); 整块, 逐字节比较 sha256",
+        "sources": {
+          "current_schema.sql": {
+            "present": true,
+            "ddl_sha256": "dab2d796fee3301776f4206cff3810ee73268e8f82fcf677da9bc5c0b8105b45"
+          },
+          "baseline_schema.sql": {
+            "present": true,
+            "ddl_sha256": "dab2d796fee3301776f4206cff3810ee73268e8f82fcf677da9bc5c0b8105b45"
+          },
+          "two_way_equal": true,
+          "0001_v45_base.sql": {
+            "present": true,
+            "ddl_sha256": "dab2d796fee3301776f4206cff3810ee73268e8f82fcf677da9bc5c0b8105b45"
+          }
+        },
+        "0001_full_byte_equal_to_baseline_schema": true,
+        "three_way_equal": true,
+        "brief": "三方 DDL 逐字节一致; 0001 全文==基线 schema.sql 全文=True"
+      }
+    },
+    {
+      "check": "5. v2 新列与 CHECK/NOT NULL 约束存在（§1.2）",
+      "pass": "PASS",
+      "detail": {
+        "columns_required": [
+          "exchange",
+          "market",
+          "price_ts_source",
+          "network_context",
+          "venue",
+          "failure_class",
+          "mark_contracts_json",
+          "market_partition_key"
+        ],
+        "key_check_columns": [
+          "exchange",
+          "market",
+          "price_ts_source",
+          "network_context",
+          "failure_class",
+          "market_partition_key"
+        ],
+        "note": "仅当 schema.sql 的 provenance DDL 相对基线已被改造时才做实质校验；若仍是 V1.5 基线态则标 PENDING（未验证）。",
+        "columns": {
+          "exchange": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          },
+          "market": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          },
+          "price_ts_source": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          },
+          "network_context": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          },
+          "venue": {
+            "present": true,
+            "not_null": true,
+            "has_check": false
+          },
+          "failure_class": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          },
+          "mark_contracts_json": {
+            "present": true,
+            "not_null": true,
+            "has_check": false
+          },
+          "market_partition_key": {
+            "present": true,
+            "not_null": true,
+            "has_check": true
+          }
+        },
+        "all_present": true,
+        "all_not_null": true,
+        "key_check_ok": true,
+        "brief": "8 列存在=True, 全部 NOT NULL=True, 关键列 CHECK=True"
+      }
+    },
+    {
+      "check": "6. V1.6 新增/修改文件敏感串扫描（H7）",
+      "pass": "PASS",
+      "detail": {
+        "patterns": [
+          "github_pat_classic",
+          "github_pat_fine_grained",
+          "paper_ledger_secret",
+          "api_key_assignment",
+          "cloudflare_token_assignment",
+          "bearer_token_literal"
+        ],
+        "excluded_qa_self_outputs": [
+          "reports/V16_INDEPENDENT_QA.md",
+          "reports/evidence/v16/independent_verify.json",
+          "scripts/v16_independent_verify.py"
+        ],
+        "v16_changed_files": [
+          ".github/workflows/v16-market-provenance.yml",
+          "apps/command_center_3d/functions/api/jev/[[path]].js",
+          "apps/command_center_3d/server/ai/README.md",
+          "apps/command_center_3d/server/ai/decision-schema.mjs",
+          "apps/command_center_3d/server/ai/decision-store.mjs",
+          "apps/command_center_3d/server/ai/gateway-routes.mjs",
+          "apps/command_center_3d/server/ai/migrations/0006_ai_decisions.sql",
+          "apps/command_center_3d/server/ai/mock-provider.mjs",
+          "apps/command_center_3d/server/ai/provider-adapter.mjs",
+          "apps/command_center_3d/server/ai/risk-gate.mjs",
+          "apps/command_center_3d/server/ai/roles-mapping.mjs",
+          "apps/command_center_3d/server/ai/runtime.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/d1-shim.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/fixtures.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/harness.mjs",
+          "apps/command_center_3d/server/ai/tests/run-all.mjs",
+          "apps/command_center_3d/server/ai/tests/t1_schema.mjs",
+          "apps/command_center_3d/server/ai/tests/t2_provider_errors.mjs",
+          "apps/command_center_3d/server/ai/tests/t3_risk_gate.mjs",
+          "apps/command_center_3d/server/ai/tests/t4_idempotency.mjs",
+          "apps/command_center_3d/server/ai/tests/t5_data_mode.mjs",
+          "apps/command_center_3d/server/ai/tests/t6_persistence_attribution.mjs",
+          "apps/command_center_3d/server/ai/tests/t7_redaction.mjs",
+          "apps/command_center_3d/server/ai/tests/t8_role_mapping.mjs",
+          "apps/command_center_3d/server/ai/tests/t9_gateway_routes.mjs",
+          "apps/equity_collector_v45/deployed_source_sha256.json",
+          "apps/equity_collector_v45/migrations/0001_v45_base.sql",
+          "apps/equity_collector_v45/migrations/0002_market_provenance.sql",
+          "apps/equity_collector_v45/schema.sql",
+          "apps/equity_collector_v45/src/collector.mjs",
+          "apps/equity_collector_v45/src/constants.mjs",
+          "apps/equity_collector_v45/src/market-contract.mjs",
+          "apps/equity_collector_v45/src/market-guard.mjs",
+          "apps/equity_collector_v45/src/market.mjs",
+          "apps/equity_collector_v45/src/partition.mjs",
+          "apps/equity_collector_v45/src/provenance.mjs",
+          "apps/equity_collector_v45/tests/v16/lib.mjs",
+          "apps/equity_collector_v45/tests/v16/run-all.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_m1_m7_mixing.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_migration.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_negative_mixed_cycle.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t1_field_contract.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t2_idempotency_fields.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t3_failure_classes.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t7_schema_contract.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_u1_u5_units.mjs",
+          "docs/JEV_AI_DECISION_SCHEMA.md",
+          "docs/JEV_AI_PROVIDER_API.md",
+          "reports/V16_AI_CONTRACT_TESTS.md",
+          "reports/V16_AI_PAPER_E2E.md",
+          "reports/V16_AI_PROVIDER_AUDIT.md",
+          "reports/V16_AI_STRATEGY_BENCHMARK.md",
+          "reports/V16_CLOUD_E2E.md",
+          "reports/V16_FINAL_SIGNOFF.md",
+          "reports/V16_MARKET_PROVENANCE_DESIGN.md",
+          "reports/V16_MIXING_GUARD_TESTS.md",
+          "reports/V16_SCHEMA_MIGRATION.md",
+          "reports/evidence/v16/V16_MIG_migration.json",
+          "reports/evidence/v16/V16_M_m1_m7_mixing.json",
+          "reports/evidence/v16/V16_NEG_negative_mixed_cycle.json",
+          "reports/evidence/v16/V16_T1_field_contract.json",
+          "reports/evidence/v16/V16_T2_idempotency_fields.json",
+          "reports/evidence/v16/V16_T3_failure_classes.json",
+          "reports/evidence/v16/V16_T7_schema_contract.json",
+          "reports/evidence/v16/V16_U_u1_u5_units.json",
+          "reports/evidence/v16/cloud/v16_cloud_collect_evidence.json",
+          "reports/evidence/v16/cloud/v16_cloud_e2e_evidence.json",
+          "reports/evidence/v16/cloud/v16_cloud_fixtures.json",
+          "reports/evidence/v16/cloud/v16_cloud_reset.json",
+          "reports/evidence/v16/cloud/v16_cloud_schema.json",
+          "reports/evidence/v16/cloud/v16_entry_closed.json",
+          "reports/evidence/v16/cloud/v16_equity_d1_replay.json",
+          "reports/evidence/v16/cloud/v16_hard_gates.json",
+          "reports/evidence/v16/cloud/v16_isolated_d1.json",
+          "reports/evidence/v16/cloud/v16_migration_offline_dryrun.json",
+          "reports/evidence/v16/cloud/v16_smoke_stale_evidence.json",
+          "reports/evidence/v16/cloud/v16_worker_deploy.json",
+          "reports/evidence/v16/group_v16_m1_m7_mixing.json",
+          "reports/evidence/v16/group_v16_migration.json",
+          "reports/evidence/v16/group_v16_negative_mixed_cycle.json",
+          "reports/evidence/v16/group_v16_t1_field_contract.json",
+          "reports/evidence/v16/group_v16_t2_idempotency_fields.json",
+          "reports/evidence/v16/group_v16_t3_failure_classes.json",
+          "reports/evidence/v16/group_v16_t7_schema_contract.json",
+          "reports/evidence/v16/group_v16_u1_u5_units.json",
+          "reports/evidence/v16/mutation_check.json",
+          "reports/evidence/v16/qa_d1fix_verification.json",
+          "reports/evidence/v16/qa_phase2_independent.json",
+          "reports/evidence/v16/summary.json",
+          "reports/evidence/v16_ai/v16_ai_contract_tests.json"
+        ],
+        "hits": [],
+        "note": "命中只记录 文件/行号/模式名，绝不写入匹配到的明文。脚本内含检测规则字面量（非凭据），已排除 QA 自身产出。",
+        "scan_scope": "lines added vs baseline (untracked files: whole file)",
+        "scanned_files": [
+          ".github/workflows/v16-market-provenance.yml",
+          "apps/command_center_3d/functions/api/jev/[[path]].js",
+          "apps/command_center_3d/server/ai/README.md",
+          "apps/command_center_3d/server/ai/decision-schema.mjs",
+          "apps/command_center_3d/server/ai/decision-store.mjs",
+          "apps/command_center_3d/server/ai/gateway-routes.mjs",
+          "apps/command_center_3d/server/ai/migrations/0006_ai_decisions.sql",
+          "apps/command_center_3d/server/ai/mock-provider.mjs",
+          "apps/command_center_3d/server/ai/provider-adapter.mjs",
+          "apps/command_center_3d/server/ai/risk-gate.mjs",
+          "apps/command_center_3d/server/ai/roles-mapping.mjs",
+          "apps/command_center_3d/server/ai/runtime.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/d1-shim.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/fixtures.mjs",
+          "apps/command_center_3d/server/ai/tests/lib/harness.mjs",
+          "apps/command_center_3d/server/ai/tests/run-all.mjs",
+          "apps/command_center_3d/server/ai/tests/t1_schema.mjs",
+          "apps/command_center_3d/server/ai/tests/t2_provider_errors.mjs",
+          "apps/command_center_3d/server/ai/tests/t3_risk_gate.mjs",
+          "apps/command_center_3d/server/ai/tests/t4_idempotency.mjs",
+          "apps/command_center_3d/server/ai/tests/t5_data_mode.mjs",
+          "apps/command_center_3d/server/ai/tests/t6_persistence_attribution.mjs",
+          "apps/command_center_3d/server/ai/tests/t7_redaction.mjs",
+          "apps/command_center_3d/server/ai/tests/t8_role_mapping.mjs",
+          "apps/command_center_3d/server/ai/tests/t9_gateway_routes.mjs",
+          "apps/equity_collector_v45/deployed_source_sha256.json",
+          "apps/equity_collector_v45/migrations/0001_v45_base.sql",
+          "apps/equity_collector_v45/migrations/0002_market_provenance.sql",
+          "apps/equity_collector_v45/schema.sql",
+          "apps/equity_collector_v45/src/collector.mjs",
+          "apps/equity_collector_v45/src/constants.mjs",
+          "apps/equity_collector_v45/src/market-contract.mjs",
+          "apps/equity_collector_v45/src/market-guard.mjs",
+          "apps/equity_collector_v45/src/market.mjs",
+          "apps/equity_collector_v45/src/partition.mjs",
+          "apps/equity_collector_v45/src/provenance.mjs",
+          "apps/equity_collector_v45/tests/v16/lib.mjs",
+          "apps/equity_collector_v45/tests/v16/run-all.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_m1_m7_mixing.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_migration.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_negative_mixed_cycle.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t1_field_contract.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t2_idempotency_fields.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t3_failure_classes.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_t7_schema_contract.mjs",
+          "apps/equity_collector_v45/tests/v16/v16_u1_u5_units.mjs",
+          "docs/JEV_AI_DECISION_SCHEMA.md",
+          "docs/JEV_AI_PROVIDER_API.md",
+          "reports/V16_AI_CONTRACT_TESTS.md",
+          "reports/V16_AI_PAPER_E2E.md",
+          "reports/V16_AI_PROVIDER_AUDIT.md",
+          "reports/V16_AI_STRATEGY_BENCHMARK.md",
+          "reports/V16_CLOUD_E2E.md",
+          "reports/V16_FINAL_SIGNOFF.md",
+          "reports/V16_MARKET_PROVENANCE_DESIGN.md",
+          "reports/V16_MIXING_GUARD_TESTS.md",
+          "reports/V16_SCHEMA_MIGRATION.md",
+          "reports/evidence/v16/V16_MIG_migration.json",
+          "reports/evidence/v16/V16_M_m1_m7_mixing.json",
+          "reports/evidence/v16/V16_NEG_negative_mixed_cycle.json",
+          "reports/evidence/v16/V16_T1_field_contract.json",
+          "reports/evidence/v16/V16_T2_idempotency_fields.json",
+          "reports/evidence/v16/V16_T3_failure_classes.json",
+          "reports/evidence/v16/V16_T7_schema_contract.json",
+          "reports/evidence/v16/V16_U_u1_u5_units.json",
+          "reports/evidence/v16/cloud/v16_cloud_collect_evidence.json",
+          "reports/evidence/v16/cloud/v16_cloud_e2e_evidence.json",
+          "reports/evidence/v16/cloud/v16_cloud_fixtures.json",
+          "reports/evidence/v16/cloud/v16_cloud_reset.json",
+          "reports/evidence/v16/cloud/v16_cloud_schema.json",
+          "reports/evidence/v16/cloud/v16_entry_closed.json",
+          "reports/evidence/v16/cloud/v16_equity_d1_replay.json",
+          "reports/evidence/v16/cloud/v16_hard_gates.json",
+          "reports/evidence/v16/cloud/v16_isolated_d1.json",
+          "reports/evidence/v16/cloud/v16_migration_offline_dryrun.json",
+          "reports/evidence/v16/cloud/v16_smoke_stale_evidence.json",
+          "reports/evidence/v16/cloud/v16_worker_deploy.json",
+          "reports/evidence/v16/group_v16_m1_m7_mixing.json",
+          "reports/evidence/v16/group_v16_migration.json",
+          "reports/evidence/v16/group_v16_negative_mixed_cycle.json",
+          "reports/evidence/v16/group_v16_t1_field_contract.json",
+          "reports/evidence/v16/group_v16_t2_idempotency_fields.json",
+          "reports/evidence/v16/group_v16_t3_failure_classes.json",
+          "reports/evidence/v16/group_v16_t7_schema_contract.json",
+          "reports/evidence/v16/group_v16_u1_u5_units.json",
+          "reports/evidence/v16/mutation_check.json",
+          "reports/evidence/v16/qa_d1fix_verification.json",
+          "reports/evidence/v16/qa_phase2_independent.json",
+          "reports/evidence/v16/summary.json",
+          "reports/evidence/v16_ai/v16_ai_contract_tests.json"
+        ],
+        "brief": "扫描 90 个 V1.6 新增/修改文件, 命中 0 处"
+      }
+    },
+    {
+      "check": "7. src 顶层禁止 Global 主机名（H4）",
+      "pass": "PASS",
+      "detail": {
+        "src_top_level_files": [
+          "collector.mjs",
+          "compute.mjs",
+          "constants.mjs",
+          "engine-anchor.mjs",
+          "hash.mjs",
+          "market-contract.mjs",
+          "market-guard.mjs",
+          "market.mjs",
+          "partition.mjs",
+          "provenance.mjs",
+          "replay.mjs"
+        ],
+        "vendor_excluded": true,
+        "strip_comments": "与 T7 等价：保留字符串内容（含 URL 的 //），剥离 // 与 /* */ 注释",
+        "forbidden_host_literal_in_executable_code": false,
+        "primary_host_quoted_literal_present": true,
+        "forbidden_host_raw_occurrences": [
+          {
+            "file": "compute.mjs",
+            "line": 12
+          },
+          {
+            "file": "constants.mjs",
+            "line": 17
+          },
+          {
+            "file": "constants.mjs",
+            "line": 31
+          },
+          {
+            "file": "market.mjs",
+            "line": 5
+          }
+        ],
+        "note": "契约 H4：src 顶层可执行代码不得出现 data-api.binance.vision 字面量；仅 allowlist api.binance.us。",
+        "brief": "可执行代码中 data-api.binance.vision=未出现; \"api.binance.us\" 字面量=存在"
+      }
+    },
+    {
+      "check": "8. 无 console / 无凭据引用 / INSERT OR IGNORE（H6）",
+      "pass": "PASS",
+      "detail": {
+        "src_top_level_files": [
+          "collector.mjs",
+          "compute.mjs",
+          "constants.mjs",
+          "engine-anchor.mjs",
+          "hash.mjs",
+          "market-contract.mjs",
+          "market-guard.mjs",
+          "market.mjs",
+          "partition.mjs",
+          "provenance.mjs",
+          "replay.mjs"
+        ],
+        "console_call_present": false,
+        "credential_reference_present": false,
+        "insert_or_ignore_count": 2,
+        "bare_insert_into_writes": [],
+        "insert_snippets_in_code": [
+          "INSERT INTO/, \"INSERT OR IGNORE INTO\"),",
+          "INSERT OR IGNORE INTO v45_snapshot_provenance (${COLUMNS.join(\", \")}) V"
+        ],
+        "note": "对齐契约 H6 与 T7：无 console.*、无凭据引用；所有写入为 INSERT OR IGNORE INTO。compute.mjs 的 replace(/^INSERT INTO/, 'INSERT OR IGNORE INTO') 是正则字面量（非裸写 SQL），通过 'INSERT INTO 后紧跟表名' 的判定排除，不计为裸写。",
+        "brief": "console=无, 凭据引用=无, INSERT OR IGNORE INTO x2, 裸 INSERT INTO 写=0"
+      }
+    },
+    {
+      "check": "9. 契约 §4.2 新测试文件齐全（§4.2）",
+      "pass": "PASS",
+      "detail": {
+        "candidate_roots": [
+          "apps/equity_collector_v45/tests/v16",
+          "tests/v16"
+        ],
+        "expected_files": [
+          "v16_t1_field_contract.mjs",
+          "v16_t2_idempotency_fields.mjs",
+          "v16_t3_failure_classes.mjs",
+          "v16_t7_schema_contract.mjs",
+          "v16_m1_m7_mixing.mjs",
+          "v16_u1_u5_units.mjs",
+          "v16_migration.mjs",
+          "v16_negative_mixed_cycle.mjs",
+          "run-all.mjs"
+        ],
+        "per_root": {
+          "apps/equity_collector_v45/tests/v16": {
+            "present": [
+              "v16_t1_field_contract.mjs",
+              "v16_t2_idempotency_fields.mjs",
+              "v16_t3_failure_classes.mjs",
+              "v16_t7_schema_contract.mjs",
+              "v16_m1_m7_mixing.mjs",
+              "v16_u1_u5_units.mjs",
+              "v16_migration.mjs",
+              "v16_negative_mixed_cycle.mjs",
+              "run-all.mjs"
+            ],
+            "missing": []
+          },
+          "tests/v16": {
+            "present": [],
+            "missing": [
+              "v16_t1_field_contract.mjs",
+              "v16_t2_idempotency_fields.mjs",
+              "v16_t3_failure_classes.mjs",
+              "v16_t7_schema_contract.mjs",
+              "v16_m1_m7_mixing.mjs",
+              "v16_u1_u5_units.mjs",
+              "v16_migration.mjs",
+              "v16_negative_mixed_cycle.mjs",
+              "run-all.mjs"
+            ]
+          }
+        },
+        "note": "契约 §4.2 未写明完整前缀，两个候选根都检查；只在某一个根下全部齐全才判 PASS。",
+        "complete_at": "apps/equity_collector_v45/tests/v16",
+        "brief": "9 个新测试文件在 apps/equity_collector_v45/tests/v16 下齐全"
+      }
+    }
+  ]
+}

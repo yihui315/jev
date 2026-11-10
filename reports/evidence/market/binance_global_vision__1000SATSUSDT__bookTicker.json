@@ -1,0 +1,53 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "1000SATSUSDT",
+  "endpoint": "bookTicker",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/ticker/bookTicker?symbol=1000SATSUSDT",
+    "path": "/api/v3/ticker/bookTicker?symbol=1000SATSUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:48.097+00:00",
+    "probe_ts_epoch_ms": 1794198288097,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:49 GMT",
+      "x_mbx_uuid": "db40153b-2001-4161-aca5-28172d82e631",
+      "x_mbx_used_weight": "181",
+      "x_mbx_used_weight_1m": "181",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 121,
+    "body_sha256": "826d9746622aadb093174559c0996d2db596e62a746ef52dbb7ce86b9d153b32",
+    "body_sha256_short16": "826d9746622aadb0",
+    "body_excerpt_500": "{\"symbol\":\"1000SATSUSDT\",\"bidPrice\":\"0.00000840\",\"bidQty\":\"304374645.00\",\"askPrice\":\"0.00000842\",\"askQty\":\"337593474.00\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "1000SATSUSDT",
+      "bidPrice": "0.00000840",
+      "bidQty": "304374645.00",
+      "askPrice": "0.00000842",
+      "askQty": "337593474.00"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.371,
+    "is_cloudflare_html_block": false
+  }
+}

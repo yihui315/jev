@@ -1,0 +1,198 @@
+{
+  "id": "T0",
+  "file": "t0_market_probe.mjs",
+  "label": "market_probe",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T0_market_probe\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:43:58.537Z\",\"finishedAt\":\"2026-11-09T04:44:00.833Z\",\"meta\":{\"scope\":\"isolated local environment, read-only HTTP probes\"},\"checks\":[{\"name\":\"proxy_is_alive\",\"pass\":true,\"detail\":{\"url\":\"https://api.github.com\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"current_user_url\\\":\\\"https://api.github.com/user\\\",\\\"current_user_authorizations_html_url\\\":\\\"https://github.com/settings/connections/applications{/client_id}\\\",\\\"authorizations_url\\\":\\\"https://api.github.com/authorizations\\\",\\\"code_search_url\\\":\\\"http\",\"body_sha256\":\"cb8c56af7fcef970136a8acacba4e16ea32ab6762dbaaddf6909fae9db2c9f5e\",\"stderr_excerpt\":\"\"}},{\"name\":\"primary_source_probes_recorded\",\"pass\":true,\"detail\":{\"time\":{\"url\":\"https://api.binance.us/api/v3/time\",\"http_status\":0,\"curl_exit\":35,\"body_excerpt\":\"\",\"body_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stderr_excerpt\":\"curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\\r\\n\"},\"ticker\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT\",\"http_status\":0,\"curl_exit\":35,\"body_excerpt\":\"\",\"body_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stderr_excerpt\":\"curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\\r\\n\"}}},{\"name\":\"primary_source_unreachable_from_local_proxy\",\"pass\":true,\"detail\":{\"time_http\":0,\"ticker_http\":0}},{\"name\":\"data_host_reachable_locally\",\"pass\":true,\"detail\":{\"url\":\"https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74900.00000000\\\"}\",\"body_sha256\":\"393b2c62d8d452c5214dcd0873bb272be0268074c6de7496ef8a4cbe483175f9\",\"stderr_excerpt\":\"\"}},{\"name\":\"data_host_wrongly_lists_unlisted_symbols\",\"pass\":true,\"detail\":{\"url\":\"https://data-api.binance.vision/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"[{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74900.01000000\\\"},{\\\"symbol\\\":\\\"ETHUSDT\\\",\\\"price\\\":\\\"2139.42000000\\\"},{\\\"symbol\\\":\\\"ORDIUSDT\\\",\\\"price\\\":\\\"3.08500000\\\"},{\\\"symbol\\\":\\\"1000SATSUSDT\\\",\\\"price\\\":\\\"0.00000841\\\"}]\",\"body_sha256\":\"398f6308fc8a5f62b1d335d996e4f3fa14ecd39f4c6253a32527ff264ac4b131\",\"stderr_excerpt\":\"\"}},{\"name\":\"data_host_time_reachable\",\"pass\":true,\"detail\":{\"url\":\"https://data-api.binance.vision/api/v3/time\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"serverTime\\\":1794199441570}\",\"body_sha256\":\"e58c74ea57761b7cffa2788367b8b1fb90fff67dec1c6c14e808497a4ebd4edb\",\"stderr_excerpt\":\"\"}}],\"extra\":{\"probes\":{\"proxy_control\":{\"url\":\"https://api.github.com\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"current_user_url\\\":\\\"https://api.github.com/user\\\",\\\"current_user_authorizations_html_url\\\":\\\"https://github.com/settings/connections/applications{/client_id}\\\",\\\"authorizations_url\\\":\\\"https://api.github.com/authorizations\\\",\\\"code_search_url\\\":\\\"http\",\"body_sha256\":\"cb8c56af7fcef970136a8acacba4e16ea32ab6762dbaaddf6909fae9db2c9f5e\",\"stderr_excerpt\":\"\"},\"primary_time\":{\"url\":\"https://api.binance.us/api/v3/time\",\"http_status\":0,\"curl_exit\":35,\"body_excerpt\":\"\",\"body_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stderr_excerpt\":\"curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\\r\\n\"},\"primary_ticker_btc\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT\",\"http_status\":0,\"curl_exit\":35,\"body_excerpt\":\"\",\"body_sha256\":\"e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855\",\"stderr_excerpt\":\"curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\\r\\n\"},\"data_ticker_btc\":{\"url\":\"https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74900.00000000\\\"}\",\"body_sha256\":\"393b2c62d8d452c5214dcd0873bb272be0268074c6de7496ef8a4cbe483175f9\",\"stderr_excerpt\":\"\"},\"data_ticker_multi_with_unlisted\":{\"url\":\"https://data-api.binance.vision/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"[{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74900.01000000\\\"},{\\\"symbol\\\":\\\"ETHUSDT\\\",\\\"price\\\":\\\"2139.42000000\\\"},{\\\"symbol\\\":\\\"ORDIUSDT\\\",\\\"price\\\":\\\"3.08500000\\\"},{\\\"symbol\\\":\\\"1000SATSUSDT\\\",\\\"price\\\":\\\"0.00000841\\\"}]\",\"body_sha256\":\"398f6308fc8a5f62b1d335d996e4f3fa14ecd39f4c6253a32527ff264ac4b131\",\"stderr_excerpt\":\"\"},\"data_time\":{\"url\":\"https://data-api.binance.vision/api/v3/time\",\"http_status\":200,\"curl_exit\":0,\"body_excerpt\":\"{\\\"serverTime\\\":1794199441570}\",\"body_sha256\":\"e58c74ea57761b7cffa2788367b8b1fb90fff67dec1c6c14e808497a4ebd4edb\",\"stderr_excerpt\":\"\"}},\"webfetch_verified_observations\":{\"tool\":\"WebFetch (different network path; bypasses the local proxy)\",\"observedAt\":\"2026-11-09 (this session)\",\"primary_host\":\"api.binance.us\",\"btc_single\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT\",\"body\":\"{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74951.77000000\\\"}\",\"http\":200},\"btc_eth_multi\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%5D\",\"body\":\"[{\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"price\\\":\\\"74968.36000000\\\"},{\\\"symbol\\\":\\\"ETHUSDT\\\",\\\"price\\\":\\\"2143.35000000\\\"}]\",\"http\":200},\"ordi_single\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT\",\"body\":\"{\\\"code\\\":-1121,\\\"msg\\\":\\\"Invalid symbol.\\\"}\",\"http\":400},\"sats_single\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbol=1000SATSUSDT\",\"body\":\"{\\\"code\\\":-1121,\\\"msg\\\":\\\"Invalid symbol.\\\"}\",\"http\":400},\"multi_with_unlisted\":{\"url\":\"https://api.binance.us/api/v3/ticker/price?symbols=[BTC,ETH,ORDI,1000SATS]\",\"body\":\"{\\\"code\\\":-1121,\\\"msg\\\":\\\"Invalid symbol.\\\"}\",\"http\":400},\"time\":{\"url\":\"https://api.binance.us/api/v3/time\",\"body\":\"{\\\"serverTime\\\":1794198332883}\",\"http\":200}},\"primary_source_configured\":\"api.binance.us\",\"local_live_primary\":\"BLOCKED\",\"local_live_primary_reason\":\"proxy CONNECT tunnel to api.binance.us:443 times out (HTTP 000) while proxy itself is alive (api.github.com=200)\",\"forbidden_source_note\":\"data-api.binance.vision returns REAL 200 prices locally but is FORBIDDEN as primary: WAF-403 at the CF edge in V1.4 AND it wrongly lists ORDIUSDT/1000SATSUSDT which are NOT listed on Binance.US\",\"production_edge_live\":\"UNVERIFIED\",\"production_edge_live_note\":\"Cloudflare Worker live fetch must be verified by the OWNER after isolated D1 deploy; this local env cannot reach the primary source\",\"verdict_labels\":{\"local_network_probe\":\"VERIFIED\",\"primary_source_config_valid\":\"VERIFIED (via WebFetch real probe)\",\"production_live_fetch\":\"UNVERIFIED / BLOCKED (owner action required)\"}}}\n",
+  "stderr": "",
+  "result": {
+    "testId": "T0_market_probe",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:43:58.537Z",
+    "finishedAt": "2026-11-09T04:44:00.833Z",
+    "meta": {
+      "scope": "isolated local environment, read-only HTTP probes"
+    },
+    "checks": [
+      {
+        "name": "proxy_is_alive",
+        "pass": true,
+        "detail": {
+          "url": "https://api.github.com",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"current_user_url\":\"https://api.github.com/user\",\"current_user_authorizations_html_url\":\"https://github.com/settings/connections/applications{/client_id}\",\"authorizations_url\":\"https://api.github.com/authorizations\",\"code_search_url\":\"http",
+          "body_sha256": "cb8c56af7fcef970136a8acacba4e16ea32ab6762dbaaddf6909fae9db2c9f5e",
+          "stderr_excerpt": ""
+        }
+      },
+      {
+        "name": "primary_source_probes_recorded",
+        "pass": true,
+        "detail": {
+          "time": {
+            "url": "https://api.binance.us/api/v3/time",
+            "http_status": 0,
+            "curl_exit": 35,
+            "body_excerpt": "",
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_excerpt": "curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\r\n"
+          },
+          "ticker": {
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 0,
+            "curl_exit": 35,
+            "body_excerpt": "",
+            "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "stderr_excerpt": "curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\r\n"
+          }
+        }
+      },
+      {
+        "name": "primary_source_unreachable_from_local_proxy",
+        "pass": true,
+        "detail": {
+          "time_http": 0,
+          "ticker_http": 0
+        }
+      },
+      {
+        "name": "data_host_reachable_locally",
+        "pass": true,
+        "detail": {
+          "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74900.00000000\"}",
+          "body_sha256": "393b2c62d8d452c5214dcd0873bb272be0268074c6de7496ef8a4cbe483175f9",
+          "stderr_excerpt": ""
+        }
+      },
+      {
+        "name": "data_host_wrongly_lists_unlisted_symbols",
+        "pass": true,
+        "detail": {
+          "url": "https://data-api.binance.vision/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "[{\"symbol\":\"BTCUSDT\",\"price\":\"74900.01000000\"},{\"symbol\":\"ETHUSDT\",\"price\":\"2139.42000000\"},{\"symbol\":\"ORDIUSDT\",\"price\":\"3.08500000\"},{\"symbol\":\"1000SATSUSDT\",\"price\":\"0.00000841\"}]",
+          "body_sha256": "398f6308fc8a5f62b1d335d996e4f3fa14ecd39f4c6253a32527ff264ac4b131",
+          "stderr_excerpt": ""
+        }
+      },
+      {
+        "name": "data_host_time_reachable",
+        "pass": true,
+        "detail": {
+          "url": "https://data-api.binance.vision/api/v3/time",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"serverTime\":1794199441570}",
+          "body_sha256": "e58c74ea57761b7cffa2788367b8b1fb90fff67dec1c6c14e808497a4ebd4edb",
+          "stderr_excerpt": ""
+        }
+      }
+    ],
+    "extra": {
+      "probes": {
+        "proxy_control": {
+          "url": "https://api.github.com",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"current_user_url\":\"https://api.github.com/user\",\"current_user_authorizations_html_url\":\"https://github.com/settings/connections/applications{/client_id}\",\"authorizations_url\":\"https://api.github.com/authorizations\",\"code_search_url\":\"http",
+          "body_sha256": "cb8c56af7fcef970136a8acacba4e16ea32ab6762dbaaddf6909fae9db2c9f5e",
+          "stderr_excerpt": ""
+        },
+        "primary_time": {
+          "url": "https://api.binance.us/api/v3/time",
+          "http_status": 0,
+          "curl_exit": 35,
+          "body_excerpt": "",
+          "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_excerpt": "curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\r\n"
+        },
+        "primary_ticker_btc": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+          "http_status": 0,
+          "curl_exit": 35,
+          "body_excerpt": "",
+          "body_sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "stderr_excerpt": "curl: (35) schannel: failed to receive handshake, SSL/TLS connection failed\r\n"
+        },
+        "data_ticker_btc": {
+          "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74900.00000000\"}",
+          "body_sha256": "393b2c62d8d452c5214dcd0873bb272be0268074c6de7496ef8a4cbe483175f9",
+          "stderr_excerpt": ""
+        },
+        "data_ticker_multi_with_unlisted": {
+          "url": "https://data-api.binance.vision/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "[{\"symbol\":\"BTCUSDT\",\"price\":\"74900.01000000\"},{\"symbol\":\"ETHUSDT\",\"price\":\"2139.42000000\"},{\"symbol\":\"ORDIUSDT\",\"price\":\"3.08500000\"},{\"symbol\":\"1000SATSUSDT\",\"price\":\"0.00000841\"}]",
+          "body_sha256": "398f6308fc8a5f62b1d335d996e4f3fa14ecd39f4c6253a32527ff264ac4b131",
+          "stderr_excerpt": ""
+        },
+        "data_time": {
+          "url": "https://data-api.binance.vision/api/v3/time",
+          "http_status": 200,
+          "curl_exit": 0,
+          "body_excerpt": "{\"serverTime\":1794199441570}",
+          "body_sha256": "e58c74ea57761b7cffa2788367b8b1fb90fff67dec1c6c14e808497a4ebd4edb",
+          "stderr_excerpt": ""
+        }
+      },
+      "webfetch_verified_observations": {
+        "tool": "WebFetch (different network path; bypasses the local proxy)",
+        "observedAt": "2026-11-09 (this session)",
+        "primary_host": "api.binance.us",
+        "btc_single": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+          "body": "{\"symbol\":\"BTCUSDT\",\"price\":\"74951.77000000\"}",
+          "http": 200
+        },
+        "btc_eth_multi": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%5D",
+          "body": "[{\"symbol\":\"BTCUSDT\",\"price\":\"74968.36000000\"},{\"symbol\":\"ETHUSDT\",\"price\":\"2143.35000000\"}]",
+          "http": 200
+        },
+        "ordi_single": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT",
+          "body": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+          "http": 400
+        },
+        "sats_single": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbol=1000SATSUSDT",
+          "body": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+          "http": 400
+        },
+        "multi_with_unlisted": {
+          "url": "https://api.binance.us/api/v3/ticker/price?symbols=[BTC,ETH,ORDI,1000SATS]",
+          "body": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+          "http": 400
+        },
+        "time": {
+          "url": "https://api.binance.us/api/v3/time",
+          "body": "{\"serverTime\":1794198332883}",
+          "http": 200
+        }
+      },
+      "primary_source_configured": "api.binance.us",
+      "local_live_primary": "BLOCKED",
+      "local_live_primary_reason": "proxy CONNECT tunnel to api.binance.us:443 times out (HTTP 000) while proxy itself is alive (api.github.com=200)",
+      "forbidden_source_note": "data-api.binance.vision returns REAL 200 prices locally but is FORBIDDEN as primary: WAF-403 at the CF edge in V1.4 AND it wrongly lists ORDIUSDT/1000SATSUSDT which are NOT listed on Binance.US",
+      "production_edge_live": "UNVERIFIED",
+      "production_edge_live_note": "Cloudflare Worker live fetch must be verified by the OWNER after isolated D1 deploy; this local env cannot reach the primary source",
+      "verdict_labels": {
+        "local_network_probe": "VERIFIED",
+        "primary_source_config_valid": "VERIFIED (via WebFetch real probe)",
+        "production_live_fetch": "UNVERIFIED / BLOCKED (owner action required)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:00.845Z",
+  "node": "v22.22.2"
+}

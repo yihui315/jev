@@ -1,0 +1,54 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "BTCUSDT",
+  "endpoint": "exchangeInfo",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=BTCUSDT",
+    "path": "/api/v3/exchangeInfo?symbol=BTCUSDT",
+    "probe_ts_utc": "2026-11-09T04:36:20.664+00:00",
+    "probe_ts_epoch_ms": 1794198980664,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:23 GMT",
+      "x_mbx_uuid": "4c513f42-cc01-4c6f-8c61-af153f37d652",
+      "x_mbx_used_weight": "65",
+      "x_mbx_used_weight_1m": "65",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 232031fac04f24237bcfd12ed41173fc.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 2262,
+    "body_sha256": "53b02394e91180b9139dbd8c7d81f7b0e81096fc604536b83dc2e13a52b071c9",
+    "body_sha256_short16": "53b02394e91180b9",
+    "body_excerpt_500": "{\"timezone\":\"UTC\",\"serverTime\":1794198983384,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":\"SECOND\",\"intervalNum\":10,\"limit\":100},{\"rateLimitType\":\"ORDERS\",\"interval\":\"DAY\",\"intervalNum\":1,\"limit\":200000},{\"rateLimitType\":\"RAW_REQUESTS\",\"interval\":\"MINUTE\",\"intervalNum\":5,\"limit\":300000}],\"exchangeFilters\":[],\"symbols\":[{\"symbol\":\"BTCUSDT\",\"status\":\"TRADING\",\"baseAsset\":\"BTC\",\"baseAssetPrecision\":8,\"quoteAss",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "BTCUSDT",
+      "status": "TRADING",
+      "baseAsset": "BTC",
+      "quoteAsset": "USDT",
+      "isSpotTradingAllowed": true,
+      "permissions": []
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 2.076,
+    "is_cloudflare_html_block": false
+  }
+}
