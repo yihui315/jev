@@ -116,8 +116,17 @@
       "status": "NOT_STARTED",
       "summary": "Scheduler / State / Journal / Circuit Breaker 基础设施未建。严禁自动计时（30 天样本收集不自动启动）。",
       "evidence": [],
-      "next_action": "构建调度与状态机骨架（不自动启动计时）；待主理人批准后再激活 30 天样本收集。"
-    }
+    "next_action": "构建调度与状态机骨架（不自动启动计时）；待主理人批准后再激活 30 天样本收集。"
+  },
+  {
+    "id": "PHASE_11",
+    "name": "DAY-1.2 实时行情 + 真实 AI Paper Trading",
+    "status": "PARTIAL",
+    "summary": "实时行情：沙箱经代理无法到达 Binance.US（000/502），复用既有 edge-market 模块（fetchMarket+evaluateCycle 8 规则 fail-closed）尝试 LIVE，失败→SHADOW 合成行情（data_quality=UNKNOWN，明确 NOT 计入真实收益）。MiniMax M3 真实推理 40 次调用（39 ok / 1 INVALID_RESPONSE），密钥 sk-cp-…PZow（已二次核验为可用 key），不输出密钥。冻结 Paper Engine（paper-server.mjs simulateNewOrder/applyFill，只读导入，未碰 Staging D1、未改引擎）实际撮合成交；DAY-1.2 服务器风控（≤200 notional、≤6 笔、≤20% 敞口、1% 日亏/2% 回撤）置于引擎之前。结果：BUY 3 / SELL 2 / HOLD 34，5 笔成交（≤6），2 个已完成 round-trip，胜率 100%（2/2，已纠正此前 3/3 误算），虚拟净值 10002.13（+0.02%，合成），最大回撤 0.05%，token 26616（≈US$0.031，远低 US$5 上限）。权益对账：冻结引擎账户 vs harness 账本 MATCH。",
+    "evidence": ["reports/DAY1_LIVE_MARKET_E2E.md", "reports/DAY1_REAL_AI_PAPER_REPORT.md", "reports/DAY1_EQUITY_RECONCILIATION.md", "reports/DAY1_INDEPENDENT_QA.md", "reports/DAY1_FINAL_SIGNOFF.md", "apps/command_center_3d/scripts/day12-live-market-paper.mjs", "Git SHA 811f4fb / 7ae3ca8"],
+    "blocking_reason": "Binance.US 出网阻断（沙箱代理 000/502）→ 真实行情路径 BLOCKED，仅 SHADOW；无可靠实时行情则不得发布「已验证净利润」（已遵守）。待边缘或出网宿主接 LIVE 后重跑 PAPER_PROBE。",
+    "next_action": "① 边缘/出网宿主接入 LIVE 行情后，将 SHADOW 切换为 PAPER_PROBE（同 harness，仅 market 通道变 LIVE）；② 补足 DeepSeek/OpenRouter key 以扩到三模型对比（可选）；③ 推送本地 5 提交（代理 502/超时阻断，待恢复）；④ 密钥安全：停止跨服务商试探同一 key，建议轮换曾被多端点试探的 sk-sp-（如仍用于生产），sk-cp-（仅发往 MiniMax）保留。"
+  }
   ],
   "ci_status": {
     "last_green_runs": ["42712800491", "42712789106", "42712789223", "42712800228"],
