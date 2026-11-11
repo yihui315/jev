@@ -97,6 +97,11 @@ jobs:
           # their teeth.
           test -f apps/command_center_3d/server/tests/http-body-read.mjs || { echo "HTTP BODY TEST MISSING"; exit 1; }
           node apps/command_center_3d/server/tests/http-body-read.mjs 2>&1 | tee "$GATE_LOG_DIR/8-api-body-read.log"
+          # The FINAL-10 evidence judge. It runs the real module in a subprocess
+          # instead of re-implementing the rules in JS: two implementations
+          # agreeing is evidence about the author, not about the target.
+          test -f apps/command_center_3d/scripts/tests/final10-judge.test.mjs || { echo "FINAL-10 JUDGE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/tests/final10-judge.test.mjs 2>&1 | tee "$GATE_LOG_DIR/9-final10-judge.log"
 
       # C12 / F-22-G: exit codes alone cannot tell "96 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a

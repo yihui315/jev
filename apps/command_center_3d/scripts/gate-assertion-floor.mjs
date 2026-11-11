@@ -217,6 +217,28 @@ const SUITES = [
     // fail if a facade stops calling the shared reader.
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
+  {
+    slug: "9-final10-judge",
+    label: "scripts/tests/final10-judge.test.mjs (FINAL-10 reboot-evidence judge)",
+    expect: 20,
+    // "RESULT PASS=20 FAIL=0"
+    // 20 cases. 8 of them are named NEGATIVES that all assert the same shape:
+    // "I do not know" must not read as "fine". GATE_1_RC_ABSENT and
+    // ATTACH_RC_ABSENT (an absent exit_code, which happens exactly on launch
+    // failure, timeout, and attach), FRESHNESS_SINCE_MISSING and
+    // FRESHNESS_SINCE_UNPARSABLE (an absent or unparsable `since`, which used to
+    // mean "fresh"), ATTACH_NO_STARTED_AT (RUN_LOST), plus ALLOWLIST_EMPTY and
+    // EXEMPT_EMPTY (the two exemption channels, both empty and both guarded at
+    // import time so an empty tuple cannot silently become a populated one).
+    // Two cases exist only to keep the carry semantics honest in BOTH
+    // directions: RC_NONE_LAUNCH_FAILED / GATE_1_RC_ABSENT require the earlier
+    // reason to survive a negative verdict, and GOOD_DETAIL_IS_JUDGE_TEXT
+    // requires a PASS to carry the judge's own sentence and nothing prepended --
+    // without it, "always keep the old detail" would pass every other case.
+    // This suite is the JUDGE. It says nothing about whether the reboot evidence
+    // exists; it only says the judge refuses evidence it cannot interpret.
+    re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+  },
 ];
 
 const violations = [];
