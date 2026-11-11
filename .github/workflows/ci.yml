@@ -93,6 +93,13 @@ jobs:
           node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs
           test -f apps/command_center_3d/scripts/day14-research/p3-contracts.mjs || { echo "P3P4 TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs
+          # Final two suites. Both are hand-written `node <path>` assertion
+          # scripts (node:assert + exit code), which is why they are excluded
+          # from vitest's collection in vite.config.ts and run here instead.
+          test -f apps/command_center_3d/scripts/supervisor/supervisor.test.mjs || { echo "SUPERVISOR TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/supervisor/supervisor.test.mjs
+          test -f apps/command_center_3d/scripts/check-no-fake-live.mjs || { echo "NO-FAKE-LIVE CHECK MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/check-no-fake-live.mjs
 
   real-data-probe:
     name: Real Binance market-data probe (non-blocking)

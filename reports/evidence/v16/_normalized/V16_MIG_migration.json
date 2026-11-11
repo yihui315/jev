@@ -1,0 +1,118 @@
+{
+  "exitCode": 0,
+  "file": "v16_migration.mjs",
+  "id": "V16_MIG",
+  "label": "migration",
+  "node": "v22.22.2",
+  "result": {
+    "checks": [
+      {
+        "detail": {
+          "tables": [
+            {
+              "name": "v45_snapshot_provenance_v1_legacy"
+            }
+          ]
+        },
+        "name": "legacy_table_preserved",
+        "pass": true
+      },
+      {
+        "detail": {
+          "dq": "VERIFIED",
+          "found": true
+        },
+        "name": "legacy_row_preserved_verbatim",
+        "pass": true
+      },
+      {
+        "detail": {
+          "exchange": "UNKNOWN",
+          "market": "UNKNOWN",
+          "network_context": "UNKNOWN",
+          "price_ts_source": "UNKNOWN",
+          "venue": "UNKNOWN"
+        },
+        "name": "history_new_columns_all_unknown",
+        "pass": true
+      },
+      {
+        "detail": {
+          "failure_class": "HISTORY_UNPROVEN"
+        },
+        "name": "history_failure_class_history_unproven",
+        "pass": true
+      },
+      {
+        "detail": {
+          "mark_contracts_json": "{}"
+        },
+        "name": "history_mark_contracts_json_empty",
+        "pass": true
+      },
+      {
+        "detail": {
+          "market_partition_key": "UNKNOWN|UNKNOWN"
+        },
+        "name": "history_partition_key_self_consistent",
+        "pass": true
+      },
+      {
+        "detail": {
+          "data_quality": "VERIFIED"
+        },
+        "name": "history_data_quality_preserved_verified",
+        "pass": true
+      },
+      {
+        "detail": {
+          "indexes": [
+            "idx_v45_prov_partition",
+            "idx_v45_prov_quality",
+            "idx_v45_prov_session_cycle"
+          ]
+        },
+        "name": "three_indexes_rebuilt_after_migration",
+        "pass": true
+      },
+      {
+        "detail": {
+          "pUS": null,
+          "pUnk": null
+        },
+        "name": "history_row_excluded_from_peak",
+        "pass": true
+      },
+      {
+        "detail": {
+          "code": "HISTORY_PROVENANCE_UNPROVEN"
+        },
+        "name": "history_provenance_guard_rejects",
+        "pass": true
+      },
+      {
+        "detail": {
+          "fileBytes": 4943,
+          "gitBytes": 4943,
+          "gitExit": 0
+        },
+        "name": "0001_is_verbatim_baseline_blob",
+        "pass": true
+      }
+    ],
+    "extra": {
+      "historyEquity": 123456789,
+      "legacyKept": true,
+      "pUS": null,
+      "pUnk": null
+    },
+    "meta": {
+      "coverage": "0001 -> 0002"
+    },
+    "testId": "v16_migration",
+    "verdict": "PASS"
+  },
+  "stderr": "",
+  "stdout": "RESULT_JSON:{\"checks\": [{\"detail\": {\"tables\": [{\"name\": \"v45_snapshot_provenance_v1_legacy\"}]},\"name\": \"legacy_table_preserved\",\"pass\": true},{\"detail\": {\"dq\": \"VERIFIED\",\"found\": true},\"name\": \"legacy_row_preserved_verbatim\",\"pass\": true},{\"detail\": {\"exchange\": \"UNKNOWN\",\"market\": \"UNKNOWN\",\"network_context\": \"UNKNOWN\",\"price_ts_source\": \"UNKNOWN\",\"venue\": \"UNKNOWN\"},\"name\": \"history_new_columns_all_unknown\",\"pass\": true},{\"detail\": {\"failure_class\": \"HISTORY_UNPROVEN\"},\"name\": \"history_failure_class_history_unproven\",\"pass\": true},{\"detail\": {\"mark_contracts_json\": \"{}\"},\"name\": \"history_mark_contracts_json_empty\",\"pass\": true},{\"detail\": {\"market_partition_key\": \"UNKNOWN|UNKNOWN\"},\"name\": \"history_partition_key_self_consistent\",\"pass\": true},{\"detail\": {\"data_quality\": \"VERIFIED\"},\"name\": \"history_data_quality_preserved_verified\",\"pass\": true},{\"detail\": {\"indexes\": [\"idx_v45_prov_partition\",\"idx_v45_prov_quality\",\"idx_v45_prov_session_cycle\"]},\"name\": \"three_indexes_rebuilt_after_migration\",\"pass\": true},{\"detail\": {\"pUS\": null,\"pUnk\": null},\"name\": \"history_row_excluded_from_peak\",\"pass\": true},{\"detail\": {\"code\": \"HISTORY_PROVENANCE_UNPROVEN\"},\"name\": \"history_provenance_guard_rejects\",\"pass\": true},{\"detail\": {\"fileBytes\": 4943,\"gitBytes\": 4943,\"gitExit\": 0},\"name\": \"0001_is_verbatim_baseline_blob\",\"pass\": true}],\"extra\": {\"historyEquity\": 123456789,\"legacyKept\": true,\"pUS\": null,\"pUnk\": null},\"meta\": {\"coverage\": \"0001 -> 0002\"},\"testId\": \"v16_migration\",\"verdict\": \"PASS\"}\n",
+  "verdict": "PASS"
+}

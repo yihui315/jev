@@ -4,13 +4,13 @@
   "label": "migration",
   "exitCode": 0,
   "verdict": "PASS",
-  "stdout": "RESULT_JSON:{\"testId\":\"v16_migration\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-10T23:54:16.464Z\",\"finishedAt\":\"2026-11-10T23:54:16.529Z\",\"meta\":{\"coverage\":\"0001 -> 0002\"},\"checks\":[{\"name\":\"legacy_table_preserved\",\"pass\":true,\"detail\":{\"tables\":[{\"name\":\"v45_snapshot_provenance_v1_legacy\"}]}},{\"name\":\"legacy_row_preserved_verbatim\",\"pass\":true,\"detail\":{\"found\":true,\"dq\":\"VERIFIED\"}},{\"name\":\"history_new_columns_all_unknown\",\"pass\":true,\"detail\":{\"exchange\":\"UNKNOWN\",\"market\":\"UNKNOWN\",\"price_ts_source\":\"UNKNOWN\",\"network_context\":\"UNKNOWN\",\"venue\":\"UNKNOWN\"}},{\"name\":\"history_failure_class_history_unproven\",\"pass\":true,\"detail\":{\"failure_class\":\"HISTORY_UNPROVEN\"}},{\"name\":\"history_mark_contracts_json_empty\",\"pass\":true,\"detail\":{\"mark_contracts_json\":\"{}\"}},{\"name\":\"history_partition_key_self_consistent\",\"pass\":true,\"detail\":{\"market_partition_key\":\"UNKNOWN|UNKNOWN\"}},{\"name\":\"history_data_quality_preserved_verified\",\"pass\":true,\"detail\":{\"data_quality\":\"VERIFIED\"}},{\"name\":\"three_indexes_rebuilt_after_migration\",\"pass\":true,\"detail\":{\"indexes\":[\"idx_v45_prov_partition\",\"idx_v45_prov_quality\",\"idx_v45_prov_session_cycle\"]}},{\"name\":\"history_row_excluded_from_peak\",\"pass\":true,\"detail\":{\"pUS\":null,\"pUnk\":null}},{\"name\":\"history_provenance_guard_rejects\",\"pass\":true,\"detail\":{\"code\":\"HISTORY_PROVENANCE_UNPROVEN\"}},{\"name\":\"0001_is_verbatim_baseline_blob\",\"pass\":true,\"detail\":{\"gitExit\":0,\"gitBytes\":4943,\"fileBytes\":4943}}],\"extra\":{\"legacyKept\":true,\"historyEquity\":123456789,\"pUS\":null,\"pUnk\":null}}\n",
+  "stdout": "RESULT_JSON:{\"testId\":\"v16_migration\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-11T04:55:01.058Z\",\"finishedAt\":\"2026-11-11T04:55:01.116Z\",\"meta\":{\"coverage\":\"0001 -> 0002\"},\"checks\":[{\"name\":\"legacy_table_preserved\",\"pass\":true,\"detail\":{\"tables\":[{\"name\":\"v45_snapshot_provenance_v1_legacy\"}]}},{\"name\":\"legacy_row_preserved_verbatim\",\"pass\":true,\"detail\":{\"found\":true,\"dq\":\"VERIFIED\"}},{\"name\":\"history_new_columns_all_unknown\",\"pass\":true,\"detail\":{\"exchange\":\"UNKNOWN\",\"market\":\"UNKNOWN\",\"price_ts_source\":\"UNKNOWN\",\"network_context\":\"UNKNOWN\",\"venue\":\"UNKNOWN\"}},{\"name\":\"history_failure_class_history_unproven\",\"pass\":true,\"detail\":{\"failure_class\":\"HISTORY_UNPROVEN\"}},{\"name\":\"history_mark_contracts_json_empty\",\"pass\":true,\"detail\":{\"mark_contracts_json\":\"{}\"}},{\"name\":\"history_partition_key_self_consistent\",\"pass\":true,\"detail\":{\"market_partition_key\":\"UNKNOWN|UNKNOWN\"}},{\"name\":\"history_data_quality_preserved_verified\",\"pass\":true,\"detail\":{\"data_quality\":\"VERIFIED\"}},{\"name\":\"three_indexes_rebuilt_after_migration\",\"pass\":true,\"detail\":{\"indexes\":[\"idx_v45_prov_partition\",\"idx_v45_prov_quality\",\"idx_v45_prov_session_cycle\"]}},{\"name\":\"history_row_excluded_from_peak\",\"pass\":true,\"detail\":{\"pUS\":null,\"pUnk\":null}},{\"name\":\"history_provenance_guard_rejects\",\"pass\":true,\"detail\":{\"code\":\"HISTORY_PROVENANCE_UNPROVEN\"}},{\"name\":\"0001_is_verbatim_baseline_blob\",\"pass\":true,\"detail\":{\"gitExit\":0,\"gitBytes\":4943,\"fileBytes\":4943}}],\"extra\":{\"legacyKept\":true,\"historyEquity\":123456789,\"pUS\":null,\"pUnk\":null}}\n",
   "stderr": "",
   "result": {
     "testId": "v16_migration",
     "verdict": "PASS",
-    "startedAt": "2026-11-10T23:54:16.464Z",
-    "finishedAt": "2026-11-10T23:54:16.529Z",
+    "startedAt": "2026-11-11T04:55:01.058Z",
+    "finishedAt": "2026-11-11T04:55:01.116Z",
     "meta": {
       "coverage": "0001 -> 0002"
     },
@@ -116,6 +116,6 @@
       "pUnk": null
     }
   },
-  "capturedAt": "2026-11-10T23:54:16.543Z",
+  "capturedAt": "2026-11-11T04:55:01.125Z",
   "node": "v22.22.2"
 }

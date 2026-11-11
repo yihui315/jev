@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // Dev server binds 127.0.0.1:4781 only (v1.2 dev UI port). The final v1.2 UI
@@ -80,5 +81,18 @@ export default defineConfig({
     // files serially keeps the cache single-writer and the run clean; the suite
     // is small, so the time cost is negligible.
     fileParallelism: false,
+    // NOT vitest suites: these two are hand-written `node <path>` assertion
+    // scripts (node:assert + process.exit, no describe/it). They matched the
+    // default `**/*.test.mjs` glob and made every `vitest run` fail with
+    // "No test suite found in file" — a red unit-test job for a test-runner
+    // mismatch, not for a real defect. Their correct entry point is `node`,
+    // which the CI gap-closure gate below uses. `configDefaults` is spread in
+    // on purpose: setting `exclude` replaces vitest's defaults wholesale, and
+    // a bare array would silently stop excluding node_modules/dist.
+    exclude: [
+      ...configDefaults.exclude,
+      "scripts/supervisor/supervisor.test.mjs",
+      "server/ai/evidence/tests/inference-evidence.test.mjs",
+    ],
   },
 });
