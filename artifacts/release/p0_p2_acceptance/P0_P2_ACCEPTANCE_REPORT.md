@@ -950,3 +950,81 @@ $ git rev-parse b71a80e:…/check-no-fake-live.mjs              → fcac2c417943
 ⇒ `#23` 仍未关（它问的可能是 CI 里怎么取字节，而 CI 本来就是 clone），但**"无法验证提交字节"这个结论不成立**：可以验证，方法是克隆 + `checkout --detach` + 锁存 HEAD。
 
 **记一条限制**：本节两次读数都是 Windows 上 Node 的**本机**执行结果；克隆的 `origin` 是本地路径。它证明的是"这些字节在本机这次 Node 上自洽"，不是"在 GitHub runner 上同样绿"。这两个命题的差距必须保留。
+
+### 10.16 崩溃/重启恢复这一条的判定链是 **fail-open**：`FINAL-10` 的「PASS」可以来自 337 个提交之前
+
+验收项「crash/restart recovery」在仓库里的落点是 `FINAL-10_REBOOT_SIM`。逐环节实测（`D:\jev_worktrees\v2ops`，HEAD `b71a80e`）：
+
+**环节 1｜证据文件是 tracked 的，且已经 337 个提交未更新。**
+
+```
+$ git ls-files --error-unmatch artifacts/acceptance/REBOOT_RECOVERY.json   → TRACKED
+$ python -c "…json.load…"
+release_sha = cefed66159a50ea8bcba5279d4a95cc5b726036d
+checked_at  = 2026-09-26T22:18:43+08:00
+platform    = None                      ← 无 platform 字段
+status      = PASS    ok = True
+$ git log -1 --format='%ci %s' cefed661…
+2026-09-26 16:28:43 +0800 E-07 re-run on the freeze, …
+$ git merge-base --is-ancestor cefed661… HEAD  → IS_ANCESTOR
+$ git rev-list --count cefed661…..HEAD         → 337
+```
+
+**环节 2｜产出脚本不先删证据。** `tools/continuation/reboot_recovery_sim.py`：
+```
+grep -c 'os.remove'  → 0
+grep -c 'unlink'     → 0
+273:    os.makedirs(os.path.dirname(OUT), exist_ok=True)
+274:    with io.open(OUT, "w", …) as fh:     ← 直接覆盖，不校验旧文件是否本轮产物
+```
+对照：同一失败类在 v16 侧**已经关过**（Y4/Y5）——
+```
+.github/workflows/v16-market-provenance.yml:99 :  rm -f ../../reports/evidence/v16/summary.json
+.github/workflows/v16-market-provenance.yml:136:  rm -f ../../reports/evidence/v16_ai/…json
+```
+⇒ **同一条纪律，v16 有、`FINAL-10` 没有。** 这是不对称，不是设计选择（脚本自己的注释里没有任何"保留旧证据"的理由）。
+
+**环节 3｜判定函数只读 `ok`，不读 `release_sha`/`checked_at`/`platform`。**
+```
+tools/jcc_continuation.py:677  def _ok_judge(rec):
+678      if not isinstance(rec, dict): return False, …
+680      ok = rec.get("ok")
+681      if ok is not True: return False, …
+683      return True, …
+```
+**环节 4｜这一判定是实际执行的，不是推断**（import 真模块、喂真文件）：
+```
+$ python -c "import sys; sys.path.insert(0,'tools'); import jcc_continuation as m; …"
+imported ok
+artifact.release_sha = cefed66159a50ea8bcba5279d4a95cc5b726036d
+artifact.platform    = None
+_ok_judge(artifact)  = (True, 'PASS: a simulated reboot (dead pid in a lock that had not
+                              expired, RUNNING state, crash debris) was recovered by …')
+```
+⇒ **一个 337 个提交之前、没有 `platform` 字段的文件，被真实判定函数判为 PASS。**
+
+**环节 5｜退出码不参与判定（代码级）。**
+```
+run_step():  record["exit_code"] = rc                     ← 只记录
+     1021:   return _judge_artifact(step, record)          ← 状态由 artifact 的 judge 决定
+_jugde_artifact(): rec = load_json(path); ok, detail = step.judge(rec)
+                   record["status"] = "PASS" if ok else "BLOCKED"
+```
+`_artifact_fresh()`（`:902`）确实存在，注释也是为此而写——但它的调用点只有 `:1047`/`:1054`/`:1158`，**全部用于 run descriptor（`attach_to_run` 的恢复路径），从不用于 step 的结果 artifact**。
+⇒ 于是：**子进程 rc=1、或根本没写文件，只要旧文件还在，`FINAL-10` 就是 PASS。**
+
+#### 结论与定级
+
+- **VERIFIED（已执行）**：环节 1/2/3/4。即"陈旧证据 + 无删守卫 + 只读 `ok` ⇒ 判定函数给 PASS"。
+- **UNVERIFIED-BY-EXECUTION**：**端到端**结论"一次什么都没做的 FINAL 运行能拿到 PROJECT_COMPLETE"。我没有跑整条 pipeline（它含 40 分钟 soak 与需服务在线的步骤），所以这一步是代码级强推断，不是实测。
+- **定级 P0（fail-open）**，与 F-26/R22 同族：**它不报错，它报绿灯。** 且比 F-26 更隐蔽——F-26 是"证据缺失被当通过"，这里是"证据在场且自称成功，但不是这一轮的"。
+- **不在 8 套件门禁的覆盖内**：`tools/continuation/**` 没有任何一个 CI 套件在跑它。所以 §10.14/§10.15 的 `126/126` **对这条完全无话可说**，不能拿来当"重启恢复已验证"。
+
+#### 最小整改（三条，与 `#8` 的三条要求重合）
+
+1. `reboot_recovery_sim.py` 在写 `OUT` **之前** `os.remove(OUT)`（与 `v16-market-provenance.yml:99` 同一写法）；`rm -f` 也可以是 pipeline 侧在跑该 step 前执行，但**必须有一处**，且必须能被"文件不存在"观测到。
+2. `_ok_judge` 之外再给 `FINAL-10` 一个专用 judge：**必须**断言 `release_sha == <候选 SHA>`、`platform` 存在、`checked_at` 晚于本轮开始时刻。
+3. `REBOOT_RECOVERY.json` 移出 tracked 路径（它就是"陈旧副本"本身）。
+
+**注意 1**：这三条一旦落地，`FINAL-10` 当天会**变红**（因为旧文件不在、`platform` 缺失、`release_sha` 不匹配）。**这是正确行为，不是回归**；不要为了让流水线变绿而去补写一份"看起来对"的 json。
+**注意 2**：`publish_release_evidence.py` 的 verdict 文字里写的是"every FINAL-phase leg is present and **unchanged since it was judged**"——这是**防篡改**，不是**防陈旧**。一个 7 周前被判过、之后没人动的文件，天然满足"unchanged since judged"。两种守卫不能互相冒充。
