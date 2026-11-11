@@ -121,9 +121,63 @@ function stripLineComments(src) {
     .join("\n");
 }
 
+// Pull one top-level function's source out of a file WITHOUT importing that file.
+// Importing trading_api.mjs would execute its module top level: it calls
+// server.listen() and loads the frozen engine from a "D:/..." path that does not
+// exist on a Linux CI runner. A guard that cannot run where the gate runs is not
+// a guard — so the builder is exercised as source text, in-process.
+function extractFunctionSource(src, name) {
+  const marker = `function ${name}(`;
+  const at = src.indexOf(marker);
+  assert.ok(at !== -1, `could not find "${marker}" — the function was renamed or removed`);
+  assert.equal(src.indexOf(marker, at + 1), -1,
+    `"${name}" is defined more than once; extraction would silently pick the first one`);
+  let i = src.indexOf("{", at + marker.length);
+  assert.ok(i !== -1, `no opening brace after "${marker}"`);
+  let depth = 0;
+  for (; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === '"' || ch === "'" || ch === "`") {           // skip string and template literals
+      const quote = ch;
+      for (i++; i < src.length; i++) {
+        if (src[i] === "\\") { i++; continue; }
+        if (src[i] === quote) break;
+      }
+      continue;
+    }
+    if (ch === "/" && src[i + 1] === "/") { while (i < src.length && src[i] !== "\n") i++; continue; }
+    if (ch === "/" && src[i + 1] === "*") {
+      const end = src.indexOf("*/", i + 2);
+      assert.ok(end !== -1, `unterminated block comment while extracting "${name}"`);
+      i = end + 1;
+      continue;
+    }
+    if (ch === "{") depth++;
+    else if (ch === "}") { depth--; if (depth === 0) return src.slice(at, i + 1); }
+  }
+  return assert.fail(`unbalanced braces while extracting "${name}"`);
+}
+
 const CJK = "备";                                    // 3 bytes E5 A4 87 (U+5907)
 const ROCKET = "\u{1F680}";                          // 4 bytes
 const MIXED = `{"note":"中文备注${ROCKET}","n":1}`;   // ASCII + CJK + astral
+
+// A body that is NOT valid UTF-8: an orphaned 3-byte CJK lead byte. Decoding it
+// to text yields U+FFFD and re-encoding yields MORE bytes (10 -> 12). This is the
+// same shape the per-chunk bug produced, and the reason a body signature over the
+// raw bytes can never survive a string round-trip.
+const LOSSY_RAW = Buffer.concat([Buffer.from('{"note":"'), Buffer.from([0xe4])]);
+const LOSSY_TEXT = LOSSY_RAW.toString("utf8");
+
+// The fixture must be ABLE to fail, or every arm built on it is vacuous. If a
+// future Node makes this round-trip lossless, this throws and the arm has to be
+// redesigned — it must not be relaxed into "whatever the runtime happens to do".
+function assertFixtureIsLossy() {
+  const again = Buffer.from(LOSSY_TEXT, "utf8");
+  assert.ok(!again.equals(LOSSY_RAW), "fixture is no longer lossy — the arms below would be vacuous");
+  assert.ok(again.length !== LOSSY_RAW.length,
+    `re-encoding did not change the length (${again.length} vs ${LOSSY_RAW.length})`);
+}
 
 // ============================================================================
 // node:http facade — byte fidelity
@@ -270,18 +324,69 @@ await check("12 fetch: the cap counts BYTES, not characters", async () => {
 // wiring: the facades must actually USE the reader (a fix nobody calls is not a fix)
 // ============================================================================
 await check("13 wiring: node facade uses the byte reader and keeps no per-chunk accumulator", async () => {
-  const src = stripLineComments(readFileSync(join(SERVER_DIR, "trading_api.mjs"), "utf8"));
+  const srcRaw = readFileSync(join(SERVER_DIR, "trading_api.mjs"), "utf8");
+  const src = stripLineComments(srcRaw);
   assert.ok(/readNodeBodyBytes\s*\(/.test(src), "trading_api.mjs does not call readNodeBodyBytes()");
   assert.ok(!/\bs\s*\+=\s*c\b/.test(src), "per-chunk string concatenation is back in trading_api.mjs");
   assert.ok(!/let\s+s\s*=\s*""/.test(src), "the accumulating-string body reader is back in trading_api.mjs");
   assert.ok(/bodyText,\s*bodyBytes\s*\)/.test(src), "the original body bytes are not forwarded to buildEngineRequest()");
+
+  // ---- behavioural arm: what ACTUALLY reaches the engine -------------------
+  // The four lines above prove a call site exists. They cannot see whether the
+  // bytes survive the BUILDER — and the original defect lived inside
+  // buildEngineRequest, one line below a call site that already looked right.
+  // Textual guards are insensitive to exactly that line, so run the real
+  // builder and compare bytes.
+  const buildEngineRequest = new Function("ORIGIN",
+    `${extractFunctionSource(srcRaw, "buildEngineRequest")}\nreturn buildEngineRequest;`)("http://127.0.0.1:4791");
+
+  assertFixtureIsLossy();
+  const lossyReq = buildEngineRequest({ method: "POST", headers: {} }, "/api/jev/order", "", LOSSY_TEXT, LOSSY_RAW);
+  const lossyBytes = Buffer.from(await lossyReq.arrayBuffer());
+  assert.ok(lossyBytes.equals(LOSSY_RAW),
+    `the engine would receive ${lossyBytes.length} bytes instead of the ${LOSSY_RAW.length} that arrived — ` +
+    "the decoded text was re-serialised instead of the original bytes being forwarded");
+
+  const okBytes = Buffer.from(MIXED, "utf8");
+  const okReq = buildEngineRequest({ method: "POST", headers: {} }, "/api/jev/order", "", MIXED, okBytes);
+  assert.ok(Buffer.from(await okReq.arrayBuffer()).equals(okBytes),
+    "a well-formed body is not forwarded byte-exactly either");
+
+  const getReq = buildEngineRequest({ method: "GET", headers: {} }, "/api/jev/paper/account", "", LOSSY_TEXT, LOSSY_RAW);
+  assert.equal(getReq.body, null, "a GET must not be handed a body");
 });
 
 await check("14 wiring: Workers facade uses the capped fetch reader and no un-capped request.text()", async () => {
-  const src = stripLineComments(readFileSync(join(APP, "functions", "api", "jev", "[[path]].js"), "utf8"));
+  const srcRaw = readFileSync(join(APP, "functions", "api", "jev", "[[path]].js"), "utf8");
+  const src = stripLineComments(srcRaw);
   assert.ok(/readFetchBody\s*\(/.test(src), "[[path]].js does not call readFetchBody()");
   assert.ok(!/request\.text\s*\(\s*\)/.test(src), "request.text() (un-capped) is back in [[path]].js");
   assert.ok(/bodyText,\s*bodyBytes\s*\)/.test(src), "the original body bytes are not forwarded to buildEngineRequest()");
+
+  // Same hole, same shape, other surface: this builder is a SEPARATE copy, so the
+  // node arm above says nothing about it.
+  const buildEngineRequest = new Function(
+    `${extractFunctionSource(srcRaw, "buildEngineRequest")}\nreturn buildEngineRequest;`)();
+  const fakeRequest = (method) => ({
+    method,
+    url: "http://127.0.0.1:4791/api/jev/order",
+    headers: { get: () => null },
+  });
+
+  assertFixtureIsLossy();
+  const lossyReq = buildEngineRequest(fakeRequest("POST"), "/api/jev/order", "", LOSSY_TEXT, LOSSY_RAW);
+  const lossyBytes = Buffer.from(await lossyReq.arrayBuffer());
+  assert.ok(lossyBytes.equals(LOSSY_RAW),
+    `the Workers facade would forward ${lossyBytes.length} bytes instead of ${LOSSY_RAW.length} — ` +
+    "the decoded text was re-serialised");
+
+  const okBytes = Buffer.from(MIXED, "utf8");
+  const okReq = buildEngineRequest(fakeRequest("POST"), "/api/jev/order", "", MIXED, okBytes);
+  assert.ok(Buffer.from(await okReq.arrayBuffer()).equals(okBytes),
+    "a well-formed body is not forwarded byte-exactly either");
+
+  const getReq = buildEngineRequest(fakeRequest("GET"), "/api/jev/paper/account", "", LOSSY_TEXT, LOSSY_RAW);
+  assert.equal(getReq.body, null, "a GET must not be handed a body");
 });
 
 await check("15 wiring: the 413 is flushed BEFORE anything is torn down", async () => {
