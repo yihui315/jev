@@ -293,17 +293,18 @@ check("EXTRA", "Y3 v16 Track B: assertion-count floor present in LIVE code, numb
     "R15/F-25: v16 Track B floor numbers drifted from the frozen suites=10 / checks=120");
 
   // The floor is only a floor if violating it is fatal. Guard this as an
-  // INVARIANT over the whole verifier rather than only the floor line: every
-  // `console.error('V16_AI_...` must carry `process.exit(1)` on the same line.
-  // Softening ANY of the three (not-green / network-calls / count-changed) used
-  // to go unnoticed — found because a mis-targeted mutation softened the first
-  // one and the narrower guard stayed green.
-  const v16Errs = live.filter((x) => /console\.error\(\s*['"]V16_AI_/.test(x));
-  assert.ok(v16Errs.length >= 3,
-    `R15/F-25: expected at least 3 fatal V16_AI_* guards in the Track B verifier, found ${v16Errs.length}`);
+  // INVARIANT over the WHOLE workflow, not just the Track B lines: every
+  // `console.error('V1.5_...` / `console.error('V16_...` must carry
+  // `process.exit(1)` on the same line. Softening ANY of the eight (V1.5 95
+  // assertions, V16 8 groups, V16 104 assertions, and Track B's three) used to
+  // go unnoticed — found because a mis-targeted mutation softened one of them
+  // and the narrower, Track-B-only guard stayed green.
+  const v16Errs = live.filter((x) => /console\.error\(\s*['"](V1\.5_|V16_)/.test(x));
+  assert.ok(v16Errs.length >= 8,
+    `R15/F-25: expected at least 8 fatal V1.5_/V16_ guards in this workflow, found ${v16Errs.length}`);
   const soft = v16Errs.filter((x) => !/process\.exit\(\s*[1-9]/.test(x));
   assert.ok(soft.length === 0,
-    "R15/F-25: a V16_AI_* error is no longer fatal on its own line (log-and-continue): " +
+    "R15/F-25: a V1.5_/V16_ error is no longer fatal on its own line (log-and-continue): " +
     JSON.stringify(soft.map((s) => s.trim())));
 
   // The floor must stay hard-fail: no continue-on-error on the Track B step.
@@ -342,6 +343,29 @@ check("EXTRA", "Y4 v16 Track B: evidence JSON is deleted BEFORE the runner runs,
   const runnerLine = l[runnerIdx];
   assert.ok(!/\|\|\s*true/.test(runnerLine) && !/;\s*true\s*$/.test(runnerLine),
     "F-26: the Track B runner line tolerates its own failure (`|| true`) — evidence may be missing silently");
+});
+
+// ---- Y5 (R22): the V1.6 step has the identical fail-open, same fix required --
+// `reports/evidence/v16/summary.json` is tracked in git too. Verified the same
+// way as F-26: with the `rm -f` removed and `node tests/v16/run-all.mjs` replaced
+// by a no-op, the step printed V16_SUITE_OK ... assertions={"total":104,...} and
+// exited 0 — the stale copy certified a run that never happened, and it even
+// satisfied the newly-frozen 104 because the stale file carries 104. With the
+// `rm -f` present the same no-op dies MODULE_NOT_FOUND; the real path is green
+// (8/8 groups, 104/104 assertions).
+// This is a separate check for the same reason as Y3/Y4: a guard nobody counts
+// is a guard nobody keeps.
+check("EXTRA", "Y5 v16 V1.6: summary.json is deleted BEFORE tests/v16/run-all.mjs, closing the same stale-evidence fail-open as Track B", () => {
+  const l = yamlLines(REL.prov);
+  const runnerIdx = l.findIndex((x) => /^\s*node tests\/v16\/run-all\.mjs\s*$/.test(x));
+  assert.ok(runnerIdx !== -1, "R22: cannot locate the V1.6 `node tests/v16/run-all.mjs` line");
+  const preRunner = stripLineComments(l.slice(0, runnerIdx)).join("\n");
+  assert.ok(/rm\s+-f\s+\.\.\/\.\.\/reports\/evidence\/v16\/summary\.json/.test(preRunner),
+    "R22: the V1.6 evidence file is no longer deleted before the runner runs — " +
+    "reports/evidence/v16/summary.json is tracked in git, so a stale copy can " +
+    "certify a run that never happened (verified fail-open, same as F-26)");
+  const runnerLine = l[runnerIdx];
+  assert.ok(!/\|\|\s*true/.test(runnerLine), "R22: the V1.6 runner line tolerates its own failure (`|| true`)");
 });
 
 /**
@@ -466,7 +490,7 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), eac
   console.log(`      ci.yml gate suites: ${got.length} (declared ${GATE_SUITES.length}), all with test -f hard-fail`);
   console.log(`      ci.yml gate step index ${start} < Install ${installIdx} (F-21 ordering asserted)`);
 });
-console.log("NOTE: Y1/Y2/Y3/Y4 are pure-text structure self-checks, NOT a YAML parser run");
+console.log("NOTE: Y1/Y2/Y3/Y4/Y5 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");
 
 // Naming (R19): these are NAMED CHECK BLOCKS (`check(...)` cases), not `assert.*`

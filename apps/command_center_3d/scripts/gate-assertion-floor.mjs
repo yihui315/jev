@@ -14,7 +14,7 @@
  *     file is executed for its side effects only         → exit 0, few asserts
  *   - a suite is rewritten to `process.exit(0)` early     → exit 0, few asserts
  *
- * Exit code alone therefore cannot distinguish "96 cases passed" from
+ * Exit code alone therefore cannot distinguish "all cases passed" from
  * "3 cases passed and the rest were deleted". This script adds a
  * DECLARATIVE MINIMUM: each suite has a frozen expected CASE count, and a
  * suite that reports fewer than its floor (or loses its summary signature, or
@@ -32,12 +32,15 @@
  *
  * IMPORTANT (R19): a "case" is one named check block. A single case can hold
  * many `assert.*` statements, so these floors freeze HOW MANY CASES REPORTED,
- * not how many assertions ran inside them. Measured on 2026-11-11: the seven
- * suites carry several hundred `assert.*` statements behind 96 cases. Deleting
- * assertions INSIDE a case is therefore NOT caught here — that is a known open
- * gap. (An exact assertion-statement count is deliberately NOT quoted here: it
- * was 751 behind 90 cases before Y3/Y4 were added, and a stale hard number is
- * worse than none. The floor table below is the only count that must be exact.)
+ * not how many assertions ran inside them. Deleting assertions INSIDE a case is
+ * therefore NOT caught here — that is a known open gap.
+ *
+ * NO total case count and NO assertion-statement count is written in this
+ * comment, on purpose. Both move every time a guard is added, and this file's
+ * own history already contains a hard-failing gate caused by a stale count.
+ * A stale hard number is worse than none. The authoritative numbers are:
+ *   1. the `expect` table below — exact, and enforced on every run;
+ *   2. the `GATE_FLOOR_OK suites=N total_cases=M exit=0` line that CI prints.
  *
  * The floors are EXACT, not ranges. An intentional new assertion must bump the
  * number in this table, which makes every count change a visible, reviewable
@@ -126,11 +129,12 @@ const SUITES = [
   {
     slug: "7-no-fake-live",
     label: "scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)",
-    expect: 12,
-    // "RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0"
-    // 10 -> 12: Y3 (F-25 floor survival + fatality invariant) and Y4 (F-26
-    // evidence freshness) are separate named checks ON PURPOSE, so that deleting
-    // either one is caught HERE. A guard folded inside Y1 would be unguarded.
+    expect: 13,
+    // "RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0"
+    // 10 -> 12 -> 13: Y3 (F-25 floor survival + fatality invariant), Y4 (F-26
+    // Track B evidence freshness) and Y5 (R22 V1.6 evidence freshness) are separate
+    // named checks ON PURPOSE, so that deleting any of them is caught HERE. A guard
+    // folded inside another check would itself be unguarded.
     // Here group 2 is EXTRA_CASES, NOT a fail count — so this suite
     // declares no failGroup and instead asserts its own `exit=` field is 0.
     re: /^RESULT: CORE_CASES=(\d+) EXTRA_CASES=(\d+) TOTAL_CASES=(\d+) exit=(\d+)\s*$/m,

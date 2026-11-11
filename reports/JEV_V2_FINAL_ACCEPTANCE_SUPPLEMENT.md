@@ -93,9 +93,13 @@ LIVE(real Binance): total=4 passed=4 failed=0 skipped=0
 ### 2.3 94 个**用例块**的逐套件对齐（日志原文，非推算）
 
 > **命名更正（重要，见 §9.3）**：这里冻结的 94 是**具名用例块**（`check(...)` / `suite.check(...)`）的数量，**不是** `assert.*` 语句数。
-> 主理人本轮实测：七个套件在 94 个用例块内共含 **751 条 `assert.*` 语句**
-> （43 / 133 / 114 / 165 / 120 / 102 / 74）。
 > 因此「94 条断言通过」这一说法在此前若干轮里被反复使用，**是错的**；它还掩盖了一个真实缺口——用例块内部的断言被删掉，门禁不会发现。
+> 块内 `assert.*` 语句数曾记为 **751，该值不可复现，已撤回**：它的分项混用了两种 grep 口径、又混用了两个提交——suite6 取"任意位置"口径、suite7 取"行首"口径、suite2 的 `133` 在两种口径下都取不到，且 suite7 的 `74` 属于 `8da3947` 而不是本节对应的 `be80d3c`。
+> 按**单一已声明口径**重算（逐套件、可复跑）：
+> - `be80d3c`（本节 94 个用例块所对应的提交）：**730** 条（口径 A＝任意位置 `\bassert\.\w+\(`）／**722** 条（口径 B＝行首 `^\s*assert\.`）；口径 A 分项 = 43 / 134 / 114 / 165 / 120 / 102 / **52**
+> - `8da3947`（Y5 之前的最后一个提交，96 个用例块）：**754** 条（A）／**746** 条（B）；口径 A 分项 = 43 / 134 / 114 / 165 / 120 / 102 / **76**
+> 引用此类静态计数**必须同时声明口径与 SHA**，否则不可复现。
+> **本报告不对 `8da3947` 之后的提交冻结任何静态计数。** 每新增一个守卫都会同时改变用例块总数与 `assert.*` 条数；以 floor 脚本的 `expect` 表（精确、每次运行强制）与 CI 打印的 `GATE_FLOOR_OK suites=N total_cases=M` 行为准。同理，本报告也不复制该 `expect` 表的数值。
 
 | # | 套件 | 用例块 | 日志收尾签名（原文） |
 |---|---|---|---|
@@ -343,8 +347,8 @@ gate 前置到 `npm ci` 之前，唯一成立条件是「7 个套件都不依赖
 |---|---|---|
 | `.github/workflows/ci.yml` | 修改 | gate 前移为首个 `run` step；`pull_request.branches` 增 `feature/**`；每套件 tee 到 `${{ runner.temp }}/jcc-gate`；新增独立的「断言数下限」step |
 | `.github/workflows/v16-market-provenance.yml` | 修改 | `push.branches` 增 `feature/jev-**`；`pull_request.branches` 增 `feature/v16-**`（保留 `release/jcc-v1.3-final`）；只加不减 |
-| `apps/command_center_3d/scripts/check-no-fake-live.mjs` | 修改 | Y1 改为按 trigger 块解析；Y2 改为剔注释 + 行首锚定 + 路径集合相等 + F-21 顺序守卫；**用例块总数仍 10**（内部 `assert.*` 仍 74，未冻结） |
-| `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | **新增** | 声明式**用例块**下限（7 套件，精确值 94），纯 `node:` 标准库 |
+| `apps/command_center_3d/scripts/check-no-fake-live.mjs` | 修改 | Y1 改为按 trigger 块解析；Y2 改为剔注释 + 行首锚定 + 路径集合相等 + F-21 顺序守卫；**用例块数随 Y3/Y4/Y5 拆出而递增**（原 10 → 本提交值见 floor `expect` 表），内部 `assert.*` 条数**未冻结** |
+| `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | **新增** | 声明式**用例块**下限（7 套件，**精确 `expect` 表；本文件不复制其数值**，以避免重演「陈旧硬数字」缺陷），纯 `node:` 标准库 |
 | `reports/JEV_REAL_TRADING_SECURITY.md` | 修改 1 行 | H7 阻断脱敏 |
 | `reports/JEV_V2_FINAL_ACCEPTANCE_SUPPLEMENT.md` | **新增** | 本文件 |
 
@@ -390,6 +394,45 @@ H7 阻断有一个成本更低的「修法」：给 `v16_independent_verify.py` 
 修完 F-24 后，仓库里被跟踪的 `reports/evidence/v16_ai/*.json` 会因为本地跑测试而被重写（`generated_utc`、随机 `orderId`、浮点权益都会变）。**这三个都不提交**：它们是不可复现的运行噪声，正是 F-18 所说的「墙钟派生值进入证据」的具体表现。
 
 正确做法应是：要么不把运行产物纳入版本控制，要么像 `_normalized/` 那样归一化后再入库。本轮两样都没做，只保持工作树干净并在此登记——免得下一次有人以为「evidence 文件没更新 = 测试没跑」。
+
+### 5.5 R22 / Y5：V1.6 的同一个 fail-open，以及「冻结 104」为什么挡不住它
+
+Track B 的 fail-open（F-26）在 V1.6 步骤里**一字不差地存在**：`reports/evidence/v16/summary.json` 同样被 git 跟踪。
+
+**两侧都实测了（不是推断）**
+
+| 侧 | 操作 | 结果 |
+|---|---|---|
+| 失败侧 | 去掉 `rm -f`，把 `node tests/v16/run-all.mjs` 换成 no-op（`true`），其余验证逻辑原样执行 | 打印 `V16_SUITE_OK {"total":8,"pass":8,"fail":0} assertions={"total":104,"passed":104,"failed":0}`，**exit 0** |
+| 修复侧 | 保留 `rm -f`，同样 no-op | `require()` 报 `MODULE_NOT_FOUND`，**exit 1** |
+
+> **这一条推翻了我自己上一轮的一个判断。** 我在 `d3b4ee5` 里冻结了 `assertions.total === 104`，当时认为这足以防住「少跑」。但失败侧的实测显示：**陈旧文件里的 `assertions.total` 恰好就是 104**，冻结它反而让陈旧证据更容易通过。真正起作用的只有 `rm -f`——顺序是判据，数字不是。这与 F-26 是同一条教训。
+
+新增的 Y5 就是把这条不变式钉死（`check-no-fake-live.mjs`）。**它的可证伪性也验了**：删掉 `.github/workflows/v16-market-provenance.yml:94` 的 `rm -f` 后，Y5 报
+`R22: the V1.6 evidence file is no longer deleted before the runner runs … (verified fail-open, same as F-26)`，exit 1。
+同时 Y3 从「只看 Track B 的 3 个致命守卫」扩为「看全部 8 个 `V1.5_*` / `V16_*` 守卫」；把 `V16_ASSERTION_COUNT_CHANGED` 那行的 `process.exit(1)` 删掉后，Y3 精确报出该行，exit 1。**两条变异都命中了对应用例，不是被别的断言顺手挡下。**
+
+### 5.6 这条不变式的**正确**表述（防止后来者加 16 行无效防护）
+
+有人会想把它推广成「凡被跟踪的 evidence 都必须 `rm -f`」。**这个推广是错的**，按字面执行会新增十几行纯噪音，反而淹没真正的判据。
+
+正确的判据是：**被读回来用于认证的 evidence ⇒ 必须 `rm -f`**。
+
+依据（`tests/v16/run-all.mjs`）：`results` 只在内存里累积（`:29` 声明、`:55` `push`），green 与 counts 都只看内存（`:64` / `:73`），`writeFileSync` 分别写分组文件（`:54`）与 `summary.json`（`:84`），全文**没有任何 `readFileSync`**（第 9 行只 import 了 `writeFileSync, mkdirSync`）。因此整个 V1.6 目录里被 `require()` 回读认证的只有 **2 个**：
+
+| 被回读的文件 | 位置 | `rm -f` |
+|---|---|---|
+| `reports/evidence/v16/summary.json` | 工作流 `:98` | `:94` ✅ |
+| `reports/evidence/v16_ai/v16_ai_contract_tests.json` | 工作流 `:135` | `:131` ✅ |
+
+**当前 2/2 满足，无需新增任何 `rm -f`。** 其余约 16 个文件是纯留痕。
+
+### 5.7 两处**已知未修**的盲区（不修就别说自己已覆盖）
+
+| 盲区 | 具体表现 | 为什么不影响本轮裁定 |
+|---|---|---|
+| **H7 的自我排除** | `scripts/v16_independent_verify.py` 的敏感串扫描把 `scripts/v16_*` 自身和 `.md` 报告一并纳入扫描域，同时又内置排除规则；改排除规则即可让 H7 对自己视而不见 | 本轮 H7 的**运行结果**是真实的（`6a12192` 命中 0）；它是「未来可被绕过」，不是「本轮的 0 是假的」。登记为待修 |
+| **用例块内部的断言** | floor 冻结的是用例块数量，块内 `assert.*` 被删不会被发现（R19） | 已在 §9.4 明确标注「不成立（未修）」，未据此声明任何覆盖 |
 
 ---
 
@@ -500,7 +543,7 @@ F-24（夹具抖动）与 F-25（Track B 无形状下限）**已在本轮修掉*
 | 3 | 「PR 页面 0 个 check」 | PR 上有 1 类检查（Docker 冒烟），**但正确性门禁不在其中** | 方向对、表述错 |
 | 4 | 「Y2 检查 5 个 gate scripts」 | 实际 7 个；且旧 Y2 对被检查文件大改后仍然 `TOTAL=10 exit=0` | 检查无鉴别力 |
 | 5 | `b=5` 视为「通过」 | 通过余量仅 **6.0e-9**，紧贴悬崖 | 稳定性不等于正确性 |
-| 6 | 「94 条断言」 | **94 个用例块**；块内共 **751 条 `assert.*`**。下限冻结的是前者 | 主理人措辞错误，由成员指出并实测确认。已把输出字段改名为 `*_CASES` / `TOTAL_CASES` |
+| 6 | 「94 条断言」 | **94 个用例块**（`be80d3c`）；块内 `assert.*` 语句数口径依赖（`be80d3c` 730/722，`8da3947` 754/746，见 §2.3）。下限冻结的是前者 | 主理人措辞错误，由成员指出并实测确认。已把输出字段改名为 `*_CASES` / `TOTAL_CASES`；曾写的 `751` 不可复现，已撤回 |
 | 7 | 「104 不在任何日志里，口径不可核验」 | 104 确实不在 stdout，但**在 `reports/evidence/v16/summary.json` 的 `assertions.total` 里**，完全可核验 | 主理人以「日志」偷换了「证据」，并据此否定了正确数字 |
 
 ### 9.4 本报告的证据等级
@@ -508,11 +551,11 @@ F-24（夹具抖动）与 F-25（Track B 无形状下限）**已在本轮修掉*
 | 结论 | 等级 | 依据 |
 |---|---|---|
 | `be80d3c` 主 CI 逐 step + 94 个用例块 | **VERIFIED** | GitHub jobs API + 日志逐行 |
-| 94 个用例块背后的 751 条 `assert.*` | **VERIFIED（本机实测）** | 逐文件正则计数，非推算 |
+| 94 个用例块背后的 `assert.*` 条数（口径 A/B：`be80d3c` 730/722，`8da3947` 754/746） | **VERIFIED（本机实测，口径 + SHA 已声明）** | 逐文件正则计数；原 `751` 不可复现，已撤回（见 §2.3） |
 | 「用例块内部删断言会被门禁抓住」 | **不成立（未修）** | 下限只冻结用例块数量 |
 | `be80d3c` V1.6 红（H7 命中 1/215） | **VERIFIED** | Run 日志 + 本机算法复刻 |
 | `6a12192` 五 run 全绿 | **VERIFIED** | GitHub runs API |
 | `6a12192` V1.6 各项数字 | **VERIFIED** | 日志原文签名 |
 | F-24 概率 9.77% | **VERIFIED（源码级）** | 逐行推导 + 分布复算 + 实跑 3/24 |
-| F-24 修复有效性 | **未验证** | 修复尚未落地 |
+| F-24 修复有效性（`scSellAfterBuy` 确定性） | **VERIFIED（本机 40/40 + 哈希绑定）** | 修复已入库 `2b50ac6`；`e2e_real_engine.mjs` sha256 `442bf00c…`，连跑 40 次全绿、`E2E checks=37` 恒定、`run-all 120/120`；Aegis 独立评审确认无 fail-open 并给出 GO。失败概率 `25/256 = 9.77%` 且修复为结构性消除（非概率降低） |
 | 任何关于盈利/策略有效性的结论 | **不存在** | 本轮未产生任何相关证据 |
