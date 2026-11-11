@@ -941,6 +941,13 @@
         "topic": "集成签收文档与台账初版误写累计 diff（121/+17148/-334），实测为 106/+18344/-280",
         "resolution": "按 git diff --shortstat 实测值更正",
         "evidence": "git diff --shortstat ebc3fcc..HEAD"
+      },
+      {
+        "id": "DEV-12",
+        "severity": "low",
+        "owner": "主理人自身",
+        "topic": "QA 独占的 JEV_V2_CI_VERIFICATION.md 正文仍写无 Run ID/UNVERIFIED，与推送后现实矛盾；QA 未回传更新",
+        "resolution": "主理人最小介入：仅追加取代声明并指向 JEV_V2_INTEGRATION_SIGNOFF.md §5，正文一字未改"
       }
     ]
   },
@@ -1058,7 +1065,10 @@
     "fetchDepthProof": "gate 日志含 B1 apparatus 一行，明确旧基线 ebc3fcc WITH broken gate DOES warn+continue + approve via simplified fallback；该用例必须 git show ebc3fcc 才能跑，跑到即证明 fetch-depth:0 生效。",
     "fetchDepthSideFinding": "同一行日志同时构成『旧基线确实用简化风控放行』的前后对比证据。",
     "nonBlockingProbeNotCountedAsPass": true,
-    "noGreenBySkipping": "修复前 fa7740f 的 gate 为 skipped 且整体 failure，说明跳过不会被误判为绿。"
+    "noGreenBySkipping": "修复前 fa7740f 的 gate 为 skipped 且整体 failure，说明跳过不会被误判为绿。",
+    "finalVerifiedSha": "0d1d6c587b1f2881c9949b7cb3fae5c9ffb75685",
+    "finalVerifiedRun": 42970318111,
+    "stagingGateRun": 42970326463
   },
   "sevenAdjudications": {
     "engineeringIntegration": {

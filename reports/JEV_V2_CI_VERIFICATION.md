@@ -1,5 +1,22 @@
 # JEV V2.0 — 远端 CI 可签收性评估（独立 QA）
 
+> ## ⚠️ 取代声明（由主理人于推送后追加，非作者原文；正文一字未改）
+>
+> **本文件正文反映的是「推送之前」的状态**（HEAD `fa7740f`，分支未推送，无 Run ID）。它当时的结论 `UNVERIFIED` 在其时点上是**正确的**。
+>
+> 此后主理人完成了推送与远端签收，**实测结论已升级为 VERIFIED**。当前有效的 CI 记录在
+> **`reports/JEV_V2_INTEGRATION_SIGNOFF.md` §5**（含三次真实运行、步骤级证据、日志直读的 94 条断言对应）。
+>
+> | 本文件正文的表述 | 现在的事实 |
+> |---|---|
+> | 无 Run ID / 分支未推送 | 已推送；Run `42968141252`（failure，修复前）/ `42969534182`（success）/ `42970318111`（success，当前 head `0d1d6c5`）/ `42970326463`（staging gate，success） |
+> | 远端 CI 真实签收 `UNVERIFIED` | `VERIFIED`，但**仅限 `.github/workflows/ci.yml` 的 build-and-test**；`v16-market-provenance.yml` 未在本分支触发（F-22） |
+> | 「全团队取不到 Actions 原始日志」 | 主理人已通过凭据下载运行日志并提取断言级证据；该限制是当时环境事实，不是永久限制 |
+>
+> 保留正文不改的理由：它是**推送前时点的真实快照**，抹掉会丢失「我们曾经无法验证」这个事实。新增结论一律另置文件，不回填旧文。
+>
+> 登记为 **DEV-12**（主理人对成员独占文件做了最小介入：仅追加本声明，未改正文）。
+
 > 作者：independent-qa（结论均来自本人实跑；不采信他人自述，也不采信自己的工作树快照）
 > 仓库：`C:/Users/Administrator/WorkBuddy/jev-v16`｜分支 `feature/v16-p0-gap-closure`｜HEAD `fa7740f2`
 > 基线 `ebc3fcc`（= `origin/feature/v16-market-provenance-hardening`）
