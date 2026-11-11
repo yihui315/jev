@@ -1557,6 +1557,25 @@ killSwitch → lease → epoch → inDoubtGate → idempotency → resume → cy
 1. **每个标签必须对应一处真实 `trace.push` 且位置相符**；标签名不得承诺代码没做的事（`epoch` = `lease_epoch` 已 append 且已 fsync，不是"读了一下 epoch"；`cycleIntent` = intent 已 append+fsync；`record` = completion 已 append+fsync）。
 2. **`STAGES` 不得被援引为顺序证据**（§12.9.1：声明对声明，对 D-14-0 零灵敏度）。它的作用是变更控制——让 reviewer 一眼 diff 出"声明改了但实现没改"，**不是**证明写入顺序。顺序的证明义务只在 ⑮（盘内读状态）。
 
+> **更正（harbor 指出，我当场取证）——上面那张 10 标签表是"从未落成代码的提案"，不是历史状态。**
+> 三行取证（本克隆 `D:\jev_worktrees\v2ops`，HEAD `daa9386`）：
+> ```
+> $ git grep -n "inDoubtGate" -- apps/ reports/
+>   apps/…: 0 命中（仅本报告第 1553、2146 两行）
+> $ git log --all --oneline -S'inDoubtGate' -- apps/
+>   (空)
+> $ git show <c>:apps/…/supervisor/supervisor.mjs | sed -n '/^export const STAGES/,/]);/p'
+>   5834c37  'killSwitch' 'lease' 'idempotency' 'resume' 'cycleImpl' 'record' 'heartbeat'          → 7 段
+>   5fe0b19  'killSwitch' 'lease' 'idempotency' 'resume' 'leaseEpoch' 'cycleIntent' … 'heartbeat' → 9 段
+>   daa9386  同上                                                                                 → 9 段
+> ```
+> **代码里的阶段集历史只有 7 → 9 两个状态。`inDoubtGate` 从未被写过，`epoch` 这个短名也从未存在（实现里叫 `leaseEpoch`）。**
+> 因此第 1553 行那张表必须理解为"harbor 当时的**提案**（含两个后来被否的标签）"，**不得**理解为"我们删掉了一个曾经存在过的守卫"。二者后果完全不同：前者是设计取舍，后者会让人怀疑"是不是还有别的东西被删了"。
+>
+> **记账（我的第四类同类错误，与前三类同一病根）**：前三次是"把**我以为**的状态当成**有过**的状态"（从状态推意图 / 从日志行推实跑者 / 从工作区推提交字节）；这次是"把**别人的口头提案**当成**代码历史**"。前三次我错在**观测对象**，这次错在**时间维度**。统一规矩：
+> **凡写"从 X 改成 Y"，Y 与 X 都必须各自绑定一次可复现的读取；只有一个端点是实测的，就只能写"当前是 Y"，不得写"从 X 改成 Y"。**
+
+
 ### (c) `cycle_intent` 携带 `maxPayloadBytes`：采纳，**但必须校验而非信任**
 
 携带的理由成立（否则 R-a 与 R-b′ 各写一个 4096 魔数，改一处必漏一处）。但**自述的预算不是预算**：若读取方直接信任 intent 里的值，一个有写权限者（或旧版本 writer）写入 `maxPayloadBytes: 10^9` 即自我豁免。故：
@@ -2037,3 +2056,639 @@ C-append 忽略 O_APPEND 标志         PASS=18 FAIL=0   none
 - 测试里 5 处调用全部显式传 `'utf8'`；
 - 无其它调用点。
 ⇒ **没有"总是拿到字符串"的隐藏依赖**；且这条改动让 fixture 与真实 `node:fs.readFileSync(p)`（同样返回 Buffer）**更一致**，方向上是对的。**VERIFIED。**
+
+---
+
+## §12.10.14 RA-1 收口、`GATE_FLOOR_OK` 的判决降级、`#19` 关闭（`ab7a467` / `f5bea66`）
+
+### (a) RA-1：是**各自对内嵌常量**，不是"互相比" —— 且我把比对改成程序化的
+
+harbor2 质疑：两个重实现同读数只排除"我算错/打错"，不排除"两人按同一误解实现同一件事"。这个质疑成立。所以我把比对重做成**从验证器源码里解析常量**再比，而不是把我记忆里的值手抄进脚本：
+
+```
+$ grep -n "ENGINE_TREE_SHA256" scripts/v16_independent_verify.py
+55:ENGINE_TREE_SHA256 = "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad"
+
+node: 从该文件正则取 ENGINE_REL / ENGINE_TREE_SHA256 / ENGINE_FILE_COUNT
+      → git ls-tree -r HEAD | 过滤 | "\n".join（无尾换行） | sha256
+constant_in_file   = aec5d1b7…a9ad
+computed_from_tree = aec5d1b7…a9ad
+file_count in_file = 15   counted = 15
+MATCH vs CONSTANT  = true
+```
+⇒ **VERIFIED 成立**：锚点是**先于本次会话存在**的常量，不是我俩互相比。harbor2 的 bash 实现给出同一值，作为**独立实现**的旁证保留。
+
+**但必须留一条限制（他提的第三种可能，我们都没做到）**：**权威验证器本身没人跑过**——`python scripts/v16_independent_verify.py` 会重写 `reports/evidence/v16/independent_verify.json`，所以我们只复算了它的算法，没有执行它。
+⇒ 结论分层：**「树在冻结值上」= VERIFIED**；**「check3 通过」= UNVERIFIED-BY-EXECUTION**。这两个句子不能互相替代。
+
+### (b) `GATE_FLOOR_OK` 不能标识实跑者 —— 我把自己的引用再降一格（第二次同类错误）
+
+harbor2 实测：`gate-assertion-floor.mjs` **不运行任何套件**，只读 `$GATE_LOG_DIR`。
+- 只放一份 8 号日志 ⇒ `ok 8-api-body-read expected=17 actual=17`，其余 7 条 `log-missing`；
+- 用**别人**留下的完整日志 ⇒ `GATE_FLOOR_OK suites=8 total_cases=118 exit=0`，而那 7 套他一次都没跑。
+
+⇒ **这一行里没有作者字段。** 我在 §12.10.9(c) 写的"实跑者是 team-lead、时点是 `4859e5c` 的字节"——**是我从口头声明推的，不是这一行说的**。按 C29 我自己刚立的规则（风险可推断、事实不可断言），这句必须降级为：
+
+> 「**某次运行的日志目录**在 `<mtime 区间>` 满足下限；**实跑者与时点不可由该行判定**。」
+
+这是我在同一类错误上的**第二次**（第一次是 §12.10.11(a) 的 provenance），共同点是：**把"从别处推出来的结论"写成了"这行证据说的东西"。** 记账。
+
+### (c) 新风险 **`GATE-LOGDIR-SHARED`**（P2，归 `Y6` 槽位）
+
+floor 的输入是一个**可写的共享目录**，既没有作者字段、也没有时点绑定。harbor2 观测到：同一目录、同一文件字节，前后两次运行分别给出 `violations=1 rc=1`（`3-market-data … summary-signature-not-found`）与 `exit=0`，而该日志 `mtime 00:38:15` **晚于前一次读取**，与"另一个 agent 正在写同一个 `.gate`"吻合（**成因 UNVERIFIED**）。
+
+⇒ 若成因如此，这个目录**既能假绿也能假红**。而"假红"同样有害：它会让人把真实回归当成环境噪声而重跑掩盖。
+**最小整改（三条，都便宜）**：
+1. 每次运行 `mktemp -d` 建**独占**日志目录，不复用 `.gate`；
+2. 在该目录写 `run_started_at`（或 marker 文件），
+3. floor 断言**每份日志的 `mtime` ≥ `run_started_at`**，否则报 `GATE_LOG_STALE`。
+没有第 3 条，前两条只防"复用目录"，不防"目录里被塞进旧日志"。
+
+**与 E-4 的依赖链叠加**：harbor2 的守卫不管 `slug` 身份（只比 `label:` basename ↔ `GATE_SUITES`）；`slug` 被改名时靠 floor 的 `log-missing` 兜住——而 `log-missing` 的效力**完全取决于这个目录是否本轮新写**。三者（守卫不管 slug / slug 靠 log-missing / log-missing 靠目录新鲜）叠起来，只在"**干净目录 + 同一次运行**"下成立。这也是 `Y6` 里"身份键换成 `slug` 对 `tee …/<slug>.log`"必须和 (c) 三条**同一批**落地的原因。
+
+### (d) `#19` 关闭：`forwards` 断言从"匹配文本"改成"提取源码→执行→断言产出字节"
+
+`f5bea66` 之后我实跑：`RESULT PASS=17 FAIL=0`（**`expect` 未变**，没有新增 `check()` 块，符合 C20 的硬条件）。
+关键在技术形态变了：`extractFunctionSource(srcRaw,"buildEngineRequest")` **取出源码后 eval 执行**，断言对象是 `await preq.arrayBuffer()` 的**字节**——两个操作数是"到达的字节"与"发出的字节"，**不是两个源码字符串**。这不再是零灵敏度形态。
+
+**我独立复现了它的灵敏度**（不改仓库，只把变异施加到内存中的字符串再走同一提取器）：
+
+```
+ORIGINAL  engine-received-bytes = 7   arrived = 7   IDENTICAL
+MUTANT    engine-received-bytes = 9   arrived = 7   DIFFERENT   ← 退回 (bodyText || "{}")
+```
+⇒ 变异下引擎会收到 **9 字节而非到达的 7 字节**，用例 13 的断言必然触发。**C20 关闭：`forwards` 断言恢复可引用。**
+（harbor2 的 M-A 实测 `PASS=16 FAIL=1`、红点 13，与我的独立复现一致；他另给的"**旧测试** under M-A 仍 `PASS=17 FAIL=0`"是这次修改价值的直接证据：同一变异，旧判据全绿。）
+
+---
+
+## §12.10.15 `dbd6368` 是**红提交**（VERIFIED）；我自己的证据绑定错了；`STAGES` 10→9 需重签
+
+### (a) `dbd6368` 的子提交字节是**变异体**，用它自己的字节跑它自己的测试是红的 —— VERIFIED
+
+```
+$ git rev-parse dbd6368:apps/command_center_3d/scripts/supervisor/core.mjs
+0d578764bb49ceddf6581550580f93d8a1105bf0
+
+导出 dbd6368 的 10 个文件到临时目录 → node <tmp>/supervisor.test.mjs
+  FAIL ⑰ …
+  + '{"seq":1}\n{"seq":2}\n'      ← legacy 侧竟然接力了
+  - '{"seq":2}\n'
+  RESULT PASS=17 FAIL=1
+```
+成因：那条变异（给旧 string 模型加位置语义）**在共享工作区里存活了约 90 秒**，team-lead 恰好在该窗口提交。
+
+**后果（三条，都必须写进任何后续文档）**：
+1. **`dbd6368` 上的任何"绿"引用作废**，包括 `total_cases=118` 那次——需要在**新提交**上重跑，不能沿用。
+2. "变异不得施于被测路径"从 `#19` 的单条约束升级为**全仓约束**。harbor 已改流程（一切变异只在 `%TEMP%/v47/mut/<id>/` 副本里做，harness 自带 `MUTATION_TARGET_NOT_FOUND` / `MUTATION_NO_OP` 两道自证）——这个自证形态我签。
+3. **红提交可以进历史，且没人当场发现**：它由"用别人的工作区跑"产生，不是由"跑错了命令"产生。⇒ 门禁必须能对**已提交字节**重跑，而不是只对工作区跑。
+
+### (b) 我自己的证据绑定错了，已重绑 —— 这一类错误我记第三次
+
+我在 §12.10.13 写"在 `dbd6368` 字节上"，**实际跑的是当时的工作区副本**。证据：若我真跑 `dbd6368` 的字节，baseline 会是 `PASS=17 FAIL=1`（见 (a)），而我记录的是 `PASS=18 FAIL=0`。⇒ **我的表格绑错了对象。**
+补救：把 `318c004`（当前 HEAD）的 10 个文件导出到临时目录，对它重跑同一套变异：
+
+```
+BASELINE  PASS=18 FAIL=0
+A-pos     PASS=16 FAIL=2   ⑯、⑰
+B-bytes   PASS=17 FAIL=1   ⑱
+C-append  PASS=18 FAIL=0   （等价变异）
+```
+结论不变，**锚点换成 `318c004` 的已提交字节**。旧表的结论继续有效，但它的出处必须改成这里的重跑，不能沿用"`dbd6368` 上"这个错误出处。
+**记账**：这是我第三次同类（provenance 推意图、`GATE_FLOOR_OK` 推实跑者、这次推字节来源）。共同点：**我把"我以为我跑的是它"当成了"我跑的就是它"**。唯一可靠的写法是：**跑之前先打印你跑的那份东西的 hash。**
+
+### (c) `STAGES` 从 10 段改 9 段：**不能静默改，必须重签**
+
+harbor 把顺序改成 `killSwitch → lease → idempotency(读) → resume(读) → leaseEpoch → cycleIntent → cycleImpl → record → heartbeat`，理由成立且是**实质性的**：`entries()` 每次全量重读账本，重复提交/in-doubt 早退若也追加任期记录，调用方靠重复提交就能把账本撑大（O(n²) 自我放大）。"读判定全部先于写"是正确修法。
+
+**但两件事必须同时发生，否则是降级**：
+1. **`inDoubtGate` 从标签集合里消失** ⇒ 早退在 `trace` 上**不再可见**。若 `⑲f` 只断言"拒绝"，那么"拒绝发生的**位置**"就没有观测点了。要么恢复一个标签，要么明确写"in-doubt 的可观测性由 ⑲f 的盘上断言承担，`trace` 不再承担"——**这一句必须进签署文本**，否则下一个读 trace 的人会以为没发生早退。
+2. 9 段是**新冻结集**，旧 10 段作废。按 §12.10.10(d) 的教训：**顺序标签永不得被援引为顺序证据**，这条在新集上继续有效。
+
+> **更正（harbor 指出，我逐提交验证）——第 1 条的措辞作废，结论保留。**
+> 第 1 条写的是"消失了"，前提是"曾经有过"。**没有过**（取证见 §12.10.4(b) 更正块：`-S'inDoubtGate'` 全历史 0 命中，阶段集只有 7 → 9）。所以正确表述是：
+> **「`trace` 从来就不带 in-doubt 的原因标签；这不是退化，是设计选择。它的可观测性由 ⑲f 承担——而"由谁承担"必须写成断言，不是写成注释。」**
+> 结论方向我保留（理由换了）：`STAGES` 的 9 段里没有"in-doubt"这个词，所以**任何读 `trace` 的人都不可能从 trace 上知道早退是因为 in-doubt**。这件事在 7 段时代同样成立，只是那时没人写下来。
+> 第 2 条继续有效且已落进代码注释（`supervisor.mjs:24-35` 明写"THIS NINE-STAGE LIST IS A NEW FROZEN SET … there was never a ten-stage list in code"），**这一句是本轮唯一由实现者主动写进源码的"作废声明"，值得保留**。
+
+### (d) `⑲e` 的判据形态：我签（它正是我要求的那一类）
+
+```js
+deps.cycleImpl = async () => {
+  const rows = S.readJsonl(fsImpl, ledgerPath);      // 盘上状态
+  lastKindAtEffect = rows[rows.length-1].kind;       // 必须是 'cycle_intent'
+  completionAtEffect = rows.some(e => e.kind === KIND.completion); // 必须是 false
+  fsyncAtEffect = fsImpl.fsyncCallCount();           // 必须 >= 2
+  ...
+};
+```
+- 观测点在**副作用内部**，比对对象是**盘上条目**与**计数器**，不是 `STAGES` 索引 ⇒ 不违反 §12.9.1；
+- `M-order`（把 intent 写挪到 `cycleImpl` 之后 = D-14-0 原形）**只红 ⑲e 一条**；
+- `M-fsync` 同理只红它。
+
+**他 12 条变异表里两条各红 2 条**（`M-in-doubt-is-run` → ⑲f+⑲g；`M-fs-no-pos-advance` → ⑯+⑰），他相应地只主张"**每条用例都有至少一个只红它自己的变异**"，而**没有**主张"每个变异只红一条"。后者是假的。**我签这个弱主张**——这正是 C26 允许的形状：可定位性按**用例**要求，不按变异要求。
+
+### (e) `IN_DOUBT` **没有出口**：单列一条，且禁 `force:true`
+
+harbor 自己把它标"未完成、不算已交付"，我认。现状是**崩溃一次永久卡住**：方向对（at-most-once），但生产上是值班事故。要求：
+- 必须有 `resolveInDoubt(runId, cycle, decision)`，**三件套缺一不可**：操作者身份 + 落盘记录 + 批准人；
+- **不得提供 `force:true` 后门**（一次"就这一次"的后门，等于把 IN_DOUBT 变回 at-least-once）；
+- 解析动作本身也要**先写后做**（否则解析途中崩溃又回到"不知道做过没有"）。
+**定级 P2（可运维性/活性），不是 P0**：它不 fail-open，只会 fail-stuck。
+
+### (f) C36：**任何"已验证某提交字节"必须同时声明"在哪份克隆"**
+
+harbor2 指出：`318c004` 等**七个提交远端都没有**（`origin = 00e08e3`）。所以"我验过 `318c004`"只对**本机这份仓库**成立；对一个干净克隆，那是个空指针。
+⇒ 本报告所有提交级结论的完整表述形如：**「`318c004` 的字节在 `D:\jev_worktrees\v2ops` 这份克隆上通过 X；远端 `00e08e3` 未包含它」**。省掉后半句的表述一律视为越界。
+
+### (g) `Y7` 槽位撤回 —— **我上一版的两个说法都错了，按实测更正**
+
+我在 §12.10.14 写"`Y7` 占 `7-no-fake-live` `+1`，该套件 delta 只含 `Y6` 的 `+1`"。**两处都不对**（harbor2 指出，我现跑复核）：
+
+```
+$ ls apps/command_center_3d/server/tests/service-auth-unreachable.mjs   → 不存在（第 9 套件从未建立）
+$ grep -c Y9 apps/command_center_3d/scripts/check-no-fake-live.mjs      → 4
+$ grep -c Y7 …                                                          → 1（仅注释："Y7 is the literal-tautology scan"）
+$ grep -c W4 …                                                          → 0（旧临时叫法，已作废）
+$ grep -A8 'slug: "7-no-fake-live"' gate-assertion-floor.mjs | grep expect → expect: 14
+$ node check-no-fake-live.mjs → RESULT: CORE_CASES=7 EXTRA_CASES=7 TOTAL_CASES=14 exit=0
+```
+
+> **更正（harbor2 指出，我复跑确认）：上面第 2 行的 `1` 是 `52a6c9b` 时代的值。**
+> 主理人在 `e621a7c` 删掉了那处交叉引用，现盘 `grep -c Y7 → 0`、`grep -c Y9 → 4`。
+> ⇒ 本节三条结论不变，**佐证那一行的数字过期**；并因此 **RZ-15 可以关闭**（"剩 1 处 Y7"已归零）。
+> 这一条的教训比数字本身重要：**我在写"现盘实测"时，前面几行是当场跑的，这一行是抄上一轮的。** 混在同一代码块里，读者无法分辨哪一行是新的。**纪律：一个代码块里所有行必须是同一次执行的原样输出，跨轮的读数不得并排摆放。**
+
+更正三条：
+1. **落地的叫 `Y9`（零调用点登记），不是 `Y7`**；`Y7` 是**另一个东西**（字面恒真式扫描），由 harbor 定义。名字分开的目的正是防止"以为恒真式已经扫过"。
+2. **`7-no-fake-live` 的 delta 是两次 bump**：`Y9` 已把 13 → **14**（floor 的 `expect: 14` 与实测 `TOTAL_CASES=14` **同盘一致**）；**`Y6` 落地时 14 → 15**。我上一轮的"+1"会让 `Y6` 的作者以为 floor 已就位。
+3. 我反对的"把 `Y7` 并入第 9 套件"**反对的是一个已作废的方案**：第 9 套件不存在，五条行为断言整体推迟（触发条件"本仓出现第一条可信写入路由"），且 `Y9` 是**独立命名 check、独占槽位**（`CORE` 7 不动、`EXTRA` 6→7）。**我要的性质已经成立。**
+
+### (h) C36 定版：`commit + clone + clone 当时的 HEAD`，且**跑前跑后必须同一个 HEAD**
+
+harbor2 指出：**克隆本身也会前进**，所以"在某份克隆上通过"十分钟后就失真。C36 的完整形态是**三段**：
+
+> 「`<commit>` 的字节在 `<克隆路径>`（该克隆当时 HEAD = `<HEAD>`）上通过 X；远端 `<origin>` 未包含它。」
+
+**再收紧一层（RZ-17，我签）**：只有"记录了 HEAD"仍是事后填空。判据必须是**锁存**：
+
+```
+HEAD_BEFORE=$(git -C <clone> rev-parse HEAD)
+<run>
+HEAD_AFTER=$(git -C <clone> rev-parse HEAD)
+[ "$HEAD_BEFORE" = "$HEAD_AFTER" ] || 本次读数作废
+```
+理由就是 `dbd6368` 那次事故的**确切形态**：**测量跑在一棵会动的树上，读数是绿的，被提交的字节是红的。**
+⇒ 一般化：**任何读数必须与它所读的那份字节同步锁存。** 这与 team-lead 的"测量 → 记 blob → add → 断言暂存 blob == 记录"是同一协议的两个方向。
+
+### (i) 我上一条建议错了：**不要加 `.gitignore`**（采纳 harbor2，我的原建议撤回）
+
+我建议"清理或加 `.gitignore`"。**后半句错**，理由他给得比我强：
+1. `.gitignore` 会把测量残留**制度化**——下一份 `.gitignore` 的读者会以为"这些文件本来就该存在"。**忽略规则是给构建产物的，不是给测量残留的。**
+2. 更要紧：`.floor-run.txt` 首行是 `LOG_DIR=C:\Users\…\Temp/tmp.ggFZlKjD0g/gl-1451` —— 这行恰恰是**"私有日志目录已在使用"的归属证据**。ignore 掉它，等于把"存在证据"这个信号一起藏了：**噪声没被消除，只是没人再看得见它。** 这与本轮在标记上学到的是同一条——**藏起来的不是不存在，只是不可观测。**
+3. 真修法是"测量工具默认写 `%TEMP%`"，不是"仓库学会容忍它们"。
+
+**现盘实测（`318c004` 之后的克隆状态）**：未跟踪文件 **8 个**（`.blob-after.txt` / `.blob-before.txt` / `.blob-y9.txt` / `.commit-msg-1.txt` / `.commit-msg-2.txt` / `.floor-run.txt` / `.measure-25.txt` / `.measure-supervisor.txt`），`git check-ignore` 全部 **not ignored**。首行可归因：`.blob-*` = blob 校验协议产物（`<hash> <path>` 两列）、`.commit-msg-*` = 提交信息草稿、`.measure-*` = 套件测量留痕、`.floor-run.txt` = floor 运行时的 `LOG_DIR`。
+
+> **时态更正（harbor2 指出，我复跑确认）：上面这 8 个是历史读数，现盘 `git status --porcelain | grep -c '^??'` = 0。** 它们全部是**主理人**做"暂存 blob == 被测 blob"断言时的产物，已由他删除。
+> ⇒ 本节**结论（不加 `.gitignore`）不变**，且现在有了更强的版本：**它们不仅应该删除，而且确实不必要**——harbor2 在干净克隆（`status --porcelain | wc -l` = 0）上分别于 `e621a7c` 与 `b71a80e` 跑完整 8 套件，两次都是 8/8 `rc=0`、`GATE_FLOOR_OK suites=8 total_cases=126 exit=0`、`LATCH_OK`。**干净克隆上一条不少，说明提交的字节是自足的。**
+> 但"8 个"这个数字**保留在正文里不改**——它是我当时读到的真实状态，属于历史证据。**改的是时态标注，不是事实。**
+
+**处置**：由产生者删除或移入 `%TEMP%`；**不加 ignore 规则**。若最终仍要留一条，必须是**带注释的例外**（"这些是测量残留，应删除；加此规则只为防 `-A` 误入"），**不得让规则自己冒充理由**。
+
+**顺带一条正面证据**：`.floor-run.txt` 里的 `LOG_DIR=…/Temp/tmp.ggFZlKjD0g/gl-1451` 说明**私有 `GATE_LOG_DIR` 已经在被使用**（不是只写在文档里）。§12.10.15(c) 那三条整改的第一条（独占目录）已在执行。
+
+### (j) `⑲f` 的"可观测性转移"**目前是空头承诺**：我构造出让它两个断言同时绿的变异（P2，已复现）
+
+harbor 把我要的那句"in-doubt 的可观测性由 ⑲f 承担"**做成了断言**而不是注释（这是对的，注释拦不住下一个人）。但断言本身不够强。`supervisor.test.mjs:499-508` 的两个半句是：
+
+```js
+assert.deepEqual(r.trace, ['killSwitch','lease','idempotency'], 'in-doubt 必须在任何写阶段之前早退');
+const after = S.readJsonl(fsImpl, sup2.subsystems.idempotency.ledgerPath);
+assert.equal(after.length, 2, 'in-doubt 早退不得追加记录（epoch+intent 共 2 条）');
+```
+
+**它的名字声称的是"任何写阶段之前"，它的断言只覆盖了"账本没变"和"标签没多"。** 这两处之间有个洞：**一次不经过账本、也不 push 标签的写**。
+
+复现（`%TEMP%\jcc_gate\sup069`，把 `scripts/supervisor/` 整目录拷出后施加变异；被拷源 = 本克隆 `daa9386`）：
+
+```
+变异：在 if (state === 'IN_DOUBT') { 之后、return 之前插一条
+      watchdog.beat({ runId, cycle });   // 写心跳文件，无 trace 标签
+BEFORE sha256_12=f4568bf600d9 bytes=6843 hits=1
+AFTER  sha256_12=c56f8d2cf83b bytes=6930 changed=true
+变异体整套测试                        RESULT PASS=25 FAIL=0      ← ⑲f 没红
+
+可达性自证（同一变异体上单跑同一场景，证明变异确实执行了）
+  status                = IN_DOUBT
+  trace                 = ["killSwitch","lease","idempotency"]   长度 3
+  ledger rows           = 2        epoch rows = 1        cycleImpl calls = 0
+  heartbeat 存在(前/后) = false / true
+  heartbeat 内容        = {"cycle":0,"lastBeatMs":5000,"runId":"run-W2","seq":1}
+  writeCallCount delta  = 0
+```
+
+**两个结论，第二个比第一个重要：**
+
+1. `⑲f` 的**两个断言同时绿**，而**早退前已经发生了一次盘上写**。测试名声称的"任何写阶段之前"当前**无断言支撑**。§12.10.15(c) 我之所以能接受"9 段、trace 不承担原因"，唯一依据就是这句话——所以**这不是风格问题，是我那个签署前提本身没落地**。
+2. **我第一版想用 `writeCallCount()` 当兜底，探针当场把这版判死**：delta = 0。原因：`atomicWriteJson` 走 `writeFileSync` + `renameSync`，**不经过 `openSync`/`writeSync`**，而 `writeCallCount()` 只数 `writeSync`。也就是说"用现有计数器兜底"是**假兜底**——它会永远绿。**建议判据必须换成按路径比字节。**
+
+我已把建议判据写成探针，**两向都跑过**（不是推理）：
+
+```js
+const snap = () => Object.fromEntries(Object.entries(FILES).map(([k, rel]) => {
+  const p = resolvePath(BASE_DIR, rel);
+  return [k, fsImpl.existsSync(p) ? fsImpl.readFileSync(p, 'utf8') : null];
+}));
+const before = snap();
+const r = await sup2.runNextCycle({ runId: 'run-W2' });
+const after = snap();
+assert.deepEqual(Object.keys(before).filter((k) => before[k] !== after[k]), [],
+  'IN_DOUBT 早退路径上不得有任何已知文件发生变化');
+```
+
+```
+干净码   changed = []              → GREEN
+变异体   changed = ["heartbeat"]   → RED（只红这一个）
+```
+
+**顺带自纠**：我第一版把期望值写成 `['lock']`（以为租约那一写会留下来）。实跑 `changed = []` —— 租约在 `finally` 里已释放，**前后都不存在**。**判据的期望值也必须实跑，不能由语义推理得出。** 这和我 C29 立的那条是同一件事的另一面。
+
+**整改（最小）**：把上面三行并进 `⑲f`，`6-supervisor` `expect: 25 → 25`（不加用例、只加断言 ⇒ **floor 不变**，这正是"加断言不一定要加用例"的正面样本）。附带好处：这个变异**只红 ⑲f**，于是 ⑲f 立刻获得自己的单红定位证据——而 harbor 现在手上那个 `M-in-doubt-is-run` 红两条、只能算"非恒真证据"。**修法与证据是同一件东西。**
+
+**定级 P2**：不 fail-open，是"声称的守卫没覆盖它自己名字里的词"。**但它是 `#15` 签署的前置条件**——我签 ⑲f 的前提是它能兑现那句话。
+
+### (k) `createLegacyStringFs` 是**同一会话里重打的复述**，不是历史字节 —— 且已实测漏了 2 个方法（P3，C34 同族）
+
+`⑰a`/`⑱a` 是负对照：断言"旧 string 模型**必须**丢掉接力写 / **必须**把半字节解成 U+FFFD"。它们的杀伤力完全来自"旧模型确实是这样的"。但那个"旧模型"是 `core.mjs:189` 里**重新手打的一份复述**，不是 `dbd6368^` 的字节。逐方法比对（脚本比对，非眼看）：
+
+```
+历史 createMemoryFs @ dbd6368^ : appendFileSync,closeSync,existsSync,mkdirSync,openSync,
+                                 readFileSync,renameSync,unlinkSync,writeFileSync,writeSync
+现在 createLegacyStringFs     : appendFileSync,closeSync,existsSync,openSync,
+                                 readFileSync,unlinkSync,writeFileSync,writeSync
+历史有、复述版缺 : mkdirSync, renameSync
+unlinkSync        : 历史抛 ENOENT / 复述版 files.delete(...) 静默
+```
+
+三条后果：
+
+1. **锚点不合格（C34）**：负对照的权威应当来自先于会话存在的常量（`dbd6368^` 的字节），现在来自**同一会话里作者自己敲的字**。两个重实现互相一致不构成证据——这条我在 C34 里已经立过，这次是它第一次打到测试代码本身。
+2. **"重打必失真"已经发生**：漏 2 个方法、1 处语义变更。这不是担心，是实测。
+3. **它对生产模块有可见性**：`createLegacyStringFs` 是从 `core.mjs` **export** 出去的，而 `core.mjs` 是 supervisor 的入口模块。`scripts/supervisor/` **不在**冻结引擎树内（`ENGINE_REL = apps/command_center_3d/server/engine/`，15 文件），所以**移走不受冻结约束**。误用后果很具体：任何一处手滑 `import { createLegacyStringFs }`，得到的是一个**静默丢接力写、并把半字节变成 U+FFFD** 的 fs——正是本轮在修的两个失败形状。当前调用点只有测试（已 grep 确认 4 处，均在 `supervisor.test.mjs`）。
+
+**整改（最小，与 `#19` 已有先例同形）**：把 `dbd6368^` 的那段原文作为**字符串常量 + sha256 锁**放进测试文件并 `eval`，负对照从此不可被"改到通过"；生产 `core.mjs` 里的 `createLegacyStringFs` 删除。理由说得直白些：**负对照的天生失效方式就是"调整对照直到它变绿"，所以它比正向用例更需要一个不可编辑的锚。**
+
+### (l) 锚点更新与四个变异的独立复核（harbor 的 4/4 单红主张成立）
+
+**本轮所有读数绑定到 `daa9386`，不再是 `5fe0b19`**（`#15` 的 ⑰⑱ 拆分提交已落）。按 C36 定版格式：
+
+> **更正（harbor2 用 diff 否证了提交信息，我照录）：不得写"`5fe0b19` 把 `dbd6368` 的红修掉了"。**
+> `git show 5fe0b19 -- …/core.mjs` 是 **0 删除 / 26 新增**（纯加 `appendChainEntryDurable`），它自称"改回"的值 `2dfd13a3` 在**父提交 `318c004` 上已经就是**了。真正的回退在 `7a2a4e7`：
+> ```
+> dbd6368   0d578764…  ← 变异体
+> 341f8a5   0d578764…
+> 7a2a4e7   2dfd13a3…  ← 回退在这里
+> 318c004   2dfd13a3…
+> 5fe0b19+  b679389b…  （加 durable append）
+> ```
+> 我 §12.10.15(b) 的结论"用 `dbd6368` 自己的字节跑自己的测试是红的"**成立且已自证**；但"谁修的"必须**以 diff 为准，不以提交信息为准**。这与 §12.10.15(b) 那条（"`GATE_FLOOR_OK` 不标识实跑者"）是同一句话的另一面：**提交信息也不标识提交内容。**
+
+
+```
+克隆   = D:\jev_worktrees\v2ops
+HEAD   = daa9386efef36979d8b1032d8d143b20cad85462
+test blob (HEAD)    = dd7d059c1f2c925e082ceabed146ee7c5428f4a7
+test blob (工作区)  = dd7d059c1f2c925e082ceabed146ee7c5428f4a7   ← 无漂移
+实测   = RESULT PASS=25 FAIL=0
+```
+
+> **⚠ 本节所有 `PASS=` 读数一律视为"未锁存"，不得引用。** 主理人裁定：「`PASS=28` 在任何 blob 锁存之前不得被引用，包括你自己的报告。」我照办，并把它升级成规则：**只锁 `supervisor.test.mjs` 一个 blob 不够——参与判定的还有 `core.mjs` / `idempotency.mjs` / `ledger-io.mjs` / `index.mjs` / `resume.mjs` / `supervisor.mjs` / `watchdog.mjs` / `leader-election.mjs` / `kill-switch.mjs` / `cost-monitor.mjs` 与 `gate-assertion-floor.mjs`。**
+>
+> **已按 12 个 blob 全量锁存重跑一次，结果是红的**（`HEAD 0bb240b`，12 个 blob 跑前跑后完全一致 = `LATCH_OK`）：
+> ```
+> RESULT PASS=25 FAIL=3
+> 　　同长度篡改在 5 次读取内必须被抓到（实际没抓到）   ← ⑳ 失败
+> ```
+> ⇒ **当前锁定状态：`6-supervisor` 是红的，且 `expect` 是 28 而实测 25。** 上面那段 `PASS=25 FAIL=0`（`daa9386`）与后面提到的 `PASS=28`（更晚的一次）**都是未锁存读数，一律作废**；`PASS=28` 那次恰好落在 harbor 正在写文件的中间态。
+>
+> 这一条对本报告的意义比数字大：**我自己在同一节里既主张"未锁存不得引用"，又引用了两个未锁存数。** 我把它记成第二次「用旧状态/中间态评新方案」，并且是**在我自己刚立的规则上**犯的。
+
+> **floor 的 delta（只报变化，不报绝对值，C30）**：`6-supervisor` 的 `expect` 由 `25` 变为 **28**（`+3`），对应在途的 `⑲c` / `⑲d` / `⑳`（游标窗口有界）三条。**该 `+3` 对应的三条用例在锁定读数里只过 2 条（⑳ 红）**，所以此刻 `expect: 28` 与实测不一致，是红而不是"尚未同步"。
+
+
+> **测量期间工作区被并发修改（新事实，必须登记）**
+> 我做 (k) 的逐方法比对时 `core.mjs` 的 blob 是 `b679389`；几分钟后同一路径变成 `0e74ee3`（`+7 -0`：`FILES` 新增 `anchor: 'ledger.anchor.json'`，附注释"锚点必须是独立小文件，因为原地重写 header 正是 append-only 禁止的操作"）。**这不是我的改动**——是共享 worktree 上的并发编辑（`#15` 的后续）。
+> 处置：
+> - **四变异表**跑在 `core.mjs = 0d22336…`（新拷贝取走那一刻的字节）上，出处锁定在那份拷贝，**不代表 `0e74ee3`**；
+> - **`⑲f` 的复现我在两个状态上都做过**：旧状态（无 `anchor` 键）与当前 `0e74ee3`，两次结果一致（baseline `PASS=25` / 变异体 `PASS=25 FAIL=0` / 探针 `changed=["heartbeat"]`）。**结论不依赖那次并发编辑。**
+> - 归入 C36：**共享 worktree 不是稳定的测量面。** 读数若不能当场锁存 blob，就必须重测、不得复用——`dbd6368` 的变异体在共享工作区活了 ~90 秒就是这个洞的极端形态。
+> - **该时间点之后 HEAD 又前进了三次**（`e621a7c` → `b71a80e` → `a647fac`），工作区另有 6 个 supervisor 文件 + `gate-assertion-floor.mjs` 处于未提交修改、`ledger-io.mjs` 未跟踪。**上面这段里的 `daa9386` 只能作为"那一次读数的时点"引用，不得当作"当前状态"。**
+
+我在**独立拷贝**上重跑四个变异（`core.mjs` baseline `sha256_12 = 0d22336175d2`；每个变异先打印 `hits`，非 1 即判废）：
+
+| 变异 | 结果 | 红的是 |
+|---|---|---|
+| `M-fs-no-pos-advance` | `PASS=24 FAIL=1` | **⑰b** |
+| `M-fs-string-store` | `PASS=24 FAIL=1` | **⑱b** |
+| `M-legacy-gains-pos` | `PASS=24 FAIL=1` | **⑰a** |
+| `M-legacy-byte-faithful` | `PASS=24 FAIL=1` | **⑱a** |
+
+⇒ 我上一轮提的归因指正（"红在 real 半句、消息指向 legacy 半句"）**已被拆分实测消解**；四个方向各自单红，且红在与主张相符的那一侧。b 侧两条是对他读数的复现，a 侧两条是我自己构造的对应变异。
+
+**一条我自己的险错（记入 C36 推论）**：
+
+```
+$ git status --porcelain                →  M apps/…/check-no-fake-live.mjs
+$ git diff --numstat -- <该文件>        →  （空）
+$ git status --porcelain                →  只剩 M reports/…
+```
+
+porcelain 里的 ` M` 可以只是 **stat-dirty**（mtime / index 元数据），内容与 index 完全一致。**"有未提交改动"必须由 `git diff --numstat` 非空来支撑，不得由 porcelain 的 `M` 来支撑。** 我差一步就向 team-lead 报"harbor2 改了 `check-no-fake-live.mjs`"——他明确说过他不再碰这个文件，那条指控会是假的。
+归入 C36 推论：**读数必须与它读的那份字节同步锁存；porcelain 锁存的是元数据，不是字节。**
+
+### (m) 接受的四条 + 两条追加条件
+
+**接受**：
+1. **R-23**（把"同一 fd 两次写必须接力"从 ⑯ 删掉、归 `⑰b`）：成立。一条用例只证一件事；重复断言会让一处坏掉红两条，从而永远拿不到独立定位证据。**⑯ 的 `a`/`w` 与 fsync 计数仍在，覆盖面没有缩小。**
+2. `C-append` 是等价变异、且**没有为了让它是红而改代码**：这是 C33 的正确用法。**若哪天有人把 `append` 分支改坏来"让它红"，那才是事故。**
+3. `IN_DOUBT` 出口的第 4 条（带 `intentHash`）：**比我要求的三条更严**，采纳。
+4. `M-in-doubt-is-run` 红 ⑲f + ⑲g 且**不去拆 `cycleState`**：接受。C26 的可定位性按**用例**要求，不按变异要求；把三态契约从它的上下文里拆出去，换来的只是一格好看的表格。
+
+**追加条件（`intentHash` 的两条必需项，缺一即等于没加）**：
+- **解析前必须有一次完整链校验**，`intentHash` 在**校验通过的链**上解析；否则 `intentHash` 只是一个攻击者可以随手写进去的普通字段（字段级不可伪造只能由链哈希提供）。
+- `intentHash` **必须命中那条 `cycle_intent`**，且该 `(runId, cycle)` 当前状态**必须是 `IN_DOUBT`**；否则拒绝（`RESOLVE_TARGET_NOT_IN_DOUBT`）。否则一条"批准"可以被套用到不存在的周期上——**这正是他加这条要堵的洞的余量**。
+
+**对 `mutate.mjs` 的 `hits !== 1` 判废规则，追加一条边界**：`hits === 1` 证明的是"目标串唯一"，**不证明改到的是活代码**。若命中落在注释里，变异体会编译通过、测试全绿，你会把它读成"这条用例没牙"，而真因是**变异不可达**。故：**任何"绿"的变异，必须先给出可达性自证**（计数器 / 盘上副作用 / 探针输出），否则该绿读数作废——这就是我在 §12.10.15(j) 里对 `watchdog.beat` 做的那一步。**变异必须先自证可达，再论红绿。**
+
+### (n) `#15` 状态：**截至 `0bb240b` 仍 OPEN —— 两条前置未满足**（不写"可签/不可签"）
+
+> 按主理人裁定：**未闭合项一律写成「截至 `<SHA>` 仍 OPEN，修复条件 = …」，不用会随修复自动失效的状态断言。** 本节旧标题写的是"有条件不签"，改为上式；结论内容不变。
+> 修复后**追加新一节（带新 SHA）**，不改本节——与 append-only 纪律一致。
+
+
+**已达成的部分**（我逐项核过，不含推断）：25 条清单与 `6-supervisor expect: 25` 一致、实测 `PASS=25 FAIL=0`；四个变异各自单红且红在对的那一侧；`STAGES` 9 段在 `supervisor.mjs:24-39` 的注释与数组同处、并含"7 段与 10 段都作废"的书面声明；`⑲e` 的观测点在副作用内部（读盘条目 + 计数器，不读 `STAGES` 索引）；R-23 已落地。
+
+**两条前置（都很小，且都由我上面的实跑得出，不是风格建议）**：
+
+1. **`⑲f` 补一条"路径×字节快照"断言**（§12.10.15(j)）。否则"in-doubt 的可观测性由 `⑲f` 承担"这句话**没有支撑**——而它是我接受"9 段里没有 in-doubt 标签"的**唯一理由**。加断言不加用例，`floor` 不变；且该变异只红 `⑲f`，等于顺手把它自己的定位证据补上。
+2. **负对照换成历史字节**（§12.10.15(k)）：`⑰a`/`⑱a` 改从 `dbd6368^` 的原文（字符串常量 + sha256 锁）求值，`createLegacyStringFs` 从生产 `core.mjs` 移除。现版本是同一会话手打的副本，且**已实测漏 `mkdirSync`/`renameSync` 两方法、`unlinkSync` 语义不同**。
+3. 若 `IN_DOUBT` 出口按 `intentHash` 实现，则 (m) 的两条追加条件同时生效（解析前完整链校验、目标必须当前为 `IN_DOUBT`）。
+
+**定级说明**：这两条是 **P2 / P3**，不新增 P0/P1 blocker，因此**不改变下面的裁定**；但它们直接决定 `#15` 的状态——**成立的前提是"那句话由断言承担"，截至 `0bb240b` 它还不成立。**
+
+**修复条件（两条都必须满足，缺一 `#15` 维持 OPEN）**：
+1. `⑲f` 加"路径 × 字节快照"断言且白名单为空；修复判据 = 我构造的 `watchdog.beat` 变异**必须只红 `⑲f`**（它现在是全绿）。
+2. `⑰a`/`⑱a` 的负对照改为 `dbd6368^` 原文 + sha256 锁，且 `createLegacyStringFs` 移出生产 `core.mjs`；修复判据 = 改动历史原文一个字节，该用例必须红。
+
+
+---
+
+**状态（截至 `0bb240b`）：Phase GO = NO-GO；安全域 = NO-GO。** 按主理人裁定，本节不写"可签/不可签"，只写**截至哪份字节看到什么、以及关闭条件**：
+
+| 项 | 截至 `0bb240b` | 关闭条件 |
+|---|---|---|
+| **`B2b`** Windows 重启恢复 | **OPEN，零证据**；且其判定器（`FINAL-10`）本身 fail-open（§12.10.17）⇒ "零证据"与"假证据"同时存在 | 需独占重启窗口 + `release_sha` 绑候选 SHA；判定器先按 §12.10.17(g) 修好 |
+| **`LEDGER-ATOMIC` + D-14-0** | **OPEN**。写入序已落 `5fe0b19`；但截断路径 fail-open（§12.10.16，P1，仅在未提交工作树） | `SHORT_TRUNCATED ⇒ 抛` + 锚点强制 + 禁洗证据三条落地，且我构造的重复副作用场景变红 |
+| **`ORIGIN-LAUNDER`** | **OPEN**。`trading_api.mjs:195` 硬写 `origin: ORIGIN`、入站不校验、`[[path]].js:24` 的 `isSameOrigin` 导入不调用 | 入站校验 `origin`；`isSameOrigin` 要么调用要么删除导出 |
+
+远端仍停在 `00e08e3`，**本轮全部读数为本地实跑，不得引用为 CI 证据**；且每条读数只在它自带的 blob 清单成立。
+
+---
+
+## §12.10.16 后缀截断是 fail-open：锚点在、被忽略；锚点不在、直接报 CLEAN（P1，截至 `0bb240b` 仍在未提交工作树）
+
+### (a) 结论先行
+
+`ledger-io.mjs` 的锚点**已经能发现截断**（`mode=SHORT_TRUNCATED`、`anchorPresent=true`），但发现了之后**选择继续**。后果：任何「整个周期一起被截掉」的截断，都表现为 `cycleState = ABSENT`，于是**周期被重跑** —— at-most-once 在该路径上是假的。
+
+而且这条路径与 D-14-0 是同一形状：**意图记录（intent）与完成记录（completion）在同一段字节里，一起被截掉 ⇒ 账本说"没开始过" ⇒ 放行重跑。** 写入序本身并没有失效，失效的是"账本没有的一段，不等于没发生过"这个判断。
+
+### (b) 复现（`%TEMP%\jcc_gate\trunc` / `trunc2`，代码 = 本克隆工作树未提交版本：`ledger-io.mjs` 未跟踪 + 5 个 ` M` 文件）
+
+> **读数锁存（补，因为我前面忘了做）**：该复现跑在一份**临时拷贝**上，事后回算它的 blob：
+> ```
+> core.mjs          0e74ee329135      supervisor.mjs      62067dde2b8a
+> ledger-io.mjs     15d0a8e1f290      supervisor.test.mjs 746a05446ba9
+> idempotency/index/resume/watchdog/kill-switch/leader-election/cost-monitor：与当前工作区 SAME
+> ```
+> **这四个 blob 已经不是当前工作区**（工作区现为 `core.mjs 29277ff4` / `ledger-io.mjs b2a6fce0` / `supervisor.mjs 07276330` / `supervisor.test.mjs a7f871a5`）。
+> ⇒ 表述必须拆成两半：**行为复现绑在上面的 blob 集合上**；**机制（`:144` / `:145` / `:176` / `:194` 四处）由主理人独立在当前字节上逐行确认存在**。两者互不代替——这正是 C36 要的：**结论可以复用，字节不能。**
+
+```
+先跑 5 个周期（runId=run-T, cycle 0..4）⇒ 15 条记录，anchor 记 {byteLength:3993, count:15}
+在记录边界把账本截到 9 条（2373 字节）——剩下的链**依然完整**，所以 verifyChain 通过
+
+[A 保留锚点]
+  recovery  = {"mode":"SHORT_TRUNCATED","discardedBytes":0,"adopted":false,"anchorPresent":true}
+  resume    = 未抛错，lastCycle=2，blocked=false，inDoubtCycles=[]
+  cycleState(run-T,3) = ABSENT      ← 副作用已经发生过
+  runCycle(run-T,3)   = status=COMPLETED executed=true
+  cycleImpl 调用次数  = 1           ← 重复副作用
+
+[B 连锚点一起删]
+  recovery  = {"mode":"CLEAN","discardedBytes":0,"adopted":false,"anchorPresent":false}
+  runCycle(run-T,3)   = status=COMPLETED executed=true
+  cycleImpl 调用次数  = 1           ← 重复副作用
+  重开后 anchor = byteLength=3192 count=12   （原 3993/15 已不存在）
+```
+
+### (c) 三处独立的机制缺陷
+
+1. **发现了不处置**：`ledger-io.mjs:145` 把 `body.length < anchor.byteLength` 记成 `SHORT_TRUNCATED`，然后只做一件事——把 `anchor.lastCompletion` 指的那**一个**周期降级（`:176`）。而实际被截掉的是两个完整周期，它们的 slot 本来就是 `ABSENT`，**降级是空操作**。降级逻辑只在"丢掉 completion 保留 intent"这一种形状下有效（实测：保留 14/15 条时 `runCycle(cycle 3)` = `DUPLICATE executed=false`，正确）。**两种截断形状都报 `SHORT_TRUNCATED`，行为却差一个数量级。**
+2. **锚点缺失 = 防护消失**：`:144` 是 `if (anchor && typeof anchor.byteLength === 'number')`。锚点文件不在了，整段比较直接跳过，`mode` 保持 `CLEAN`。**删掉一个文件就能关掉一道控制，且系统自称健康。**
+3. **证据被洗掉**：`:194` 的条件是 `!exists(anchorPath) || mode !== CLEAN || byteLength 不等 ⇒ writeAnchor(...)`。于是 B 场景在下次写入时把锚点**改写成截断后的长度**（3192/12）。此后无论谁来看，账本与锚点完全自洽，**没有人能再发现少了两个周期**。这比"没检测到"更坏：它把"曾经能检测到"也一并消除了。
+
+### (d) 为什么这不是"K/M 没给数"的问题
+
+`#22` 把这一半挂在我给 `K`/`M` 上。**K/M 不是这里的瓶颈**，理由是：
+- 同长度原地篡改**不会**改变内存里的已验索引（`st.idx` 由上次全量重验的字节构建），所以宽窗口的后果是**发现延迟 + 往坏链上继续追加**，**不是**重跑；窗口的危害等级因此是 P2，不是 P1。
+- 截断**改变字节长度**，`ensureFresh()` 的 `statSync` 是 O(1) 立即发现的。**发现得很快，处置错了。**
+⇒ 先把 `SHORT_TRUNCATED` 改成 fail-closed，`K=256 / M=256 KiB` 的默认值可以原样保留。
+
+**K 仍有两处要修（不阻塞，但会静默改变保证）**：
+1. **单位不一致**：`K` 同时被当作"读次数"（`:240` 的 `readsSinceVerify`）和"记录条数"（`:251` 的 `entries.length - termStartCount`）。保证的口径会随"热路径多一次读"而变宽——这正是"声明跟着代码形状漂移"。
+2. **建议改成以周期计量**：`reverifyEveryCycles`（例如 8），内部再派生读次数/条数/字节数（8×readsPerCycle、24 条、8×3×4096 B）。操作者能理解的单位是"多少周期内会被发现"，不是"多少次读"。
+
+### (e) 最小整改（按顺序）
+
+1. **`SHORT_TRUNCATED` ⇒ 抛 `LEDGER_SHORT_TRUNCATED`**，不得继续。理由：锚点只知道"少了多少字节"，不知道**少的是哪些周期**（`{count, byteLength, headHash, lastCompletion}` 不足以重建缺失期间的 `(runId, cycle)` 集合）。在不知道的集合上放行重跑，就是把 at-most-once 交给运气。
+2. **`anchorPresent === false` 且账本非空 ⇒ 抛 `LEDGER_ANCHOR_MISSING`**，不得当作 `CLEAN`。首次启动（账本也为空）才允许无锚点。
+3. **`writeAnchor` 不得在 `SHORT_TRUNCATED` / `ANCHOR_MISSING` 的路径上执行**——否则就是在销毁它自己刚产生的证据。
+4. 若确实想要"自动恢复"而不是 fail-closed，则锚点必须携带**有界**的已完成周期清单（`completed: [{runId, cycle}]`，按 `K` 窗口裁剪），届时把"缺失期间的所有周期"一律标成 `IN_DOUBT`，再走 `resolveInDoubt`。**这条路径的前提是第 1 条先落地**：先 fail-closed，再谈自动降级。
+5. 用例（各一条，且必须**只红该条**）：
+   - `㉑a` 整周期截断 + 锚点在 ⇒ `LEDGER_SHORT_TRUNCATED`（当前会重跑）
+   - `㉑b` 截断 + 删锚点 ⇒ `LEDGER_ANCHOR_MISSING`（当前报 CLEAN）
+   - `㉑c` 截断被拒后，锚点字节**必须仍是原值**（证明没洗证据）
+   - 保留现有的"只丢 completion"用例并明说它覆盖的是**另一种形状**——两者不能互相代替。
+
+### (f) 定级与对裁定的影响
+
+**P1。** 但它**不改变**上面的裁定，因为 `ledger-io.mjs` **未跟踪、未提交**——当前没有任何提交包含它。它的正确处置是：**挡住落地**，而不是追加一条已发布代码的 blocker。若它被提交成现状，则升级为 **P0 级**（`LEDGER-ATOMIC` 的直接破口），Phase GO 与安全域都须重新表决。
+
+**本轮我同时验证并撤回了两个自己的假设**（写下来是为了让下一个人少走）：①"crash 落在 append 与 writeAnchor 之间 ⇒ 永久 `LEDGER_TAMPERED`"——**不成立**，`:147-159` 用 `ADOPTED_TAIL`（尾巴是否链到锚定 head）正确处理了"账本比锚点长"；②"`writeCallCount()` 可以兜 ⑲f"——**不成立**，见 §12.10.15(j)。
+
+---
+
+## §12.10.17 FINAL-10 独立验证（截至 `0bb240b`）：判据对"这份证据是不是这一轮的"**零灵敏度**（P0，VERIFIED-BY-EXECUTION）
+
+> **本节只对 `0bb240b` 的已提交字节成立。** 主理人指出：同一时刻**工作区（未提交）**harbor2 已在改——新增 `_final10_judge` 并绑到 `FINAL-10`、`reboot_recovery_sim.py:278` 加 `os.remove(OUT)`、`_judge_artifact` 加 GATE 1/GATE 2；`git show 0bb240b | grep _final10_judge` 为空。
+> ⇒ **下表 M0–M7 对在途字节未验、不作任何断言。** 落地后我按新 SHA 追加新一节，不改本节。
+
+
+### (a) 方法（有意不 import）
+
+`tools/jcc_continuation.py` 是带 `main()` 的 CLI，import 它有副作用风险（本仓已有 `v16_independent_verify.py` 一 import 就重写 evidence 的先例）。故：**用 `ast` 把 `_ok_judge` / `_judge_artifact` 的真实源码段抽出来 `exec`**，只补 `rel/load_json/sha256_file/os` 四个 stub，然后喂构造证据。
+**这比"照着源码重写一遍"强：跑的是被提交的那段文本。** 锚点：`0bb240b`，`artifacts/acceptance/REBOOT_RECOVERY.json` 的 blob 由 `git ls-files --error-unmatch` 确认为 **tracked**。
+
+**真实证据字段（原样读出，未经加工）**：
+```
+release_sha = cefed66159a50ea8bcba5279d4a95cc5b726036d
+checked_at  = 2026-09-26T22:18:43+08:00
+platform    = None            ← 字段不存在
+ok = True    status = PASS
+git rev-list --count cefed661..HEAD = 339
+```
+
+### (b) 七条变异：**只有两条被挡住，五条是绿的**
+
+| 变异 | 判定 | 说明 |
+|---|---|---|
+| **M0 原样真实证据**（陈旧 339 提交 + 无 platform） | **PASS** | 就是现实 |
+| M1 `release_sha` 换成当前 HEAD | **PASS** | 换 sha 不改变判定 |
+| M2 补 `platform=win32` | **PASS** | platform 不参与判定 |
+| M3 `checked_at` 改成 2019 | **PASS** | 时态不参与判定 |
+| M4 `rc=1` 但旧证据在 | **PASS** | `_judge_artifact:918` 分支只看 `step.result`，**从不读 `record["exit_code"]`** |
+| **M5 证据文件不存在** | BLOCKED | 唯一被挡住的"缺失"形状 |
+| M6 `ok=false` | BLOCKED | `ok` 字段有效 |
+| **M7 启动失败（`rc=None`，rc 上下文写 `launch failed`）** | **PASS** | 见 (d) |
+
+⇒ **"五条变异各只红一条"这个验收条件不成立，而且失效方向是最坏的那个：不是"红错位置"，是"根本不红"。** 判据能证明的集合只有"文件存在且 `ok is True`"这一项，比它看起来小得多。
+
+### (c) 决定性的那条：**`sha256` 就在手上，判据不看它**
+
+`_judge_artifact:933-937` 会算证据的 `sha256` 与 `bytes` 并写进 `record["evidence"]`——**算完从不与任何值比较**。实测四份内容不同的证据：
+
+```
+M0 原样        evidence.sha256=2124f5acd98f   → PASS
+M1 换 sha      evidence.sha256=7262c88f2923   → PASS
+M2 补 platform evidence.sha256=ba4f9ce82bf3   → PASS
+M3 改 checked_at evidence.sha256=111d7da2d46a → PASS
+```
+
+**哈希在变、判定不变**——这就是"对时态零灵敏度"的直接证明，也是**本仓第四次出现同一形状：产出了一个能判定的量，然后不用它。**（前三次：`GATE_FLOOR_OK` 无作者字段、`git cat-file -e` 只证存在、`writeCallCount()` 看不见 `writeFileSync`。）
+
+### (d) 比"陈旧"更坏的一条：**启动失败被判 PASS，且把失败原因覆盖掉**
+
+```
+输入：record = {"exit_code": None, "detail": "launch failed: [WinError 2] python not found"}
+输出：status = PASS
+      detail = "PASS: a simulated reboot (dead pid in a lock that had not expired, RUNNING ..."
+      "launch failed" 是否还在 record 里 = False
+```
+
+`_judge_artifact:932` 是 **`record["detail"] = detail`（无条件覆盖）**。于是 `:1004-1006` 辛苦记下的 `launch failed` / `timeout` 被判定结果顶掉——**"这一步没跑"变成"这一步通过"，且证据指向通过。** 这已不是"陈旧证据被当现在时"，是**"没发生的运行被写成发生过"**，与 `52a6c9b` 的提假信息同一形状。
+
+### (e) `_artifact_fresh`：**已有，且从未用于 step 结果**
+
+```
+:902  定义
+:1047 / :1054 / :1158  三个调用点，全部是 run descriptor 的 attach 恢复
+```
+⇒ 结论两条：①**整改必须复用它，不得新写第二个新鲜度判据**（两套将来必漂移）；②它现在的缺席不是"忘了写"，是**"写好了但接给了另一条路径"**——比没有更危险，因为 `grep` 会让人以为已经覆盖。
+
+### (f) 覆盖范围：`tools/continuation/**` 不在任何 CI 里
+
+```
+$ for f in .github/workflows/*.yml; do grep -c "continuation\|jcc_continuation\|reboot_recovery" "$f"; done
+  （全部 0）
+```
+⇒ **"126/126 覆盖重启恢复"是假陈述。** `126` 是 8 个 supervisor/P0/P3/body-read 套件的断言数，与 `FINAL-10` 无关。**任何"已验收"清单必须把 crash/restart recovery 摘出去**，本报告全文按此口径修正：`B2b`（Windows 重启恢复）**仍是零证据**，现在更准确的说法是——**它的判定器本身 fail-open，所以"零证据"和"假证据"同时存在。**
+
+### (g) 整改与验收（我签这份整改的条件）
+
+1. `_ok_judge` 必须至少读三项并与本轮上下文比对：`release_sha == 本轮 SHA`、`checked_at` 落在本轮时间窗内、`platform` **存在**且与实跑平台一致。任一缺失 ⇒ **BLOCKED，不得 SKIPPED-through**。
+2. **`record["detail"]` 不得被判定结果覆盖**：失败原因必须保留（`detail` 追加而非替换），否则证据链在"通过"的那一格断掉。
+3. `rc` 必须参与：`rc is None`（启动失败/超时）⇒ **BLOCKED**，不得进入 artifact 判定。
+   **补一层（主理人在未提交在途代码里发现同族第二个口子）**：在途版本写的是
+   ```python
+   rc = record.get("exit_code")
+   if rc is not None and rc != 0 and step.id not in EXIT_CODE_ALLOWLIST:
+   ```
+   **`rc is None` 时整条跳过。** 而 `None` 不是"没有退出码所以无害"，是**这一步没正常结束**（launch failed / timeout / attach）。判据应改为 `rc != 0` 即 FAIL、**`None` 计入**。
+   ⇒ **M7（启动失败）必须单列成一条用例**，不能并进 M4（`rc=1`）：两者走的是不同分支，只测 M4 会漏掉 `None` 这一个值。
+
+4. 复用 `_artifact_fresh`，禁止新写第二套；若复用语义不匹配，改它、不复制它。
+5. `artifacts/acceptance/REBOOT_RECOVERY.json` **必须移出 tracked**（`0bb240b` 上仍是 tracked）。tracked 的 PASS 文件是可被无限引用的过去时。
+   **状态增量（不改本条）**：工作区已删（`git status` 显示 ` D artifacts/acceptance/REBOOT_RECOVERY.json`），未提交。删对方向，但**"删除"本身不构成关闭**——关闭条件是"该文件不再出现在任何提交里 + 判定器不再接受陈旧证据"。只删文件、判定器照旧，任何一次 `git checkout` 就能把它捞回来。
+
+6. **整改当天 `FINAL-10` 必须是红的**。若同一提交里它变绿，且伴随一份新写的 json，按"为变绿而补证据"处理——这是本轮唯一一条不能靠代码审查发现、只能靠时序发现的行为，必须写进验收记录。
+7. 变异证据（各只红一条）：`M1/M2/M3/M4/M7` 五条**现在全是绿**，整改后必须全红；`M5/M6` 保持红。**这五条是本节的验收主体，不是附带项。**
+
+**定级 P0，与 `B2b` 并列**：它不是"覆盖不足"，是**判定器 fail-open**，而 `B2b` 本来就靠这个判定器取证。两者叠加后，P0–P2 门禁里"Windows 重启恢复"这一条从"未验证"变成"用错误方法被认为已验证"。
+
+---
+
+## §12.10.18 `#15` 两条前置**已在工作区关闭**（截至未提交 blob，只验了其中一条的验收判据）
+
+按 append-only 纪律，**不改 §12.10.15(n)**，此处新增。锚点：**工作区（未提交）**，`HEAD` 仍是 `0bb240b`。
+
+### (a) 两类数分开写（主理人硬限制）
+
+> **报告只允许出现两类数：① 已提交字节上的读数（必须带 SHA）；② 未提交工作里的缺陷机制（不带任何计数）。** 理由：`PASS` / `expect` / 块数这类数字若不绑提交，既不是 `HEAD` 的状态，也不是锁存那一刻之外任何时刻的状态，下一个读者无法复算——**那是"工作区绿"在文档里的等价物。**
+
+**① 已提交字节上的读数（`0bb240b`）**：把该提交的 `scripts/supervisor/` 10 个文件导出到临时目录，先逐文件比 blob（`git rev-parse 0bb240b:<path>` vs `git hash-object <导出文件>`）——**10/10 完全一致**，再跑：
+
+```
+RESULT PASS=25 FAIL=0
+```
+
+`gate-assertion-floor.mjs` 在 `0bb240b` 上 `6-supervisor expect: 25`，与同提交的 `await test(` 计数 25 相等。**这是本节唯一可引用的数字。**
+
+**② 未提交工作（不给计数，只给机制与 blob 标识）**：
+```
+supervisor.mjs      07276330bfb6        ledger-io.mjs       b2a6fce0a945
+core.mjs            29277ff4eff8        idempotency.mjs     fb70ba6b753f
+index.mjs           54831a718e24        resume.mjs          45c9c5828902
+watchdog.mjs        c995df675317        leader-election    a0410c6a4437
+kill-switch.mjs     f51cf3dad7fb        cost-monitor       24fffc915359
+supervisor.test.mjs 4640312be5b3
+```
+**这些 blob 只用来指认"我看的是哪份字节"，不承载任何结果数字**——它们随下一次编辑即失效，任何引用都必须重新取证。
+
+### (b) 前置 ① `⑲f`：**验收判据满足，我实测的**
+
+我当初立的条件是"我构造的 `watchdog.beat` 变异**必须只红 ⑲f**（它此前是全绿）"。在上面的拷贝上重跑同一变异：
+
+```
+变异：在 if (state === 'IN_DOUBT') { 之后、return 之前插 watchdog.beat({runId, cycle})
+  BEFORE sha256_12=5bfa10b01605  hits=1
+  AFTER  sha256_12=e9d2654ae5c2  changed=true
+变异体整套：
+  FAIL  ⑲f 崩溃在 intent 与 completion 之间：重启判 IN_DOUBT，绝不重跑周期体
+  RESULT PASS=32 FAIL=1
+```
+
+⇒ **从"全绿"变成"只红一条，且红在正确的那一条"**。这一条同时解决了两件事：判据有了牙，且 `⑲f` 第一次拿到了自己的单红定位证据（此前只有 `M-in-doubt-is-run` 的双红，只能算非恒真证据）。
+
+### (c) 前置 ② 负对照锚：**已换为逐字原文 + sha256 锁，形态比我要求的更严**
+
+工作区实测（未提交）：
+- `supervisor.test.mjs:399-410` 引入 `LEGACY_FS_SOURCE`（**逐字原文**）与 `LEGACY_FS_SOURCE_SHA256 = 'df6f2cf0…'`，注释写明取自 `d1fc94f`（= `dbd6368^`）并给出复现命令（`git show <c>:<path> | sed -n … | sha256sum`）；
+- `:466` 断言 `sha256(LEGACY_FS_SOURCE) === LEGACY_FS_SOURCE_SHA256`，失败消息要求"若要换锚，先给出新提交的 `git show` 输出与新的 `sha256sum`"；
+- `:470` 用 `new Function` 从原文求值，**不再 `import` 生产模块的复述**；
+- `core.mjs:205` 只剩一句注释提到 `createLegacyStringFs`，**导出已移除**（`grep -c 'export function createLegacyStringFs'` = 0）。
+
+⇒ 这满足 C34（锚点是先于会话存在、可复现的常量），并且**堵住了负对照的唯一失效方式**："调整对照直到它变绿"现在会先撞碎 sha256 断言。
+
+### (d) 附带关闭：`ledger-io.mjs` 已在静态扫描范围内
+
+`supervisor.test.mjs:9-14` 的手写九人名单改为**目录枚举 + 数量断言**，并在注释里写下了失效机理（"守卫的 SCOPE 靠手维护，就会悄悄停止覆盖它本该覆盖的东西"），与 `verify-engine-vendor 命中 0`、`第 9 套件不存在` 并列为同族。我要求的"数量断言用相等不用 `>=`"仍是待核项——**我这次没读到那行断言，故此项记为 UNVERIFIED-BY-ME，不写成已关闭。**
+
+### (e) 仍然 OPEN 的（不改旧节，此处只做状态增量）
+
+1. **`ledger-io.mjs` 截断 fail-open（§12.10.16）**：**未验是否已改**。我最后一次锁定该文件是 `b2a6fce0`；`SHORT_TRUNCATED ⇒ 抛` / 锚点强制 / 禁洗证据三条，我**没有在上面的拷贝上重跑重复副作用场景**，所以不给结论。
+2. **FINAL-10（§12.10.17）**：仍只对 `0bb240b` 成立；工作区已在改，未验。
+3. **`M7` 单列、`rc is None` 计入 FAIL**：已写入 §12.10.17(g)，工作区未验。
+
+**本节的作用是把"我拒签的两条"从"意见"变成"可复核的状态"**：两条前置各自都有我实测的判据，而不是我说"可以了"。**未提交 ⇒ 不改变 §12.10.15(n) 的 OPEN 结论；提交后按新 SHA 追加新节。**
