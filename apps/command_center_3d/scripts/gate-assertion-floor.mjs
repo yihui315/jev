@@ -133,11 +133,17 @@ const SUITES = [
     //           monotonic fence, and the lease token never enters the ledger in clear.
     //           5 new named blocks, so 18 + 5 = 23. The number equals the MEASURED
     //           count, it is not a target.
-    // Earlier the guard was missing, so a caller passing a wrapper object made
+    // 23 -> 25: ⑰⑱ 拆成 ⑰a/⑰b/⑱a/⑱b —— each of the two used to carry TWO opposing
+    //           claims under one name ("the legacy model is wrong" AND "this fixture
+    //           is right"). Measured consequence: breaking the real fixture turned
+    //           ⑰ red while its message pointed at the legacy model — right colour,
+    //           wrong reason. Split so each side owns one claim and each has a
+    //           mutation that reddens it and nothing else. delta = +2, so 23 + 2 = 25.
+    // Earlier the ⑮ guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 23,
-    // "RESULT PASS=23 FAIL=0"
+    expect: 25,
+    // "RESULT PASS=25 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {

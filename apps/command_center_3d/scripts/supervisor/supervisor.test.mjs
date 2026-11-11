@@ -379,49 +379,60 @@ await test('⑯ 内存 fs 尊重 open 模式：a 追写 / w 截断 / fsync 可�
   deps.fsImpl.closeSync(fdW);
   assert.equal(deps.fsImpl.readFileSync(p, 'utf8'), 'X', 'w 模式必须截断');
 
-  // 同一 fd 连续两次写 = 两次接力（真实 fs.writeSync 按偏移推进），不是覆盖
-  const fdW2 = deps.fsImpl.openSync(p, 'w');
-  deps.fsImpl.writeSync(fdW2, '{"seq":1}\n');
-  deps.fsImpl.writeSync(fdW2, '{"seq":2}\n');
-  deps.fsImpl.closeSync(fdW2);
-  assert.equal(deps.fsImpl.readFileSync(p, 'utf8'), '{"seq":1}\n{"seq":2}\n',
+  // 同一 fd 两次写必须接力，这条主张不在这里断言：它的归属是 ⑰b。
+  // 一条用例只证一件事（R-23）—— 放在这里会让"位置语义坏了"同时红两条，
+  // 于是 ⑰b 永远拿不到独立定位证据。
+});
+
+// ⑰a/⑰b 与 ⑱a/⑱b —— 拆开的原因不是洁癖，是归因。
+// 原来 ⑰ 一条里装了三件互相独立的主张：legacy 必须错 / real 必须对 / 两者不等。
+// 后果实测：把 real 侧的位置语义改坏，⑰ 也红，而失败消息说的是"旧 string fixture
+// 丢失接力写"——把排查指向了没坏的那一半。红的颜色对、红的理由错。
+// 现在：a 侧 = 负对照（错的模型必须错），b 侧 = 正向判据（对的实现必须对）。
+// 两者各自都能被一条只红自己的变异打死。
+await test('⑰a 负对照 legacy 侧：旧 string fixture 必须丢失接力写', async () => {
+  const legacy = createLegacyStringFs();
+  const fd = legacy.openSync('/x/pos-legacy.jsonl', 'w');
+  legacy.writeSync(fd, '{"seq":1}\n');
+  legacy.writeSync(fd, '{"seq":2}\n');
+  legacy.closeSync(fd);
+  assert.equal(legacy.readFileSync('/x/pos-legacy.jsonl'), '{"seq":2}\n',
+    '旧 string 模型确实只剩最后一条（负对照成立）');
+});
+
+await test('⑰b 正向判据 real 侧：本 fixture 必须保住接力写', async () => {
+  // deps_real() 就是 deps.fsImpl 的默认实现；直接用被测对象，不引第三方副本
+  const real = deps_real();
+  const fd = real.openSync('/x/pos.jsonl', 'w');
+  real.writeSync(fd, '{"seq":1}\n');
+  real.writeSync(fd, '{"seq":2}\n');
+  real.closeSync(fd);
+  assert.equal(real.readFileSync('/x/pos.jsonl', 'utf8'), '{"seq":1}\n{"seq":2}\n',
     '两次 writeSync 必须接力，后一次不得抹掉前一次');
 });
 
-// ⑰ 永久负对照（位置模型）：旧 string fixture 两次 writeSync 只剩最后一条
-await test('⑰ 负对照：旧 string fixture 丢失接力写（本 fixture 不得如此）', async () => {
+await test('⑱a 负对照 legacy 侧：旧 string fixture 必须把半字节解成 U+FFFD', async () => {
   const legacy = createLegacyStringFs();
-  const real = deps_real();
-  const seq = ['{"seq":1}\n', '{"seq":2}\n'];
-  for (const fs of [legacy, real]) {
-    const fd = fs.openSync('/x/pos.jsonl', 'w');
-    for (const s of seq) fs.writeSync(fd, s);
-    fs.closeSync(fd);
-  }
-  const legacyText = legacy.readFileSync('/x/pos.jsonl');
-  const realText = real.readFileSync('/x/pos.jsonl', 'utf8');
-  assert.equal(legacyText, '{"seq":2}\n', '旧模型确实只剩最后一条（负对照成立）');
-  assert.equal(realText, '{"seq":1}\n{"seq":2}\n', '本 fixture 必须两条都在');
-  assert.notEqual(legacyText, realText, '两者必须可分，否则负对照没有牙齿');
+  const head = Buffer.from('中', 'utf8').subarray(0, 1);      // e4
+  const fd = legacy.openSync('/x/torn-legacy.jsonl', 'w');
+  legacy.writeSync(fd, head);
+  legacy.closeSync(fd);
+  const bytes = Buffer.from(legacy.readFileSync('/x/torn-legacy.jsonl'), 'utf8');
+  assert.equal(bytes.toString('hex'), 'efbfbd', '旧模型确实产出 U+FFFD 三字节（负对照成立）');
+  assert.equal(bytes.length, 3, 'U+FFFD 是 3 字节，这正是它不能代表半字节的原因');
 });
 
-// ⑱ 永久负对照（字节模型）：旧 string fixture 表示不出"撕裂在中途的半字节"
-await test('⑱ 负对照：旧 string fixture 把半字节解成 U+FFFD（本 fixture 不得如此）', async () => {
-  const legacy = createLegacyStringFs();
+await test('⑱b 正向判据 real 侧：本 fixture 必须逐字节保真', async () => {
   const real = deps_real();
-  const full = Buffer.from('中', 'utf8');          // e4 b8 ad
-  assert.equal(full.length, 3);
-  const head = full.subarray(0, 1);                 // e4
-  for (const fs of [legacy, real]) {
-    const fd = fs.openSync('/x/torn.jsonl', 'w');
-    fs.writeSync(fd, head);
-    fs.closeSync(fd);
-  }
-  const legacyBytes = Buffer.from(legacy.readFileSync('/x/torn.jsonl'), 'utf8');
-  const realBytes = real.readFileSync('/x/torn.jsonl');
-  assert.equal(legacyBytes.toString('hex'), 'efbfbd', '旧模型确实产出 U+FFFD 三字节（负对照成立）');
-  assert.equal(realBytes.toString('hex'), 'e4', '本 fixture 必须保住那一个字节');
-  assert.equal(realBytes.length, 1, '字节数必须是 1，否则按字节切点全部算错');
+  const full = Buffer.from('中', 'utf8');                     // e4 b8 ad
+  assert.equal(full.length, 3, '前置：`中` 是三字节，否则本用例在测别的东西');
+  const head = full.subarray(0, 1);                           // e4
+  const fd = real.openSync('/x/torn.jsonl', 'w');
+  real.writeSync(fd, head);
+  real.closeSync(fd);
+  const bytes = real.readFileSync('/x/torn.jsonl');
+  assert.equal(bytes.toString('hex'), 'e4', '本 fixture 必须保住那一个字节');
+  assert.equal(bytes.length, 1, '字节数必须是 1，否则按字节切点全部算错');
 });
 
 // ⑲e 写入序的正面判据：观测点放在副作用内部。
@@ -485,6 +496,11 @@ await test('⑲f 崩溃在 intent 与 completion 之间：重启判 IN_DOUBT，�
   assert.equal(r.sideEffectMayHaveOccurred, true,
     '必须明说副作用可能已发生；只报 cycleExecuted:false 是谎报');
   assert.equal(calls, 0, 'in-doubt 周期绝不允许重跑（at-most-once）');
+  // STAGES 里没有 in-doubt 这个标签，所以早退在 trace 上"看不见原因"。这条断言把
+  // "看不见原因但看得见停在哪"钉死：trace 恰好停在只读段，一个写阶段都没进。
+  // 归因方式是 3 段前缀（返回值），不是读日志文本（C32）。
+  assert.deepEqual(r.trace, ['killSwitch', 'lease', 'idempotency'],
+    'in-doubt 必须在任何写阶段之前早退');
   // 而且 in-doubt 的早退同样不得写任何记录：判据必须是"账本没变"，不是"我没看到新记录"。
   const after = S.readJsonl(fsImpl, sup2.subsystems.idempotency.ledgerPath);
   assert.equal(after.length, 2, 'in-doubt 早退不得追加记录（epoch+intent 共 2 条）');

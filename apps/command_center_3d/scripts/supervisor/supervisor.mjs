@@ -20,6 +20,19 @@ export const DAEMON_BINDING = 'DECLARED_NOT_WIRED';
 //                 instead of silent. See D-14-0.
 // Reads strictly precede writes in this list; that is checkable by eye and is the
 // reason `idempotency` and `resume` sit before `leaseEpoch`.
+//
+// THIS NINE-STAGE LIST IS A NEW FROZEN SET. The earlier seven-stage list (and the
+// ten-stage list that was proposed before this landed) are both void; there was
+// never a ten-stage list in code. What the freeze means, and what it does NOT:
+//   * `trace` records HOW FAR a cycle got. It does not record WHY it stopped.
+//     DUPLICATE and IN_DOUBT both leave the same three-element prefix
+//     ['killSwitch','lease','idempotency'], because both are read-only decisions.
+//   * IN_DOUBT's observability is therefore NOT carried by `trace`. It is carried
+//     by the ledger, and ⑲f pins both halves: the trace prefix (3 stages = no write
+//     stage was entered) and the record count (2, unchanged).
+//   * Stage names are never evidence of stage ORDER. Order is evidenced from inside
+//     the side effect, by reading the disk (⑲e). Any assertion of the form
+//     STAGES.indexOf(a) < STAGES.indexOf(b) compares one declaration to another.
 export const STAGES = Object.freeze([
   'killSwitch', 'lease', 'idempotency', 'resume', 'leaseEpoch',
   'cycleIntent', 'cycleImpl', 'record', 'heartbeat',
