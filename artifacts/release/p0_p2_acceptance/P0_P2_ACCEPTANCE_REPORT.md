@@ -382,19 +382,30 @@ $ md5sum artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md \
 >
 > 1. the three copies are byte-identical **to each other** — machine-checkable at any time, by
 >    anyone, with the command above;
-> 2. content hashes of the files this report *describes* (the report does not modify them, so
->    these are stable), identical at `9e883f3` and at the HEAD this report was finalised on:
+> 2. content hashes of the three files the numbers in this report depend on. **Measured at
+>    `34325e7`** (an immutable SHA — deliberately *not* "HEAD", which moved five times while this
+>    report was being written and is therefore not an anchor for anything):
 >
-> | file | sha256 |
+> | file | sha256 measured at `34325e7` |
 > |---|---|
-> | `apps/command_center_3d/scripts/check-no-fake-live.mjs` | `4223ef3d3c111c57e5efe1e693303c5a9f33dba25e14232790541ac08f813da9` |
+> | `apps/command_center_3d/scripts/check-no-fake-live.mjs` | `066da5aedaca4c09d39690bb502a60fa9bd92481acd813d25f54554b44e8c9ba` |
 > | `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | `5e06954909acfaa9b5ff014ded93717601a6fef533ca2e0750022efb6fede254` |
 > | `apps/command_center_3d/server/ai/tests/e2e_real_engine.mjs` | `442bf00c154d7eb9a027395a92a10f0549671a40feaaeb6b9ad1a906b52fcf1e` |
 >
-> Point 2 is the load-bearing one for this report: it proves the `total_cases=97` capture was
-> produced by the same code at both SHAs, so no re-run is needed to trust it across doc-only
-> commits. Verify with
-> `git show 9e883f3:<path> | sha256sum` and `sha256sum <path>`.
+> **These hashes are a falsification tool, not a permanence claim.** Re-run
+> `sha256sum <path>`: if it matches, the code that produced `total_cases=97` is the code you are
+> looking at. If it does **not** match, some `.mjs` changed after this report — which is the signal
+> to re-run the floor and §1, not to doubt the arithmetic. A hash anchored to "HEAD" would have
+> been unfalsifiable in exactly the same way as the self-digest above: the moment anyone touches
+> the gate scripts it silently becomes a claim about a tree that no longer exists.
+>
+> **This warning fired on itself within the same session.** An earlier revision of this table was
+> measured at `e12955c` and listed `check-no-fake-live.mjs` as `4223ef3d…`. `34325e7` then added a
+> real guard to that file (Y1 now asserts the `feature/jev-**` PR-base entry that had been added
+> unasserted — a fresh instance of F-23, "a guard nobody counts"). The hash changed to `066da5ae…`,
+> so the table above was re-measured. Case count did **not** change (`TOTAL_CASES=13`, floor
+> `total_cases=97`), which is why the numbers in §1 survived; a hash table that had been declared
+> "permanent" would instead have quietly become a false statement about the current tree.
 
 Three copies exist, one of them authoritative:
 
