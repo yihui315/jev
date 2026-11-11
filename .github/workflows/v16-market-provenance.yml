@@ -13,8 +13,13 @@ on:
     # "feature/v16-**" is ADDED, "release/jcc-v1.3-final" is RETAINED on purpose:
     # the release-target rule is still a live invariant (asserted by Y1 in
     # check-no-fake-live.mjs), dropping it would be a silent gate regression.
-    # The addition makes a PR whose base is a v16 branch actually run this gate.
-    branches: ["release/jcc-v1.3-final", "feature/v16-**"]
+    # NOTE ON SEMANTICS: GitHub filters `pull_request.branches` on the BASE ref,
+    # not the head ref. That is why PR #7 (head feature/jev-v2-ops-integration,
+    # base feature/v16-market-provenance-hardening) already runs this gate.
+    # "feature/jev-**" is added so a PR whose BASE is another ops branch is
+    # covered too — it does NOT widen head coverage, and it cannot: a PR that
+    # targets main/master still does not match, which stays a registered gap.
+    branches: ["release/jcc-v1.3-final", "feature/v16-**", "feature/jev-**"]
   workflow_dispatch:
 
 permissions:
