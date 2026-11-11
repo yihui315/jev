@@ -9,8 +9,20 @@ import { createCostMonitor } from './cost-monitor.mjs';
 import { createWatchdog } from './watchdog.mjs';
 
 export const DAEMON_BINDING = 'DECLARED_NOT_WIRED';
+// The order below is the safety property. Two stages are new for a reason:
+//   leaseEpoch  — the term this cycle runs under. It is declared after every
+//                 read-only decision, so the ledger only grows when work is
+//                 actually about to start: a caller that keeps re-presenting a
+//                 duplicate or an in-doubt cycle must not be able to grow the
+//                 ledger, because `entries()` re-reads the whole file.
+//   cycleIntent — WRITE-AHEAD. It lands on disk (fsync'd) BEFORE cycleImpl, so the
+//                 window between "side effect happened" and "ledger knows" is empty
+//                 instead of silent. See D-14-0.
+// Reads strictly precede writes in this list; that is checkable by eye and is the
+// reason `idempotency` and `resume` sit before `leaseEpoch`.
 export const STAGES = Object.freeze([
-  'killSwitch', 'lease', 'idempotency', 'resume', 'cycleImpl', 'record', 'heartbeat',
+  'killSwitch', 'lease', 'idempotency', 'resume', 'leaseEpoch',
+  'cycleIntent', 'cycleImpl', 'record', 'heartbeat',
 ]);
 
 export function createSupervisor(deps) {
@@ -50,13 +62,26 @@ export function createSupervisor(deps) {
     }
 
     try {
-      // 阶段 3：idempotency
+      // 阶段 3：idempotency（只读判定：先弄清这个周期到底处于什么状态）
       trace.push('idempotency');
-      if (idempotency.hasCompleted(runId, cycle)) {
+      const state = idempotency.cycleState(runId, cycle);
+      if (state === 'COMPLETED') {
         return {
           status: 'DUPLICATE', runId, cycle, cycleExecuted: false,
           daemonBinding: DAEMON_BINDING, trace,
           note: 'duplicate (runId, cycle) rejected; cycle body not run',
+        };
+      }
+      // IN_DOUBT is NOT a failure and NOT a retry. The body may already have run,
+      // so re-running would turn at-most-once into at-least-once; reporting
+      // cycleExecuted:false alone would be a lie, so the possibility is named.
+      if (state === 'IN_DOUBT') {
+        return {
+          status: 'IN_DOUBT', runId, cycle, cycleExecuted: false,
+          sideEffectMayHaveOccurred: true,
+          daemonBinding: DAEMON_BINDING, trace,
+          note: 'write-ahead intent exists with no completion; the cycle body may already '
+            + 'have run. Refusing to re-run (at-most-once); needs an explicit operator decision.',
         };
       }
 
@@ -64,22 +89,35 @@ export function createSupervisor(deps) {
       trace.push('resume');
       const resumeInfo = resume.resume(runId);
 
-      // 阶段 5：cycleImpl（默认纯内存 no-op fixture）
-      trace.push('cycleImpl');
-      const cycleResult = await d.cycleImpl({ runId, cycle, nowMs: d.nowMs() });
+      // 阶段 5：leaseEpoch（栅栏令牌）。放在这里而不是租约之后，是为了让
+      // "重复 / in-doubt" 这两条早退路径一条记录都不写 —— entries() 每次全量
+      // 重读账本，一个不前进的调用方不得靠重复提交把账本撑大。
+      trace.push('leaseEpoch');
+      const epochRecord = idempotency.recordLeaseEpoch({
+        runId, ownerToken, acquiredAtMs: lease.acquiredAtMs,
+      });
+      const epoch = epochRecord.epoch;
 
-      // 阶段 6：record
+      // 阶段 6：cycleIntent（写前意图，fsync 之后才允许副作用）
+      trace.push('cycleIntent');
+      idempotency.recordIntent(runId, cycle, { epoch });
+
+      // 阶段 7：cycleImpl（默认纯内存 no-op fixture）
+      trace.push('cycleImpl');
+      const cycleResult = await d.cycleImpl({ runId, cycle, epoch, nowMs: d.nowMs() });
+
+      // 阶段 8：record
       trace.push('record');
       idempotency.recordCompletion(runId, cycle, {
         cycleResultLabel: cycleResult && cycleResult.dataLabel,
       });
 
-      // 阶段 7：heartbeat
+      // 阶段 9：heartbeat
       trace.push('heartbeat');
       watchdog.beat({ runId, cycle });
 
       return {
-        status: 'COMPLETED', runId, cycle, cycleExecuted: true,
+        status: 'COMPLETED', runId, cycle, cycleExecuted: true, epoch,
         daemonBinding: DAEMON_BINDING, trace,
         lease, lastCycle: resumeInfo.lastCycle, cycleResult,
       };

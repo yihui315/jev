@@ -302,6 +302,33 @@ export function appendChainEntry(fsImpl, filePath, business) {
   return entry;
 }
 
+// DURABLE append: same chain maths as appendChainEntry, but the line is written on
+// an `a` descriptor and fsync'd before this returns.
+//
+// Why it is a separate function instead of "appendChainEntry + a flag": the whole
+// point of the write-ahead intent is that the record is ON STABLE STORAGE before
+// the side effect starts. `appendFileSync` gives you "the syscall returned", which
+// is a weaker claim that no test can distinguish — and the fixture could not even
+// tell the two apart until `writeSync`/`fsyncSync` grew a file position and a call
+// counter. Keeping it separate means `fsyncCallCount()` inside the cycle body is
+// an assertion about THIS window, not about some unrelated write.
+export function appendChainEntryDurable(fsImpl, filePath, business) {
+  const entries = readJsonl(fsImpl, filePath);
+  verifyChain(entries);
+  const prev = entries.length ? entries[entries.length - 1]._hash : GENESIS;
+  const rest = { ...business, _prev: prev };
+  const _hash = sha256(canonicalize(rest));
+  const entry = { ...rest, _hash };
+  const fd = fsImpl.openSync(filePath, 'a');   // O_APPEND: lands at EOF, matches disk
+  try {
+    fsImpl.writeSync(fd, canonicalize(entry) + '\n');
+    fsImpl.fsyncSync(fd);
+  } finally {
+    fsImpl.closeSync(fd);
+  }
+  return entry;
+}
+
 // state 原子写：先写临时文件再 rename 覆盖，避免半写状态。
 export function atomicWriteJson(fsImpl, filePath, value) {
   const tmp = String(filePath) + '.tmp';

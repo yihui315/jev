@@ -66,6 +66,14 @@ await test('② 重复 (runId,cycle) 被拒绝、cycleImpl 只执行一次', asy
   assert.equal(r3.status, 'COMPLETED');
   assert.equal(calls, 2);
   assert.throws(() => sup.subsystems.idempotency.recordCompletion('run-B', 7, {}), /DUPLICATE/);
+
+  // 早退路径必须一条记录都不写。entries() 每次全量重读账本，一个不前进的调用方
+  // 若能靠重复提交把账本撑大，就是可用性上的自我放大。
+  const rawBefore = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath, 'utf8');
+  await sup.runCycle({ runId: 'run-B', cycle: 7 });      // duplicate
+  await sup.runCycle({ runId: 'run-B', cycle: 8 });      // duplicate
+  const rawAfter = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath, 'utf8');
+  assert.equal(rawAfter, rawBefore, '重复提交不得增长账本');
 });
 
 // ③ 重启后从 lastCycle 正确续接
@@ -242,7 +250,15 @@ await test('⑩ 源码无 daemon/进程/网络调用，且 DAEMON_BINDING===DECL
   }
   assert.equal(S.DAEMON_BINDING, 'DECLARED_NOT_WIRED');
   assert.ok(all.includes('DECLARED_NOT_WIRED'));
-  assert.deepEqual(S.STAGES, ['killSwitch', 'lease', 'idempotency', 'resume', 'cycleImpl', 'record', 'heartbeat']);
+  // The stage LIST is asserted here; the stage ORDER is asserted in ⑲e from the
+  // only place where it means something — inside the side effect, reading the
+  // disk. `STAGES.indexOf('cycleIntent') < STAGES.indexOf('cycleImpl')` would be
+  // a declaration compared against a declaration: it can only fail if someone
+  // edits the same array twice, so it proves nothing about behaviour.
+  assert.deepEqual(S.STAGES, [
+    'killSwitch', 'lease', 'idempotency', 'resume', 'leaseEpoch',
+    'cycleIntent', 'cycleImpl', 'record', 'heartbeat',
+  ]);
 });
 
 // ⑪ fixture 数据不得标 LIVE / REAL，缺失值不得写 0
@@ -259,9 +275,14 @@ await test('⑪ fixture 数据不得标 LIVE / REAL，缺失值不得写 0', asy
   assert.deepEqual(r.trace, S.STAGES, '编排顺序必须固定');
   const rows = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath, 'utf8')
     .split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
-  assert.equal(rows.length, 1);
-  assert.notEqual(rows[0].payload.cycleResultLabel, 'LIVE');
-  assert.notEqual(rows[0].payload.cycleResultLabel, 'REAL');
+  // One completed cycle now leaves three records, and the ORDER of the kinds on
+  // disk is itself the evidence: epoch -> intent -> completion. Asserting the
+  // kind sequence (not just the count) is what makes a reordering visible.
+  assert.deepEqual(rows.map((x) => x.kind),
+    [S.LEDGER_KIND.epoch, S.LEDGER_KIND.intent, S.LEDGER_KIND.completion]);
+  const done = rows[rows.length - 1];
+  assert.notEqual(done.payload.cycleResultLabel, 'LIVE');
+  assert.notEqual(done.payload.cycleResultLabel, 'REAL');
 });
 
 // ⑫ 成本 state 跨重启累计（原子写）
@@ -401,6 +422,118 @@ await test('⑱ 负对照：旧 string fixture 把半字节解成 U+FFFD（本 f
   assert.equal(legacyBytes.toString('hex'), 'efbfbd', '旧模型确实产出 U+FFFD 三字节（负对照成立）');
   assert.equal(realBytes.toString('hex'), 'e4', '本 fixture 必须保住那一个字节');
   assert.equal(realBytes.length, 1, '字节数必须是 1，否则按字节切点全部算错');
+});
+
+// ⑲e 写入序的正面判据：观测点放在副作用内部。
+//     这一批断言依赖的是「完整记录在盘上的顺序」，不依赖字节保真 —— 撕裂点/半字节
+//     类用例（⑲c/⑲d）需要 fixture 存 Buffer，本批不需要：一条完整 JSONL 记录要么
+//     整行在盘上、要么整行不在，与它是怎么编码的无关。
+//     D-14-0 的失效形态是「整条记录缺失」，所以判据也只能是「整条记录在不在」。
+//     反面（恒真式）写法是 STAGES.indexOf('cycleIntent') < STAGES.indexOf('cycleImpl')，
+//     那是拿声明比声明；这里的判据是拿磁盘比行为。
+await test('⑲e 写入序：副作用发生时 cycle_intent 已在盘上且已 fsync（D-14-0 正面判据）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const deps = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+  const sup = S.createSupervisor(deps);
+  const ledgerPath = sup.subsystems.idempotency.ledgerPath;
+  let lastKindAtEffect = null;
+  let completionAtEffect = null;
+  let fsyncAtEffect = -1;
+
+  deps.cycleImpl = async () => {
+    // 观测点在副作用内部：这里能看到什么，崩溃时盘上就留下什么。
+    const rows = S.readJsonl(fsImpl, ledgerPath);
+    lastKindAtEffect = rows.length ? rows[rows.length - 1].kind : null;
+    completionAtEffect = rows.some((e) => e.kind === S.LEDGER_KIND.completion);
+    fsyncAtEffect = fsImpl.fsyncCallCount();
+    return { ok: true, dataLabel: 'FIXTURE_SYNTHETIC' };
+  };
+
+  const r = await sup.runCycle({ runId: 'run-W1', cycle: 0 });
+  assert.equal(r.status, 'COMPLETED');
+  assert.equal(lastKindAtEffect, S.LEDGER_KIND.intent,
+    '副作用开始时盘上最后一条必须是 cycle_intent，实际 ' + lastKindAtEffect);
+  assert.equal(completionAtEffect, false, '副作用开始时不得已有 completion');
+  assert.ok(fsyncAtEffect >= 2, 'epoch 与 intent 各一次 fsync 才允许进入副作用，实际 ' + fsyncAtEffect);
+});
+
+// ⑲f 崩溃窗口：intent 在、completion 不在 ⇒ 重启后判 IN_DOUBT，不重跑
+await test('⑲f 崩溃在 intent 与 completion 之间：重启判 IN_DOUBT，绝不重跑周期体', async () => {
+  const fsImpl = S.createMemoryFs();
+  const sup1 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
+  const idem = sup1.subsystems.idempotency;
+  // 构造"掉电现场"：只有 epoch + intent，没有 completion。恢复逻辑关心的是这个
+  // 盘上状态本身，而不是它由什么机制产生 —— 这正是 recordCompletion 写下去之前
+  // 进程被杀时留下的字节。
+  idem.recordLeaseEpoch({ runId: 'run-W2', ownerToken: 'tok-crashed', acquiredAtMs: 0 });
+  idem.recordIntent('run-W2', 0, { epoch: 1 });
+
+  let calls = 0;
+  const sup2 = S.createSupervisor(S.makeDeps({
+    fsImpl, clock: S.createMemoryClock(5000),
+    cycleImpl: async () => { calls++; return { ok: true }; },
+  }));
+  const info = sup2.resume('run-W2');
+  assert.deepEqual(info.inDoubtCycles, [0], 'in-doubt 周期必须被点名，不能静默');
+  assert.equal(info.blocked, true);
+  assert.equal(info.nextCycle, 0, '不得把 in-doubt 的周期跳过去当成已完成');
+  assert.equal(info.lastCycle, -1, 'IN_DOUBT 不是 completion：不写 0、也不冒充 1');
+
+  const r = await sup2.runNextCycle({ runId: 'run-W2' });
+  assert.equal(r.status, 'IN_DOUBT');
+  assert.equal(r.cycleExecuted, false);
+  assert.equal(r.sideEffectMayHaveOccurred, true,
+    '必须明说副作用可能已发生；只报 cycleExecuted:false 是谎报');
+  assert.equal(calls, 0, 'in-doubt 周期绝不允许重跑（at-most-once）');
+  // 而且 in-doubt 的早退同样不得写任何记录：判据必须是"账本没变"，不是"我没看到新记录"。
+  const after = S.readJsonl(fsImpl, sup2.subsystems.idempotency.ledgerPath);
+  assert.equal(after.length, 2, 'in-doubt 早退不得追加记录（epoch+intent 共 2 条）');
+  assert.equal(after.filter((e) => e.kind === S.LEDGER_KIND.epoch).length, 1,
+    '早退路径不得声明新任期');
+});
+
+// ⑲g completion 必须有配对 intent，否则抛（防止上游绕过写入序）
+await test('⑲g 无 intent 的 completion 一律抛，且别人的 intent 不算数', async () => {
+  const { deps } = ctx();
+  const sup = S.createSupervisor(deps);
+  const idem = sup.subsystems.idempotency;
+  assert.throws(() => idem.recordCompletion('run-W3', 0, {}), /COMPLETION_WITHOUT_INTENT/);
+  // 相邻周期有 intent 也不行：配对是 (runId, cycle) 级别的，不是"账本里有 intent"
+  idem.recordIntent('run-W3', 1, { epoch: 1 });
+  assert.throws(() => idem.recordCompletion('run-W3', 0, {}), /COMPLETION_WITHOUT_INTENT/);
+  assert.equal(idem.cycleState('run-W3', 0), 'ABSENT');
+  assert.equal(idem.cycleState('run-W3', 1), 'IN_DOUBT');
+});
+
+// ⑲h epoch 是单调栅栏令牌，且 intent/completion 必须带上当时的 epoch
+await test('⑲h lease_epoch 单调递增，intent 与 completion 携带同一 epoch', async () => {
+  const { deps } = ctx();
+  const sup = S.createSupervisor(deps);
+  const r1 = await sup.runCycle({ runId: 'run-W4', cycle: 0 });
+  const r2 = await sup.runCycle({ runId: 'run-W4', cycle: 1 });
+  assert.equal(r1.epoch, 1);
+  assert.equal(r2.epoch, 2);
+  assert.ok(r2.epoch > r1.epoch, 'epoch 必须严格递增（否则栅栏令牌可被重放）');
+  const rows = S.readJsonl(deps.fsImpl, sup.subsystems.idempotency.ledgerPath);
+  assert.deepEqual(rows.filter((e) => e.kind === S.LEDGER_KIND.epoch).map((e) => e.epoch), [1, 2]);
+  assert.deepEqual(rows.filter((e) => e.kind === S.LEDGER_KIND.intent).map((e) => e.epoch), [1, 2]);
+  assert.deepEqual(rows.filter((e) => e.kind === S.LEDGER_KIND.completion).map((e) => e.epoch), [1, 2]);
+});
+
+// ⑲i 账本不是凭据库：租约持有者令牌只能以摘要形式落盘
+await test('⑲i 租约令牌不得以明文进账本（只存摘要）', async () => {
+  const token = 'owner-token-should-never-appear-9f3a';
+  const fsImpl = S.createMemoryFs();
+  const deps = S.makeDeps({ fsImpl, ownerToken: token });
+  const sup = S.createSupervisor(deps);
+  await sup.runCycle({ runId: 'run-W5', cycle: 0 });
+  const raw = fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath, 'utf8');
+  assert.equal(raw.includes(token), false, '账本里出现明文令牌（账本会被拷进证据包）');
+  const ep = S.readJsonl(fsImpl, sup.subsystems.idempotency.ledgerPath)
+    .filter((e) => e.kind === S.LEDGER_KIND.epoch);
+  assert.equal(ep.length, 1);
+  assert.equal(ep[0].ownerTokenDigest, S.sha256(token));
+  assert.equal(ep[0].ownerToken, undefined);
 });
 
 function deps_real() { return createMemoryFs(); }

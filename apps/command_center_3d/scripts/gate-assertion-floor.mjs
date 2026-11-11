@@ -127,11 +127,17 @@ const SUITES = [
     // 16 -> 18: ⑰⑱ 永久负对照 —— 旧 string fixture 必须被证明是错的（接力写丢失 / 半字节变 U+FFFD）。
     //           Without these, a later "simplification" back to strings turns every
     //           tearing test green, and green is the most easily accepted wrong state.
+    // 18 -> 23: ⑲e/⑲f/⑲g/⑲h/⑲i —— write-ahead ordering (D-14-0): the intent is on
+    //           disk before the side effect, a crash in between is IN_DOUBT and is
+    //           never re-run, completion without intent throws, lease_epoch is a
+    //           monotonic fence, and the lease token never enters the ledger in clear.
+    //           5 new named blocks, so 18 + 5 = 23. The number equals the MEASURED
+    //           count, it is not a target.
     // Earlier the guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 18,
-    // "RESULT PASS=14 FAIL=0"
+    expect: 23,
+    // "RESULT PASS=23 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {
