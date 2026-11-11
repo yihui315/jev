@@ -1652,7 +1652,7 @@ harbor 说"双向是 2 个方向，这条规则有 3 个"，方法论对；但�
 
 ## §12.10.7 独立复核 `4859e5c`（#16 `BODY-READ-UNBOUNDED`）：关闭 P1，但**用例 13/14 对"转发原始字节"零灵敏度**
 
-**证据绑定状态**：`HEAD = 4859e5c`，工作树仅 `reports/JEV_REAL_TRADING_SECURITY.md` 与 `artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md` 为脏（非本提交文件）。本节所有读数为在该 HEAD 上现跑。
+**证据绑定状态**：`HEAD = 4859e5c`。复核**开始时**工作树脏文件仅本文件与 `artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md`；**复核过程中树变了**（同工作区有人在实现 #15）：`gate-assertion-floor.mjs`（`6-supervisor` `14→15`）、`supervisor/core.mjs`（+54）、`supervisor.test.mjs`（+19）转为未提交修改，且**本文件被他人 `git add` 进暂存区**（`git diff --cached --stat` = 本文件 115 行）。因此本节 (a)–(k) 的读数**只对 `4859e5c` 的已提交字节成立**；§12.10.7.1 的三条读数针对的是**未提交的工作树**，按"未生效"处理。**任何人现在提交这棵树，会把安全报告与一份未完成的 #15 实现放进同一个提交** —— 这是 provenance 事故，不是风格问题。
 
 ### (a) 冻结树未动（先证这一条，否则后面都不用看）
 
@@ -1762,3 +1762,46 @@ node apps/command_center_3d/scripts/check-no-fake-live.mjs
 第一版变异 `M1` 我把 harbor 描述的场景误设成"gate 增 1、floor 不变"，实测旧检查 **RED** —— 也就是说我那个反例**根本不成立**。改正为 `M1a` 才得到真形态。
 **教训**：反驳别人的"洞"之前，先证明这个洞在**我的变异**下真的存在；否则我用一个不成立的变异"证明"了一个不存在的差别，而对方会因此正确地不采信我的整段结论。
 与前两次（"上界必须在副作用前拒"过宽、"等式判据"会自锁）共同的根因是**只验证规则能不能拦住别人，不验证规则本身的前提是否成立**。本轮把它写进清单：**变异必须先自证可达。**
+
+---
+
+## §12.10.7.1 工作树读数（未提交，按"未生效"处理）：⑮ 是真 P1 级 fail-open，但 fixture 保真仍差两处
+
+> 这三条针对的是**未提交的工作树**（`core.mjs` +54、`supervisor.test.mjs` +19、floor `6-supervisor 14→15`）。按 §12.9 的纪律，**未提交即未生效**，此处只作评审输入，不作签署依据。
+
+### (a) `⑮ verifyChain` 非数组 ⇒ 静默通过：我在**已提交字节**上复现成立
+
+`git show HEAD:…/supervisor/core.mjs` 导出到临时文件后直接调用：
+
+```
+HEAD(4859e5c) verifyChain(wrapper)   = {"intact":true,"head":"GENESIS"}
+HEAD(4859e5c) verifyChain(null)      = threw: Cannot read properties of null (reading 'length')
+HEAD(4859e5c) verifyChain(undefined) = （同上，TypeError）
+```
+**一个完整性校验器对"它一个字都没看过的输入"回答 `intact:true`。** 这不是"少一条用例"，是**恒通过的控制**——`0 < undefined` 为假 ⇒ 循环零次 ⇒ 返回 GENESIS 头。与 §12.10.6 的 `maxPayloadBytes` 恒真是同一族。
+⑮ 的修法（`Array.isArray` 前置 + `CHAIN_INPUT_NOT_ARRAY`）**方向正确，我签字**；且 `null` 从"TypeError 崩"变成"抛具名错误"也是净改善。
+**但计价必须准确**：`floor 14→15` 只落地了 **25 条里的第 1 条**。按 C21，**不得**把这棵树读作"#15 的 25 条已落地"。`verifyChain` 的 fail-open 是 **P1 级**（完整性判据恒真），单独就够撑一个 blocker 条目，直到 ⑮ 提交。
+
+### (b) fixture 的 `writeSync` 现在**模型不对**：没有"文件位置"
+
+`core.mjs` 的注释把根因写对了（`open('a')` 被忽略），但新的实现把 `writeSync` 变成了"整文件覆盖或整文件追加"，**没有位置概念**。真实 `fs.writeSync(fd, buf)` 从当前偏移写并推进偏移，对同一个 fd 连续两次写是**两次追加**。实测同一序列：
+
+```
+fixture: openSync(p,'w'); writeSync('{"seq":1}\n'); writeSync('{"seq":2}\n')
+   → FIXTURE file = "{\"seq\":2}\n"
+   → REAL FS file = "{\"seq\":1}\n{\"seq\":2}\n"
+```
+即：**任何"一条记录分两次 syscall 写"的用例在这个 fixture 上都绿得没有意义**——正是新注释里那句"A durability test written on that fixture is green for the wrong reason"，只是换到了 `'w'` 这一侧。
+**最小整改**：每个 fd 记 `{ key, append, pos }`；`writeSync` 按 `pos` 拼接并推进；`openSync` 在 `'w'/'wx'` 时清空并 `pos=0`、`'a'` 时 `pos=len`；`truncateSync` 后把 `pos` 夹到新长度。
+
+### (c) fixture **无法表示撕裂在中途的半字节** ⇒ 直接阻塞 ⑲c/⑲d
+
+`files` 存的是 **string**，写入时 `asText()` 就 `toString('utf8')`。写 1 个字节（`中` = `e4 b8 ad` 的首字节）：
+
+```
+fixture: writeSync(full.subarray(0,1))  → bytes = ef bf bd  len = 3
+real fs: 同一调用                        → bytes = e4        len = 1
+```
+⇒ `truncateSync` 注释里的"byte-accurate"**只在已经损坏的字符串上成立**；`lastGood.byteLength` 这类按字节切点的判据会算在**错的字节数**上。**#15 的 `⑲c`（完整 JSON 但缺 `\n`）与 `⑲d`（接不上）都依赖"撕裂点"。**
+**最小整改**：`files` 改存 `Buffer`；`readFileSync(p, enc)` 只在读出时解码；`appendFileSync`/`writeSync` 按字节拼接；`truncateSync` 按字节切；`statSync` 返回真实字节数。
+**顺序要求（沿用 §12.9）**：fixture 保真修复**必须先于**任何写入路径用例落地，否则那批用例的证据是"绿在错的模型上"。
