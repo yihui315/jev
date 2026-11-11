@@ -875,6 +875,208 @@ await test('㉕ 未知窗口参数一律 throw（静默退回默认值会让窗�
   assert.equal(ok.bounds().maxEntriesBeforeFullReverify, 4);
 });
 
+// ⑯c₁ 4096 是天花板，1024 是今天写的量。两者混成一个数，就会出现"降限把昨天的账本
+//      变成不可读"或者"上限只是一个注释"这两种失败。clamp 必须**非静默**：
+//      调用方交来的 payload 被换成了摘要，这件事不记录就等于偷偷改了数据。
+await test('⑯c₁ 超 CURRENT_MAX 的写入被裁剪且必须留痕（requested/applied 可断言）', async () => {
+  assert.equal(S.ABSOLUTE_MAX, 4096, '硬天花板');
+  assert.equal(S.CURRENT_MAX, 1024, '今天的操作上限');
+  assert.ok(S.CURRENT_MAX <= S.ABSOLUTE_MAX, '不变式：操作上限不得超过天花板');
+
+  const logged = [];
+  const fsImpl = S.createMemoryFs();
+  const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0), logClamp: (r) => logged.push(r) });
+  const io = S.createLedgerIo(base);
+  const payload = { blob: 'x'.repeat(3000), cycleResultLabel: 'FIXTURE_SYNTHETIC' };
+  const entry = io.append({ kind: 'cycle_completion', runId: 'run-CL', cycle: 0, epoch: 1, payload });
+
+  const raw = fsImpl.readFileSync(io.ledgerPath).toString('utf8');
+  const line = raw.split('\n').filter((l) => l.trim())[0];
+  const wrote = Buffer.byteLength(line, 'utf8');
+  assert.ok(wrote <= S.CURRENT_MAX, '写进去的记录不得超过 CURRENT_MAX，实际 ' + wrote);
+  assert.equal(entry.payload.clamped, true, '被裁剪的 payload 必须自称被裁剪');
+  assert.equal(entry.payload.digest, S.sha256(S.canonicalize(payload)),
+    '摘要必须是原 payload 的摘要（否则"裁剪"变成了"丢弃"）');
+  assert.equal(entry.payload.bytes, Buffer.byteLength(S.canonicalize(payload), 'utf8'),
+    '必须记下原 payload 的字节数');
+
+  // 非静默：回调 + 环形缓冲两处都要有，且 requested > applied
+  assert.equal(logged.length, 1, 'logClamp 必须被调用一次');
+  const rec = io.clamps()[0];
+  assert.equal(rec.requested, logged[0].requested);
+  assert.ok(rec.requested > rec.applied, 'requested=' + rec.requested + ' 必须大于 applied=' + rec.applied);
+  assert.equal(rec.kind, 'cycle_completion');
+
+  // 裁剪之后链必须仍然自洽（哈希是对裁剪后的内容算的，不是先算后改）
+  assert.equal(S.verifyChain(S.readJsonl(fsImpl, io.ledgerPath)).intact, true,
+    '裁剪后的账本必须能通过链校验');
+
+  // 天花板不可被调用方抬起来：这是在加载时强制的不变式，不是注释
+  assert.throws(() => S.createLedgerIo(base, { currentMax: 8192 }), /CURRENT_MAX_EXCEEDS_ABSOLUTE/,
+    '任何调用方都不得把操作上限抬到天花板之上');
+});
+
+// ⑯c₃a 降限不能把昨天的账本变砖：1024 < bytes <= 4096 的历史记录**合法**，必须仍可续跑。
+await test('⑯c₃a 1024 < bytes <= 4096 的历史记录仍可续跑（降限不是砖）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+  const io = S.createLedgerIo(base);
+  const payload = { blob: 'y'.repeat(2000), cycleResultLabel: 'FIXTURE_SYNTHETIC' };
+  const rest = { kind: 'cycle_completion', runId: 'run-HI', cycle: 0, epoch: 1, completedAtMs: 0, payload, _prev: S.GENESIS };
+  const entry = { ...rest, _hash: S.sha256(S.canonicalize(rest)) };
+  const line = S.canonicalize(entry) + '\n';
+  const bytes = Buffer.byteLength(line, 'utf8');
+  assert.ok(bytes > S.CURRENT_MAX && bytes <= S.ABSOLUTE_MAX,
+    '前置：这条历史记录必须落在 (CURRENT_MAX, ABSOLUTE_MAX]，实际 ' + bytes);
+  fsImpl.writeFileSync(io.ledgerPath, Buffer.from(line, 'utf8'));
+  fsImpl.writeFileSync(io.anchorPath, S.canonicalize({
+    count: 1, headHash: entry._hash, byteLength: bytes, lastCompletion: { runId: 'run-HI', cycle: 0 }, updatedAtMs: 0,
+  }));
+
+  const sup = S.createSupervisor({ ...base, ledgerIo: S.createLedgerIo(base) });
+  const info = sup.resume('run-HI');
+  assert.equal(info.lastCycle, 0, '4096 时代写下的记录必须仍被认作已完成');
+  assert.equal(info.verified, true);
+});
+
+// ⑯c₃b 但天花板之上的历史记录**没有**永久豁免：不设例外，读到就 fail-closed。
+await test('⑯c₃b 超过 ABSOLUTE_MAX 的历史记录 fail-closed，不开永久例外', async () => {
+  const fsImpl = S.createMemoryFs();
+  const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+  const io = S.createLedgerIo(base);
+  const payload = { blob: 'z'.repeat(5000) };
+  const rest = { kind: 'cycle_completion', runId: 'run-OV', cycle: 0, epoch: 1, completedAtMs: 0, payload, _prev: S.GENESIS };
+  const entry = { ...rest, _hash: S.sha256(S.canonicalize(rest)) };
+  const line = S.canonicalize(entry) + '\n';
+  const bytes = Buffer.byteLength(line, 'utf8');
+  assert.ok(bytes > S.ABSOLUTE_MAX, '前置：必须超过天花板，实际 ' + bytes);
+  fsImpl.writeFileSync(io.ledgerPath, Buffer.from(line, 'utf8'));
+  fsImpl.writeFileSync(io.anchorPath, S.canonicalize({
+    count: 1, headHash: entry._hash, byteLength: bytes, lastCompletion: null, updatedAtMs: 0,
+  }));
+
+  // 前置：连链本身都是自洽的 —— 红点必须落在"超上限"，不是"断链"
+  assert.equal(S.verifyChain(S.readJsonl(fsImpl, io.ledgerPath)).intact, true);
+  const sup = S.createSupervisor({ ...base, ledgerIo: S.createLedgerIo(base) });
+  assert.throws(() => sup.resume('run-OV'), /LEDGER_ENTRY_OVER_ABSOLUTE_MAX/,
+    '天花板之上没有"历史豁免"：不然天花板就是一个可以随时间失效的注释');
+});
+
+// ㉖ 等长不等于同史。锚点里早就存着 headHash 与 count，却只做类型检查、从不比较——
+//    "存下来却不用"比"没有"更贵：它读起来像一个已经生效的绑定。
+//    能力边界写在代码注释里：这挡的是"改了账本但没改锚点"，挡不住同时改锚点的人。
+await test('㉖ 等长但整链重算过的账本 ⇒ LEDGER_ANCHOR_HEAD_MISMATCH', async () => {
+  const rewrite = async (runId, mutate) => {
+    const fsImpl = S.createMemoryFs();
+    const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+    const io = S.createLedgerIo(base);
+    const sup = S.createSupervisor({ ...base, ledgerIo: io });
+    for (let c = 0; c < 2; c++) await sup.runCycle({ runId, cycle: c });
+    const p = io.ledgerPath;
+    const before = fsImpl.readFileSync(p);
+    const rows = S.readJsonl(fsImpl, p);
+    mutate(rows);
+    // 整链重算：能写文件的人也能重算，链是内容哈希、不是签名
+    let prev = S.GENESIS;
+    for (const r of rows) {
+      r._prev = prev;
+      const { _hash, ...rest } = r;
+      r._hash = S.sha256(S.canonicalize(rest));
+      prev = r._hash;
+    }
+    const text = rows.map((r) => S.canonicalize(r)).join('\n') + '\n';
+    fsImpl.writeFileSync(p, Buffer.from(text, 'utf8'));
+    return { fsImpl, io, p, beforeLen: before.length, afterLen: Buffer.byteLength(text, 'utf8') };
+  };
+
+  const t = await rewrite('run-RW', (rows) => {
+    const i = rows.findIndex((r) => r.kind === S.LEDGER_KIND.epoch);
+    rows[i].epoch = 2;                       // 1 → 2：等长
+  });
+  assert.equal(t.afterLen, t.beforeLen, '前置：重写必须保持字节数不变（否则抓到它的是长度）');
+  // 前置：重写后的链**自洽**，所以这条用例不可能因为"断链"而红
+  assert.equal(S.verifyChain(S.readJsonl(t.fsImpl, t.p)).intact, true,
+    '前置：整链重算后必须自洽（这正是链看不见的形态）');
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl: t.fsImpl, clock: S.createMemoryClock(1000) }));
+  assert.throws(() => sup2.resume('run-RW'), /LEDGER_ANCHOR_HEAD_MISMATCH/,
+    '等长重写必须被锚点的 head/count 比较抓到');
+
+  // 对照：崩溃恢复（append 完但锚点没更新）会让账本**更长**，必须仍走 ADOPTED_TAIL，
+  // 不得被这道门误杀。没有这条对照，这道门会把正常恢复打死而没人知道。
+  const fsC = S.createMemoryFs();
+  const baseC = S.makeDeps({ fsImpl: fsC, clock: S.createMemoryClock(0) });
+  const ioC = S.createLedgerIo(baseC);
+  const supC = S.createSupervisor({ ...baseC, ledgerIo: ioC });
+  await supC.runCycle({ runId: 'run-AD', cycle: 0 });
+  S.appendChainEntry(fsC, ioC.ledgerPath, {           // 写进去了，但锚点没跟着更新
+    kind: S.LEDGER_KIND.completion, runId: 'run-AD', cycle: 1, epoch: 1, completedAtMs: 0, payload: {},
+  });
+  const ioC2 = S.createLedgerIo(baseC);
+  const infoC = ioC2.runState('run-AD');
+  assert.equal(ioC2.recovery().mode, S.RECOVER.ADOPTED_TAIL,
+    '追赶上的尾巴必须仍是 ADOPTED_TAIL，不是失配');
+  assert.equal(infoC.lastCycle, 1, '采纳之后必须看得见新周期');
+});
+
+// ㉗ 锚点存在但不约束任何东西 —— 和"没有锚点"是两个洞，必须报两个不同的错。
+//     由来：锚点里早就存着 count / headHash / byteLength，但"存着"与"缺了要失败"
+//     是两件事。只要允许某个字段缺席，缺席就会表达"不适用"，那个字段上的比较就被
+//     静默跳过 —— 和 ㉑b（删文件关控制）同一形状，只是搬进了同一个 JSON 对象里。
+//     team-lead 的判词：这第三个字段要是允许缺，就等于把刚堵上的洞在同一个文件里
+//     又开了一次。所以这里不测"坏锚点会怎样"，而测"缺席是否被当成不适用"。
+await test('㉗ 锚点字段缺席或类型错 ⇒ LEDGER_ANCHOR_INVALID（缺席不得表达"不适用"）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
+  await sup.runCycle({ runId: 'run-AV', cycle: 0 });
+  await sup.runCycle({ runId: 'run-AV', cycle: 1 });
+  const io = sup.subsystems.ledgerIo;
+  const good = JSON.parse(fsImpl.readFileSync(io.anchorPath).toString('utf8'));
+  const ledgerBytes = fsImpl.readFileSync(io.ledgerPath).length;
+
+  // 前置：这一份锚点是真的约束得住的（三字段齐、值对、能开）
+  assert.equal(typeof good.count, 'number');
+  assert.equal(typeof good.headHash, 'string');
+  assert.equal(good.byteLength, ledgerBytes, '前置：锚点字节数 == 实际字节数');
+  assert.equal(S.createLedgerIo(S.makeDeps({ fsImpl, clock: S.createMemoryClock(1) })).count(), good.count,
+    '前置：完好锚点必须能开（否则下面"改坏它"证明不了任何事）');
+
+  // 账本全程一个字节都不动，链也完好 —— 于是这条用例只可能因为"锚点不约束"而红
+  const ledgerBefore = fsImpl.readFileSync(io.ledgerPath);
+  assert.equal(S.verifyChain(S.readJsonl(fsImpl, io.ledgerPath)).intact, true);
+
+  const variants = [
+    ['空对象（三字段全缺）', {}],
+    ['只有 byteLength（count 与 headHash 缺席）', { byteLength: ledgerBytes }],
+    ['count 类型错（字符串）', { byteLength: ledgerBytes, count: String(good.count), headHash: good.headHash }],
+    ['count 为 null（typeof 是 object，不是 number）', { byteLength: ledgerBytes, count: null, headHash: good.headHash }],
+    ['headHash 类型错（数字）', { byteLength: ledgerBytes, count: good.count, headHash: 1234 }],
+    ['byteLength 类型错（字符串）', { byteLength: String(ledgerBytes), count: good.count, headHash: good.headHash }],
+  ];
+  for (const [label, anchorObj] of variants) {
+    fsImpl.writeFileSync(io.anchorPath, Buffer.from(S.canonicalize(anchorObj), 'utf8'));
+    const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(2000) }));
+    assert.throws(() => sup2.resume('run-AV'), /LEDGER_ANCHOR_INVALID/,
+      label + '：必须报 LEDGER_ANCHOR_INVALID，不得把缺席当成"这个字段不适用"');
+    assert.equal(fsImpl.readFileSync(io.ledgerPath).equals(ledgerBefore), true,
+      label + '：拒绝的过程中账本不得被改动');
+  }
+
+  // 三个错不许互相吞并。合成一个大类会让"删掉锚点"和"锚点是坏的"读起来是同一件事，
+  // 而它们的处置完全不同：前者可能是误删（补回来即可），后者说明有人写过这个文件。
+  fsImpl.unlinkSync(io.anchorPath);
+  const sup3 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(3000) }));
+  let absentCode = null;
+  try { sup3.resume('run-AV'); } catch (e) { absentCode = e && e.code; }
+  assert.equal(absentCode, 'LEDGER_ANCHOR_MISSING',
+    '缺文件必须是 MISSING 而不是 INVALID，实际 ' + String(absentCode));
+
+  // 完好锚点放回去之后必须重新放行 —— 否则"拒绝"变成永久状态，
+  // 而一条永远红的检查会在三天内被人关掉。
+  fsImpl.writeFileSync(io.anchorPath, Buffer.from(S.canonicalize(good), 'utf8'));
+  const sup4 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(4000) }));
+  assert.equal(sup4.resume('run-AV').lastCycle, 1, '完好锚点必须恢复正常，不得残留拒绝');
+});
+
 // ㉑a 整周期被截掉 + 锚点在 ⇒ 抛。
 //     这是 D-14-0 的复活形态，也是修复前实测到的重复副作用：截掉两个完整周期，
 //     intent 与 completion 在同一段字节里一起没了 ⇒ 账本说"没开始过" ⇒ 放行重跑。

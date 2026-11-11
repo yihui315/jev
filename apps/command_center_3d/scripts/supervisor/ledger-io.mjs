@@ -56,6 +56,18 @@ import {
 // unrelated limits together makes one of them impossible to change.)
 export const ABSOLUTE_MAX = 4096;
 
+// THE OPERATIONAL LIMIT, BELOW THE CEILING. Two different numbers with two
+// different jobs, and the distinction is the whole point of `⑯c`:
+//   ABSOLUTE_MAX — a hard ceiling. Nothing may override it (not intent, not
+//                  config, not env). A record longer than this is a bug or an
+//                  attack, never a configuration choice.
+//   CURRENT_MAX  — what we write today. Lowering it must never make yesterday's
+//                  ledger unreadable: records between CURRENT_MAX and
+//                  ABSOLUTE_MAX are legal HISTORY. Refusing them on read would
+//                  turn "we tightened the limit" into "we bricked the ledger".
+// Anything larger than CURRENT_MAX is CLAMPED on the way in, never silently.
+export const CURRENT_MAX = 1024;
+
 // The bounded re-verify window. ONE number, three named uses, deliberately NOT
 // independent: the previous version reused a single `K` as both a read count and
 // a record count, so "the window" silently changed width the moment the hot path
@@ -107,13 +119,23 @@ function fail(code, message, extra) {
   return err;
 }
 
-function parseLedger(body) {
+function parseLedger(body, absoluteMax) {
   const text = body.toString('utf8');
   const out = [];
   const lines = text.split('\n');
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     if (line.trim().length === 0) continue;
+    // Measured on BYTES, not characters: the ceiling is about what a record costs
+    // on disk, and a line of CJK is three times its length in characters.
+    const lineBytes = Buffer.byteLength(line, 'utf8');
+    if (absoluteMax && lineBytes > absoluteMax) {
+      throw fail('LEDGER_ENTRY_OVER_ABSOLUTE_MAX',
+        'line ' + i + ' is ' + lineBytes + ' bytes, over the hard ceiling of ' + absoluteMax
+        + '. This is NOT a permanent exception for old records: no set of values may override '
+        + 'the ceiling, so the record is refused and the ledger is unreadable until a human '
+        + 'inspects it.', { line: i, bytes: lineBytes, absoluteMax });
+    }
     try { out.push(JSON.parse(line)); }
     catch (_e) { throw new Error('LEDGER_PARSE_FAILED at line ' + i); }
   }
@@ -131,12 +153,25 @@ export function createLedgerIo(deps, opts = {}) {
   // while the window was 64x wider than the caller believed. Refuse the key.
   const ALLOWED_OPTS = [
     'maxEntriesBeforeFullReverify', 'maxBytesBeforeFullReverify', 'maxOpsBeforeFullReverify',
+    'currentMax',
   ];
   for (const k of Object.keys(opts)) {
     if (!ALLOWED_OPTS.includes(k)) {
       throw fail('LEDGER_IO_UNKNOWN_OPT',
         'unknown option "' + k + '" (allowed: ' + ALLOWED_OPTS.join(', ') + ')');
     }
+  }
+  // The ceiling is enforced AT LOAD, not documented. A caller may lower the
+  // operational limit; nothing may raise it past ABSOLUTE_MAX, and a caller that
+  // tries gets an error instead of a silently-wider record.
+  const currentMax = opts.currentMax ?? CURRENT_MAX;
+  if (!Number.isInteger(currentMax) || currentMax <= 0) {
+    throw fail('CURRENT_MAX_INVALID', 'currentMax must be a positive integer, got ' + String(currentMax));
+  }
+  if (currentMax > ABSOLUTE_MAX) {
+    throw fail('CURRENT_MAX_EXCEEDS_ABSOLUTE',
+      'currentMax=' + currentMax + ' is above the hard ceiling ABSOLUTE_MAX=' + ABSOLUTE_MAX
+      + '. The ceiling is not overridable by intent, config or env.');
   }
   const K_ENTRIES = opts.maxEntriesBeforeFullReverify ?? MAX_ENTRIES_BEFORE_FULL_REVERIFY;
   const K_BYTES = opts.maxBytesBeforeFullReverify ?? MAX_BYTES_BEFORE_FULL_REVERIFY;
@@ -148,8 +183,13 @@ export function createLedgerIo(deps, opts = {}) {
   let readsSinceVerify = 0;
   const stats = {
     fullVerifies: 0, appends: 0, forcedReverifies: 0, adopts: 0,
-    truncations: 0, discardedBytes: 0, invalidations: 0, shortages: 0,
+    truncations: 0, discardedBytes: 0, invalidations: 0, shortages: 0, headMismatches: 0,
+    clamps: 0,
   };
+  // Bounded ring of clamp events. A clamp that is not recorded is indistinguishable
+  // from a payload that was accepted — and the caller's data was replaced by a
+  // digest, so "we changed what you asked us to store" must always be visible.
+  const clampRecords = [];
   let lastRecovery = null;
 
   function exists(p) { return fsImpl.existsSync(p); }
@@ -214,10 +254,10 @@ export function createLedgerIo(deps, opts = {}) {
     //     never a silent skip and never a partial recovery.
     let entries;
     try {
-      entries = parseLedger(body);
+      entries = parseLedger(body, ABSOLUTE_MAX);
       verifyChain(entries);
     } catch (e) {
-      if (e && e.code === 'LEDGER_TAMPERED') throw e;
+      if (e && typeof e.code === 'string' && e.code.startsWith('LEDGER_')) throw e;
       throw fail('LEDGER_TAMPERED', e && e.message ? e.message : String(e), { cause_: e });
     }
 
@@ -267,6 +307,33 @@ export function createLedgerIo(deps, opts = {}) {
         }
         mode = RECOVER.ADOPTED_TAIL;
         stats.adopts++;
+      } else if (body.length === anchor.byteLength) {
+        // SAME LENGTH IS NOT SAME HISTORY. The anchor already stores `count` and
+        // `headHash`; until this branch existed they were only TYPE-CHECKED and
+        // never COMPARED — so the anchor constrained length and nothing else, and
+        // a rewrite that recomputed the whole chain to a byte count could not be
+        // seen. "Stored but never compared" is more expensive than absent: it
+        // reads as a binding that exists.
+        //
+        // WHAT THIS DOES AND DOES NOT BUY (do not merge these two sentences):
+        //   * it catches a ledger rewritten without a matching rewrite of the
+        //     anchor — including a naive full-chain rehash, which is exactly the
+        //     kill chain of `SHORT_TRUNCATED` minus the length change;
+        //   * it does NOT stop an attacker who can also rewrite the anchor. Both
+        //     files live in the same trust domain, so this closes a SUBSET, it
+        //     does not make the ledger tamper-proof. That needs an external
+        //     anchor outside the writer's reach (F-19), which does not exist yet.
+        // A crash between append and anchor makes the ledger LONGER, which is the
+        // branch above — so this branch cannot misfire on crash recovery.
+        const head = entries.length ? entries[entries.length - 1]._hash : GENESIS;
+        if (entries.length !== anchor.count || head !== anchor.headHash) {
+          stats.headMismatches++;
+          throw fail('LEDGER_ANCHOR_HEAD_MISMATCH',
+            'the ledger is exactly as long as the anchor expects but is not the anchored history: '
+            + 'records=' + entries.length + ' (anchor says ' + anchor.count + '), head='
+            + String(head).slice(0, 12) + '... (anchor says ' + String(anchor.headHash).slice(0, 12) + '...)',
+            { recordsNow: entries.length, recordsAnchored: anchor.count });
+        }
       }
     }
 
@@ -371,17 +438,61 @@ export function createLedgerIo(deps, opts = {}) {
   // O(1) amortised: no read, no chain re-verify. The chain is re-verified when the
   // term opens and again when the bound is hit; the entry chained onto is the one
   // this object just wrote, so the link is correct by construction.
+  function buildLine(business) {
+    const rest = { ...business, _prev: st.headHash };
+    const entry = { ...rest, _hash: sha256(canonicalize(rest)) };
+    return { entry, line: canonicalize(entry) + '\n' };
+  }
+
+  function recordClamp(rec) {
+    stats.clamps++;
+    clampRecords.push(rec);
+    if (clampRecords.length > 32) clampRecords.shift();
+    if (typeof deps.logClamp === 'function') deps.logClamp(rec);
+  }
+
   function append(business, opts2 = {}) {
     ensureFresh();
     if (!opts2.skipBound) checkBounds();
-    const rest = { ...business, _prev: st.headHash };
-    const entry = { ...rest, _hash: sha256(canonicalize(rest)) };
-    const line = canonicalize(entry) + '\n';
-    const bytes = Buffer.byteLength(line, 'utf8');
+
+    // WRITE-SIDE CLAMP, AND NEVER SILENTLY. A record over CURRENT_MAX has its
+    // payload replaced by {clamped, digest, bytes} and the event is recorded with
+    // requested/applied. The alternative — accepting it — makes the operational
+    // limit a comment; the alternative — throwing — turns a large cycle result
+    // into a dead supervisor. What is not allowed is doing either without a trace.
+    let built = buildLine(business);
+    let bytes = Buffer.byteLength(built.line, 'utf8');
+    if (bytes > currentMax) {
+      const requested = bytes;
+      const payload = business.payload;
+      const clamped = {
+        ...business,
+        payload: {
+          clamped: true,
+          digest: sha256(canonicalize(payload)),
+          bytes: Buffer.byteLength(canonicalize(payload), 'utf8'),
+        },
+      };
+      built = buildLine(clamped);
+      bytes = Buffer.byteLength(built.line, 'utf8');
+      recordClamp({
+        requested, applied: bytes, kind: String(business.kind),
+        runId: business.runId, cycle: business.cycle, currentMax,
+      });
+      if (bytes > currentMax) {
+        // Not clampable under the limit (e.g. a runaway runId). The ceiling still
+        // governs what may reach the disk at all.
+        throw fail('LEDGER_ENTRY_OVER_CURRENT_MAX',
+          'CURRENT_MAX_CLAMPED requested=' + requested + ' applied=' + bytes
+          + ' currentMax=' + currentMax + ' kind=' + String(business.kind)
+          + ' — still over the operational limit after clamping');
+      }
+    }
+    const entry = built.entry;
+    const line = built.line;
     if (bytes > ABSOLUTE_MAX) {
-      const err = new Error('LEDGER_ENTRY_OVER_ABSOLUTE_MAX: bytes=' + bytes + ' max=' + ABSOLUTE_MAX);
-      err.code = 'LEDGER_ENTRY_OVER_ABSOLUTE_MAX';
-      throw err;
+      throw fail('LEDGER_ENTRY_OVER_ABSOLUTE_MAX',
+        'bytes=' + bytes + ' max=' + ABSOLUTE_MAX);
     }
     const fd = fsImpl.openSync(ledgerPath, 'a');
     try {
@@ -430,7 +541,8 @@ export function createLedgerIo(deps, opts = {}) {
   }
 
   return {
-    ledgerPath, anchorPath, absoluteMax: ABSOLUTE_MAX,
+    ledgerPath, anchorPath, absoluteMax: ABSOLUTE_MAX, currentMax,
+    clamps: () => clampRecords.slice(),
     open, ensureFresh, invalidate, append, cycleState, runState,
     entries: () => ensureFresh().entries,
     headHash: () => ensureFresh().headHash,

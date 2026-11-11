@@ -165,11 +165,23 @@ const SUITES = [
     //           width asserted, not commented) and ㉕ (an unknown option key must
     //           throw; a renamed option silently reverting to defaults is how a
     //           64x wider window grew out of a typo). 33 + 3 = 36. Measured.
+    // 36 -> 40: `⑯c` split into three (a clamp that must leave a trail, history in
+    //           (CURRENT_MAX, ABSOLUTE_MAX] that must stay READABLE, history above
+    //           ABSOLUTE_MAX that must not get a permanent exception) and `㉖` (the
+    //           anchor now compares headHash/count, so an equal-length rehash is
+    //           LEDGER_ANCHOR_HEAD_MISMATCH). 36 + 4 = 40. Measured.
+    // 40 -> 41: `㉗` — the anchor's three fields must ALL be present and correctly
+    //           typed, or the load fails with LEDGER_ANCHOR_INVALID. This is not a
+    //           fourth recovery mode, it is the missing half of ㉖: ㉖ compares
+    //           count/headHash, but a field that is allowed to be absent expresses
+    //           "not applicable", and a comparison that is skipped for absence is the
+    //           same defect as ㉑b (deleting the anchor file to switch the control
+    //           off) moved inside one JSON object. 40 + 1 = 41. Measured, not a target.
     // Earlier the ⑮ guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 36,
-    // "RESULT PASS=36 FAIL=0"
+    expect: 41,
+    // "RESULT PASS=41 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {

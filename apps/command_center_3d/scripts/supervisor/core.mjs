@@ -261,6 +261,10 @@ export function makeDeps(overrides = {}) {
     ownerToken: overrides.ownerToken || randomUUID(),
     leaseTtlMs: overrides.leaseTtlMs ?? 60000,
     staleThresholdMs: overrides.staleThresholdMs ?? 30000,
+    // Forwarded explicitly, because a deps factory that silently DROPS an injected
+    // option is the same defect class as createLedgerIo ignoring an unknown key:
+    // the caller believes it wired something, and nothing tells it otherwise.
+    logClamp: overrides.logClamp ?? null,
     clock,
   };
 }
@@ -310,33 +314,17 @@ export function appendChainEntry(fsImpl, filePath, business) {
   return entry;
 }
 
-// DURABLE append: same chain maths as appendChainEntry, but the line is written on
-// an `a` descriptor and fsync'd before this returns.
-//
-// Why it is a separate function instead of "appendChainEntry + a flag": the whole
-// point of the write-ahead intent is that the record is ON STABLE STORAGE before
-// the side effect starts. `appendFileSync` gives you "the syscall returned", which
-// is a weaker claim that no test can distinguish — and the fixture could not even
-// tell the two apart until `writeSync`/`fsyncSync` grew a file position and a call
-// counter. Keeping it separate means `fsyncCallCount()` inside the cycle body is
-// an assertion about THIS window, not about some unrelated write.
-export function appendChainEntryDurable(fsImpl, filePath, business) {
-  const entries = readJsonl(fsImpl, filePath);
-  verifyChain(entries);
-  const prev = entries.length ? entries[entries.length - 1]._hash : GENESIS;
-  const rest = { ...business, _prev: prev };
-  const _hash = sha256(canonicalize(rest));
-  const entry = { ...rest, _hash };
-  const fd = fsImpl.openSync(filePath, 'a');   // O_APPEND: lands at EOF, matches disk
-  try {
-    fsImpl.writeSync(fd, canonicalize(entry) + '\n');
-    fsImpl.fsyncSync(fd);
-  } finally {
-    fsImpl.closeSync(fd);
-  }
-  return entry;
-}
-
+// appendChainEntryDurable USED TO LIVE HERE. It was introduced by 5fe0b19 and
+// removed here, and why matters more than the fact that it is gone: it had ZERO
+// call sites for its whole life — not even a test called it — while
+// its docstring said "the line is written on an `a` descriptor and fsync'd before
+// this returns". A durable-append API with no caller, inside a security module,
+// reads to the next person as "we have a durable append guarantee". That is the
+// same failure as Y9: a REGISTRATION of a capability, not a capability. The actual
+// durable append is ledger-io.mjs's `append()`, which is the only writer on the
+// hot path and is covered by ⑲e (fsync observed from inside the side effect).
+// Removed rather than left in place because leaving it invites a second,
+// uncoordinated writer that would bypass the verified tail cursor.
 // state 原子写：先写临时文件再 rename 覆盖，避免半写状态。
 export function atomicWriteJson(fsImpl, filePath, value) {
   const tmp = String(filePath) + '.tmp';
