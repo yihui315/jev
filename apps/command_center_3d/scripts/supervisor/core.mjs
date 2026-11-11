@@ -54,6 +54,15 @@ export function createMemoryFs(initial) {
   // therefore computed on the wrong byte count, and a truncation test would pass
   // or fail for a reason unrelated to the defect. Decode on READ, never on write.
   const files = new Map();
+  // MONOTONIC FAKE mtime. Real `fs.statSync` returns `mtimeMs`, and the cursor
+  // needs it because byte LENGTH alone cannot see a same-length in-place rewrite.
+  // A fixture that omits mtime makes every such test green by omission — the
+  // cursor would look like it detected something it never looked at.
+  // The value is a counter, not a clock: the only property under test is "did it
+  // change", and a counter cannot be flaky about resolution.
+  const mtimes = new Map();
+  let mtimeTick = 0;
+  const bump = (key) => { mtimes.set(String(key), ++mtimeTick); };
   const toBuf = (d) => (Buffer.isBuffer(d) ? d : Buffer.from(String(d), 'utf8'));
   if (initial) for (const [k, v] of Object.entries(initial)) files.set(k, toBuf(v));
   let nextFd = 1;
@@ -82,11 +91,12 @@ export function createMemoryFs(initial) {
       const buf = files.get(key);
       return encoding ? buf.toString(encoding) : buf;
     },
-    writeFileSync(p, data) { files.set(String(p), toBuf(data)); },
+    writeFileSync(p, data) { const key = String(p); files.set(key, toBuf(data)); bump(key); },
     appendFileSync(p, data) {
       const key = String(p);
       const merged = Buffer.concat([files.get(key) || Buffer.alloc(0), toBuf(data)]);
       files.set(key, merged);
+      bump(key);
       // An open fd on this path now points at the new end, like a real append to a
       // file another descriptor is positioned in.
       for (const [, ent] of fds) if (ent.key === key) ent.pos = merged.length;
@@ -95,13 +105,20 @@ export function createMemoryFs(initial) {
       const key = String(p);
       if (!files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
       files.delete(key);
+      mtimes.delete(key);
     },
     renameSync(a, b) {
       const ka = String(a), kb = String(b);
       if (!files.has(ka)) { const e = new Error('ENOENT: ' + ka); e.code = 'ENOENT'; throw e; }
       files.set(kb, files.get(ka));   // moves the Buffer, not a decoded string
       files.delete(ka);
+      mtimes.delete(ka);
+      bump(kb);
     },
+    // Forging a timestamp is a real attacker capability (`utimes` exists), so the
+    // fixture must be able to do it. Without this, a test could not tell
+    // "mtime detection works" from "the attacker never touched mtime".
+    utimesSync(p, mtimeMs) { mtimes.set(String(p), Number(mtimeMs)); },
     // 'wx' 为原子排他创建：文件已存在则抛 EEXIST，用于租约选举。
     openSync(p, flags) {
       const key = String(p);
@@ -113,6 +130,7 @@ export function createMemoryFs(initial) {
       let pos = 0;
       if (f.includes('w') || f.includes('x')) {
         files.set(key, Buffer.alloc(0));
+        bump(key);
         pos = 0;
       } else if (isAppend) {
         if (!files.has(key)) files.set(key, Buffer.alloc(0));
@@ -143,6 +161,7 @@ export function createMemoryFs(initial) {
         ent.pos = at + add.length;
       }
       files.set(ent.key, next);
+      bump(ent.key);
       return add.length;
     },
     fsyncSync(fd) {
@@ -162,15 +181,18 @@ export function createMemoryFs(initial) {
       const cur = files.get(key);
       const n = len === undefined ? 0 : Math.max(0, Math.min(Number(len), cur.length));
       files.set(key, cur.subarray(0, n));
+      bump(key);
       // A descriptor positioned past the new end must not keep a stale offset.
       for (const [, ent] of fds) if (ent.key === key && ent.pos > n) ent.pos = n;
       return n;
     },
+    // mtimeMs is real-fs shaped (fs.statSync has it) and is the ONLY field that can
+    // see a same-length in-place rewrite: the byte length does not move.
     statSync(p) {
       const key = String(p);
       if (!files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
       const bytes = files.get(key).length;
-      return { size: bytes, byteLength: bytes };
+      return { size: bytes, byteLength: bytes, mtimeMs: mtimes.get(key) || 0 };
     },
     fsyncCallCount() { return stats.fsyncCalls; },
     truncateCallCount() { return stats.truncateCalls; },

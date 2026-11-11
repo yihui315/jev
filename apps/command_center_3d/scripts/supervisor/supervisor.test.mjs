@@ -15,6 +15,12 @@ import { createMemoryFs } from './core.mjs';
 const IMPLEMENTATION_FILES = readdirSync(new URL('./', import.meta.url))
   .filter((n) => n.endsWith('.mjs') && !/\.test\.mjs$/.test(n))
   .sort();
+// Frozen by equality. Measured: 10 modules (core, leader-election, idempotency,
+// resume, kill-switch, cost-monitor, watchdog, supervisor, index, ledger-io).
+const IMPLEMENTATION_FILES_EXPECTED = [
+  'core.mjs', 'cost-monitor.mjs', 'idempotency.mjs', 'index.mjs', 'kill-switch.mjs',
+  'leader-election.mjs', 'ledger-io.mjs', 'resume.mjs', 'supervisor.mjs', 'watchdog.mjs',
+];
 
 function srcOf(name) {
   return readFileSync(new URL('./' + name, import.meta.url), 'utf8');
@@ -243,9 +249,13 @@ await test('⑨ 心跳陈旧检测（注入时钟，不创建 / 终止进程）'
 await test('⑩ 源码无 daemon/进程/网络调用，且 DAEMON_BINDING===DECLARED_NOT_WIRED', async () => {
   // 枚举本身必须先被断言：如果 readdirSync 指错了目录，上面那句 filter 会得到
   // 空数组，于是下面每一条 banned 都在"什么都没扫"的情况下全部通过。
-  assert.ok(IMPLEMENTATION_FILES.length >= 10,
-    '静态扫描的实现文件数必须 >= 10，实际 ' + IMPLEMENTATION_FILES.length
-    + '（[' + IMPLEMENTATION_FILES.join(', ') + ']）—— 枚举失效等于扫描空转');
+  // EQUALITY, not `>=`. `>=` makes every newly added file exempt by default — which
+  // is exactly how ledger-io.mjs (331 lines, the single owner of ledger bytes)
+  // ended up outside the scan: the list was hand-maintained and nothing failed when
+  // it fell behind. Adding a module must be a deliberate edit of this line.
+  assert.deepEqual(IMPLEMENTATION_FILES, IMPLEMENTATION_FILES_EXPECTED,
+    '实现文件集合变了：新增/删除模块必须在这里显式改一行（否则扫描范围会静默漂移），'
+    + '实际 [' + IMPLEMENTATION_FILES.join(', ') + ']');
   assert.ok(IMPLEMENTATION_FILES.includes('ledger-io.mjs'),
     'ledger-io.mjs 必须被扫描覆盖：它拥有全部账本字节，是本轮最大的一块实现');
   const all = IMPLEMENTATION_FILES.map(srcOf).join('\n');
@@ -744,56 +754,125 @@ await test('⑲d 尾巴 _prev 接不上：LEDGER_TAMPERED，且不得静默截�
     '恢复路径也不得放行');
 });
 
-// ⑳ 游标窗口有界：同长度原地篡改不改变 byteLength，statSync 看不见，
-//    只有"窗口到期强制全量重验"能抓到。这条用例同时证明窗口是有效的和有限的。
-await test('⑳ 游标窗口有界：同长度原地篡改必须在 K 次读取内被抓到', async () => {
-  const fsImpl = S.createMemoryFs();
-  const clock = S.createMemoryClock(0);
-  const base = S.makeDeps({ fsImpl, clock });
-  const K = 4;
-  const io = S.createLedgerIo(base, { maxEntriesBeforeFullReverify: K });
-  const sup = S.createSupervisor({ ...base, ledgerIo: io });
-  for (let c = 0; c < 3; c++) await sup.runCycle({ runId: 'run-V', cycle: c });
+// ⑳ 同长度原地篡改不改变 byteLength，所以游标的作废条件必须多一个维度：mtimeMs。
+//    契约是「**下一次读取**被抓到」，不是「K 次读取内」——后者属于 ⑳b（伪造 mtime 的攻击者）。
+//    这条同时是 mtime 边界的证据：①能改文件的人也能改 mtime（utimes），所以 mtime 只是
+//    检测辅助，不是安全边界；②真正的边界是「取租约必全量重验」+「每 K 条 / M 字节强制重验」。
+await test('⑳ 同长度原地篡改必须在**下一次读取**被抓到（mtime 变 ⇒ 作废游标）', async () => {
+  const build = async (runId) => {
+    const fsImpl = S.createMemoryFs();
+    const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+    const io = S.createLedgerIo(base);
+    const sup = S.createSupervisor({ ...base, ledgerIo: io });
+    for (let c = 0; c < 3; c++) await sup.runCycle({ runId, cycle: c });
+    const p = io.ledgerPath;
+    const raw = fsImpl.readFileSync(p);
+    const mtimeMs = fsImpl.statSync(p).mtimeMs;
+    const at = raw.indexOf(Buffer.from(runId, 'utf8'));
+    assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
+    const mangled = Buffer.from(raw);
+    mangled.write(runId.slice(0, -1) + 'Z', at, 'utf8');
+    fsImpl.writeFileSync(p, mangled);
+    assert.equal(fsImpl.readFileSync(p).length, raw.length,
+      '前置：篡改必须保持字节数不变（否则抓到它的是长度比对，与本用例无关）');
+    return { fsImpl, io, p, mtimeMs };
+  };
 
-  const p = io.ledgerPath;
-  const raw = fsImpl.readFileSync(p);
-  // 等长替换：把 runId 里的一个字符改掉，哈希必然失配，但字节数不变
-  const at = raw.indexOf(Buffer.from('run-V', 'utf8'));
-  assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
-  const mangled = Buffer.from(raw);
-  mangled.write('run-W', at, 'utf8');
-  fsImpl.writeFileSync(p, mangled);
-  assert.equal(fsImpl.readFileSync(p).length, raw.length, '前置：篡改必须保持字节数不变');
+  // 主臂：mtime 变了 ⇒ 下一次读取就作废游标 ⇒ 全量重验 ⇒ 链断必抛
+  const a = await build('run-V');
+  assert.notEqual(a.fsImpl.statSync(a.p).mtimeMs, a.mtimeMs,
+    '前置：mtime 必须已经变了（这是本用例唯一的检测面）');
+  assert.throws(() => a.io.entries(), /CHAIN|LEDGER_TAMPERED/,
+    '同长度篡改必须在**下一次读取**就被抓到，不能等到窗口到期');
 
-  let threwAt = -1;
-  for (let i = 1; i <= K + 1; i++) {
-    try { await sup.runCycle({ runId: 'run-X', cycle: 100 + i }); }
-    catch (e) { if (/CHAIN|LEDGER_TAMPERED/.test(String(e && e.message))) { threwAt = i; break; } throw e; }
-  }
-  assert.ok(threwAt > 0, '同长度篡改在 ' + (K + 1) + ' 次读取内必须被抓到（实际没抓到）');
-  assert.ok(threwAt <= K + 1, '必须在窗口内被抓到，实际第 ' + threwAt + ' 次');
-
-  // 对照：窗口放到无穷大时，同样次数的读取抓不到 —— 证明抓到它的是"窗口"，
-  // 不是 statSync。没有这条对照，本用例证明不了窗口在起作用。
-  const fsImpl2 = S.createMemoryFs();
-  const base2 = S.makeDeps({ fsImpl: fsImpl2, clock: S.createMemoryClock(0) });
-  const io2 = S.createLedgerIo(base2, {
-    maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9,
-  });
-  const sup2 = S.createSupervisor({ ...base2, ledgerIo: io2 });
-  for (let c = 0; c < 3; c++) await sup2.runCycle({ runId: 'run-X', cycle: c });
-  const raw2 = fsImpl2.readFileSync(io2.ledgerPath);
-  const at3 = raw2.indexOf(Buffer.from('run-X', 'utf8'));
-  assert.ok(at3 >= 0, '前置：对照组也必须找到 runId');
-  const mangled2 = Buffer.from(raw2);
-  mangled2.write('run-Y', at3, 'utf8');
-  fsImpl2.writeFileSync(io2.ledgerPath, mangled2);
+  // 对照：把 mtime 伪造成原值（utimes 是真实能力）⇒ 同一次读取抓不到。
+  // 没有这条对照，"⑳ 抓到了"说不清是 mtime 起了作用还是别的东西红了。
+  const b = await build('run-X');
+  b.fsImpl.utimesSync(b.p, b.mtimeMs);
   let controlThrew = false;
-  for (let i = 1; i <= K + 1; i++) {
-    try { await sup2.runCycle({ runId: 'run-X', cycle: 100 + i }); }
-    catch (e) { controlThrew = true; break; }
+  try { b.io.entries(); } catch (_e) { controlThrew = true; }
+  assert.equal(controlThrew, false,
+    '对照：伪造 mtime 后同一次读取确实抓不到（这才证明 ⑳ 抓它的是 mtime，不是长度）');
+});
+
+// ⑳b 能改 ledger 的人也一定想得到改 mtime。对**这种**攻击者，mtime 归零，
+//     剩下的上界只有 K 条 / M 字节 —— 这才是 K/M 的真实定位：检测延迟上界。
+await test('⑳b 伪造 mtime 的攻击者：K/M 上界仍必须在 K 条追加内抓到', async () => {
+  const K = 4;
+  const setup = async (opts, runId) => {
+    const fsImpl = S.createMemoryFs();
+    const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+    const io = S.createLedgerIo(base, opts);
+    const sup = S.createSupervisor({ ...base, ledgerIo: io });
+    for (let c = 0; c < 2; c++) await sup.runCycle({ runId, cycle: c });
+    const p = io.ledgerPath;
+    const raw = fsImpl.readFileSync(p);
+    const mtimeMs = fsImpl.statSync(p).mtimeMs;
+    const at = raw.indexOf(Buffer.from(runId, 'utf8'));
+    assert.ok(at >= 0, '前置：必须能找到 runId');
+    const mangled = Buffer.from(raw);
+    mangled.write(runId.slice(0, -1) + 'Z', at, 'utf8');
+    fsImpl.writeFileSync(p, mangled);
+    fsImpl.utimesSync(p, mtimeMs);             // 伪造：游标不会因为 mtime 作废
+    assert.equal(fsImpl.readFileSync(p).length, raw.length, '前置：等长');
+    return { fsImpl, io, sup, runId };
+  };
+
+  const real = await setup({ maxEntriesBeforeFullReverify: K }, 'run-K1');
+  let threwAt = -1;
+  for (let i = 1; i <= K; i++) {
+    try { await real.sup.runCycle({ runId: real.runId, cycle: 100 + i }); }
+    catch (e) {
+      if (/CHAIN|LEDGER_TAMPERED/.test(String(e && e.message))) { threwAt = i; break; }
+      throw e;
+    }
   }
-  assert.equal(controlThrew, false, '对照：无界窗口下同长度篡改确实抓不到（这才证明 ⑳ 抓它的是窗口）');
+  assert.ok(threwAt > 0, '伪造 mtime 的篡改仍必须在 ' + K + ' 个周期内被抓到（实际没抓到）');
+
+  // 对照：窗口无界时同样的追加次数抓不到 —— 抓到它的是 K，不是 statSync
+  const ctl = await setup({
+    maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9,
+  }, 'run-K2');
+  let controlThrew = false;
+  for (let i = 1; i <= K; i++) {
+    try { await ctl.sup.runCycle({ runId: ctl.runId, cycle: 100 + i }); }
+    catch (_e) { controlThrew = true; break; }
+  }
+  assert.equal(controlThrew, false,
+    '对照：无界窗口下伪造 mtime 的篡改确实抓不到（这才证明 ⑳b 抓它的是 K）');
+});
+
+// ㉔ K 与 M 的关系是断言，不是注释。注释会过期、行宽会变，断言不会。
+//    若 M <= K × 行宽，字节界永远够不到，两个限制只有一个在工作 ——
+//    而那正是"看起来双保险、实际单保险"的形状。
+await test('㉔ M 必须大于 K × 实测最大行宽（否则两个限制只有一个在工作）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
+  for (let c = 0; c < 3; c++) await sup.runCycle({ runId: 'run-WIDTH', cycle: c });
+  const raw = fsImpl.readFileSync(sup.subsystems.ledgerIo.ledgerPath).toString('utf8');
+  const maxRow = raw.split('\n').filter((l) => l.trim())
+    .reduce((mx, l) => Math.max(mx, Buffer.byteLength(l, 'utf8')), 0);
+  assert.ok(maxRow > 0, '前置：必须量到行宽（量不到 = 本用例在测空气）');
+  const room = S.MAX_ENTRIES_BEFORE_FULL_REVERIFY * maxRow;
+  assert.ok(S.MAX_BYTES_BEFORE_FULL_REVERIFY > room,
+    'M=' + S.MAX_BYTES_BEFORE_FULL_REVERIFY + ' 必须大于 K×实测最大行宽='
+    + S.MAX_ENTRIES_BEFORE_FULL_REVERIFY + '×' + maxRow + '=' + room
+    + '；否则字节界永远够不到，K/M 只有一个在工作');
+});
+
+// ㉕ 未知窗口参数必须拒，不能静默退回默认值。
+//     实测后果（不是假设）：模块改名了参数、测试文件还在传旧名，于是"我限了窗口"
+//     这句话在调用方成立、在被调方不成立，两边都读绿。一个 64× 宽的窗口靠一个
+//     拼写错误就长出来了，而且没有任何断言会红。
+await test('㉕ 未知窗口参数一律 throw（静默退回默认值会让窗口声明与实现分叉）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+  // 旧名：正是"改名之后调用方没跟着改"的形态
+  assert.throws(() => S.createLedgerIo(base, { reverifyEveryRecords: 4 }), /LEDGER_IO_UNKNOWN_OPT/);
+  assert.throws(() => S.createLedgerIo(base, { maxEntriesBeforeReverify: 4 }), /LEDGER_IO_UNKNOWN_OPT/);
+  // 合法名必须仍然可用（否则上面两条只是在测"构造函数永远抛"）
+  const ok = S.createLedgerIo(base, { maxEntriesBeforeFullReverify: 4 });
+  assert.equal(ok.bounds().maxEntriesBeforeFullReverify, 4);
 });
 
 // ㉑a 整周期被截掉 + 锚点在 ⇒ 抛。
@@ -934,13 +1013,19 @@ await test('㉒ 租约易主作废游标：上一个持有者写的等长篡改�
   const io = sup.subsystems.ledgerIo;
   plantedExpiredLease(fsImpl, sup);
   const raw = fsImpl.readFileSync(io.ledgerPath);
+  const mtimeMs = fsImpl.statSync(io.ledgerPath).mtimeMs;
   const at = raw.indexOf(Buffer.from('run-TK', 'utf8'));
   assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
   const mangled = Buffer.from(raw);
   mangled.write('run-ZZ', at, 'utf8');
   fsImpl.writeFileSync(io.ledgerPath, mangled);
+  // mtime 也要伪造，否则抓到它的是 mtime（⑳ 的判据）而不是"易主作废游标"。
+  // 本用例要证的正是：**在 mtime 被抹平的情况下**，易主仍然强制一次全量重验。
+  fsImpl.utimesSync(io.ledgerPath, mtimeMs);
   assert.equal(fsImpl.readFileSync(io.ledgerPath).length, raw.length,
-    '前置：篡改必须等长，statSync 才看不见');
+    '前置：篡改必须等长，长度比对才看不见');
+  assert.equal(fsImpl.statSync(io.ledgerPath).mtimeMs, mtimeMs,
+    '前置：mtime 必须已被抹平，否则本用例在测 ⑳ 而不是 ㉒');
   clock.set(100000);
 
   await assert.rejects(() => sup.runCycle({ runId: 'run-TK', cycle: 1 }), /CHAIN|LEDGER_TAMPERED/,
@@ -959,6 +1044,8 @@ await test('㉓ 只读路径也必须有界：无 append 时 ops 窗口必须强
     for (let c = 0; c < 2; c++) await sup.runCycle({ runId, cycle: c });
     return { fsImpl, io };
   };
+  // mtime 必须一起伪造，否则抓到它的是 mtime（⑳ 的判据），不是 ops 窗口。
+  // 本用例要证的正是"没有 mtime 可用时，只读进程也不会永远看不见"。
 
   const { fsImpl, io } = await setup({
     maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9, maxOpsBeforeFullReverify: OPS,
@@ -966,9 +1053,11 @@ await test('㉓ 只读路径也必须有界：无 append 时 ops 窗口必须强
   const raw = fsImpl.readFileSync(io.ledgerPath);
   const at = raw.indexOf(Buffer.from('run-RO', 'utf8'));
   assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
+  const mtimeMs = fsImpl.statSync(io.ledgerPath).mtimeMs;
   const mangled = Buffer.from(raw);
   mangled.write('run-RQ', at, 'utf8');
   fsImpl.writeFileSync(io.ledgerPath, mangled);
+  fsImpl.utimesSync(io.ledgerPath, mtimeMs);        // 伪造：排除 mtime 这条检测面
   assert.equal(fsImpl.readFileSync(io.ledgerPath).length, raw.length, '前置：篡改必须等长');
 
   let threwAt = -1;
@@ -987,9 +1076,11 @@ await test('㉓ 只读路径也必须有界：无 append 时 ops 窗口必须强
   const raw2 = fs2.readFileSync(io2.ledgerPath);
   const at2 = raw2.indexOf(Buffer.from('run-RO', 'utf8'));
   assert.ok(at2 >= 0, '前置：对照组也必须找到 runId');
+  const mtime2 = fs2.statSync(io2.ledgerPath).mtimeMs;
   const m2 = Buffer.from(raw2);
   m2.write('run-RQ', at2, 'utf8');
   fs2.writeFileSync(io2.ledgerPath, m2);
+  fs2.utimesSync(io2.ledgerPath, mtime2);
   let controlThrew = false;
   for (let i = 0; i < OPS + 1; i++) { try { io2.count(); } catch (_e) { controlThrew = true; break; } }
   assert.equal(controlThrew, false, '对照：ops 窗口无界时同样次数的只读确实抓不到');

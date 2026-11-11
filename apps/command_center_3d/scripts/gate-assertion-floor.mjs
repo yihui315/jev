@@ -157,11 +157,19 @@ const SUITES = [
     //           ㉓ the operation window, which is the only bound that expires for a
     //               term that never appends — it had no evidence at all before.
     //           5 new named blocks, so 28 + 5 = 33. Measured, not a target.
+    // 33 -> 36: ⑳'s contract changed from "within K reads" to "on the next read"
+    //           (the cursor's invalidation condition gained mtimeMs — byte length
+    //           cannot see a same-length rewrite), and three blocks were added for
+    //           the consequences: ⑳b (an attacker who forges mtime is bounded only
+    //           by K/M — that is what K/M are FOR), ㉔ (M > K x measured max row
+    //           width asserted, not commented) and ㉕ (an unknown option key must
+    //           throw; a renamed option silently reverting to defaults is how a
+    //           64x wider window grew out of a typo). 33 + 3 = 36. Measured.
     // Earlier the ⑮ guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 33,
-    // "RESULT PASS=33 FAIL=0"
+    expect: 36,
+    // "RESULT PASS=36 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {

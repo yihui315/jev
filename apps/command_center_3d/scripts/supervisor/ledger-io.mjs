@@ -65,17 +65,27 @@ export const ABSOLUTE_MAX = 4096;
 //   MAX_BYTES_BEFORE_FULL_REVERIFY    bytes appended since the last full verify
 //   MAX_OPS_BEFORE_FULL_REVERIFY      cursor reads *including* appends — without
 //                                     it, a term that only reads would never
-//                                     re-verify and a same-length tamper would
-//                                     live forever
+//                                     re-verify
 //
-// Reaching ANY of the three forces a full re-verify, and so does a cursor whose
-// recorded byteLength stops matching the file, and so does any lease handover
-// (see invalidate()). At ~3 appends and ~4 reads per cycle, 256 operations is
-// ~36 cycles; at ~380 bytes per record, 1 MiB is ~2700 records. The byte bound
-// therefore binds first in practice, and the sentence to quote is "fully verified
-// at most 1 MiB of appends ago" — not "recently".
+// Reaching ANY of the three forces a full re-verify. So does a cursor whose
+// byteLength or mtimeMs stops matching the file, and so does any lease handover
+// (see invalidate()).
+//
+// WHAT THESE BOUNDS ARE, EXACTLY: a DETECTION-DELAY CEILING for an attacker who
+// can forge mtime. Someone who can rewrite the ledger can also call `utimes`, so
+// mtime is a detection aid, not a security boundary — it collapses the window to
+// "the next read" for an ordinary edit, and it collapses to nothing against a
+// deliberate one. The boundaries that survive a deliberate attacker are the two
+// full passes: one per lease acquisition, and one every K entries / M bytes.
+// Do NOT relax K on the strength of mtime having been added.
+//
+// WHICH BOUND ACTUALLY BINDS: measured rows are 230-307 bytes, so 256 entries is
+// ~68-79 KiB — well under M. The ENTRY bound therefore binds first and M is a
+// backstop that only matters if row width balloons. That is asserted, not
+// commented, in the suite (`㉔`), because a comment about row width goes stale
+// the day someone adds a field.
 export const MAX_ENTRIES_BEFORE_FULL_REVERIFY = 256;
-export const MAX_BYTES_BEFORE_FULL_REVERIFY = 1048576;              // 1 MiB
+export const MAX_BYTES_BEFORE_FULL_REVERIFY = 262144;              // 256 KiB
 export const MAX_OPS_BEFORE_FULL_REVERIFY = MAX_ENTRIES_BEFORE_FULL_REVERIFY;
 
 export const RECOVER = Object.freeze({
@@ -114,6 +124,20 @@ export function createLedgerIo(deps, opts = {}) {
   const { fsImpl, baseDir, nowMs } = deps;
   const ledgerPath = resolvePath(baseDir, FILES.ledger);
   const anchorPath = resolvePath(baseDir, FILES.anchor);
+  // An unknown option key used to be ignored silently. That is not a style
+  // problem: a caller that passes a renamed option still reads as "I bounded the
+  // window", and the module quietly uses the default. Measured consequence — a
+  // new module paired with an old test file made every window assertion pass
+  // while the window was 64x wider than the caller believed. Refuse the key.
+  const ALLOWED_OPTS = [
+    'maxEntriesBeforeFullReverify', 'maxBytesBeforeFullReverify', 'maxOpsBeforeFullReverify',
+  ];
+  for (const k of Object.keys(opts)) {
+    if (!ALLOWED_OPTS.includes(k)) {
+      throw fail('LEDGER_IO_UNKNOWN_OPT',
+        'unknown option "' + k + '" (allowed: ' + ALLOWED_OPTS.join(', ') + ')');
+    }
+  }
   const K_ENTRIES = opts.maxEntriesBeforeFullReverify ?? MAX_ENTRIES_BEFORE_FULL_REVERIFY;
   const K_BYTES = opts.maxBytesBeforeFullReverify ?? MAX_BYTES_BEFORE_FULL_REVERIFY;
   const K_OPS = opts.maxOpsBeforeFullReverify ?? MAX_OPS_BEFORE_FULL_REVERIFY;
@@ -129,7 +153,9 @@ export function createLedgerIo(deps, opts = {}) {
   let lastRecovery = null;
 
   function exists(p) { return fsImpl.existsSync(p); }
-  function sizeOf(p) { return exists(p) ? fsImpl.statSync(p).byteLength : 0; }
+  // The cursor records BOTH byteLength and mtimeMs, because length alone cannot
+  // see a same-length in-place rewrite.
+  function statOf(p) { return exists(p) ? fsImpl.statSync(p) : { byteLength: 0, mtimeMs: 0 }; }
 
   function readAnchor() { return readJson(fsImpl, anchorPath, null); }
 
@@ -244,10 +270,14 @@ export function createLedgerIo(deps, opts = {}) {
       }
     }
 
+    // mtime is read AFTER the torn-tail truncation above, so the cursor records
+    // the timestamp of the bytes that are now on disk, not of the ones we cut.
+    const opened = statOf(ledgerPath);
     st = {
       entries,
       headHash: entries.length ? entries[entries.length - 1]._hash : GENESIS,
       byteLength: body.length,
+      mtimeMs: opened.mtimeMs,
       lastCompletion,
       epochCount: 0,
       idx: new Map(),      // `${runId}#${cycle}` -> { intent:bool, completion:bool, epoch }
@@ -312,8 +342,8 @@ export function createLedgerIo(deps, opts = {}) {
       stats.forcedReverifies++;
       return open();
     }
-    const actual = sizeOf(ledgerPath);
-    if (actual !== st.byteLength) return open();
+    const cur = statOf(ledgerPath);
+    if (cur.byteLength !== st.byteLength || cur.mtimeMs !== st.mtimeMs) return open();
     return st;
   }
 
@@ -363,7 +393,12 @@ export function createLedgerIo(deps, opts = {}) {
     stats.appends++;
     st.entries.push(entry);
     st.headHash = entry._hash;
-    st.byteLength += bytes;
+    // Take the new length and timestamp FROM THE FILESYSTEM rather than by
+    // arithmetic: our own append moved both, and a cursor that computes them
+    // instead of reading them can drift from reality by one field forever.
+    const after = statOf(ledgerPath);
+    st.byteLength = after.byteLength;
+    st.mtimeMs = after.mtimeMs;
     indexEntry(entry);
     if (entry.kind === 'cycle_completion') st.lastCompletion = { runId: entry.runId, cycle: entry.cycle };
     writeAnchor({});
