@@ -1647,3 +1647,118 @@ harbor 说"双向是 2 个方向，这条规则有 3 个"，方法论对；但�
 ### (e) 采纳 harbor 的两条实现细化
 - 字段名用 **`discarded_bytes`** 而非 `bytes`：`torn_tail_truncated{bytes:…}` 会被误读成"剩余长度"，他自己第一眼就误读了。**自解释字段名能省掉下一次误读**——这是可验收性的一部分，不是风格。
 - 证伪第 ④ 步"还原"必须给**变异前 / 还原后两次 `git hash-object`** 回显。理由：本轮已有一次"复核动作改写了证据文件"（§12.7），只靠"我改回去了"不可证。
+
+---
+
+## §12.10.7 独立复核 `4859e5c`（#16 `BODY-READ-UNBOUNDED`）：关闭 P1，但**用例 13/14 对"转发原始字节"零灵敏度**
+
+**证据绑定状态**：`HEAD = 4859e5c`，工作树仅 `reports/JEV_REAL_TRADING_SECURITY.md` 与 `artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md` 为脏（非本提交文件）。本节所有读数为在该 HEAD 上现跑。
+
+### (a) 冻结树未动（先证这一条，否则后面都不用看）
+
+```
+git ls-tree -r HEAD | 过滤 apps/command_center_3d/server/engine/  → 15 个文件
+"\n".join(lines) utf-8 → sha256 = aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad  MATCH
+git show --name-only 4859e5c | grep -c "server/engine/"  → 0
+```
+`server/lib/http-body.mjs` 在 `server/lib/`，**不在** `ENGINE_REL` 内 ⇒ 不触 `check3`、不触 §12.0 的三种摘要约定。**VERIFIED。**
+
+### (b) 三个原始缺陷：我独立给"有牙"证据（不引 harbor 的自述）
+
+我在临时目录对**副本**施加四个变异（仓库零改动），只跑该套件声称守护的四条性质：
+
+```
+mutant applied : {"m-close":true,"m-cap":true,"m-perchunk":true,"m-declared":true}
+BASELINE       : {"fidelity":true,"cap":true,"abort":"BODY_ABORTED","declared":"BODY_TOO_LARGE/no-read"}
+m-close        : {"fidelity":true,"cap":true,"abort":"HANG",         ...}   ← 删 close 监听 ⇒ 挂死，用例7 变红
+m-cap          : {"fidelity":true,"cap":false, ...}                        ← 关掉 total>maxBytes ⇒ 接受，用例5/6 变红
+m-perchunk     : {"fidelity":false, ...}                                   ← 逐 chunk 解码 ⇒ 字节不等，用例2/3 变红
+m-declared     : {..., "declared":"accepted"}                              ← 删 declared 预检 ⇒ 先读后判，用例11 变红
+```
+四条性质**各自唯一对应的变异都能让它变红**。这套件的核心断言有牙，**VERIFIED**（我自己的变异，不是他的）。
+
+### (c) 我自己提过一个"崩进程"假设，**实测不成立，撤回**
+
+`readNodeBodyBytes` 在超限 reject 时 `cleanup()` 摘掉 `data/end/error/aborted/close` **全部**监听器，并留下一个 pause 未读的请求流。我怀疑：若调用方不 drain 就应答，客户端随后 RST 会打出**未捕获 `req 'error'`** ⇒ 进程被杀（pre-auth 远程 DoS）。实测两种调用形态：
+
+```
+mode=drain   (production: sendBodyError -> drainThenRespond) crashed=no exit=0
+mode=nodrain (应答但不 drain)                                 crashed=no exit=0
+```
+两次 RST 攻击、`uncaughtException` 与 `unhandledRejection` 双钩子均未触发。**假设证伪，不写成缺陷。** 但保留一条**契约性提醒**：该模块把"读完/拒完之后流由谁持有"的责任交给了调用方，`sendBodyError` 的 drain 是**唯一**让这形态安全的东西；任何人把 `sendBodyError` 改成"直接应答"就失去了它，而现有 17 条用例里**没有**一条会在那种情况下变红（用例 15 只匹配 `drainThenRespond(req, () => res.end(payload))` 这个**文本形状**，删掉它确实会红——但把 drain 换成"另一个也满足正则的写法"不会）。按 R19 已知缺口记账，不升 blocker。
+
+### (d) 新发现（P2，判据灵敏度）：用例 13/14 断言的是**实参列表**，不是**转发事实**
+
+`http-body-read.mjs:277` 的断言是 `/bodyText,\s*bodyBytes\s*\)/` —— 它只看调用点写了这两个参数。我把 `buildEngineRequest` **内部**的 body 选择改回文本（即把本次修复的效果整体回退），四条断言**全真**：
+
+```
+ORIGINAL  case13 = {"readNodeBodyBytes":true,"noConcat":true,"noStringAcc":true,"forwards":true}
+MUTANT(把 body 选择改回 (bodyText || "{}"))  case13 = {"readNodeBodyBytes":true,"noConcat":true,"noStringAcc":true,"forwards":true}
+--- mutant callee body ---
+  const body = !hasBody ? undefined : (bodyText || "{}");
+```
+即：**"facade 把原始字节交给了引擎"这件事，整套 17 条用例都没有观测**（用例 16 观测的是 `readNodeBodyBytes` 的返回值，不是 `buildEngineRequest` 产出的 `Request` 的字节）。这与我此前判 `trace` 索引断言 0/3 是**同型**：断言的两个操作数都来自源码文本 ⇒ 声明对声明。
+
+**影响面必须诚实收窄**：合法 UTF-8 的 `string` 往返字节相同，所以该变异只在**非法 UTF-8 体**上改变字节；那是"签名永远对不上"的老缺陷换了个位置复活，不是新的越权。**因此定 P2，不定 P1。**
+**最小整改**（一条即可）：`buildEngineRequest` 导出后断言 `Buffer.from(await preq.arrayBuffer()).equals(inputBytes)`；变异 = 上面这次回退。**在改好之前，用例 13/14 的 `forwards` 断言不得被任何签署引用为"原始字节已转发"。**
+
+### (e) `floorSlugs` 门禁：我原来那条 P1 被这次提交关掉了，**但关闭的形状与提交说明不同**
+
+八行变异矩阵（脚本在仓库外，逐字复制新检查的断言逻辑；旧检查 = 只数 `slug:` 行）：
+
+```
+M0  baseline                                            OLD GREEN       NEW GREEN
+M1  gate 增 1、floor 不变                                OLD RED         NEW RED      ← 我第一版设错的反例
+M1a floor+GATE_SUITES 同时删 1-p0-contracts、加 foo        OLD GREEN       NEW GREEN    ← 唯一"计数相等"的真读法
+M2  某个 label 不再命名 .mjs                              OLD GREEN       NEW RED
+M3  slug 改成与另一条重名（整条套件丢 floor 的真路径）        OLD GREEN       NEW RED      ← 新增检查的实际价值
+M4  两处 label 互换（slug→log 映射不变）                   OLD GREEN       NEW GREEN
+M5  slug 与 ci.yml tee 同时改名                           OLD GREEN       NEW GREEN
+```
+裁定：
+1. **新检查严格更强**：`M2`、`M3` 是旧检查**绿**而新检查**红**，其中 `M3`（slug 重名 ⇒ 某条 `*.log` 再无人读）正是"整条套件静默失去 floor"的真实路径。**我原来是 P1 的这一条，CLOSED。**
+2. **但它不是**提交说明里"add-without-register 闭环"：`M1a` 协调删除 floor + `GATE_SUITES` + ci.yml 三处，**两种检查都绿**。**没有任何仓内清单能锚定自己**（递归），所以这类检查只能叫"漂移检测"，覆盖保全必须靠报告侧签署清单（`1-p0-contracts … 8-api-body-read` 八条 basename，任何增删须在此留痕）。
+3. `M4`/`M5` 绿而无害：`label` 是**自由文本**，全仓唯一用途是 `gate-assertion-floor.mjs:229` 的一行日志；被新检查当作身份键的是它，不是真正决定"读哪个 log"的 `slug`。**这是新检查的一个可被"说谎"的字段**，不影响执行，但下次有人靠 `label` 认套件会认错——**已记账**。
+
+### (f) 新检查**自身可被静默删除**（同一个 R19 缺口，递归一次）
+
+它整块落在 `Y2` 内部，而 `Y2` 的 `expect` 没动。我实跑确认：
+
+```
+node apps/command_center_3d/scripts/check-no-fake-live.mjs
+→ RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0
+```
+13 未变 ⇒ 删掉这 30 行，`Y2` 仍绿、floor 仍 13。这正是该文件自述的"删掉 case 内部断言不会被这里抓住"。
+**最小整改**：升为独立命名检查 `Y6`，`7-no-fake-live` 的 `expect` `13 → 14`。
+**与 Z6 冲突（重要）**：`13 → 14` 正是 `Z6` 要用的**同一个槽位**。两者必须**同一次提交**落地，否则又是一次 `R-26` 式的 last-writer-wins。**这条已转给 team-lead 排程。**
+
+### (g) `R-26` 状态变更：从 blocker 降为流程约束，**#15 的提交阻塞解除**
+
+`gate-assertion-floor.mjs` 现在**有提交点了**（`4859e5c` 的父 → 本提交已含 8 号套件）。且 floor 是**双向精确等式**（`:219/:221`）：`#15` 把 `6-supervisor` 改到 39 之后若被别人的提交覆盖回 14，套件实报 39 ⇒ `reason=count-grew-update-the-floor-table` **变红**。
+⇒ `R-26` 的前提"丢失是哑的（被 `floorSlugs` 数量洞盖住）"**已不成立**：数量洞已关、丢失会响。**仍需单一提交人**（并发同文件编辑仍会冲突），但**失败模式由哑变响**。#15 可以在此 HEAD 之上落地。
+
+### (h) 我背书的一个正面点：`declared content-length` **只用于拒绝，从不用于放行**
+
+`readFetchBody` 的 stage-1（`:248`）拿 `content-length` 做**拒绝**，stage-2（`:265`）拿**实际字节**做拒绝，全模块**没有一处**用自述值放行。这与 §12.10.6(c) 的"自述的限制不得作为许可依据"同向，且因为拒绝侧用的是"声明值 > 常量"，**配置调小不会自锁**（content-length 是每请求事实，不是历史条目）。**这一族判据我签字。**
+
+### (i) 残留三条 P2（不阻塞 #16 关闭，但必须进 backlog，不得静默）
+
+| # | 事实 | 为什么不是 P1 |
+|---|---|---|
+| R-a | node 侧**没有** declared-length 预检（`readNodeBodyBytes` 全文不读 `content-length`），与 fetch 侧**不对称**：声明 1 GB、每分钟送 1 字节，可占住连接 | 内存仍 O(maxBytes+1 chunk)，且 `requestTimeout=300000` 是唯一兜底（已在册）。属"连接时长"不属"内存无界" |
+| R-b | 空体 POST 被**伪造成 `"{}"`**（`bodyBytes.length ? bytes : (bodyText || "{}")`），facade 在信任边界上**改写**请求体 | 修改前就是 `bodyText \|\| "{}"`，非本次回归；且 `{}` 不改语义方向 |
+| R-c | 用例 17 走的是**内联复制**的生产顺序，不是导出的 `sendBodyError`；"生产函数用的就是这个顺序"只靠用例 15 的正则绑定 | 正则 + 复刻两者叠加，重构时至少一者会红 |
+
+### (j) DECISION 增量（C19–C23）
+
+- **C19** `BODY-READ-UNBOUNDED`（P1）→ **CLOSED**。依据：(b) 四变异有牙 + (a) 冻结树 `aec5d1b7…` MATCH + 提交内 `server/engine/` 命中 0。`ai-core.mjs` **零字节改动**（冻结）。
+- **C20** 用例 13/14 的 `forwards` 断言**不得**被援引为"原始字节已转发"；以导出后字节相等用例为准（(d)）。**在整改前，`4859e5c` 只能表述为"读侧修复完成"，不能表述为"端到端字节保真已验收"。**
+- **C21** `floorSlugs` 升级**只**算漂移检测。报告侧冻结八条 basename 清单；任何增删必须在 §12.10.7(e) 留痕，否则视为未经签署的覆盖变更。
+- **C22** `7-no-fake-live` `13 → 14`（Y6）与 `Z6` 同槽位 ⇒ 必须同一次提交；`#15` 的 `6-supervisor 14 → 39` 可在此 HEAD 之上独立落地（互不改同一行）。
+- **C23** 我收窄一条自己的口径：**"提交说明里的因果解释"与"检查实际拦住的变异"必须分别签署**。(e) 里 `M1a` 就是例子——说明写的是"关闭 add-without-register"，实际关闭的是 `M2`/`M3`。**签署只认变异矩阵，不认说明文字。**
+
+### (k) 本轮我自己的错误记账（第三次同型，写下来防复发）
+
+第一版变异 `M1` 我把 harbor 描述的场景误设成"gate 增 1、floor 不变"，实测旧检查 **RED** —— 也就是说我那个反例**根本不成立**。改正为 `M1a` 才得到真形态。
+**教训**：反驳别人的"洞"之前，先证明这个洞在**我的变异**下真的存在；否则我用一个不成立的变异"证明"了一个不存在的差别，而对方会因此正确地不采信我的整段结论。
+与前两次（"上界必须在副作用前拒"过宽、"等式判据"会自锁）共同的根因是**只验证规则能不能拦住别人，不验证规则本身的前提是否成立**。本轮把它写进清单：**变异必须先自证可达。**
