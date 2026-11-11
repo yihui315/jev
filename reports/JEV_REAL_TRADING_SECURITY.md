@@ -825,7 +825,7 @@ git diff --stat HEAD               → 1 file changed, 690 insertions(+), 185 de
 |------|------|
 | `facades/claw3d/tests/*`、`facades/session_center/tests/*`：`sk-live-S06/S07SENTINELdeadbeef…` | **植入哨兵**，用于 redaction / 泄漏测试（`PLANTED_SECRET`） |
 | `packages/jcc_core/tests/*`：`sk-live-DEADBEEF…` / `sk-live-PLANTEDSECRET…` / `sk-live-VALUEEMBEDDED…` / `sk-live-PLANTEDbravo…` / `sk-proj-ABCDEFGHIJKLMNOPQRSTUVWX` / `sk-abcdefghijklmnopqrstuvwx` | 同上，断言「不得回显 / 不得落 spool」 |
-| `packages/jcc_core/tests/test_redaction_values.py`：`AKIAIOSFODNN7EXAMPLE`、`xoxb-123456789012-abcdefghijklmn`、`ghp_ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789` | `AKIAIOSFODNN7EXAMPLE` 是 **AWS 官方文档示例值**；其余为格式样本 |
+| `packages/jcc_core/tests/test_redaction_values.py`：`AKIAIOSFODNN7EXAMPLE`、`xoxb-123456789012-abcdefghijklmn`、GitHub classic PAT 格式样本 `ghp_ABCD…6789`（**本文档已按脱敏规则截断**：原值为 `ghp_` + 26 位 `A–Z` + 10 位 `0–9` 共 36 位，其构成本身即自证为合成样本，非真实凭据；可核验位置 `packages/jcc_core/tests/test_redaction_values.py:79`） | `AKIAIOSFODNN7EXAMPLE` 是 **AWS 官方文档示例值**；其余为格式样本 |
 | `scripts/verify-auth.mjs`：`sk-deliberately-invalid-key-for-e2e-0000`；`scripts/verify-providers.mjs`：`sk-e2e-probe-9876543210abcdef` | 字面写明 deliberately-invalid / e2e-probe |
 
 → **未发现任何真实凭据**；与主理人扫描结论一致（但为独立复核，不互相替代）。
