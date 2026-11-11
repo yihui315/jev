@@ -695,6 +695,90 @@ await test('⑲i 租约令牌不得以明文进账本（只存摘要）', async 
   assert.equal(ep[0].ownerToken, undefined);
 });
 
+// ⑲j 租约易主不得给 in-doubt 周期发"重跑许可"。
+//     易主时 ledgerIo.invalidate() 会强制一次全量重开（㉒ 证了它能抓等长篡改）。但同一个
+//     重开也是一个**状态重建点**：如果重建时 in-doubt 槽位丢了，state 就从 IN_DOUBT 退化
+//     成 ABSENT —— 而 ABSENT 在 runCycle 眼里就是"没开始过"，副作用会被执行第二次。
+//     所以 at-most-once 在这里的形态不是"不许读"，而是"换一个持有者读，也必须读到同一个
+//     in-doubt"。⑲f 证的是同一进程重启；这条证的是 lease 换手，两者是不同的入口：
+//     ⑲f 走 open() 的首次调用，这条走 invalidate() 之后的第二次 open()。
+await test('⑲j 租约易主后 in-doubt 周期仍是 IN_DOUBT，不得因游标重建而放行重跑', async () => {
+  const plantExpired = (fsImpl, sup, owner) => fsImpl.writeFileSync(
+    sup.subsystems.election.lockPath,
+    S.canonicalize({ ownerToken: owner, leaseExpiryMs: 1000, acquiredAtMs: 0, ttlMs: 1000, tookOverExpired: false }),
+  );
+
+  // ── 对照臂：同样的接管夹具，没有 in-doubt ⇒ runCycle 正常完成，且 tookOverExpired 为真。
+  //    没有它，"⑲j 绿了"可能只是因为接管根本没发生（那测的是 ⑲f）。
+  {
+    const fsC = S.createMemoryFs();
+    const clockC = S.createMemoryClock(0);
+    const supC = S.createSupervisor(S.makeDeps({
+      fsImpl: fsC, clock: clockC, ownerToken: 'owner-A', leaseTtlMs: 1000,
+      cycleImpl: async () => ({ ok: true }),
+    }));
+    await supC.runCycle({ runId: 'run-HO', cycle: 0 });
+    plantExpired(fsC, supC, 'owner-A');
+    clockC.set(100000);
+    const rC = await supC.runCycle({ runId: 'run-HO', cycle: 1 });
+    assert.equal(rC.lease.tookOverExpired, true, '对照：接管必须真的发生过');
+    assert.equal(rC.status, 'COMPLETED');
+    // 这里刻意不看 stats().invalidations：那是 ㉒ 的判据。若本用例也断言它，撤销 invalidate
+    // 的变异就会同时红掉 ㉒ 和 ⑲j，两条用例互相遮蔽，谁死了看不出是哪个洞。
+    // 本用例只证"接管之后 in-doubt 不许被当成没开始过"。
+  }
+
+  // ── 实验臂：掉电现场（epoch + intent，无 completion）+ 过期租约 ⇒ B 接管
+  const fsImpl = S.createMemoryFs();
+  const clockA = S.createMemoryClock(0);
+  const supA = S.createSupervisor(S.makeDeps({
+    fsImpl, clock: clockA, ownerToken: 'owner-A', leaseTtlMs: 1000,
+    cycleImpl: async () => ({ ok: true }),
+  }));
+  const idem = supA.subsystems.idempotency;
+  idem.recordLeaseEpoch({ runId: 'run-HO', ownerToken: 'owner-A', acquiredAtMs: 0 });
+  idem.recordIntent('run-HO', 0, { epoch: 1 });
+  const ioA = supA.subsystems.ledgerIo;
+  const ledgerBefore = fsImpl.readFileSync(ioA.ledgerPath);
+
+  // 前置：A 自己读得到 IN_DOUBT —— 否则"B 也读得到"不能归因于易主无损
+  assert.equal(ioA.cycleState('run-HO', 0), 'IN_DOUBT');
+  assert.deepEqual(supA.resume('run-HO').inDoubtCycles, [0]);
+
+  plantExpired(fsImpl, supA, 'owner-A');
+
+  let calls = 0;
+  const supB = S.createSupervisor(S.makeDeps({
+    fsImpl, clock: S.createMemoryClock(100000), ownerToken: 'owner-B', leaseTtlMs: 1000,
+    cycleImpl: async () => { calls++; return { ok: true }; },
+  }));
+  const ioB = supB.subsystems.ledgerIo;
+
+  const infoB = supB.resume('run-HO');
+  assert.deepEqual(infoB.inDoubtCycles, [0], '易主后 in-doubt 必须仍被点名，不得静默');
+  assert.equal(infoB.blocked, true);
+  assert.equal(infoB.lastCycle, -1, 'IN_DOUBT 不是 completion：不写 0、也不冒充 1');
+
+  const r = await supB.runNextCycle({ runId: 'run-HO' });
+  assert.equal(r.status, 'IN_DOUBT');
+  assert.equal(r.cycleExecuted, false);
+  assert.equal(r.sideEffectMayHaveOccurred, true,
+    '必须明说副作用可能已发生；只报 cycleExecuted:false 是谎报');
+  // 刻意**不**在这里断言 invalidations>=1：撤销 invalidate 的变异（㉒ 的判据）会让本用例
+  // 以"前置失败"的颜色红掉，而"右色错因"正是把 ⑰⑱ 拆开的理由。易主是否真的发生由对照臂
+  // 证明（同一套 planting 夹具，直接观测 tookOverExpired===true 且 invalidations>=1）。
+  // 一条用例不该替另一条红。
+  assert.equal(calls, 0, '易主不得成为 in-doubt 周期的重跑许可（at-most-once）');
+
+  // 易主 + 早退，账本必须逐字节不变：不是"我没看到新记录"，是"没有一个字节动过"。
+  assert.equal(fsImpl.readFileSync(ioA.ledgerPath).equals(ledgerBefore), true,
+    '易主后的 IN_DOUBT 早退不得追加或改写任何记录');
+  // 跑完之后状态必须还是 IN_DOUBT —— 否则"第一次拒绝"只是延迟执行。
+  assert.equal(ioB.cycleState('run-HO', 0), 'IN_DOUBT', '跑完之后仍必须是 IN_DOUBT');
+  // 而且这一整轮不得声明新任期：epoch 条数仍是 1。
+  assert.equal(ioB.epochCount(), 1, 'IN_DOUBT 早退不得声明新任期');
+});
+
 // ⑲c 撕裂尾巴：完整 JSON 但缺结尾换行，也必须走截断路径并报 discarded_bytes。
 //     这条不是"顺手兼容一下换行"：修复前那种文件在 verifyChain 处直接抛断链，
 //     整个账本报废，恢复只能靠人工删文件——而那等于把"记录缺失"变成"没人看见"。
@@ -843,9 +927,19 @@ await test('⑳b 伪造 mtime 的攻击者：K/M 上界仍必须在 K 条追加�
 });
 
 // ㉔ K 与 M 的关系是断言，不是注释。注释会过期、行宽会变，断言不会。
-//    若 M <= K × 行宽，字节界永远够不到，两个限制只有一个在工作 ——
-//    而那正是"看起来双保险、实际单保险"的形状。
-await test('㉔ M 必须大于 K × 实测最大行宽（否则两个限制只有一个在工作）', async () => {
+//
+// 方向先说清楚，因为上一版写反了：`M ≤ K × 行宽` 会让 **M 先触发**（跨过 M 需要的条数
+// M/W 小于 K），不是"字节界够不到"。所以正确的是**一对**，不是一个下界：
+//
+//     K × W_measured  <  M  <  K × ABSOLUTE_MAX
+//
+// 左半边：M 不得在现行行宽下抢先触发，否则每个 term 多出一次无谓的全量重验。
+// 右半边：行宽膨胀到合法上限（4096，旧账本的合法行宽）时，M 必须能先响 —— 这才是 M
+//         存在的理由。少了右半边，M 就是一个"永远不会第一个触发的常数"，和零调用点的
+//         appendChainEntryDurable 同一个形状：看起来是门，没有一次由它拦下东西。
+// 具体数值刻意不写在这里：行宽是量出来的（本文件上一次抄来的"307 B"实测是 305 B），
+// 写进注释就会变成下一个抄错的来源。数值由下面两行断言自己算。
+await test('㉔ M 必须夹在 K×实测行宽 与 K×ABSOLUTE_MAX 之间（下界防抖动、上界防永不触发）', async () => {
   const fsImpl = S.createMemoryFs();
   const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
   for (let c = 0; c < 3; c++) await sup.runCycle({ runId: 'run-WIDTH', cycle: c });
@@ -853,11 +947,118 @@ await test('㉔ M 必须大于 K × 实测最大行宽（否则两个限制只�
   const maxRow = raw.split('\n').filter((l) => l.trim())
     .reduce((mx, l) => Math.max(mx, Buffer.byteLength(l, 'utf8')), 0);
   assert.ok(maxRow > 0, '前置：必须量到行宽（量不到 = 本用例在测空气）');
-  const room = S.MAX_ENTRIES_BEFORE_FULL_REVERIFY * maxRow;
-  assert.ok(S.MAX_BYTES_BEFORE_FULL_REVERIFY > room,
+  const floor = S.MAX_ENTRIES_BEFORE_FULL_REVERIFY * maxRow;
+  assert.ok(S.MAX_BYTES_BEFORE_FULL_REVERIFY > floor,
     'M=' + S.MAX_BYTES_BEFORE_FULL_REVERIFY + ' 必须大于 K×实测最大行宽='
-    + S.MAX_ENTRIES_BEFORE_FULL_REVERIFY + '×' + maxRow + '=' + room
-    + '；否则字节界永远够不到，K/M 只有一个在工作');
+    + S.MAX_ENTRIES_BEFORE_FULL_REVERIFY + '×' + maxRow + '=' + floor
+    + '；否则 M 会在现行行宽下抢先触发，每个 term 多出一次无谓的全量重验');
+  const ceiling = S.MAX_ENTRIES_BEFORE_FULL_REVERIFY * S.ABSOLUTE_MAX;
+  assert.ok(S.MAX_BYTES_BEFORE_FULL_REVERIFY <= ceiling,
+    'M=' + S.MAX_BYTES_BEFORE_FULL_REVERIFY + ' 必须不大于 K×ABSOLUTE_MAX='
+    + S.MAX_ENTRIES_BEFORE_FULL_REVERIFY + '×' + S.ABSOLUTE_MAX + '=' + ceiling
+    + '；否则即使行宽到了合法上限，也要 256 条才跨过 M —— 字节界永远不会先响，'
+    + '它就是一个永不触发的常数');
+  // 上界还必须**严格**留出余量：M 恰好等于 K×ABSOLUTE_MAX 时，宽行与满条数同时到期，
+  // 谁是"第一个"取决于比较顺序 —— 那就又变成不可归因。留一条断言把这个歧义钉死。
+  assert.ok(S.MAX_BYTES_BEFORE_FULL_REVERIFY < ceiling,
+    'M 必须严格小于 K×ABSOLUTE_MAX：相等会让"M 先响"与"K 先响"在同一笔上同时成立，'
+    + '而 ㉙ 要证的正是 M 会先响');
+});
+
+// ㉘ 三个窗口常数必须是"能数完的数"。
+//    ㉔ 只钉了下界（M > K × 行宽），而把 M 改成 Infinity 仍然满足它 —— 实测全绿。
+//    但 Infinity 不是"很宽的上界"，它是**没有上界**：`bytesSinceVerify >= Infinity` 永不
+//    成立，字节界从此不生效，而代码里看起来仍写着"每 256 KiB 重验一次"。
+//    这条**不**钉具体数值：钉死数值会让"有意调整"和"误改"看起来一样，而且数值本身会被
+//    下一次裁定改掉（M 从 1 MiB 收紧到 256 KiB 就是一例）。它钉的是"这个数能被用作计数"。
+await test('㉘ 三个窗口常数必须是有限正整数（Infinity 等于没有上界，而它看起来像上界）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
+  const b = sup.subsystems.ledgerIo.bounds();
+  const named = [
+    ['maxEntriesBeforeFullReverify', b.maxEntriesBeforeFullReverify],
+    ['maxBytesBeforeFullReverify', b.maxBytesBeforeFullReverify],
+    ['maxOpsBeforeFullReverify', b.maxOpsBeforeFullReverify],
+  ];
+  for (const [k, v] of named) {
+    assert.equal(Number.isFinite(v), true,
+      k + '=' + String(v) + ' 必须是有限值；Infinity 不是"很宽的上界"，是没有上界');
+    assert.equal(Number.isInteger(v), true, k + '=' + String(v) + ' 必须是整数');
+    assert.ok(v > 0, k + '=' + String(v)
+      + ' 必须为正：0 会让每次读都强制全量重验（可用性），负数让边界永不成立（安全）');
+  }
+  // 三个数不是彼此独立的：ops 界是"读次数"，默认宽度由 entries 界给出。钉住这层关系，
+  // 否则"改了 entries 忘了 ops"会让只读路径的窗口悄悄变宽。
+  assert.equal(b.maxOpsBeforeFullReverify, b.maxEntriesBeforeFullReverify,
+    'ops 界默认必须等于 entries 界：它只是同一个窗口的另一种计量单位，不是一个可独立漂移的数');
+  // 导出常量必须与实例边界一致，否则"读常量的人"和"读实例的人"看到两个窗口。
+  assert.equal(b.maxEntriesBeforeFullReverify, S.MAX_ENTRIES_BEFORE_FULL_REVERIFY);
+  assert.equal(b.maxBytesBeforeFullReverify, S.MAX_BYTES_BEFORE_FULL_REVERIFY);
+  assert.equal(b.maxOpsBeforeFullReverify, S.MAX_OPS_BEFORE_FULL_REVERIFY);
+});
+
+// ㉙ M 必须**真的会响**。㉔ 只证明它夹在一个区间里，证明不了它有一次是第一个。
+//    实测行宽 307 B 时跨过 M 要 ~853 条，而 K 在 256 条到期 ⇒ 生产路径上 M 永远不会先响。
+//    这里用**合法历史行宽**（4096，旧账本的合法上限；写侧用 currentMax: 4096 的实例）
+//    把它逼到先响：约 66 条 × ~4 KB ≈ 264 KB > 262144，而 66 < 256。
+//    没有这条，"M 是一个永不触发的常数"这件事在判据里完全不可见。
+await test('㉙ 宽行账本里 M 必须先于 K 触发（否则字节界是个永不作响的常数）', async () => {
+  const payload = { blob: 'x'.repeat(3700) };
+  // 量第一行（= 第一条记录）的字节数，用来证"宽行真的宽"。
+  const firstRowBytes = (fsImpl, io) => {
+    const raw = fsImpl.readFileSync(io.ledgerPath).toString('utf8');
+    const first = raw.split('\n').filter((l) => l.trim())[0] || '';
+    return Buffer.byteLength(first, 'utf8');
+  };
+  const runWide = (opts) => {
+    const fsImpl = S.createMemoryFs();
+    const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+    const io = S.createLedgerIo(base, opts);
+    let bumpedAt = -1, bumpedBytes = 0, rowsAt = 0;
+    for (let i = 0; i < 120; i++) {
+      const before = io.stats().forcedReverifies;
+      io.append({
+        kind: S.LEDGER_KIND.completion, runId: 'run-WIDE', cycle: i, epoch: 1,
+        completedAtMs: 0, payload,
+      });
+      if (io.stats().forcedReverifies > before) {
+        bumpedAt = i;
+        bumpedBytes = fsImpl.readFileSync(io.ledgerPath).length;
+        rowsAt = S.readJsonl(fsImpl, io.ledgerPath).length;
+        break;
+      }
+    }
+    return { fsImpl, io, bumpedAt, bumpedBytes, rowsAt };
+  };
+
+  const wide = runWide({ currentMax: S.ABSOLUTE_MAX });
+  // 前置：宽行必须**真的宽**。否则 payload 一旦比 currentMax 大就会被裁成摘要，
+  // 行宽掉回 ~300 B，这条用例就变成"窄行也从不触发 M"——它会在测空气，而且看起来是绿的。
+  const wideRaw = firstRowBytes(wide.fsImpl, wide.io);
+  assert.ok(wideRaw > 2048 && wideRaw <= S.ABSOLUTE_MAX,
+    '前置：宽行行宽必须落在 (2048, ' + S.ABSOLUTE_MAX + ']，实际 ' + wideRaw
+    + '（被裁剪就说明本用例在测空气）');
+  assert.ok(wide.bumpedAt >= 0,
+    '整整 120 条宽行追加都没有触发任何强制重验：字节界没有生效（M='
+    + S.MAX_BYTES_BEFORE_FULL_REVERIFY + '）');
+  assert.ok(wide.bumpedBytes >= S.MAX_BYTES_BEFORE_FULL_REVERIFY,
+    '触发时累计字节必须已经跨过 M，实际 ' + wide.bumpedBytes);
+  assert.ok(wide.rowsAt < S.MAX_ENTRIES_BEFORE_FULL_REVERIFY,
+    'M 必须先于 K 触发：触发时只有 ' + wide.rowsAt + ' 条，而 K='
+    + S.MAX_ENTRIES_BEFORE_FULL_REVERIFY);
+  // 归因：触发点必须落在 M/W 的量级上，而不是别的什么计数。
+  const rowBytes = wide.bumpedBytes / wide.rowsAt;
+  assert.ok(wide.rowsAt >= Math.floor(S.MAX_BYTES_BEFORE_FULL_REVERIFY / rowBytes) - 1
+    && wide.rowsAt <= Math.ceil(S.MAX_BYTES_BEFORE_FULL_REVERIFY / rowBytes) + 1,
+    '触发点必须落在 M/行宽=' + (S.MAX_BYTES_BEFORE_FULL_REVERIFY / rowBytes).toFixed(1)
+    + ' 附近，实际 ' + wide.rowsAt + ' 条 × ' + rowBytes.toFixed(0) + ' B');
+
+  // 对照臂：同样的 120 条追加，但用默认的 CURRENT_MAX ⇒ payload 被裁成摘要，行宽回到
+  // ~300 B ⇒ 120 × 300 ≈ 36 KB 远不到 M，一条都不该触发。
+  // 没有这条，"M 触发过"可以只是"某个计数器到点了"，而不是"字节数到点了"。
+  const narrow = runWide({});
+  assert.equal(narrow.bumpedAt, -1,
+    '窄行（被 CURRENT_MAX 裁剪过的）账本 120 条不该跨过 M；若这里触发了，说明触发与行宽无关');
 });
 
 // ㉕ 未知窗口参数必须拒，不能静默退回默认值。
@@ -1075,6 +1276,35 @@ await test('㉗ 锚点字段缺席或类型错 ⇒ LEDGER_ANCHOR_INVALID（缺�
   fsImpl.writeFileSync(io.anchorPath, Buffer.from(S.canonicalize(good), 'utf8'));
   const sup4 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(4000) }));
   assert.equal(sup4.resume('run-AV').lastCycle, 1, '完好锚点必须恢复正常，不得残留拒绝');
+});
+
+// ㉚ 锚点的 `count` 与 `headHash` 是两行代码、两半能力，必须各有各的见证。
+//    实测过：只删掉 `entries.length !== anchor.count` 那一半，41 条全绿 —— 也就是说
+//    "count 被比较"这件事在判据里不存在，只是 head 比较的副产品。这条把 count 单独拎出来：
+//    byteLength 对、headHash 对、**只有 count 被改**。若 count 那半被删，本用例是唯一会红的。
+await test('㉚ 锚点 count 单独被改（byteLength/headHash 不动）⇒ LEDGER_ANCHOR_HEAD_MISMATCH', async () => {
+  const fsImpl = S.createMemoryFs();
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) }));
+  for (let c = 0; c < 2; c++) await sup.runCycle({ runId: 'run-CT', cycle: c });
+  const io = sup.subsystems.ledgerIo;
+  const rows = S.readJsonl(fsImpl, io.ledgerPath);
+  const anchor = JSON.parse(fsImpl.readFileSync(io.anchorPath).toString('utf8'));
+  const head = rows[rows.length - 1]._hash;
+
+  // 前置：这三个字段此刻都是"对的"，且长度一致 —— 于是唯一可归因的就是 count
+  assert.equal(anchor.byteLength, fsImpl.readFileSync(io.ledgerPath).length, '前置：byteLength 必须一致');
+  assert.equal(anchor.headHash, head, '前置：headHash 必须等于真实链头（否则测的是 head 那半）');
+  assert.equal(anchor.count, rows.length, '前置：count 必须等于真实条数');
+
+  anchor.count = anchor.count + 5;          // 只改这一个字段
+  fsImpl.writeFileSync(io.anchorPath, Buffer.from(S.canonicalize(anchor), 'utf8'));
+
+  // 改完之后 head 仍然对得上 —— 这条断言是本用例的归因基础
+  assert.equal(anchor.headHash, head, '前置：改 count 之后 headHash 仍必须等于真实链头');
+
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(2000) }));
+  assert.throws(() => sup2.resume('run-CT'), /LEDGER_ANCHOR_HEAD_MISMATCH/,
+    'count 与 byteLength/headHash 同等对待：只改 count 也必须被拒，不得因为它"和 head 一起变"就不比');
 });
 
 // ㉑a 整周期被截掉 + 锚点在 ⇒ 抛。

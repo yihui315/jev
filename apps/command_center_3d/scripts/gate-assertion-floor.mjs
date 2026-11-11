@@ -177,11 +177,35 @@ const SUITES = [
     //           "not applicable", and a comparison that is skipped for absence is the
     //           same defect as ㉑b (deleting the anchor file to switch the control
     //           off) moved inside one JSON object. 40 + 1 = 41. Measured, not a target.
+    // 41 -> 42: `⑲j` — a lease handover must not license a re-run of an in-doubt
+    //           cycle. ⑲f covers "same process restarts"; this covers "a different
+    //           lease holder reads it". The re-open forced by the handover is a
+    //           state-rebuild point, and a rebuild that loses the in-doubt slot
+    //           downgrades IN_DOUBT to ABSENT, which reads as "never started".
+    //           41 + 1 = 42. Measured.
+    // 42 -> 43: `㉘` — the three window constants must be finite positive integers.
+    //           ㉔ only pins the LOWER bound (M > K x row width), so setting M to
+    //           Infinity satisfied it and left every case green: a bound of Infinity
+    //           is not a wide bound, it is no bound, while the code still reads as
+    //           "re-verify every 256 KiB". The case deliberately does NOT freeze the
+    //           numbers (values get ruled on; see M: 1 MiB -> 256 KiB). 42 + 1 = 43.
+    //           Measured.
+    // 43 -> 45: two claims that were both "a declaration wider than its case".
+    //           `㉙` proves M DOES fire first when rows are wide (legal 4096 B
+    //           history: ~66 rows trips M while K=256 is far away) — without it,
+    //           "M never fires" was invisible to the whole suite. `㉚` gives the
+    //           anchor's `count` comparison its own witness: removing just that half
+    //           used to redden nothing, i.e. count was only riding along on the
+    //           headHash comparison while reading like an independent field.
+    //           43 + 1 + 1 = 45. Measured. (`㉔` also gained its UPPER half in this
+    //           same commit but it is the same case, not a new one: the old assertion
+    //           `M > K x measured width` was literally the condition under which M
+    //           can never fire — at 307 B rows M needs ~853 appends vs K=256.)
     // Earlier the ⑮ guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 41,
-    // "RESULT PASS=41 FAIL=0"
+    expect: 45,
+    // "RESULT PASS=45 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {
