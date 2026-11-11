@@ -195,38 +195,186 @@ function yamlLines(rel) {
   });
   return lines;
 }
-check("EXTRA", "Y1 v16-market-provenance.yml: original branch + 2 new branches; PR rule unchanged", () => {
-  const l = yamlLines(REL.prov);
-  assert.ok(l.some((x) => /feature\/v16-market-provenance-hardening/.test(x)), "original branch entry removed");
-  assert.ok(l.some((x) => /feature\/v16-p0-gap-closure/.test(x)), "new branch missing");
-  assert.ok(l.some((x) => /feature\/v16-\*\*/.test(x)), "wildcard branch missing");
-  assert.ok(l.some((x) => /release\/jcc-v1\.3-final/.test(x)), "PR target rule changed");
-});
-check("EXTRA", "Y2 ci.yml: 5 gate scripts each test -f hard-fail; tsc/vitest kept; no continue-on-error", () => {
-  const l = yamlLines(REL.ci);
-  const scripts = [
-    "day14-p0-contracts.mjs", "day14-p0-runner.mjs", "market-data.test.mjs",
-    "inference-evidence.test.mjs", "p3-contracts.mjs",
-  ];
-  for (const s of scripts) {
-    assert.ok(l.some((x) => x.includes(s) && /test -f/.test(x)), `${s}: missing test -f hard-fail`);
-    assert.ok(l.some((x) => x.includes(s) && /node /.test(x)), `${s}: missing node invocation`);
+
+/**
+ * F-23: return the branch list of a workflow trigger (`push:` / `pull_request:`).
+ *
+ * Deliberately structure-aware but NOT a YAML parser: it walks the `on:` block,
+ * stops at the next 2-space trigger key or at the next top-level key, skips
+ * full-line comments, and reads the inline `branches: [ "a", "b" ]` form the
+ * repo uses. If a workflow is later rewritten to the block-list form
+ * (`branches:\n  - a`) this returns [] and every caller assertion fails LOUD —
+ * it fails closed, never silently passes.
+ */
+function workflowTriggerBranches(lines, key) {
+  const start = lines.findIndex((x) => new RegExp("^  " + key + ":\\s*$").test(x));
+  if (start === -1) return null;
+  const out = [];
+  for (let i = start + 1; i < lines.length; i++) {
+    const ln = lines[i];
+    if (/^\S/.test(ln)) break;          // left the `on:` block entirely
+    if (/^  \S/.test(ln)) break;        // next trigger key (e.g. workflow_dispatch:)
+    if (/^\s*#/.test(ln)) continue;     // prose is not configuration
+    const m = ln.match(/branches\s*:\s*\[([^\]]*)\]/);
+    if (m) {
+      for (const raw of m[1].split(",")) {
+        const v = raw.trim().replace(/^["']|["']$/g, "");
+        if (v) out.push(v);
+      }
+    }
   }
-  assert.ok(l.some((x) => /npx tsc --noEmit/.test(x)), "tsc step removed");
-  assert.ok(l.some((x) => /npx vitest run/.test(x)), "vitest step removed");
+  return out;
+}
+
+check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push; PR keeps release rule AND gains feature/v16-**", () => {
+  const l = yamlLines(REL.prov);
+
+  const push = workflowTriggerBranches(l, "push");
+  const pr = workflowTriggerBranches(l, "pull_request");
+  assert.ok(push !== null, "v16: `push:` trigger block not found");
+  assert.ok(pr !== null, "v16: `pull_request:` trigger block not found");
+
+  // --- pre-existing coverage must remain (additive-only rule) ---
+  assert.ok(push.includes("feature/v16-market-provenance-hardening"), "original branch entry removed");
+  assert.ok(push.includes("feature/v16-p0-gap-closure"), "new branch missing");
+  assert.ok(push.includes("feature/v16-**"), "wildcard branch missing");
+
+  // --- F-22-C: the integration branch family must actually trigger this gate ---
+  assert.ok(push.includes("feature/jev-**"),
+    "F-22-C: push trigger must cover feature/jev-** (e.g. feature/jev-v2-ops-integration)");
+
+  // --- C14: a PR whose BASE is a v16 branch must run this workflow ---
+  assert.ok(pr.includes("feature/v16-**"),
+    "C14: pull_request trigger must cover feature/v16-** or the PR runs zero checks");
+  // ...and the release-target rule is RETAINED, not traded away. This is the
+  // stronger form of the old `l.some(x => /release\/jcc-v1\.3-final/)` check:
+  // it now asserts the entry is inside `pull_request.branches`, not merely
+  // somewhere in the file.
+  assert.ok(pr.includes("release/jcc-v1.3-final"),
+    "PR target rule changed — release/jcc-v1.3-final must be RETAINED in pull_request.branches");
+});
+
+/**
+ * F-23 — declared gate suite set. This is the single source of truth Y2 compares
+ * the workflow against. Every entry here MUST appear in ci.yml exactly once, as
+ * a line-start `node <path>` invocation guarded by a `test -f <path>`.
+ *
+ * Keep in sync with the `SUITES` table in scripts/gate-assertion-floor.mjs.
+ */
+const GATE_SUITES = [
+  "apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs",
+  "apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs",
+  "apps/equity_collector_v45/tests/market-data.test.mjs",
+  "apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs",
+  "apps/command_center_3d/scripts/day14-research/p3-contracts.mjs",
+  "apps/command_center_3d/scripts/supervisor/supervisor.test.mjs",
+  "apps/command_center_3d/scripts/check-no-fake-live.mjs",
+];
+
+check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), each test -f hard-fail; tsc/vitest kept; gate is first run step; no continue-on-error", () => {
+  const l = yamlLines(REL.ci);
+
+  // ---- F-23 fix: STRIP comments, ANCHOR at line start, compare SETS --------
+  // The old rule was `l.some(x => x.includes(s) && /node /.test(x))`, which
+  // matched a commented-out line just as happily as a live one, tolerated a
+  // wrong declared count ("5 gate scripts"), and could not notice a suite moved
+  // somewhere else. Collect only real configuration lines instead.
+  const invocations = [];
+  for (const raw of l) {
+    if (/^\s*#/.test(raw)) continue;                  // full-line comment = prose
+    const m = raw.match(/^\s*node\s+(\S+\.mjs)\b/);   // line-start anchored
+    if (m) invocations.push(m[1]);
+  }
+
+  assert.equal(new Set(invocations).size, invocations.length,
+    `duplicate gate suite invocation: ${JSON.stringify(invocations)}`);
+
+  const got = [...new Set(invocations)].sort();
+  const want = [...GATE_SUITES].sort();
+  const missing = want.filter((x) => !got.includes(x));
+  const unexpected = got.filter((x) => !want.includes(x));
+  // EQUALITY, not `>=` and not a bare count: an added, removed, renamed or
+  // commented-out suite must all fail. Commenting a line out drops it from
+  // `got`, so `missing` becomes non-empty — that is the bypass this closes.
+  assert.ok(missing.length === 0 && unexpected.length === 0,
+    "ci.yml gate suite set drifted from the declared set:\n" +
+    `  missing(${missing.length}): ${JSON.stringify(missing)}\n` +
+    `  unexpected(${unexpected.length}): ${JSON.stringify(unexpected)}\n` +
+    `  declared count=${GATE_SUITES.length} found count=${got.length}`);
+
+  // ---- per-suite `test -f` hard-fail must also survive comment-stripping ---
+  for (const s of GATE_SUITES) {
+    assert.ok(
+      l.some((x) => !/^\s*#/.test(x) && x.includes(s) && /test -f/.test(x)),
+      `${s}: missing test -f hard-fail`
+    );
+  }
+
+  // ---- the pipeline's non-gate guardrails must remain present ---------------
+  assert.ok(l.some((x) => !/^\s*#/.test(x) && /npx tsc --noEmit/.test(x)), "tsc step removed");
+  assert.ok(l.some((x) => !/^\s*#/.test(x) && /npx vitest run/.test(x)), "vitest step removed");
+
+  // ---- the floor table must stay in sync with the declared gate suite set ---
+  // The assertion-count floor lives in a separate script that cannot read this
+  // list; without this guard a new suite could be added to ci.yml + GATE_SUITES
+  // while the floor silently kept checking only the old ones (the new suite
+  // would then be back to "trust the exit code").
+  const floorSrc = read("apps/command_center_3d/scripts/gate-assertion-floor.mjs");
+  assert.ok(floorSrc !== null, "scripts/gate-assertion-floor.mjs missing");
+  const floorSlugs = (floorSrc.match(/^\s{4}slug:\s*"[^"]+"/gm) || []).length;
+  assert.equal(floorSlugs, GATE_SUITES.length,
+    `gate-assertion-floor.mjs declares ${floorSlugs} suites but ci.yml/GATE_SUITES declares ${GATE_SUITES.length}`);
+
+  // ---- F-22-C: ci.yml must publish checks on PRs based on feature/**** -----
+  const ciPush = workflowTriggerBranches(l, "push");
+  const ciPr = workflowTriggerBranches(l, "pull_request");
+  assert.ok(ciPush !== null && ciPush.includes("feature/**"), "ci.yml push must still cover feature/**");
+  assert.ok(ciPr !== null && ciPr.includes("feature/**"),
+    "F-22-C: ci.yml pull_request.branches must include feature/** or a PR based on an integration branch shows 0 checks");
+
+  // ---- F-21 regression guard: the gate must be the FIRST run step ----------
+  // F-21 was "the gate is reported as `skipped` whenever an upstream step is
+  // red". The fix is ordering, so the ordering is what gets asserted: the gate
+  // step must precede npm ci / tsc / build / vitest. This makes a future
+  // re-shuffle of ci.yml a red test instead of a silent loss of the gate.
+  //
+  // All lookups are bounded to the `build-and-test` job: a future job that also
+  // happens to contain an "Install" or "Typecheck" step must not be able to
+  // make this check pass (or fail) by accident.
+  const jobStart = l.findIndex((x) => /^  build-and-test:\s*$/.test(x));
+  assert.ok(jobStart !== -1, "build-and-test job not found");
+  const jobEndRel = l.findIndex((x, i) => i > jobStart && /^  [A-Za-z0-9_-]+:\s*$/.test(x));
+  const JOB_END = jobEndRel === -1 ? l.length : jobEndRel;
+  const inJob = (re) => {
+    for (let i = jobStart; i < JOB_END; i++) if (re.test(l[i])) return i;
+    return -1;
+  };
+
+  const start = inJob(/-\s*name:\s*P0\/P1\/P2\/P3P4 gap-closure gate/);
+  assert.ok(start !== -1, "gate step block not found inside build-and-test");
+  const installIdx = inJob(/^\s*- name: Install\s*$/);
+  assert.ok(installIdx !== -1, "Install step not found inside build-and-test");
+  assert.ok(start < installIdx,
+    "F-21: the gate must run BEFORE `npm ci` (Install) so an install failure cannot mask it");
+  for (const stepName of ["Typecheck", "Build", "Unit tests"]) {
+    const i = inJob(new RegExp("^\\s*- name: " + stepName));
+    assert.ok(i !== -1, `step "${stepName}" not found inside build-and-test`);
+    assert.ok(start < i, `F-21: the gate must run before the "${stepName}" step`);
+  }
+
+  // ---- hard-fail semantics: no continue-on-error inside the gate step ------
   // Anchor on the `- name:` line (NOT the preceding comment block, which
   // literally contains the words "No continue-on-error: ..."). The gate step
   // must not carry a real `continue-on-error:` YAML key; comment lines are
   // documentation, not configuration, so they are excluded from this check.
-  // The real-data-probe job's `continue-on-error: true` is after `end` and is
+  // The real-data-probe job's `continue-on-error: true` is out of JOB_END and is
   // intentionally preserved (task A: existing steps untouched).
-  const start = l.findIndex((x) => /-\s*name:\s*P0\/P1\/P2\/P3P4 gap-closure gate/.test(x));
-  const end = l.findIndex((x, i) => i > start && /^  real-data-probe:/.test(x));
-  assert.ok(start !== -1 && end !== -1, "gate step block not found");
   assert.ok(
-    !l.slice(start, end).some((x) => !x.trim().startsWith("#") && /^\s*continue-on-error\s*:/.test(x)),
-    "gate step must NOT have continue-on-error"
+    !l.slice(start, JOB_END).some((x) => !x.trim().startsWith("#") && /^\s*continue-on-error\s*:/.test(x)),
+    "gate step / job must NOT have continue-on-error"
   );
+  console.log(`      ci.yml gate suites: ${got.length} (declared ${GATE_SUITES.length}), all with test -f hard-fail`);
+  console.log(`      ci.yml gate step index ${start} < Install ${installIdx} (F-21 ordering asserted)`);
 });
 console.log("NOTE: Y1/Y2 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");

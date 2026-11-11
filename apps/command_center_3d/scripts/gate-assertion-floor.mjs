@@ -1,0 +1,216 @@
+/**
+ * gate-assertion-floor.mjs — assertion-count floor for the P0/P1/P2/P3P4 gate.
+ * (Closes C12 / F-22-G. Node stdlib only — no yaml/yargs/chalk/js-yaml.)
+ *
+ * WHY THIS EXISTS
+ * ---------------
+ * The gate step in .github/workflows/ci.yml used to trust exit codes alone: it
+ * ran 7 suites and failed only if one of them exited non-zero. That is blind to
+ * a whole class of regressions where a suite still exits 0 while having
+ * silently lost its assertions:
+ *
+ *   - someone comments out the body of a test block      → exit 0, 0 assertions
+ *   - a module loses its `isMainModule()` guard and the
+ *     file is executed for its side effects only         → exit 0, few asserts
+ *   - a suite is rewritten to `process.exit(0)` early     → exit 0, few asserts
+ *
+ * Exit code alone therefore cannot distinguish "94 assertions passed" from
+ * "3 assertions passed and the rest were deleted". This script adds a
+ * DECLARATIVE MINIMUM: each suite has a frozen expected assertion count, and a
+ * suite that reports fewer than its floor (or loses its summary signature, or
+ * reports any FAIL, or is missing from the log directory entirely) is a hard
+ * failure.
+ *
+ * CONTRACT WITH ci.yml
+ * --------------------
+ * The gate step runs each suite as
+ *     node <path> 2>&1 | tee "$GATE_LOG_DIR/<slug>.log"
+ * under `set -euo pipefail`, so a non-zero suite exit still fails the step.
+ * The floor step then runs THIS script against the same directory. Together:
+ *   - non-zero exit        → caught by the gate step (pipefail)
+ *   - exit 0 but too few   → caught here
+ *
+ * The floors are EXACT, not ranges. An intentional new assertion must bump the
+ * number in this table, which makes every count change a visible, reviewable
+ * diff instead of a silent drift.
+ *
+ * Usage:
+ *   node apps/command_center_3d/scripts/gate-assertion-floor.mjs [logDir]
+ *   GATE_LOG_DIR=/path/to/logs node .../gate-assertion-floor.mjs
+ * Default logDir: <repoRoot>/.gate
+ *
+ * exit 0 = every suite met its floor; exit 1 = at least one violation.
+ */
+import { readFileSync, existsSync } from "node:fs";
+import { join, dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const HERE = dirname(fileURLToPath(import.meta.url));   // .../apps/command_center_3d/scripts
+const APP = dirname(HERE);                             // .../apps/command_center_3d
+const REPO = dirname(dirname(APP));                    // repo root
+
+function pickLogDir() {
+  const argv = process.argv.slice(2).filter((a) => a !== "--dir");
+  if (argv.length > 0) return resolve(argv[0]);
+  if (process.env.GATE_LOG_DIR) return resolve(process.env.GATE_LOG_DIR);
+  return join(REPO, ".gate");
+}
+const LOG_DIR = pickLogDir();
+
+/**
+ * Frozen expectation table. `expect` is the number of assertions the suite MUST
+ * report. Every entry must also yield `fail === 0`.
+ *
+ * Signatures are anchored (`^...$` with the `m` flag) so a stray mention inside
+ * an EVIDENCE dump cannot be mistaken for the real summary line.
+ */
+const SUITES = [
+  {
+    slug: "1-p0-contracts",
+    label: "server/ai/tests/day14-p0-contracts.mjs (P0-F CONTRACTS)",
+    expect: 7,
+    // "SUMMARY P0-F CONTRACTS (frozen modules, VERIFIED now): 7 pass, 0 fail"
+    re: /^SUMMARY P0-F CONTRACTS\b.*?:\s*(\d+) pass,\s*(\d+) fail\s*$/m,
+  },
+  {
+    slug: "2-p0-runner",
+    label: "server/ai/tests/day14-p0-runner.mjs (P0-F RUNNER)",
+    expect: 24,
+    // "SUMMARY P0-F RUNNER (sandbox fault injection + R1-R6 + F-12): 24 pass, 0 fail"
+    re: /^SUMMARY P0-F RUNNER\b.*?:\s*(\d+) pass,\s*(\d+) fail\s*$/m,
+  },
+  {
+    slug: "3-market-data",
+    label: "equity_collector_v45/tests/market-data.test.mjs",
+    expect: 10,
+    // "PASS=10 FAIL=0" (+ "RESULT=PASS")
+    re: /^PASS=(\d+) FAIL=(\d+)\s*$/m,
+    extra: (log) => (/^RESULT=PASS\s*$/m.test(log) ? null : 'missing "RESULT=PASS" verdict line'),
+  },
+  {
+    slug: "4-inference-evidence",
+    label: "server/ai/evidence/tests/inference-evidence.test.mjs",
+    expect: 17,
+    // "PASS=17 FAIL=0" — take the LAST occurrence in this suite's own log.
+    re: /^PASS=(\d+) FAIL=(\d+)\s*$/m,
+    last: true,
+    extra: (log) =>
+      /---- P2 inference-evidence/.test(log) ? null : "missing P2 inference-evidence report header",
+  },
+  {
+    slug: "5-p3-contracts",
+    label: "scripts/day14-research/p3-contracts.mjs",
+    expect: 12,
+    // "PASS=12 FAIL=0 TOTAL=12"
+    re: /^PASS=(\d+) FAIL=(\d+) TOTAL=(\d+)\s*$/m,
+    countGroup: 3,
+    failGroup: 2,
+    passGroup: 1,
+  },
+  {
+    slug: "6-supervisor",
+    label: "scripts/supervisor/supervisor.test.mjs",
+    expect: 14,
+    // "RESULT PASS=14 FAIL=0"
+    re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+  },
+  {
+    slug: "7-no-fake-live",
+    label: "scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)",
+    expect: 10,
+    // "RESULT: CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10 exit=0"
+    // Here group 2 is EXTRA_ASSERTIONS, NOT a fail count — so this suite
+    // declares no failGroup and instead asserts its own `exit=` field is 0.
+    re: /^RESULT: CORE_ASSERTIONS=(\d+) EXTRA_ASSERTIONS=(\d+) TOTAL=(\d+) exit=(\d+)\s*$/m,
+    countGroup: 3,
+    exitGroup: 4,
+    extra: (log, m) =>
+      Number(m[4]) === 0 ? null : `self-reported exit=${m[4]} (must be 0)`,
+  },
+];
+
+const violations = [];
+let checked = 0;
+let totalAssertions = 0;
+
+console.log("=== gate-assertion-floor.mjs — C12 / F-22-G assertion-count floor ===");
+console.log("LOG_DIR " + LOG_DIR);
+
+for (const s of SUITES) {
+  checked++;
+  const file = join(LOG_DIR, s.slug + ".log");
+  if (!existsSync(file)) {
+    violations.push(`GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=0 reason=log-missing path=${file}`);
+    continue;
+  }
+  const log = readFileSync(file, "utf8");
+
+  // --- summary signature ---
+  // `s.last` suites may print the same signature more than once (e.g. an
+  // EVIDENCE dump quoting a PASS=/FAIL= line before the real summary); take the
+  // final occurrence. matchAll() requires the `g` flag.
+  const all = s.last
+    ? [...log.matchAll(new RegExp(s.re.source, s.re.flags + "g"))]
+    : [log.match(s.re)].filter(Boolean);
+  const m = s.last ? (all.length ? all[all.length - 1] : null) : all[0];
+  if (!m) {
+    violations.push(
+      `GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=0 reason=summary-signature-not-found`
+    );
+    continue;
+  }
+
+  const countGroup = s.countGroup || 1;
+  const count = Number(m[countGroup]);
+  const fail = s.failGroup ? Number(m[s.failGroup]) : null;
+
+  if (!Number.isFinite(count)) {
+    violations.push(`GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=NaN reason=count-unparseable`);
+    continue;
+  }
+
+  // --- internal consistency: TOTAL must equal PASS + FAIL where both are given ---
+  if (s.passGroup && s.failGroup && Number(m[s.passGroup]) + Number(m[s.failGroup]) !== count) {
+    violations.push(
+      `GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=${count} reason=total!=pass+fail (pass=${m[s.passGroup]} fail=${m[s.failGroup]} total=${count})`
+    );
+  }
+
+  // --- no failing assertion is allowed to hide behind a green exit code ---
+  if (fail !== null && fail !== 0) {
+    violations.push(`GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=${count} reason=fail-count=${fail}`);
+  }
+
+  if (s.extra) {
+    const why = s.extra(log, m);
+    if (why) violations.push(`GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=${count} reason=${why}`);
+  }
+
+  // --- the floor itself: EXACT count, so both shrinkage AND silent growth show up ---
+  if (count < s.expect) {
+    violations.push(`GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=${count}`);
+  } else if (count > s.expect) {
+    // Growth is not a security regression — but it means the frozen table is
+    // stale, so it is a hard failure too: the table must be updated in the same
+    // commit that adds assertions.
+    violations.push(
+      `GATE_FLOOR_VIOLATION ${s.slug} expected=${s.expect} actual=${count} reason=count-grew-update-the-floor-table`
+    );
+  } else {
+    console.log(`GATE_FLOOR ok ${s.slug} expected=${s.expect} actual=${count} — ${s.label}`);
+  }
+  totalAssertions += count;
+}
+
+if (violations.length > 0) {
+  console.error("");
+  for (const v of violations) console.error(v);
+  console.error("");
+  console.error(
+    `GATE_FLOOR_FAILED suites_checked=${checked} violations=${violations.length} total_assertions_seen=${totalAssertions}`
+  );
+  process.exit(1);
+}
+
+console.log("");
+console.log(`GATE_FLOOR_OK suites=${checked} total_assertions=${totalAssertions} exit=0`);

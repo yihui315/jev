@@ -5,9 +5,16 @@ name: JEV V1.6 — Market Provenance Hardening
 # in-memory SQLite shims with injected fetchers (deterministic, offline).
 on:
   push:
-    branches: ["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**"]
+    # Additive only (F-22-C / C14): "feature/jev-**" covers the V2 ops /
+    # integration branches (e.g. feature/jev-v2-ops-integration) whose PR base
+    # is a v16 branch. The three pre-existing entries stay as they are.
+    branches: ["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**", "feature/jev-**"]
   pull_request:
-    branches: ["release/jcc-v1.3-final"]
+    # "feature/v16-**" is ADDED, "release/jcc-v1.3-final" is RETAINED on purpose:
+    # the release-target rule is still a live invariant (asserted by Y1 in
+    # check-no-fake-live.mjs), dropping it would be a silent gate regression.
+    # The addition makes a PR whose base is a v16 branch actually run this gate.
+    branches: ["release/jcc-v1.3-final", "feature/v16-**"]
   workflow_dispatch:
 
 permissions:
