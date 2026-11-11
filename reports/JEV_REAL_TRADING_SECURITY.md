@@ -1286,3 +1286,364 @@ node apps/x/p3-contracts.mjs  # 同 apps/x/p3-contracts.mjs 的旧写法已废�
 > **§11.8.7 第三轮更正留痕（我错了第三次，devops 指出）**：我原写「放宽 PR 触发分支会先撞红 Y1 自检」**过强**。复刻 Y1 四段断言实测：**追加** `feature/v16-**`（保留 `release/jcc-v1.3-final`）→ **Y1 仍 PASS**；**只有移除** release（改成 `main`）→ 才 FAIL。原因是 `l.some(x => /.../.test(x))` **只验字符串存在、不验唯一**。→ **C14 两条修法成本需重估：追加路线不需要改 Y1，是最省事路径**；我原「必须同步改 Y1」的判断撤回（原文保留不删）。
 > 我另外补了一条双方都没提的：**把 PR 分支整段注释掉、字符串仍留行内 → Y1 照样 PASS**（与 Y2 同一病根），故 **F-23 适用范围扩为 Y1 + Y2 两处**；且 `ci.yml` 的 `pull_request.branches` **完全没有 gate 覆盖**。
 > 同时更正我 §11.8.4 的修复建议：`yaml` **不是直接依赖**（由 `postcss-load-config` 传递引入）→ 「改用真解析」须先声明依赖，**首选 devops 的无依赖四条**（剔注释 / 行首锚定 / `node` 条数下限 ≥7 / 路径集合相等）。
+
+---
+
+# §12 第六轮（V2.1 账本写入顺序重排）：独立安全评审 + 三处自纠
+
+> **锚与树状态（必须成对读）**：本节评审的**提交态**是 `00e08e39ba298d73d93ce126eca7e85f02b77238`（`00e08e3`）。本节**开始撰写时** `git status --porcelain` 为空；撰写期间工作树被**其他成员**写入（非本审计所为），收稿时状态为：
+>
+> ```
+>  M apps/command_center_3d/functions/api/jev/[[path]].js
+>  M apps/command_center_3d/server/trading_api.mjs
+>  M reports/JEV_REAL_TRADING_SECURITY.md          ← 本节自身，未提交
+> ?? apps/command_center_3d/server/lib/http-body.mjs
+> ?? apps/command_center_3d/server/tests/
+> ```
+>
+> 因此 **§12 的结论锚在 commit，H7 的扫描计数锚在"上述状态"**，二者不等价，不可混用。可证伪的痕迹：本节三次 H7 复跑的扫描文件数依次为 **218 → 219 → 220**，增量全部来自期间新增的未跟踪文件，且这些文件被**逐个**纳入扫描（收稿时实见 `apps/command_center_3d/server/lib/http-body.mjs` 与 `apps/command_center_3d/server/tests/http-body-read.mjs` 均在 `scanned_files` 内）——**计数本身随树状态变化**，这正是"证据必须绑定状态"的现场例证。
+> 两条附带事实：① 以上未提交改动**无一落在冻结树内**（`apps/command_center_3d/server/engine/` 命中 0）⇒ 新模块 `server/lib/http-body.mjs` 不触 check3、不逼人重钉 15 文件锚；② 因此 P-01「洁净树」门禁在此期间**为红**，冻结只能以 commit 为单位表述。
+>
+> 评审对象是 **D-14-0 / D-14-3 的写入顺序重排**（`lease_epoch → cycle_intent → cycleImpl → cycle_completion`），不评审代码是否已落地（现状：`git log --all -S"cycle_intent"` 与 `-S"IN_DOUBT"` 均为空，`core.mjs` 仍是 `appendFileSync` 直写）。
+
+## §12.0 三处自纠（先纠，再评审）
+
+**自纠 ①：`ai-core.mjs` 在冻结树内，我上一轮的「更正」是错的。**
+按 `scripts/v16_independent_verify.py` 的 check3 算法复算（`git ls-tree -r HEAD -- apps/command_center_3d/server/engine/`，行过滤后 `"\n".join`、末尾不带换行、utf-8 取 sha256）：
+
+```
+n = 15
+tree_sha256 = aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad
+expected    = aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad   → MATCH
+  efe3bd3e…  server/engine/_lib/ai-core.mjs   ← 在 15 个之内
+  9ed13096…  server/engine/_lib/paper-server.mjs
+```
+我错在**数错了清单**：用 `apps/equity_collector_v45/src/engine-anchor.mjs` 的 4 文件锚去否证 `check3` 的 15 文件锚。本仓目前有三套近名冻结清单，任何「某文件是否冻结」的断言都必须先指明是哪一套：
+
+| 清单 | 位置 | 覆盖 | 执行时机 |
+|---|---|---|---|
+| 逐文件 sha256 锚（4 条） | `apps/equity_collector_v45/src/engine-anchor.mjs` | 4 文件，指向 `D:/jev-cloud-staging` 参考引擎 | collector T5（本地/测试） |
+| 整树 sha256 锚 | `scripts/v16_independent_verify.py:54-56` | **15 文件**（含 `ai-core` / `paper-server` / `agent-orchestrator`） | **CI 的 check3** |
+| git blob sha1 清单 | `cloud/vendor-manifest.json` | **6 个 blob**，`origin_commit` 指向外部仓库 | 仅 `cloud-entry.mjs` 启动时 |
+
+纪律补一条，排在我原有的「正例 + 反例计数」之前：**成员资格断言，先找到「真正执行该约束的那段代码」，再做计数。**
+
+**自纠 ②：`DUPLICATE_REJECTED` 是恒真式判据（本次评审的直接动因）。**
+`idempotency.mjs:21` 的 `dup` 判定基于**已写入的 completion 记录**；重跑时那条记录当然已存在，故必然抛。它测的是账本自洽，不是 at-most-once。实测（harbor，8 trial）`trials_with_duplicate_effect=4`：副作用执行两次而账本链 `verified=true`、`resume` 正常、`recordCompletion` 照抛 ⇒ 该判据在缺陷存在时**照绿**。已在任务表撤回，替换为跨文件守恒（见 §12.2）。
+
+**自纠 ③：`vendor == 上游逐字副本` 不可证，且「fail-late」也不准确。**
+可证的只有两件事：`diff` 0 行（vendor 与 `server/engine/_lib` 同字节）、`git hash-object` 等于 manifest 记录的 `git_blob_sha`。但 `origin_commit` 指向的外部仓库对象在本仓不存在，**本地无法证明与上游一致**。另外 `verify-engine-vendor.mjs` 全仓唯一引用是 `cloud-entry.mjs:1`，而 `cloud-entry` 在 5 个 workflow 中命中数为 0 ⇒ 它在 CI 里**从不执行**（不是"晚触发"）。覆盖面上 manifest 只有 6 条、check3 覆盖 15 条 ⇒ 9 个文件没有任何 vendor 身份覆盖。
+
+## §12.1 四个强制点：写错会让攻击者得到什么
+
+| 强制点 | 写法 | 写错的后果 | 攻击者（或误操作者）能做什么 |
+|---|---|---|---|
+| **P1** `lease_epoch` 落盘先于 `cycle_intent` | `acquireLease → append lease_epoch(+fsync) → intent` | 僵尸领袖 A 与接管者 B 同时持"活" epoch：A 醒来写 intent 时 `epoch >= max(seen)` 判定通过 | **不需要凭证**。只需让进程卡顿/被暂停（CPU 饥饿、调试器挂起、长阻塞），等到租约过期被接管，即出现双写窗口 ⇒ 同一 cycle 两进程各执行一次副作用 = 双下单 |
+| **P2** 围栏判定在**写路径内部** | 判定放在 `appendChainEntry` 或其包装里，而非 `acquireLease` 之后 | read-then-act：进门时 epoch 最新，写 intent 时已被抬高 ⇒ 陈旧写被接受 | 窗口比 P1 更长，且**恰好覆盖副作用执行期间**（最需要围栏的时段）。等价于"只在进门查票" |
+| **P3** `intentHash` 配对不变量 | ①completion 指向存在的 intent 且 `(runId,cycle)` 相同；②一 intent 至多一 completion | 把 cycle7 的 intent 与 cycle8 的 completion 配对，**链完全校验通过** | 无需攻击者：**运维手工修复**即可构造出"看起来完整"的账本。后果是 at-most-once 判定错位——真实的双执行在账本上表现为"两周期均已完成"，**审计不可发现** |
+| **P4** `IN_DOUBT` 双点强制 | `runNextCycle` 抛 `CYCLE_IN_DOUBT_MANUAL_REVIEW` **且** `runCycle` 在存在 `cycle < N` 未完成 intent 时拒绝执行 | 只堵 `runNextCycle` ⇒ 直调 `runCycle({cycle:N})` 的所有路径（未来 daemon / 脚本 / CLI）绕过强制点 | 把"必须人工裁定"降级为"静默重跑"。若 `--resolve-in-doubt` 不取租约，两个运维可同时裁定同一 intent ⇒ 两条 outcome |
+
+**P4 的补充**：`supervisor.mjs:92-95` 的 `runNextCycle` 当前不看任何 flag（`resume.resume()` 后直接 `runCycle`）；`:69` 的 `cycleImpl` 在 `:73` 的 `recordCompletion` 之前。这两处是 at-most-once 的唯一缺口，且**不是存储问题**：任何写入原子性方案（含 `tmp+rename`、`fsync`）都关不掉 `:69→:73` 之间的窗口。
+
+## §12.2 校验位置定理（本次评审的核心结论）
+
+> 在 at-most-once 系统里，**任何可能"在副作用之后才触发"的拒绝路径，都等价于把 at-most-once 换成 at-least-once。**
+
+推论：
+1. 对**攻击者/调用方可控字段**（`runId`、以及执行前即可知的 payload 字段）的长度、深度、类型校验，必须**前移到 `cycle_intent` 写入之前**；
+2. 副作用发生之后只允许两种行为——**无损记录**，或**带哈希的有界截断**（记 `payload_sha256` + 前 N 字节），**不允许 `throw`**；
+3. 因此「entry 上界」**不能**实现成 `recordCompletion` 里的 `throw`：那会把一次正常的超限拒绝变成一次不可恢复的重跑。上界校验必须在 `runNextCycle` 入参处拒绝，并在 intent 里预留摘要字段。
+
+这条同时给出 R2′ 的正确形态：能量守恒必须**跨文件**（`账本中 intent 数 == 副作用日志条数`），因为账本自证在 P3 失守时仍会通过。它的可测性依赖**副作用层提供幂等键**（下单层产出 `clientOrderId` 之类的键）；没有该键，R2′ 只能退化为账本自洽——也就是自纠 ② 里那个恒真式。
+
+## §12.3 entry 上界：8KB 不够，且理由不是"够不够大"
+
+`entry = canonicalize({kind, runId, cycle, completedAtMs, payload, _prev, _hash})`。可控增长项只有 `runId`（字符串）与 `payload`（自由对象，`idempotency.mjs:18` 无界）。当前调用链上 `runId` 来自调用方字面量、`payload` 只有 `cycleResultLabel`（短串），**全仓唯一调用方是测试**（`grep runNextCycle/.runCycle(` 命中全在 `supervisor.test.mjs`）⇒ **今天不可被攻击者驱动**，8KB 是面向未来的边界，不是当前攻击面。
+
+但 8KB 与「kill 造不出撕裂」这个结论的关系不是"够大"，而是**单次 `write(2)` 是否不可分割**：≤4KB（页）在本地文件系统可视为单次写；8KB 跨页 ⇒ 可能多次写 ⇒ 撕裂由 kill 可达。**不能两头都占**：上界写 8KB 又不承认撕裂可达，等于把 harbor 的 12/12 当作结构性结论，而它只观测到"当前 payload 很小"。
+
+建议**两级**：
+- **硬上界 4KB**，超出在 `cycle_intent` 写入前拒绝（依 §12.2 推论 1）；
+- 另设"摘要 + 有界前缀"落账，使超限不至于让周期永远无法记账；
+- 原子性**不依赖**上界：撕裂由 R7（注入截半末行）+ 头锚检出。上界服务的是内存/磁盘与"kill 不可达"这一**前提**，不是原子性本身。
+
+附带更正一处归因：`appendChainEntry` 每次 append 都 `readJsonl` + `verifyChain` **全量重读重校验** ⇒ O(N²) 在**当前 append 设计里本来就存在**，不是 `tmp+rename` 的特有缺点。entry 上界不解决 O(N²)，但不设上界会把它放大成 O(N²·entry)。
+
+## §12.4 威胁模型边界（防止本次评审被过度引用）
+
+- 账本是**本地文件**。能写该目录的本地用户可以直接改账本、改锚、改二进制，本节所有机制**不对其提供保护**；头锚与链哈希只保证"改过会被发现"，不保证"改不了"。
+- 本机制保证的是两类事：**崩溃一致性**（掉电/短写后不静默重跑）与**多进程互斥**（同机两个 supervisor 不双执行）。跨机、跨权限域不在范围内。
+- 因此"攻击者"在本节里指：能影响进程调度与崩溃时机、能调用 CLI、能写入计划任务的一方；**不是**已 root 的本地用户。
+
+### §12.4.1 三条限制与两条实现陷阱（本轮实测确认，必须与修复同批写进注释）
+
+1. **`headHash` 取「最后一条 `_hash`」是 O(1)，但判的是语义完整、不是字节完整**：插入空行、改空白等不影响解析的编辑不敏感。故本报告不得写"字节级可检出"。
+2. **`lastGood` 水位文件在链外**：篡改者同时截断账本并回写水位则检不出。它把"静默"升级为"必须同时改第二个文件"，**不是可证安全**——报告与验收话术都不得写成"已解决"。
+3. **内存 `fsImpl` 的 `writeSync(fd, data)` 是 `files.set(key, asText(data))` = 整文件覆盖**，不遵守 `open(p,'a')` 的追加语义；而 `fsyncSync` 与 `truncateSync` 在 `core.mjs` 的命中数均为 **0**。⇒ 实现若从 `appendFileSync` 改为 `open('a') + writeSync + fsyncSync`，**测试语义会与磁盘语义分叉**（fixture 下变成覆盖）。同一提交必须：`writeSync` 尊重 `'a'` 标志、补 `fsyncSync`（且**可被调用计数观测**，"不抛错"不算通过）、按需补 `truncateSync`，并加一条"追加后前序字节仍在"的断言。
+4. **自纠**：我上一轮称内存 fs「方法全集（穷举）」为 8 个，实测是 **10** 个（漏了 `writeSync` 与 `mkdirSync`）。"穷举"这个词只应在逐条列出并计数之后使用——这与我要求别人的纪律是同一条。
+
+## §12.5 必须存在的变异用例（每条都要能独立变红）
+
+1. 去掉 `lease_epoch` 条目（退回 `acquire → intent`）⇒ 并发双写用例必须红；
+2. 把围栏判定挪到 `acquireLease` 之后（模拟 read-then-act）⇒ 必须红；
+3. cycle7-intent 配 cycle8-completion ⇒ 配对不变量必须红；
+4. 一条 intent 两条 outcome ⇒ 必须红；
+5. `--resolve-in-doubt` 不取租约 ⇒ 并发裁定用例必须红；
+6. 注入崩溃于 intent 与 completion 之间 ⇒ R2′ 必须红，且以**元断言**形态（"检查确实失败"本身是被测对象，`expect(exit!=0)`），否则它是一个永远失败、无人能合并的测试；
+7. payload 超 4KB ⇒ 必须在 intent 写入前拒绝，用例同时断言**副作用未发生**（若在 completion 处拒绝，即 §12.2 的 at-least-once 转换，必须被判红）。
+
+## §12.6 DECISION 增量（仅限 Security 范围）
+
+- **不新增独立 blocker**：上述四点都是 `LEDGER-ATOMIC` / D-14-0 的**修复判据**，不是新缺陷。**Phase GO 仍为 NO-GO**，三个独立理由不变（B2b 未验证 / `LEDGER-ATOMIC`+D-14-0 / `BODY-READ-UNBOUNDED`）。
+- 新增**修复必须满足**的条件（编号续接）：
+  - **C15** `lease_epoch` 必须先于 `cycle_intent` 落盘且带 fsync；
+  - **C16** 围栏判定位于写路径内部，且 `IN_DOUBT` 在 `runNextCycle` 与 `runCycle` 两点强制；
+  - **C17** `verifyChain` 新增配对不变量（存在性 + 同 `(runId,cycle)` + 一 intent 至多一 outcome），并有两个变异用例；
+  - **C18** 上界 4KB 且校验前移；副作用之后禁止 `throw`。
+- 本节 0 项把 UNKNOWN 记作 0，0 项输出凭据内容，0 项改冻结 15 文件，0 项 commit / push。
+
+## §12.7 方法学留痕：复核动作本身会改写证据（本节新增，与前面所有结论无关）
+
+本节写作过程中实测到一条**证据溯源**风险：**`import` 该 verifier 会改写它自己的证据文件**。以 `importlib` 加载 `scripts/v16_independent_verify.py` 并调用 `check6()` 后，`reports/evidence/v16/independent_verify.json` 的 `git diff` 显示：
+
+```
+- "generatedAt": "2026-11-09T15:43:18.025816+00:00"
++ "generatedAt": "2026-11-11T15:46:39.882385+00:00"
+- "root": "C:/Users/Administrator/WorkBuddy/jev-v16"
++ "root": "D:/jev_worktrees/v2ops"
+  … 以及 v16_changed_files 全量重建（259 insertions / 3 deletions）
+```
+
+后果：任何按「import 后调用 `check6()`」复核的人，都会把**别人那次运行**的证据文件改写成**自己机器 root** 的版本；若随后被提交，等于**用复核动作伪造了一次新的原始运行**。这与本报告前面反复处理的「文档改掉自己的锚」「哈希不标算法」是同一类错误的第三种形态：**证据被复核动作改写**。
+
+本次已按 `git show HEAD:reports/evidence/v16/independent_verify.json > …` 原样恢复，工作树只保留本报告的修改。建议后续二选一：脚本加 `--no-write` / 输出重定向；或复核流程规定「先记 blob sha，复核后按 blob 恢复」。
+
+**本节边界**：§12 全部结论锚在 `HEAD=00e08e3`（`h7` 扫描：218 文件、0 命中、本节在扫描范围内）。写作期间工作树出现其他成员**未提交**的改动（`trading_api.mjs` 修改、新增 `server/lib/http-body.mjs`）——**本节不评审工作树**，只评审提交态；工作树评审须等其形成提交后按 SHA 复核。
+
+## §12.8 读数约定：同一批字节在本仓有三种摘要，引用必须标算法
+
+本轮出现一次**差点成立的假发现**：按文件比对 `paper-server.mjs` 时，`9ed13096…`（git blob sha1）与 collector 锚里的 `f9ac6e14…`（逐文件 sha256）不一致，一眼看是"两份分叉的冻结引擎"。实测 `diff` 为 0 行、两处均 1106 行 / 52458 字节 ⇒ **同一个文件，两种算法**。
+
+现有三种约定并存：
+
+| 摘要 | 算法 | 出处 | 覆盖 |
+|---|---|---|---|
+| `git_blob_sha` | git blob `sha1("blob <len>\0" + bytes)` | `cloud/vendor-manifest.json` | 6 文件 |
+| `ENGINE_ANCHORS` 值 | 逐文件 `sha256(原始字节)` | `apps/equity_collector_v45/src/engine-anchor.mjs` | 4 文件 |
+| `ENGINE_TREE_SHA256` | `sha256(ls-tree 原始行以 \n 连接、末尾不带换行、utf-8)` | `scripts/v16_independent_verify.py:55` | 15 文件 |
+
+**约定**：本报告及后续任何报告，每个哈希旁边必须写算法与覆盖集合；两个哈希不相等时，**先排除"算法不同"，再断言"内容不同"**。这条不是排版偏好——它防的是审计者自己造出一个假 P1，而本轮已经有两个人各自差一步。同样的道理适用于计数：**先确认在数哪个清单**（§12.0）。
+
+## §12.9 判据灵敏度：三条"看起来在守、实际拦不住"的形态（本轮实测）
+
+### §12.9.1 `trace` / `STAGES` 索引断言对 D-14-0 **零灵敏度**
+
+`STAGES`（`supervisor.mjs:12` `Object.freeze`）与 `trace`（`:33/:43/:54/:64/:68/:72/:78` 的 `trace.push('…')` 字面量）**两个操作数都取自源码位置**，而真实的 `appendChainEntry(intent)` 是**另一条语句**。把这条语句搬到副作用之后，`trace.push` 一个字都不用动 ⇒ **断言照绿**。即它是**声明对声明**，不是"声明与执行一致"。
+
+实测（harbor 在 `%TEMP%/v46/assert-vacuity.mjs` 上跑，`EXIT=0`，只读 import 仓库 `core.mjs`）：
+
+```
+scenario                          trace索引断言   盘上状态断言   副作用执行次数
+S0 基线 intent 先写 + fsync          PASS(绿)        PASS(绿)        1
+S1 副作用先、intent 后写             PASS(绿)        FAIL(红)        1
+S2 顺序对但去掉 fsync                PASS(绿)        FAIL(红)        1
+S3 两者同时                          PASS(绿)        FAIL(红)        1
+trace 索引断言 实际拦住 = 0/3        盘上状态断言 = 3/3
+```
+**S1 就是 D-14-0 本身**，而它漏掉的正是这个。故本轮定：**判据不得用 trace 索引**。
+
+**正确形态（盘上状态断言）**：在注入的 `cycleImpl` 内部读盘，断言
+1. 已存在 `(runId, cycle)` 的 `cycle_intent` 条目；
+2. `fsyncCalls >= 1`（计数可观测，"未抛错"不算）；
+3. 该 intent 的 `_hash` 与随后 completion 的 `intentHash` 相等。
+
+这条同时解释了为什么 `supervisor.test.mjs:244/:258` 不能充当 D-14-0 的守卫：它们守的是**标签序列**，不是**操作顺序**。
+
+### §12.9.2 内存 fixture 能产出"绿 = 丢了数据"
+
+`core.mjs:55` `appendFileSync` 是追加，`core.mjs:89` `writeSync(fd,data)` 是 `files.set(key, asText(data))` **整文件覆盖**、忽略 `open(p,'a')`。实测后果：
+- `openSync(L,'a') + writeSync(fd,'APPENDED\n')` ⇒ 文件只剩 `APPENDED\n`，两条历史条目消失，`readJsonl` 抛 `LEDGER_PARSE_FAILED at line 0`；
+- 若被覆盖的 chunk 本身是**合法 entry** ⇒ `verifyChain` 返回 `{"intact":true,"count":1}`，**实际丢了 2 条仍报 intact**。
+
+⇒ 任何「`openSync('a')+writeSync+fsyncSync`」的耐久性用例，**在修 fixture 之前会假绿**。这一项必须排在任何写入路径用例之前（§12.4.1 第 3 条）。
+
+### §12.9.3 邻居未修：`floorSlugs` 只比**数量**，不比**集合**
+
+`check-no-fake-live.mjs:446-448`：
+```js
+const floorSlugs = (floorSrc.match(/^\s{4}slug:\s*"[^"]+"/gm) || []).length;
+assert.equal(floorSlugs, GATE_SUITES.length, …)
+```
+而**同一个函数、30 行之前**的 Y2（`:396` 起）已被特意从数量升级为 comment-proof **集合**比较（`:415-425` 的 `missing/unexpected` + 相等断言）。代入式：`ci.yml`/`GATE_SUITES` 加 `9-foo`、floor 的 `SUITES` 删 `1-p0-contracts` ⇒ `8==8` 仍绿，而 `1-p0-contracts` 从此没人核用例数——**正是 `:441` 注释声称要防的事，只是方向从"加而不登记"换成"换而不登记"**。
+修法：取出 floor 的 slug 字符串，与 `GATE_SUITES` 的 basename 做 **Set 相等**（与 Y2 同一套）。
+
+### §12.9.4 聚合值 `total_cases` 的复制必然过期（本轮已发生一次）
+
+floor 表现有 **8** 个套件（`1-p0-contracts 7 / 2-p0-runner 24 / 3-market-data 10 / 4-inference-evidence 17 / 5-p3-contracts 12 / 6-supervisor 14 / 7-no-fake-live 13 / 8-api-body-read 17`），合计 **114**。而 `total_cases=97` 被字面复制在多处，且**部分不带 SHA 限定**：
+`artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md:51,70,72,225,312,324,327,396`；`reports/JEV_V2_FINAL_ACCEPTANCE_SUPPLEMENT.md:320,323`（该段属 `13882c4` 的捕获，:323 的算术 `7+24+10+17+12+14+13=97` 描述的是**那个 SHA 的 expect 表**，不是当前表）。
+**约定（本版修正，原写法自身会过期）**：
+1. **每个聚合值必须与其产出 SHA 同现**，且只允许出现在**锚定该 SHA 的捕获块**内；历史值可引用（它是对一个不可变提交的事实），但**不得被读作当前值**。
+2. **任何位置都不得陈述"当前值"**——当前值只能由 CI 打印的 `GATE_FLOOR_OK suites=N total_cases=M` 给出，不进入文档。因此**替换文案里也不许写新的聚合数**：把 `97` 换成 `114` 只是把会过期的数字换成一个更快过期的数字。
+3. 本条对**我自己上一轮给出的替换句**同样适用：那句里的「合计 114」只在 "#16 已落、Z6 未落" 这一个状态下成立，Z6 一落即为 115 ⇒ 该句作废。**正确的替换句不含任何当前值**：
+   > 本表规模与合计以 CI 打印的 `GATE_FLOOR_OK suites=N total_cases=M` 为准，**本报告不复制 N/M 的具体值**；`13882c4` 时刻为 7 套件 / 97 块，此后随套件与 `check()` 的增加而变。
+
+**结构性推演（非当前值；任何一行被单独引用即失效，必须连同其状态标签一起引）**：
+
+| 状态 | `7-no-fake-live` expect | 聚合 `total_cases` | `suites=` |
+|---|---|---|---|
+| `00e08e3`（7 套件） | 13 | 97 | 7 |
+| +#16 第 8 套件（+17 块） | 13（不变） | 114 | 8 |
+| +Z6（+1 `check()`） | **14** | 115 | 8 |
+| 假设只落 Z6 不落 #16 | **14** | 98 | 7 |
+
+⇒ 两条互不污染：**Z6 改的是 `7-no-fake-live` 的 `expect`**；**#15（R7 修复）改的是 `6-supervisor` 的 `expect`**。两张表、两个数字、两轮提交。**具体条数由实现者按其新增用例块数计算，本报告不签署任何未实测的条数。**
+另需区分两件事，勿混：**新增一个 `check()`** 会改 `7-no-fake-live` 的块数（13→14，如 Z6）；**新增一个套件**不改它，只改聚合值（97→114，本轮已发生）——实测当前 `RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0` 未变。
+
+## §12.10 两条判据裁决（本节为签署结论，后续不得再按旧版执行）
+
+### §12.10.1 entry 上界：对 `intent` 必须在副作用前拒；对 `completion` **禁止事后 throw**
+
+**事实**：`supervisor.mjs:68-75` 的 completion payload 是 `{cycleResultLabel: cycleResult.dataLabel}`，`cycleResult` 来自 `await d.cycleImpl(...)` ⇒ **其大小在副作用之前不可知**。故「上界必须在副作用前拒」只可能覆盖 `intent`，不覆盖 `completion`。我原定的单条规则过宽，此处更正为两条：
+
+- **R-a（副作用前，采纳）**：intent 序列化 > 预算 ⇒ 在任何 append 与 `cycleImpl` **之前** `throw LEDGER_ENTRY_TOO_LARGE_BEFORE_INTENT`；用例必须断言 `cycleImpl` 调用数 === 0。
+- **R-b′（副作用后，采纳）**：completion 超预算 **不抛异常**，改写为有界记录——
+  `payload` → `{ payload_sha256, payload_prefix_b64(≤512B), payload_bytes, payload_truncated: true }`，
+  仍写一条正常 `cycle_completion`，并另发一行结构化警告计数。理由：§12.2 推论 2 已定「副作用之后只允许无损记录或带哈希的有界截断」，**事后 throw 会违反本节自己的定理**——它会留一条看起来像 `FAILED` 的记录，从而**授权重跑**，正是 D-14-0 要防的双执行。保留 `payload_sha256` 使 ㉚ 的两源对账仍可按哈希 join。
+- **R-b″（仅在"`dataLabel` 必须逐字保留"时可用）**：若确实不接受截断，则事后拒绝的状态**必须是 `IN_DOUBT`，不得是 `FAILED`**，且 `runNextCycle` 不得自动重试，只能人工裁定。
+
+**裁决**：采用 **R-a + R-b′**。R-b（事后 `throw … AFTER_EFFECT` 并落 `cycle_failed`）**不予采纳**——`FAILED` 在语义上意味着"副作用未发生"，与事实相反。
+
+### §12.10.2 头锚的尾部分支：**采纳优先于隔离**（我原写法有误，已推翻）
+
+写序硬约束是 `append → fsync → 才更新 lastGood`，三者之间必然有窗口。窗口内崩溃时 `actualSize > byteLength`，而**尾部那条是已提交、已 fsync 的数据**。我原写「验前缀后隔离尾巴」= 把已提交条目移走，正是我们否决 `rename` 时定下的那条罪（"链合法但少一条，且静默"）。**该分支改为三支互斥**：
+
+| 尾部形态 | 处置 | 变异用例（必须打红） |
+|---|---|---|
+| 尾部整行可解析 + 首条 `_prev === headHash` + 自 headHash 起整链验过 + 以换行结尾 | **采纳**，随后更新 lastGood（fsync） | 把合法尾部判成篡改 ⇒ 红 |
+| 尾部可解析但 `_prev` 接不上 或 hash 不符 | `LEDGER_TAMPERED` | 改写尾部一条 ⇒ 红 |
+| 尾部是半行（无结尾换行 / JSON 不完整） | 截断至最后一条合法行，**并追加一条 `torn_tail_truncated{bytes,at}`（fsync）**，使截断可审计 | 截断但不留记录 ⇒ 红 |
+
+两条限定：① **采纳不是免检**——被采纳的尾部条目同样要过 §12.10.1 的体量约束与 §12.1-P3 的 intent↔outcome 配对不变量；② **静默截断一律禁止**：截断本身必须是账本里可见的事件，否则就是同一类"静默丢失"换了个位置。
+
+**这不削弱"未授权追加可检出"**，因为该目标从来不存在：本机制从无外部头锚，有写权限者本就能追加合法条目（§12.4 已声明该威胁不在范围内）。锚保护前缀，链保护尾部内部一致性，**锚不保护"尾部有没有被追加过"**。
+
+### §12.10.3 边界澄清：`workflowTriggerBranches` 只取**首个**匹配
+
+`check-no-fake-live.mjs:220` 用 `findIndex` ⇒ 只解析第一个 `^  pull_request:\s*$` 块。故：
+- **对 Z6 无影响**：Z6 的核心不变量是 T3 **文件级 token 扫描**（`self-hosted` 与 `pull_request`/`pull_request_target` 任一同现即 fail），重复块不构成绕过；
+- **对 Y1/Y2 有影响**：它们的 `branches` 断言读的是首块，第二个块的 `branches` 不被检查；且 `pull_request_target` 至今**没有任何检查解析**。
+⇒ 若日后扩充覆盖面，扩的是"多块/重复触发"与 `pull_request_target` 这一侧，**不是**行尾注释那一侧（后者已由 T4 覆盖）。
+
+## §12.10.4 签署增补：用例清单、`STAGES` 标签表、两处实现条件（本轮审定）
+
+### (a) 用例清单核对：21 条成立，但**第二条尾巴分支缺一条用例**
+
+逐条核过 harbor 提交的 21 行枚举（`⑮, ⑯a, ⑯b′, ⑰, ⑱, ⑲, ⑲b, ⑲c, ⑳, ㉑, ㉒, ㉓, ㉔a, ㉔b, ㉕, ㉖, ㉗, ㉘, ㉙, ㉚, ㉛`），行数 21、`14+21=35` 算术一致，且每行都写明了"只让它变红的变异"——按我的规矩（说不出拦哪个变异就不该进清单）**合格**。
+
+但**§12.10.2 的三支里，第二支没有用例**：⑳ 覆盖 `entryCount` 不符、⑱ 覆盖 append 遇撕裂尾部拒绝、⑲c 覆盖半行截断，而「尾部整行可解析但 `_prev` 接不上 / 自身 `_hash` 与内容不符 ⇒ `LEDGER_TAMPERED`」这一支没有对应块。⑱ 与 ⑳ 都不拦它。
+⇒ **补一条 ⑲d**（变异：改写尾部一条的 `_prev` 使其接不上 headHash；期望 `LEDGER_TAMPERED`），总数 **22**，floor `6-supervisor` `14 → 36`。若实现者认为可合并，必须说明它被哪一条覆盖——**否则又是一个没人数的守卫**。
+
+另注：`⑲` 的「以换行结尾」判据**成立且必须保留**。理由比格式整洁硬：`appendFileSync` 一次写 `canonicalize(entry)+'\n'`，**短写可以只丢末尾那个 `\n`**；缺 `\n` 恰是"这次 append 未完成"的可用信号。**完整 JSON 但缺结尾换行**必须落入 ⑲c（截断并记 `torn_tail_truncated`），**不得因为"能解析"就采纳**——提交点是"整缓冲写完 + fsync"，缺一字节即未达提交点。
+
+### (b) `STAGES` 标签表（冻结，改动须同提交三处同步）
+
+采纳 harbor 提案的 **10 个标签**，顺序如下：
+
+```
+killSwitch → lease → epoch → inDoubtGate → idempotency → resume → cycleIntent → cycleImpl → record → heartbeat
+```
+
+两条条件：
+1. **每个标签必须对应一处真实 `trace.push` 且位置相符**；标签名不得承诺代码没做的事（`epoch` = `lease_epoch` 已 append 且已 fsync，不是"读了一下 epoch"；`cycleIntent` = intent 已 append+fsync；`record` = completion 已 append+fsync）。
+2. **`STAGES` 不得被援引为顺序证据**（§12.9.1：声明对声明，对 D-14-0 零灵敏度）。它的作用是变更控制——让 reviewer 一眼 diff 出"声明改了但实现没改"，**不是**证明写入顺序。顺序的证明义务只在 ⑮（盘内读状态）。
+
+### (c) `cycle_intent` 携带 `maxPayloadBytes`：采纳，**但必须校验而非信任**
+
+携带的理由成立（否则 R-a 与 R-b′ 各写一个 4096 魔数，改一处必漏一处）。但**自述的预算不是预算**：若读取方直接信任 intent 里的值，一个有写权限者（或旧版本 writer）写入 `maxPayloadBytes: 10^9` 即自我豁免。故：
+- 读取时 `intent.maxPayloadBytes` 必须 == 当前配置常量；**不等即拒绝**（`LEDGER_BUDGET_MISMATCH`），不做"取较大者"之类的宽容处理；
+- 该字段随 intent 一起进链哈希（不可事后改）。
+
+### (d) `pull_request_target` 的优先级含义（同意，并补一个 Z6 覆盖不到的面）
+
+"未解析"比"多块"更严重这一点成立。但要说准它属于哪一类风险：Z6 的 T3 已按 **token 级**覆盖「prt + self-hosted 同文件」；**未被覆盖的是另一类**——`pull_request_target` 在工作流里 checkout PR head（如 `actions/checkout` 带 `ref: ${{ github.event.pull_request.head.sha }}`）时，即使用托管 runner 也是任意代码执行（secret 在该事件的上下文里可达）。
+这一条**不在 Z6 的不变量内**，登记为候选 **Z8**（"`pull_request_target` 不得与 checkout PR head 同时出现"），是否入册由 team-lead 决定；我不擅自扩 Z6 的语义。
+
+## §12.10.5 二次签署：`⑯c` 采纳；**我 (c) 那条规则本身写错了，改为不等式**
+
+### (a) `⑯c` 独立成块：23 条，`6-supervisor` `14 → 37`
+
+harbor 用我的清单纪律反问：我在 §12.10.4(c) 加的那条读侧校验，本身没有用例。**成立**。且它与 `⑯a` **不同源**：`⑯a` 的变异在**写侧**（把上界检查挪进 `recordCompletion`）；读侧的变异是"读取时信任 `intent.maxPayloadBytes` 而不与常量比对"——植入一条 `maxPayloadBytes: 10^9` 的 intent，写侧一切正常、`⑯a` 仍绿，只有读侧这条会红。
+⇒ 采纳 **`⑯c LEDGER_BUDGET_MISMATCH`**，总数 **23**，floor `14 → 37`。
+
+### (b) 但 `maxPayloadBytes` 的判定规则**必须是不等式，不是等式** —— 我的原写法会自锁
+
+我上一轮写的是"读取时必须 **==** 当前配置常量，不等即拒"。**这条会把账本在配置变更时锁死**：某日把预算从 4096 调到 8192，所有写于旧配置的 intent 都变成"不等" ⇒ 全量拒绝 ⇒ 账本不可读、不可续跑 —— 一次正常运维动作变成自伤 DoS。这与"append-only 账本必须跨重启存活"直接冲突。
+
+改为：
+1. **写侧是唯一裁决点**：条目是否可接受，由写入时对**当时的常量**判定；读路径**不重新裁决体量**（只校验结构 / `_prev` / `_hash` / 配对不变量）。
+2. **读侧的硬线是上界而非等号**：`intent.maxPayloadBytes <= CURRENT_MAX`。**大于** ⇒ 自我豁免企图 ⇒ 拒（`LEDGER_BUDGET_MISMATCH`）；**小于或等于** ⇒ 合法历史值 ⇒ 接受，并作为审计字段保留。
+3. 配置**调小**时：读路径**不得**因为旧条目超出新常量而拒绝（它们在写入时合法）；只记 `budget_exceeded_historical` 供审计，新写入按新常量约束。
+
+这样既杀掉"写 `10^9` 自我豁免"，又不会因常量变化把账本变成砖。
+
+**`⑯c` 因此必须是双向用例**（单向"一律拒绝"也能骗过一行断言）：
+- 植入 `maxPayloadBytes: 10^9` ⇒ 必须拒（红）；
+- 植入 `maxPayloadBytes: 2048`（小于常量）⇒ 必须**接受**（若此断言缺失，一个"总是拒绝"的实现会通过）。
+反向断言不写，这条就只是半个守卫——与"只给正例等于没证"是同一条纪律。
+
+### (c) 进程级 blocker：两个未提交写者共用一个文件（**与账本缺围栏是同一类缺陷**）
+
+`#15`（`6-supervisor 14→37`）与 `#16`（`8-api-body-read expect:17`）都要改 `apps/command_center_3d/scripts/gate-assertion-floor.mjs`，而**双方都没有 commit 权限**、文件处于未提交状态。后果是 last-writer-wins：后保存者抹掉对方的 `SUITES` 条目，**而 `floorSlugs` 只比数量（§12.9.3），正好盖住这类丢失**。
+⇒ harbor 拒绝进入 `apps/**` 是**正确处置**，不是过度谨慎。此事的形态与我们在账本里修的完全同构：**两个写者 + 没有提交点（fence）= 静默丢更新**。区别是账本丢了会让 `CHAIN_BROKEN` 响，而这里是哑的。
+⇒ 必须有**单一提交点**：指定一名提交人按序落两笔，或先把 `floorSlugs` 修成 Set 相等再改表。**在提交点确定前，任何一方改动该文件都应视为未生效。**
+
+### (d) Z8 的优先级（两方意见一致，决定权在 team-lead）
+
+harbor 主张 Z8 优先于 Z6 的"多块覆盖"：Z6 拦的是**配置组合**，Z8 拦的是**任意代码在有 secret 的上下文里执行**。我同意这个排序——前者是卫生，后者是攻击面。但**是否入册仍由 team-lead 定**，我不代签。
+
+## §12.10.6 三次签署：预算判据**彻底换基础**（不得以自述字段为许可）、`⑯c` 拆三块、25 条 / floor 39
+
+### (a) 我上一版的两条规则互斥（harbor 实测，我复核成立）
+
+我写了两条：规则 2「`intent.maxPayloadBytes > CURRENT_MAX` ⇒ 拒」、规则 3「配置调小时不得拒旧条目」。**同一批条目两种裁决。** harbor 的 `filter()` 返回值直接打穿：写入时合法（常量 8192）的三条 intent，在 `CURRENT_MAX` 调到 4096 后，**等式与不等式都得到"接受=0 / 拒绝=3"**，即账本照样变砖。规则 3 说的"不拒"在规则 2 下无法实现。**这是我的错，两条规则必须删掉一条再重建。**
+
+### (b) harbor 提出的替代式在两种读法下分别是**恒真**与**自锁**（我跑了）
+
+他给的是 `reject ⇔ budget > max(CURRENT_MAX, maxSeenBudgetInLedger)`。实测（`hist=[8192,8192,8192]`，伪造追加 `1e9`）：
+
+```
+读法A（maxSeen 含被检条目自身）  历史@4096: [false,false,false]   伪造@4096: [false,false,false,false]
+读法B（maxSeen 只含此前条目）    历史@4096: [true,false,false]    伪造@4096: [true,false,false,true]
+```
+- **读法 A 恒真**：`maxSeen ≥ 任何条目的 budget`（它包含自己），故 `budget > max(CURRENT_MAX, maxSeen)` **永不成立**——连 `1e9` 都放行。这是"拦不住任何东西的检查"，正是本轮在杀的形态。
+- **读法 B 自锁**：最早那条 `8192` 的 prior 最大值为 0 ⇒ `8192 > 4096` ⇒ 拒 ⇒ **砖**。
+
+⇒ 两种读法都不可用。根因不是公式写错，而是**用一个"随账本变化的量"去裁决账本自身**，必然落到恒真或自锁之一。
+
+### (c) 裁决：读侧门槛改判**实际字节**对**编译期常量**，自述字段只做一致性校验
+
+**新规则（三条，互不冲突）：**
+1. **`maxPayloadBytes` 永不作为许可依据**，只作为**审计 + 一致性**字段。
+2. **读侧硬线是实际字节**：`actual_bytes(entry) > ABSOLUTE_MAX`（**编译期常量，不可配置**）⇒ 拒 `LEDGER_ENTRY_TOO_LARGE_ON_READ`。因为它是常量，**不存在"配置变更导致自锁"**；因为看的是实际字节，**不存在"自述豁免"**。
+3. **一致性校验**：`declared < actual_bytes` ⇒ 拒 `LEDGER_DECLARATION_INCONSISTENT`（这条抓的是"少报"——自我豁免的真实路径不是报大，而是**少报**后写大）。
+
+**可推广的规则（写进本节，供后续所有"上界/预算"类设计引用）：**
+> **自述的限制不得作为许可依据，只能作为一致性校验。**
+> 任何 `X.limit` 若被读方用来"允许"某个行为，攻击者写一个大 `X.limit` 即自我豁免；若被用来"拒绝"，则一次合法配置变更就把历史数据判为非法（自锁）。唯一安全的位置是：**许可由不可变常量或实际字节决定，自述值只与事实比对**。
+
+### (d) `⑯c` 拆三块：25 条，`6-supervisor` `14 → 39`
+
+harbor 说"双向是 2 个方向，这条规则有 3 个"，方法论对；但他提出的三块建立在 (b) 那个式子上，故三块的**判据要换基础**，条数不变：
+
+| 块 | 断言 | 只让它变红的变异 |
+|---|---|---|
+| `⑯c₁` | 实际字节 > `ABSOLUTE_MAX` ⇒ 拒 `LEDGER_ENTRY_TOO_LARGE_ON_READ` | 删读侧实际字节门槛 |
+| `⑯c₂` | `declared < actual_bytes` ⇒ 拒 `LEDGER_DECLARATION_INCONSISTENT`；`declared == actual`（或 ≥）⇒ 接受 | 删一致性校验 / 改成信任 declared |
+| `⑯c₃` | 常量 8192 写成的历史条目，在 `CURRENT_MAX` 调到 4096 后**仍可续跑**（不砖） | 把任何 `> CURRENT_MAX` 或 `== CURRENT_MAX` 的比较加回读路径 |
+
+`⑯c₃` 是**反向回归守卫**：它的变异不是"删代码"而是"**加回**那条看起来合理的比较"。这类"防未来的自己"的用例必须存在，否则 §12.10.6(a) 那个自锁会在下一次重构里无声复活。
+合计：原 23 条中 `⑯c` 由 1 块拆为 3 块 ⇒ **25 条，`14 → 39`**（`14+25=39`）。
+
+### (e) 采纳 harbor 的两条实现细化
+- 字段名用 **`discarded_bytes`** 而非 `bytes`：`torn_tail_truncated{bytes:…}` 会被误读成"剩余长度"，他自己第一眼就误读了。**自解释字段名能省掉下一次误读**——这是可验收性的一部分，不是风格。
+- 证伪第 ④ 步"还原"必须给**变异前 / 还原后两次 `git hash-object`** 回显。理由：本轮已有一次"复核动作改写了证据文件"（§12.7），只靠"我改回去了"不可证。

@@ -196,7 +196,7 @@ verdict says so.
 | dedupe / idempotency | `t2_idempotency` (V1.5) PASS, `v16_t2_idempotency_fields` PASS, `t4_idempotency` (Track B) PASS | **PASS** |
 | session isolation | `t4_account_isolation` PASS, `t6_session_failclosed` PASS; plus the receiver's `session_isolation` rejection driven by me | **PASS (library)** |
 | Windows paths | **9/9 jobs are `ubuntu-latest`, 0 Windows** (`ci.yml:24,159`, `cloud-staging-runtime.yml:11`, `jev-cloudflare-staging.yml:18`, `v14-acceptance.yml:21,40,88,143`, `v16-market-provenance.yml:30`). Existing evidence cannot rescue it: `artifacts/acceptance/REBOOT_RECOVERY.json` carries `release_sha = cefed66…` (the **2026-09-26** phase-1 SHA) and `checked_at=2026-09-26T22:18:43+08:00`; `restart_recovery.json` (`schema=jcc-e2e-evidence/2`) carries `provenance.generator_sha256` + `module_sha256` but **no commit/SHA and no platform field**. Neither names Windows; neither covers `8da3947`. | **FAIL — B2 gate blocker** (see §6 R-1b) |
-| malformed / oversized payload | **must be split by surface.** `integrations/_common/jcc_receiver.py:36,148` → `payload_too_large`, asserted at `test_p2_integration_smoke.py:295` and reproduced by my harness → **PASS**. `apps/command_center_3d/server/engine/_lib/paper-server.mjs:63` (`BODY_TOO_LARGE`/413) and `strategy-registry.mjs:255` → **0 assertions**, and `paper-server` **is reachable** (`server/trading_api.mjs` adapter, `127.0.0.1:4791`, behind an authenticated gateway) → **FAIL (unverified)** on the engine surface. `service-auth.mjs:119` → unreachable (§ above). | **PASS** on the Hermes receiver / **FAIL (unverified)** on the engine HTTP surface |
+| malformed / oversized payload | **must be split by surface.** `integrations/_common/jcc_receiver.py:36,148` → `payload_too_large`, asserted at `test_p2_integration_smoke.py:295` and reproduced by my harness → **PASS**. `apps/command_center_3d/server/engine/_lib/paper-server.mjs:63` (`BODY_TOO_LARGE`/413) and `strategy-registry.mjs:255` → **0 assertions**, and `paper-server` **is reachable** (`server/trading_api.mjs` adapter, `127.0.0.1:4791`, behind an authenticated gateway) → **FAIL (unverified)** on the engine surface. `service-auth.mjs:119` → unreachable (§ above). | **PASS** on the Hermes receiver / **FAIL (unverified)** on the engine HTTP surface — **partly superseded by §10.1 and §10.2** |
 | state recovery | `t3_outage_recovery` PASS, `t5_replay_readonly` PASS, `t6_session_failclosed` PASS | **PASS** (process level) / **UNVERIFIED** for Windows reboot (§6 R-1b) |
 | secret redaction | `t7_redaction` (5 checks) inside the 120/120 Track B run; redaction commit `c4db677`; V1.6 H7 pattern | **PASS** |
 | no secrets in workflows | `pull_request_target` / `secrets.` / `ghp_` / `github_pat_`: 0 hits | **PASS** |
@@ -465,3 +465,199 @@ above and the same B2. Where we overlapped I re-derived his claims from source a
 places I had to correct: `REBOOT_RECOVERY.json` *is* commit-bound (to `cefed66`, not unbound), and
 `service-auth.mjs` is *unreachable*, which is a weaker security finding than "unverified" but a
 stronger documentation finding. I do **not** sign B1 (provenance) — that is Aegis's gate.
+
+---
+
+## 10. 更正块（append-only，2026-11-12，harbor2）
+
+> 规则：本节**只增不改**。上文原句全部保留；被推翻的表述就地加 `superseded` 标记，正文原样留着，供后来者对照。
+> **依据形态声明**：本节的依据是**提交 `00e08e3`** 上的源码 + 本机实测命令输出，**不是 CI run id** —— 因为截至本节撰写时尚无任何一次 GitHub Actions 运行落在候选 SHA 上（这正是上文 NO-GO 理由 4，R-1）。凡标 `LOCAL` 的行，**不得**被读作"CI 已确认"。
+
+### 10.1 更正：「malformed / oversized payload」一行把两个 facade 混成一个表面
+
+**原文（保留）**：`paper-server` **is reachable**（`server/trading_api.mjs` adapter，`127.0.0.1:4791`，**behind an authenticated gateway**）→ FAIL (unverified)。
+
+**更正后**：这句话对其中**一个** facade 成立，对**另一个**不成立，必须拆开写。
+
+| facade | 读体发生在鉴权之前还是之后 | 可达性 | 结论 |
+|---|---|---|---|
+| `server/trading_api.mjs` | **之前**。`handle()` 在 `try {}` 与 `ledger.readSession()` 之前就 `await readNodeBodyBytes(req)`（旧版为 `readBody`） | 绑 `127.0.0.1:4791`。**任何网页**都能用 `text/plain` 简单请求（免 CORS 预检）打这个环回端口 ⇒ 无需公网 | **pre-auth 无界读体**，攻击者只需让受害者访问一个页面 |
+| `functions/api/jev/[[path]].js` | **之后**。`onRequest` 里先过三条红线段与 Basic auth，之后才进 `handleApi()` 读体 | 公网（Pages Function） | **已认证后**的无界读体；原文的 "behind an authenticated gateway" 只对这一条成立 |
+
+⇒ 该行的结论由「一个表面 FAIL」更正为「**两个表面、两种性质**」；「pre-auth」一词只属于 `trading_api.mjs`，不得套用到公网侧。
+
+依据：`LOCAL` @ `00e08e3`，`trading_api.mjs` 读体位置 vs `[[path]].js` 的 `onRequest` Basic auth 段。
+
+### 10.2 更正：M1 的主缺陷是**正确性**，DoS 是附带；"永挂"要降一档
+
+**原文（保留，散见 M1 上报条目）**：定性为「读路径无界 / pre-auth 无限缓冲」，并称客户端的 `await` **永不 settle、永挂**。
+
+**更正后**：
+
+1. **主缺陷是逐 chunk 解码，不是缓冲。** 旧实现是
+   `let s = ""; req.on("data", (c) => { s += c; });`，而 `c` 是 **Buffer**，`+=` 对**每个分片各自** `toString()`。多字节字符跨分片即被改写。实测（`LOCAL`）：`你` 的 3 字节切成 2+1 → `len_chars=2`、回编码 **6 字节**、`U+FFFD,U+FFFD`、`lossless=false`；按同一机制整包实测 **`origBytes=40 → recvBytes=46`、`same=false`**。
+   后果：① 任何含非 ASCII 的请求体（中文备注、emoji）在跨 TCP 分段时被**静默改写**，单测全绿、生产偶发 400；② 任何对 body 做 HMAC/签名的校验经此 facade **必错** —— 冻结引擎的 `service-auth.mjs` `signServiceBody` 正是对 rawBody 求 sha256，一旦接线就是 100% 失败，指纹为「偶发、不可复现、日志无线索」。故此项为 **P1 正确性缺陷**。
+2. **DoS 描述降一档。** `LOCAL` 实测本机 Node **v22.22.2** 的 `http.createServer()` 默认值：`requestTimeout=300000`、`headersTimeout=60000`、`timeout=0`、`keepAliveTimeout=5000`，而 facade 的 `createServer` **未覆盖任何一项**。所以准确表述是「**上限 5 分钟的挂起 + 窗口内无界累积**」，**不是"永挂"**；socket 销毁后悬挂 promise 可回收。严重度不下调，因为可达性是「任何网页免预检打环回端口」。
+3. **修复必须三项一次做完**：持续解码（累积 Buffer，末尾 `toString("utf8")` 一次）＋ 按**字节**（非字符）判上限 ＋ `error`/`close`/`aborted` 有出口。**并且** 413 必须**先有界排空再应答**：先 `res.end` 后关socket 会被 Node 自身的 `destroySoon` 在"请求体还有未读字节"时关掉，内核发 RST、客户端丢掉 413（`LOCAL` 实测：该顺序下 10 次里 5 次 `ECONNRESET`）。
+
+依据：`LOCAL` @ `00e08e3` + 新增套件 `8-api-body-read`（见 §10.6）。
+
+### 10.3 新增读数约定：本仓对**同一批引擎字节**用了三种哈希约定，报告必须标算法
+
+`LOCAL` 实例：`paper-server.mjs` 同时是 `9ed13096c8…` 与 `f9ac6e1424…` —— **不是两份分叉的引擎，是同一个 52458 字节文件的两种摘要**：
+
+| 出处 | 算法 | 该文件的值 |
+|---|---|---|
+| `cloud/vendor-manifest.json` 的 `git_blob_sha` | git blob sha1 | `9ed13096c801c6d5842a5ef5bc48247afc298bf7` |
+| `apps/equity_collector_v45/src/engine-anchor.mjs` 的 `ENGINE_ANCHORS` | 逐文件 sha256 | `f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74` |
+| `scripts/v16_independent_verify.py` 的 `ENGINE_TREE_SHA256` | `git ls-tree -r HEAD` 原始行 `"\n".join`（无尾换行）后取 sha256 | 全树 `aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad`（15 文件） |
+
+⇒ 本报告此后**每个 hash 位旁必须并写算法与所绑 SHA**。撰写本节时我本人差一次命令就把上表前两行当成"两份分叉的冻结引擎"报成 P1；`diff` 0 行、两处均 1106 行 / 52458 字节才拦住。**不标算法 = 给下一个审计者预埋一个假 P1。**
+
+**但三行不是三条守护** —— 必须同读：只有第三行（`ENGINE_TREE_SHA256`）是 **CI 强制**的（`check3` 在 `scripts/v16_independent_verify.py`，被 workflow 调用）；前两行分别只在 `cloud-entry.mjs` 启动路径与 collector 本地测试里用到，**在 `.github/workflows/` 命中 0**（详见 §10.4）。"三个摘要都算对了"绝不等于"三条路都有守护"。
+
+### 10.4 新增：`vendor` 身份校验在 CI 中**从不执行**，且只覆盖 6/15
+
+- `verify-engine-vendor.mjs` 全仓唯一引用是 `apps/command_center_3d/cloud/cloud-entry.mjs:1`；而 `cloud-entry` 在 5 个 workflow 里 **0 命中** ⇒ 不是"fail-late"，是**永不触发**。
+- `cloud/vendor-manifest.json` 只有 **6** 条 `git_blob_sha`（`paper-server` / `paper-ledger` / migrations `0001-0003` / `decimal`），而 `check3` 覆盖 **15** ⇒ **9 个文件没有任何 vendor 身份覆盖**：`ai-core`、`agent-orchestrator`、`service-auth`、`strategy-events`、`strategy-registry`、`verification`、`equity-snapshot`、migrations `0004`、`0005`。
+- 该检查的两端（`vendor/` 与 `server/engine/`）**同在本仓、且字节相同**（`diff` 0 行）⇒ 它只能抓"单边误改"，**不能证明**与上游 `origin_commit 34b2e54c@yihui315/night-researcher-dash` 一致（该对象本仓不存在）。
+
+⇒ 不可写作"vendor 校验 fail-late 但存在"；应写作「**在 CI 中从不执行，覆盖 6/15，且两端同源，故不能证明与上游一致**」。
+
+### 10.5 新增：`v12_isolation_engine_test.mjs` 不得计入"隔离已测"
+
+`:69-70` 的夹具注释原文：`// Same-origin as the constructed URL (http://localhost...) so both read (isSameOrigin) and write (writeOriginOk) authorization checks pass.` 即**门被当成前置条件**；全文零 `CROSS_ORIGIN` / 403 负例；且该文件名**全仓 0 引用**、不在任何 workflow —— 不是"没被 CI 跑"，是**没有登记**。
+
+⇒ 一个通过了的测试，若它 (a) 不在任何 workflow、(b) 全仓零引用、(c) 夹具以注释声明"我让门通过了"，那它不是"反例缺失"，而是**缺陷未被测试的记录**。把它计入"隔离已测"是三重计数最隐蔽的形式。
+
+### 10.6 本次落地（**工作树未提交**，故本节不含 commit SHA）
+
+> `git status --porcelain` 在撰写时显示下列改动均为未提交状态。**在获得 commit SHA 之前，任何读者都不得把本节读作"已入库"。** 提交后应在本节追加一行 `commit=<SHA>`。
+>
+> **`commit=4859e5c`** —— 已由主理人作为单一提交人提交到 `feature/jev-v2-ops-integration`，父提交 `00e08e3`，7 文件 / 830 insertions / 24 deletions。本节以下内容自此为**已入库事实**，不再是工作树状态。两个报告文件（本文件与 `reports/JEV_REAL_TRADING_SECURITY.md`）**不在该提交内**，仍为工作树改动。
+
+| 文件 | 改动 |
+|---|---|
+| `apps/command_center_3d/server/lib/http-body.mjs` | **新增**。字节安全读取器：`readNodeBodyBytes`（累积 Buffer、末尾单次解码、字节上限、`error`/`close`/`aborted` 出口）＋ `readFetchBody`（声明长度预检 + 流式字节上限两段）＋ `drainThenRespond`（先排空再应答）＋ 两个错误类型 |
+| `apps/command_center_3d/server/trading_api.mjs` | 删掉 `readBody`；改用 `readNodeBodyBytes`；413 走 `sendBodyError`（**先排空再应答**）；原始字节透传给 `buildEngineRequest`；启动横幅打印实际上限 |
+| `apps/command_center_3d/functions/api/jev/[[path]].js` | `request.text()` → `readFetchBody`；5 处 `buildEngineRequest` 透传原始字节 |
+| `apps/command_center_3d/server/tests/http-body-read.mjs` | **新增**。17 个用例，含**永久负控**（用例 4 跑修复前实现并断言它损坏 body，保证断言不会失去牙齿） |
+| `.github/workflows/ci.yml` | 新增第 8 个 gate 套件（`test -f` 硬失败 + `node … \| tee`） |
+| `apps/command_center_3d/scripts/check-no-fake-live.mjs` | `GATE_SUITES` 7 → 8 |
+| `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | 新增 `8-api-body-read expect=17` |
+
+**floor old → new**：`GATE_FLOOR_OK suites=7 total_cases=97 exit=0` → **`GATE_FLOOR_OK suites=8 total_cases=114 exit=0`**（`114 = 97 + 17`，可加性校验成立）。§1 的 `7+24+10+17+12+14+13 = 97` 依旧为真，但只属于**7 套件时代**，不得与本行的 114 混读。
+
+> ⚠ **`114` 是本次实测值，不是常量。** 本报告全文不陈述"当前"套件数/用例数；任何引用都必须落在某个具体捕获块或其 SHA 上。见 §10.7。
+
+**证伪（删掉修复 ⇒ 变红）** —— 两次都是"只回退一个函数、其余从修复版 re-export"，因此红点是可归因的（`LOCAL`，均为 17 用例套件）：
+
+```
+# 证伪一：只回退 readNodeBodyBytes（逐 chunk 解码、无上限、无 error/close 出口）
+FAIL  2 node: a multi-byte character split across two chunks survives (the original bug): bytes differ after a mid-character split
+FAIL  3 node: one byte per chunk is still byte-identical: 1-byte chunks corrupted the body (65 != 33)
+FAIL  4 node: NEGATIVE CONTROL … : fixed reader must be lossless on the input the legacy reader corrupts
+FAIL  5 node: a body over the cap is rejected with BODY_TOO_LARGE/413: expected BodyTooLargeError, got null
+FAIL  6 node: the cap counts BYTES, not characters … : a cap measured in characters would let a 60-byte / 20-character body through
+FAIL  7 node: a client that goes away mid-body settles instead of hanging: reader never settled after the client aborted (the original code hung here)
+FAIL 16 socket: a multi-byte body survives real TCP, end to end: body differed over a real socket (39 != 33)
+FAIL 17 socket: an oversized body gets a real 413 with a parseable code: expected a 413 status line, got: HTTP/1.1 200 OK
+RESULT PASS=9 FAIL=8   → exit 1
+
+# 证伪二：只回退 readFetchBody 的两处字节上限（流式读取与单次解码保持不变）
+FAIL 10 fetch: a chunked body over the cap is rejected while streaming (no content-length declared): expected BodyTooLargeError, got null
+FAIL 11 fetch: a declared content-length over the cap is rejected BEFORE any read: expected BodyTooLargeError, got null
+FAIL 12 fetch: the cap counts BYTES, not characters … : a cap measured in characters would let a 60-byte / 20-character body through
+RESULT PASS=14 FAIL=3   → exit 1
+```
+
+证伪二只红 3 条、且**恰好是上限相关的那 3 条**，这是有意的设计：Workers 侧的缺陷**只是缺上限**，解码本来就是一次性的（`request.text()` 不信 chunk），所以"回退"后保真用例应当继续绿。若它把保真用例也弄红，就说明证伪模块实现错了、证明不了任何东西。
+
+还原后用 sha256 校验字节回归（`f859bcc8b890d7ac17efd1dc17d05c9c063e73d94d9775932f304b22849ac187`），并连跑 12 次全绿（首次实现存在"先应答后排空"的竞态，10 次里 5 次 `ECONNRESET`；改为"先排空再应答"后 12/12 绿，该竞态已在上文 §10.2 第 3 点固化为要求）。
+
+**冻结树未被触碰**：`git ls-tree -r HEAD -- apps/command_center_3d/server/engine/` 复算仍为 `aec5d1b7…`、`n=15`，与 `check3` 锚点逐字符一致；`git status --porcelain` 中 `server/engine/` 命中数为 **0**。新模块落在 `server/lib/`（非冻结），不触 `check3`、不逼人重钉 15 文件锚。
+
+### 10.7 读数约定：本报告**不陈述"当前"的 `suites` / `total_cases`
+
+本报告正文多处出现 `97`、`721/729`、`754/746` 一类聚合值与套件数（`:51 :70 :72 :225 :312 :324 :327 :396` 等）。**这些数字在它们被写下的那一刻是真的，写完之后每一次新增守卫都会让它们过期。** 逐处加 `superseded` 标记只会制造"有的标了、有的没标"的分裂状态，比统一不标更难读。故统一改为：
+
+> **本报告全文不陈述"当前"的 `suites` / `total_cases` 值。** 仅两处有效：
+> 1. **历史锚**：`13882c4` = 7 套件 / 97 块；
+> 2. **当前值**：以 CI 运行时**自己打印**的那一行为准 —— `GATE_FLOOR_OK suites=N total_cases=M exit=0`（`gate-assertion-floor.mjs` 现算，非硬编码）。
+>
+> 任何形如"现在是 114 / 是 137 / 是 138"的转述**都不是**本报告的声明，属引用者自担。提交信息与对话里同样不应把该值当常量引用。
+
+理由（与本报告 §7.3 同一条）：**复制聚合值必然过期**。本轮先是 97 → 114（新增 `8-api-body-read`），接着会 114 → 137（`6-supervisor` 14→37 的账本用例），再接着 `7-no-fake-live` 13→14（Z6 落地）。若每步都把新数写进文档，下一次更正只会再制造一个"文档改掉自己的锚"。
+
+### 10.8 守卫升级：floor 表与 `GATE_SUITES` 的同步，从「数量」改为「集合」
+
+**缺陷（由 harbor 与 aegis 独立指出，落在我这次提交的射程内）**：`check-no-fake-live.mjs` 的 Y2 里，`GATE_SUITES`（ci.yml 侧）已是 comment-proof 的**集合**比较，而 30 行之后对 floor 表的校验**只比 `slug:` 条数**：
+
+```js
+const floorSlugs = (floorSrc.match(/^\s{4}slug:/s*"[^"]+"/gm) || []).length;
+assert.equal(floorSlugs, GATE_SUITES.length, ...);
+```
+
+于是「ci.yml + `GATE_SUITES` 加 `9-foo`、floor 表删 `1-p0-contracts`」⇒ 条数仍相等 ⇒ **绿**，而 `1-p0-contracts` 从此不再被核用例数。这正是该块注释声称要防的"加而不登记"，上一层形态。
+
+**为什么它不红比红更糟**：本轮两处刚好都被我同时加过（`8-api-body-read`），`8 == 8` 是**巧合为绿**，不是判据为绿。红会被看见，巧合不会。
+
+**修法**：floor 的 `label:` 里取出 `.mjs` 文件名，与 `GATE_SUITES` 的 basename 做 **`Set` 相等**（与 Y2 的 ci.yml 集合比较同一套写法），并先断言 basename 唯一——否则两个套件映射到一条 floor 条目，映射就不再是单射。
+
+**变异证据（`LOCAL`，diagnostic 非发布证据）**：把 floor 表里 `1-p0-contracts` 的 label 换成不存在的文件（**条数不变，仍 8**）：
+
+```
+$ grep -c "slug:" apps/command_center_3d/scripts/gate-assertion-floor.mjs
+8                                   ← 旧判据只看这个，仍然通过
+
+$ node apps/command_center_3d/scripts/check-no-fake-live.mjs
+AssertionError [ERR_ASSERTION]: gate-assertion-floor.mjs drifted from ci.yml/GATE_SUITES:
+  missing from floor(1): ["day14-p0-contracts.mjs"]
+  unexpected in floor(1): ["decoy-not-a-suite.mjs"]
+exit 1
+```
+
+还原后 sha256 逐步核对为字节同一（`2cce1864824f2cd07c8249b2e5746877089a7503e92e14e4cc3d48cbc73f8c83`）。这组对照是本节的关键：**同一个变异，旧判据绿、新判据红。**
+
+### 10.9 已知分叉：两份验收报告不同源，按任务书路径取到的是未更正版
+
+```
+febc575d…  D:/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_REPORT.md          ← 仍是旧版，无 §10
+<本文件>   artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md    ← 已含 §10
+```
+
+`D:/jev/...` 是**任务书点名的路径**（本报告 `:416` 也这么记着），但它现在落后一整个 §10 更正块，而 §10.2 更正的恰恰是"永挂"这种最容易被下一份文档引用的定性。**谁按任务书路径去取，拿到的是未更正版。**
+
+处置**不在本报告权限内**，需由主理人裁决二选一：① 把 `D:/jev` 那份同步为候选版；② 在 `D:/jev` 那份顶部加一行"本副本已过期，以候选路径为准"。我**没有**跨分支去改它——两份是不同分支的产物，我这边单方面同步等于替别人做了一次跨分支复制，且下次任何一方再改又会分叉。此条在裁决前对读者是**活跃风险**，不是已解决问题。
+
+**已裁决（主理人）：选 ②，且要求「机器可检测」，不得只写一段叙述。** 理由（比我的更硬）：①（同步）会把一份**历史证据副本**变成必须永远对齐的活体，而它的价值恰恰在于"当时发布出去的就是这份字节"。
+
+已执行：在 `D:/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_REPORT.md` 顶部插入标记块，含两个机器可解析键——`superseded_by_path:` 与 `superseded_by_sha256:`（权威副本字节的 sha256）——**不含任何会滚动的聚合值**（不写套件数、不写 `total_cases`，与 §10.7 同纪律）。
+
+该标记的**能力边界**必须写明，否则下一轮会被当成"已绑定"：
+
+> 标记绑定的是**某一时刻权威副本的字节**，不是"权威副本"这个概念。权威副本此后**任何一次编辑都会让该 sha256 失真**——这与"文档不能引用自身摘要"同源。故：**权威副本每改一次，必须重算并重写该标记**；校验者若发现不匹配，先判断"权威副本前进了"还是"过期副本被篡改"，不得直接断言后者。
+
+### 10.10 事故留痕：变异体曾被写到被测路径上（已恢复，未进提交）
+
+**事实**（由主理人发现并修复，我认领根因）：我做证伪时把变异模块**直接覆盖到被测路径** `apps/command_center_3d/server/lib/http-body.mjs` 上运行，随后还原。中间有一个瞬间（`00:03:50`）该路径上是 F2 变异体：
+
+```js
+export { readNodeBodyBytes, … } from "file:///C:/Users/Administrator/AppData/Local/Temp/jcc-falsify/http-body.FIXED.20261112-000240.mjs";
+export async function readFetchBody(request) { /* 无上限版本 */ }
+```
+
+该文件当时**未跟踪**，`git checkout` 救不回来。若会话在此中断，仓库将永久留下一个 re-export 到 `%TEMP%` 的假模块：任何机器上跑测试都会红，而报错指向 `AppData\Local\Temp`，排查成本极高。
+
+**未进提交，已独立核验**（`LOCAL` @ `4859e5c`）：
+
+```
+$ git show HEAD:apps/command_center_3d/server/lib/http-body.mjs | sha256sum
+f859bcc8b890d7ac17efd1dc17d05c9c063e73d94d9775932f304b22849ac187
+$ git show HEAD:apps/command_center_3d/server/lib/http-body.mjs | grep -c "file:///C:/Users\|FALSIFICATION"
+0
+```
+
+**根因**：我把"变异"和"被测对象"放在同一个文件路径上，只靠"跑完再 `cp` 回来"这个**人为步骤**还原。人为步骤不是机制——它在我自己盯着的时候有效，在中断/并发/第二个写者时无效。
+
+**规矩（硬执行）**：变异体**不得写到被测路径**。变异写在 temp 或 `__mutants__/`，通过独立入口 `import` 注入；确实必须替换原文件时，`try/finally` + `trap` 双保险还原，并在报告里附**还原后 sha256 回显**。本节引用的 `f859bcc8…` 就是那条回显的产物——但它证明的是"最终状态对"，**不能**证明"过程中没出错"，两者不可互相替代。
