@@ -122,7 +122,15 @@ const SUITES = [
   {
     slug: "6-supervisor",
     label: "scripts/supervisor/supervisor.test.mjs",
-    expect: 14,
+    // 14 -> 15: ⑮ verifyChain 非数组入参一律 throw（CHAIN_INPUT_NOT_ARRAY）。
+    // 15 -> 16: ⑯ 内存 fs 尊重 open 模式（a 追写 / w 截断 / fsync 可计数）。
+    // 16 -> 18: ⑰⑱ 永久负对照 —— 旧 string fixture 必须被证明是错的（接力写丢失 / 半字节变 U+FFFD）。
+    //           Without these, a later "simplification" back to strings turns every
+    //           tearing test green, and green is the most easily accepted wrong state.
+    // Earlier the guard was missing, so a caller passing a wrapper object made
+    // `0 < undefined` false, the loop ran zero times, and verifyChain returned
+    // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
+    expect: 18,
     // "RESULT PASS=14 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },

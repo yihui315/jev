@@ -3,6 +3,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import * as S from './index.mjs';
+import { createMemoryFs, createLegacyStringFs } from './core.mjs';
 
 // 被静态扫描的实现文件（明确列举，不含本测试文件本身）。
 const IMPLEMENTATION_FILES = [
@@ -99,7 +100,7 @@ await test('④ 账本内容被篡改 / 断链 → throw，不返回任何 lastC
   await sup.runCycle({ runId: 'run-D', cycle: 0 });
   await sup.runCycle({ runId: 'run-D', cycle: 1 });
   const ledgerPath = sup.subsystems.idempotency.ledgerPath;
-  const raw = deps.fsImpl.readFileSync(ledgerPath);
+  const raw = deps.fsImpl.readFileSync(ledgerPath, 'utf8');
   const rows = raw.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
   rows[0].cycle = 999;                     // 内容篡改，但不重算 _hash
   deps.fsImpl.writeFileSync(ledgerPath, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
@@ -122,7 +123,7 @@ await test('④ 账本内容被篡改 / 断链 → throw，不返回任何 lastC
   await s2.runCycle({ runId: 'run-D2', cycle: 1 });
   await s2.runCycle({ runId: 'run-D2', cycle: 2 });
   const lp2 = s2.subsystems.idempotency.ledgerPath;
-  const rows2 = d2.fsImpl.readFileSync(lp2).split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+  const rows2 = d2.fsImpl.readFileSync(lp2, 'utf8').split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
   rows2.splice(1, 1);
   d2.fsImpl.writeFileSync(lp2, rows2.map((r) => JSON.stringify(r)).join('\n') + '\n');
   assert.throws(() => s2.resume('run-D2'), /CHAIN/);
@@ -256,7 +257,7 @@ await test('⑪ fixture 数据不得标 LIVE / REAL，缺失值不得写 0', asy
   const r = await sup.runCycle({ runId: 'run-E', cycle: 0 });
   assert.equal(r.status, 'COMPLETED');
   assert.deepEqual(r.trace, S.STAGES, '编排顺序必须固定');
-  const rows = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath)
+  const rows = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath, 'utf8')
     .split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
   assert.equal(rows.length, 1);
   assert.notEqual(rows[0].payload.cycleResultLabel, 'LIVE');
@@ -306,6 +307,103 @@ await test('⑭ 原生链工具：append→verify 通过，篡改 / 断链均 th
   bad2[1]._prev = 'GENESIS';
   assert.throws(() => S.verifyChain(bad2), /CHAIN/);
 });
+
+// ⑮ 非数组入参必须抛 CHAIN_INPUT_NOT_ARRAY（否则 readJsonl 改签名后漏改的调用点
+//    会让 0 < undefined 为假 ⇒ 循环 0 次 ⇒ 返回 {intact:true,count:undefined} 静默通过）
+await test('⑮ verifyChain 非数组入参一律 throw（防静默通过）', async () => {
+  const { deps } = ctx();
+  const p = '/x/ledger-guard.jsonl';
+  S.appendChainEntry(deps.fsImpl, p, { a: 1 });
+  const rows = S.readJsonl(deps.fsImpl, p);
+  assert.equal(S.verifyChain(rows).intact, true, '数组入参必须通过');
+
+  // 包裹对象：正是 readJsonl 改签名后漏改的调用点会传的形态
+  assert.throws(
+    () => S.verifyChain({ entries: rows, tailTorn: false, tornBytes: 0 }),
+    /CHAIN_INPUT_NOT_ARRAY/,
+  );
+  assert.throws(() => S.verifyChain(null), /CHAIN_INPUT_NOT_ARRAY/);
+  assert.throws(() => S.verifyChain(undefined), /CHAIN_INPUT_NOT_ARRAY/);
+  assert.throws(() => S.verifyChain('[]'), /CHAIN_INPUT_NOT_ARRAY/);
+});
+
+// ⑯ 内存 fs 必须尊重 open 模式（㉛）。旧实现的 writeSync 无视 flag 整文件覆盖，
+//    于是 openSync(p,'a')+writeSync+fsyncSync 在 fixture 里把账本截成一条，
+//    而真实磁盘是追写 —— 同一份代码在两边语义分叉，耐久性用例会假绿。
+//    实测旧行为：两条历史条目被换成 "APPENDED\n"，readJsonl 抛 LEDGER_PARSE_FAILED；
+//    若覆盖内容恰为合法 entry，verifyChain 仍返回 {intact:true,count:1}（丢了 2 条还是 intact）。
+await test('⑯ 内存 fs 尊重 open 模式：a 追写 / w 截断 / fsync 可计数', async () => {
+  const { deps } = ctx();
+  const p = '/x/ledger-mode.jsonl';
+  S.appendChainEntry(deps.fsImpl, p, { a: 1 });
+  S.appendChainEntry(deps.fsImpl, p, { a: 2 });
+  const before = S.readJsonl(deps.fsImpl, p).length;
+  assert.equal(before, 2, '前置：两条历史条目');
+
+  // 'a' 必须追写：前序条目一条都不能少
+  const fdA = deps.fsImpl.openSync(p, 'a');
+  deps.fsImpl.writeSync(fdA, '');
+  deps.fsImpl.fsyncSync(fdA);
+  deps.fsImpl.closeSync(fdA);
+  assert.equal(S.readJsonl(deps.fsImpl, p).length, 2, 'a 模式不得丢失前序条目');
+  assert.equal(S.verifyChain(S.readJsonl(deps.fsImpl, p)).intact, true, 'a 模式后链仍完整');
+
+  // fsync 必须可被断言（"没抛错"不算通过）
+  const fsyncAfter = deps.fsImpl.fsyncCallCount();
+  assert.ok(fsyncAfter >= 1, 'fsync 必须被实际调用并可计数，实际 ' + fsyncAfter);
+
+  // 'w' 必须仍然截断 —— 否则"尊重模式"就无从谈起（两种都追写也是错的）
+  const fdW = deps.fsImpl.openSync(p, 'w');
+  deps.fsImpl.writeSync(fdW, 'X');
+  deps.fsImpl.closeSync(fdW);
+  assert.equal(deps.fsImpl.readFileSync(p, 'utf8'), 'X', 'w 模式必须截断');
+
+  // 同一 fd 连续两次写 = 两次接力（真实 fs.writeSync 按偏移推进），不是覆盖
+  const fdW2 = deps.fsImpl.openSync(p, 'w');
+  deps.fsImpl.writeSync(fdW2, '{"seq":1}\n');
+  deps.fsImpl.writeSync(fdW2, '{"seq":2}\n');
+  deps.fsImpl.closeSync(fdW2);
+  assert.equal(deps.fsImpl.readFileSync(p, 'utf8'), '{"seq":1}\n{"seq":2}\n',
+    '两次 writeSync 必须接力，后一次不得抹掉前一次');
+});
+
+// ⑰ 永久负对照（位置模型）：旧 string fixture 两次 writeSync 只剩最后一条
+await test('⑰ 负对照：旧 string fixture 丢失接力写（本 fixture 不得如此）', async () => {
+  const legacy = createLegacyStringFs();
+  const real = deps_real();
+  const seq = ['{"seq":1}\n', '{"seq":2}\n'];
+  for (const fs of [legacy, real]) {
+    const fd = fs.openSync('/x/pos.jsonl', 'w');
+    for (const s of seq) fs.writeSync(fd, s);
+    fs.closeSync(fd);
+  }
+  const legacyText = legacy.readFileSync('/x/pos.jsonl');
+  const realText = real.readFileSync('/x/pos.jsonl', 'utf8');
+  assert.equal(legacyText, '{"seq":2}\n', '旧模型确实只剩最后一条（负对照成立）');
+  assert.equal(realText, '{"seq":1}\n{"seq":2}\n', '本 fixture 必须两条都在');
+  assert.notEqual(legacyText, realText, '两者必须可分，否则负对照没有牙齿');
+});
+
+// ⑱ 永久负对照（字节模型）：旧 string fixture 表示不出"撕裂在中途的半字节"
+await test('⑱ 负对照：旧 string fixture 把半字节解成 U+FFFD（本 fixture 不得如此）', async () => {
+  const legacy = createLegacyStringFs();
+  const real = deps_real();
+  const full = Buffer.from('中', 'utf8');          // e4 b8 ad
+  assert.equal(full.length, 3);
+  const head = full.subarray(0, 1);                 // e4
+  for (const fs of [legacy, real]) {
+    const fd = fs.openSync('/x/torn.jsonl', 'w');
+    fs.writeSync(fd, head);
+    fs.closeSync(fd);
+  }
+  const legacyBytes = Buffer.from(legacy.readFileSync('/x/torn.jsonl'), 'utf8');
+  const realBytes = real.readFileSync('/x/torn.jsonl');
+  assert.equal(legacyBytes.toString('hex'), 'efbfbd', '旧模型确实产出 U+FFFD 三字节（负对照成立）');
+  assert.equal(realBytes.toString('hex'), 'e4', '本 fixture 必须保住那一个字节');
+  assert.equal(realBytes.length, 1, '字节数必须是 1，否则按字节切点全部算错');
+});
+
+function deps_real() { return createMemoryFs(); }
 
 console.log('=== P6 Supervisor 本地骨架验收（纯内存 fixture / DECLARED_NOT_WIRED）===');
 for (const l of lines) console.log(l);
