@@ -216,7 +216,7 @@ export function createLegacyStringFs(initial) {
       return fd;
     },
     closeSync(fd) { fds.delete(fd); },
-    writeSync(fd, data) { const key = fds.get(fd); if (key !== undefined) files.set(key, (files.get(key) || '') + asText(data)); },
+    writeSync(fd, data) { const key = fds.get(fd); if (key !== undefined) files.set(key, asText(data)); },
     unlinkSync(p) { files.delete(String(p)); },
   };
 }
