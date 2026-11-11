@@ -390,9 +390,10 @@ const GATE_SUITES = [
   "apps/command_center_3d/scripts/day14-research/p3-contracts.mjs",
   "apps/command_center_3d/scripts/supervisor/supervisor.test.mjs",
   "apps/command_center_3d/scripts/check-no-fake-live.mjs",
+  "apps/command_center_3d/server/tests/http-body-read.mjs",
 ];
 
-check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), each test -f hard-fail; tsc/vitest kept; gate is first run step; no continue-on-error", () => {
+check("EXTRA", "Y2 ci.yml: gate suites == declared gate suite set (comment-proof), each test -f hard-fail; tsc/vitest kept; gate is first run step; no continue-on-error", () => {
   const l = yamlLines(REL.ci);
 
   // ---- F-23 fix: STRIP comments, ANCHOR at line start, compare SETS --------
@@ -440,11 +441,44 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), eac
   // list; without this guard a new suite could be added to ci.yml + GATE_SUITES
   // while the floor silently kept checking only the old ones (the new suite
   // would then be back to "trust the exit code").
+  //
+  // COUNT IS NOT ENOUGH. An earlier version compared only the NUMBER of
+  // `slug:` entries. Adding `9-foo` to ci.yml + GATE_SUITES while deleting
+  // `1-p0-contracts` from the floor table keeps the count equal, so it stays
+  // GREEN while a whole suite silently loses its case-count floor. That is the
+  // same "add without registering" bypass this block was written to close,
+  // one level up — so it is closed the same way: by SET equality, exactly like
+  // the ci.yml suite comparison above.
+  //
+  // The floor table is keyed by slug, which is a label, not a path; the file a
+  // slug guards is named in its `label:`. So the comparison is on basenames,
+  // and basename uniqueness is asserted first — otherwise two suites could map
+  // to one floor entry and the mapping would stop being injective.
   const floorSrc = read("apps/command_center_3d/scripts/gate-assertion-floor.mjs");
   assert.ok(floorSrc !== null, "scripts/gate-assertion-floor.mjs missing");
-  const floorSlugs = (floorSrc.match(/^\s{4}slug:\s*"[^"]+"/gm) || []).length;
-  assert.equal(floorSlugs, GATE_SUITES.length,
-    `gate-assertion-floor.mjs declares ${floorSlugs} suites but ci.yml/GATE_SUITES declares ${GATE_SUITES.length}`);
+
+  const floorSlugList = [...floorSrc.matchAll(/^\s{4}slug:\s*"([^"]+)"/gm)].map((m) => m[1]);
+  assert.equal(new Set(floorSlugList).size, floorSlugList.length,
+    `duplicate slug in the floor table: ${JSON.stringify(floorSlugList)}`);
+
+  // A `label:` with no `.mjs` would silently drop out of the set below and then
+  // show up as "missing" — fail-closed, which is what we want, but say so.
+  const floorLabels = [...floorSrc.matchAll(/^\s{4}label:\s*"[^"]*?([A-Za-z0-9_.-]+\.mjs)/gm)].map((m) => m[1]);
+  assert.equal(floorLabels.length, floorSlugList.length,
+    `${floorSlugList.length} floor suites but only ${floorLabels.length} labels name a .mjs file`);
+
+  const wantBase = GATE_SUITES.map((p) => p.split("/").pop());
+  assert.equal(new Set(wantBase).size, wantBase.length,
+    `two gate suites share a basename, so a basename-keyed floor comparison would be ambiguous: ${JSON.stringify(wantBase)}`);
+
+  const floorSet = new Set(floorLabels);
+  const missingInFloor = wantBase.filter((b) => !floorSet.has(b));
+  const unexpectedInFloor = [...floorSet].filter((b) => !wantBase.includes(b));
+  assert.ok(missingInFloor.length === 0 && unexpectedInFloor.length === 0,
+    "gate-assertion-floor.mjs drifted from ci.yml/GATE_SUITES:\n" +
+    `  floor declares ${floorSlugList.length} suites, GATE_SUITES declares ${GATE_SUITES.length}\n` +
+    `  missing from floor(${missingInFloor.length}): ${JSON.stringify(missingInFloor)}\n` +
+    `  unexpected in floor(${unexpectedInFloor.length}): ${JSON.stringify(unexpectedInFloor)}`);
 
   // ---- F-22-C: ci.yml must publish checks on PRs based on feature/**** -----
   const ciPush = workflowTriggerBranches(l, "push");

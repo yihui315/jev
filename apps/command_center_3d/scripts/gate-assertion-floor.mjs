@@ -143,6 +143,19 @@ const SUITES = [
     extra: (log, m) =>
       Number(m[4]) === 0 ? null : `self-reported exit=${m[4]} (must be 0)`,
   },
+  {
+    slug: "8-api-body-read",
+    label: "server/tests/http-body-read.mjs (request-body byte fidelity + byte cap)",
+    expect: 17,
+    // "RESULT PASS=17 FAIL=0"
+    // 17 cases cover BOTH facades: byte fidelity under chunk splits (including a
+    // permanent negative control that runs the PRE-FIX reader and asserts it
+    // corrupts the body), a byte — not character — cap, the streaming/declared
+    // two-stage bound, the abort path settling instead of hanging, the 413 being
+    // flushed before teardown (over a real socket), and static wiring guards that
+    // fail if a facade stops calling the shared reader.
+    re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+  },
 ];
 
 const violations = [];

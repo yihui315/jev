@@ -83,13 +83,20 @@ jobs:
           node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs 2>&1 | tee "$GATE_LOG_DIR/4-inference-evidence.log"
           test -f apps/command_center_3d/scripts/day14-research/p3-contracts.mjs || { echo "P3P4 TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs 2>&1 | tee "$GATE_LOG_DIR/5-p3-contracts.log"
-          # Final two suites. Both are hand-written `node <path>` assertion
+          # Final three suites. All are hand-written `node <path>` assertion
           # scripts (node:assert + exit code), which is why they are excluded
           # from vitest's collection in vite.config.ts and run here instead.
           test -f apps/command_center_3d/scripts/supervisor/supervisor.test.mjs || { echo "SUPERVISOR TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/supervisor/supervisor.test.mjs 2>&1 | tee "$GATE_LOG_DIR/6-supervisor.log"
           test -f apps/command_center_3d/scripts/check-no-fake-live.mjs || { echo "NO-FAKE-LIVE CHECK MISSING"; exit 1; }
           node apps/command_center_3d/scripts/check-no-fake-live.mjs 2>&1 | tee "$GATE_LOG_DIR/7-no-fake-live.log"
+          # Request-body reader: byte fidelity (a multi-byte character split across a
+          # chunk boundary must not be rewritten) + the byte cap. This suite also
+          # carries a permanent NEGATIVE CONTROL that runs the pre-fix reader and
+          # asserts it corrupts the body, so the assertions cannot silently lose
+          # their teeth.
+          test -f apps/command_center_3d/server/tests/http-body-read.mjs || { echo "HTTP BODY TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/tests/http-body-read.mjs 2>&1 | tee "$GATE_LOG_DIR/8-api-body-read.log"
 
       # C12 / F-22-G: exit codes alone cannot tell "96 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a
