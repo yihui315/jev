@@ -143,12 +143,15 @@ const SUITES = [
   {
     slug: "7-no-fake-live",
     label: "scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)",
-    expect: 13,
-    // "RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0"
-    // 10 -> 12 -> 13: Y3 (F-25 floor survival + fatality invariant), Y4 (F-26
-    // Track B evidence freshness) and Y5 (R22 V1.6 evidence freshness) are separate
-    // named checks ON PURPOSE, so that deleting any of them is caught HERE. A guard
+    expect: 14,
+    // "RESULT: CORE_CASES=7 EXTRA_CASES=7 TOTAL_CASES=14 exit=0"
+    // 10 -> 12 -> 13 -> 14: Y3 (F-25 floor survival + fatality invariant), Y4 (F-26
+    // Track B evidence freshness), Y5 (R22 V1.6 evidence freshness) and Y9 (the
+    // service-auth trust path is UNREACHABLE — 0 call sites) are separate named
+    // checks ON PURPOSE, so that deleting any of them is caught HERE. A guard
     // folded inside another check would itself be unguarded.
+    // Y9 is a REGISTRATION, not a safety claim: it asserts an absence (five exports,
+    // zero call sites), so "PASS" here means "still unreachable", not "safe".
     // Here group 2 is EXTRA_CASES, NOT a fail count — so this suite
     // declares no failGroup and instead asserts its own `exit=` field is 0.
     re: /^RESULT: CORE_CASES=(\d+) EXTRA_CASES=(\d+) TOTAL_CASES=(\d+) exit=(\d+)\s*$/m,

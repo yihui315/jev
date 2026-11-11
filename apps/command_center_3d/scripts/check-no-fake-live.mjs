@@ -531,7 +531,139 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared gate suite set (comment-proof
   console.log(`      ci.yml gate suites: ${got.length} (declared ${GATE_SUITES.length}), all with test -f hard-fail`);
   console.log(`      ci.yml gate step index ${start} < Install ${installIdx} (F-21 ordering asserted)`);
 });
-console.log("NOTE: Y1/Y2/Y3/Y4/Y5 are pure-text structure self-checks, NOT a YAML parser run");
+// -----------------------------------------------------------------------------
+// Y9 — REGISTRATION, NOT A SAFETY CLAIM.
+//
+// (Named Y9, not Y7: Y7 is the literal-tautology scan. This is a different
+// fact — an absence of call sites — and the floor comment, the report section
+// and any mutation list will reference it BY NAME. Two facts sharing one name is
+// how "three lines are not three guards" happens a second time.)
+//
+// The frozen engine ships a complete service-to-service trust implementation:
+// HMAC-SHA256 over `v1.<ts>.<nonce>.<actor>.<sha256(rawBody)>`, a GitHub OIDC
+// verifier, single-use nonce bookkeeping, and the canonical payload builder.
+// NOTHING IN THIS TREE CALLS ANY OF IT. Measured, not assumed:
+//
+//   verifyServiceSignature  verifyGithubOidc  consumeNonce
+//   canonicalServicePayload  signServiceBody                    -> 0 call sites
+//
+// `service-auth.mjs` is imported exactly twice, both times only for
+// `sha256Hex` (strategy-events.mjs, verification.mjs).
+//
+// This case asserts the ZERO, because the zero is a FACT ABOUT THIS TREE and a
+// fact that nothing else in the repo records falsifiably. When someone wires the
+// trust path for real, this goes red — which is the only moment at which the
+// acceptance report, this file and any coverage claim must be updated together.
+// Deleting the case turns a recorded fact back into prose.
+//
+// It is ALSO not the claim "0 call sites is safe": an unreachable verifier
+// rejects nothing, so the trusted-write path this engine implies does not exist
+// here at all. That absence must never be read as "authentication is set up".
+//
+// LIMIT — quote this wherever the case is cited. This is a NAME scan. It cannot
+// see `svc["verifyServiceSignature"](...)`, `const v = verifyServiceSignature;
+// v(...)`, or a re-export consumed under another name. It catches the MOST
+// LIKELY wiring, not ALL wiring. CLEARANCE CONDITION: the day this repo contains
+// a name-indirect service-auth invocation, this case is void and must be
+// replaced by an AST pass or a runtime probe. A green here must not be read as
+// "no wiring exists" after that point.
+const SERVICE_AUTH_NAMES = ["verifyServiceSignature", "verifyGithubOidc", "consumeNonce",
+  "canonicalServicePayload", "signServiceBody"];
+const SERVICE_AUTH_CALL = new RegExp("\\b(" + SERVICE_AUTH_NAMES.join("|") + ")\\s*\\(", "g");
+const SERVICE_AUTH_DEFINING = join("server", "engine", "_lib", "service-auth.mjs");
+const SERVICE_AUTH_SELF = fileURLToPath(import.meta.url);
+const SCAN_SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".gate", "artifacts", "reports"]);
+const SCAN_CODE_EXT = /\.(mjs|cjs|js|mts|cts|ts|jsx|tsx)$/;
+
+function bareCode(src) {
+  return stripComments(src)
+    .split("\n")
+    .map((ln) => {
+      const at = ln.indexOf("//");
+      if (at === -1) return ln;
+      if (at > 0 && ln[at - 1] === ":") return ln;   // do not cut "http://" / "https://"
+      return ln.slice(0, at);
+    })
+    .join("\n");
+}
+
+/** Policy, as a pure function of a path. Asserted by the fixture below. */
+function isScannedSourcePath(p) {
+  if (p.split(/[\\/]+/).some((seg) => SCAN_SKIP_DIRS.has(seg))) return false;
+  return SCAN_CODE_EXT.test(p);
+}
+
+/**
+ * Pure: an in-memory file table -> the call sites in it. Deliberately NOT a
+ * directory walk, so the detector can be exercised without creating, and then
+ * deleting, a directory on the host — a control must not introduce permission,
+ * concurrency or cleanup failure modes that have nothing to do with the fact it
+ * is checking. `files` is [{ path, text }].
+ */
+function scanServiceAuthCallSites(files) {
+  const hits = [];
+  for (const f of files) {
+    if (f.path === SERVICE_AUTH_SELF) continue;              // this case quotes the names
+    if (f.path.endsWith(SERVICE_AUTH_DEFINING)) continue;    // the definitions themselves
+    if (!isScannedSourcePath(f.path)) continue;
+    for (const m of bareCode(f.text).matchAll(SERVICE_AUTH_CALL)) hits.push({ file: f.path, symbol: m[1] });
+  }
+  return hits;
+}
+
+/** Read the tree into the same in-memory shape. SKIP_DIRS is honoured here too,
+ *  purely so the walk does not descend into node_modules; the authoritative
+ *  policy lives in isScannedSourcePath, which the fixture pins. A walk that
+ *  diverged from the policy could only make this case LESS sensitive. */
+function readSourceTree(root) {
+  const files = [];
+  (function walk(dir) {
+    let entries;
+    try { entries = readdirSync(dir, { withFileTypes: true }); } catch (_) { return; }
+    for (const e of entries) {
+      const p = join(dir, e.name);
+      if (e.isDirectory()) { if (!SCAN_SKIP_DIRS.has(e.name)) walk(p); continue; }
+      if (!e.isFile() || !SCAN_CODE_EXT.test(e.name)) continue;
+      let text;
+      try { text = readFileSync(p, "utf8"); } catch (_) { continue; }
+      files.push({ path: p, text });
+    }
+  })(root);
+  return files;
+}
+
+check("EXTRA", "Y9 the service-auth trust path is UNREACHABLE here (0 call sites — a recorded fact)", () => {
+  // The detector is exercised on a FIXTURE before it is trusted on the repo.
+  // Otherwise "0 call sites" would be indistinguishable from "the scanner is
+  // broken", and the comment-stripping branch would never have run once:
+  // MEASURED on today's tree, bypassing that stripping still yields 0, because
+  // no comment in the tree currently quotes a call. A fixture is what turns
+  // "it works" into a falsifiable claim. It also pins the path policy (EXT +
+  // SKIP_DIRS), which is otherwise an unexercised filter.
+  const fixture = [
+    { path: "a.mjs", text: "const x = verifyServiceSignature(req);" },
+    { path: "b.md", text: "verifyServiceSignature(nope)" },                          // EXT filter
+    { path: "c.mjs", text: "// verifyServiceSignature(commented)" },                 // comment strip
+    { path: "node_modules/d.mjs", text: "verifyServiceSignature(nope)" },            // SKIP_DIRS
+    { path: "e.mjs", text: "consumeNonceMaybe(); const y = consumeNonce;" },         // prefix, not a call
+  ];
+  const fx = scanServiceAuthCallSites(fixture);
+  assert.equal(fx.length, 1,
+    `detector self-test: expected exactly 1 call site in the fixture, got ${fx.length} ` +
+    `(${JSON.stringify(fx.map((h) => h.symbol + "@" + h.file))}) — the scanner is not doing what this case claims`);
+  assert.equal(fx[0].symbol, "verifyServiceSignature");
+  assert.ok(fx[0].file === "a.mjs", `detector self-test picked the wrong file: ${fx[0].file}`);
+
+  const hits = scanServiceAuthCallSites(readSourceTree(REPO));
+  assert.equal(hits.length, 0,
+    "the frozen service-auth trust path now HAS call sites. This is the moment the\n" +
+    "  acceptance report, the coverage claim and this case must be updated TOGETHER:\n" +
+    hits.map((h) => `    ${h.symbol}() called from ${h.file}`).join("\n"));
+  console.log("      REGISTERED, not guaranteed: verifyServiceSignature / verifyGithubOidc /");
+  console.log("      consumeNonce / canonicalServicePayload / signServiceBody have 0 call sites.");
+  console.log("      An unreachable verifier rejects nothing — this records an absence.");
+});
+console.log("NOTE: Y1/Y2/Y3/Y4/Y5/Y9 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");
 
 // Naming (R19): these are NAMED CHECK BLOCKS (`check(...)` cases), not `assert.*`
