@@ -286,7 +286,7 @@ b=6: buyNotional=26 maxQty=0.000346664000 minSellQty=0.000333330000 margin=+1.33
 
 #### (a) 用例块总数守恒（但 `assert.*` 语句数**没有**被冻结）
 
-| 套件 | 修复前 | 修复后 | 日志签名 |
+| 套件 | 修复前（`be80d3c`） | 修复后（`8da3947`） | 日志签名 |
 |---|---|---|---|
 | `day14-p0-contracts.mjs` | 7 | **7** | `SUMMARY P0-F CONTRACTS …: 7 pass, 0 fail` |
 | `day14-p0-runner.mjs` | 24 | **24** | `SUMMARY P0-F RUNNER …: 24 pass, 0 fail` |
@@ -297,11 +297,13 @@ b=6: buyNotional=26 maxQty=0.000346664000 minSellQty=0.000333330000 margin=+1.33
 | `check-no-fake-live.mjs` | 10 | **12**（7 CORE + 5 EXTRA；Y3/Y4 从 Y1 拆出） | `RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0` |
 | **合计** | **94** | **96** | — |
 
-`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条用例（`be80d3c` 时内含 74 条 `assert.*`；`8da3947` 为 76 条；`9e883f3` 为 79 条——口径见 §2.3，**此三者分属三个 SHA，不可混用**）**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
+> **本表两列各绑定一个 SHA，不可与 §(b) 的 97 混读**：「修复前 94」对应 `be80d3c`，「修复后 96」对应 `8da3947`（即 Y5 加入之前）。当前 HEAD `9e883f3` 上 `check-no-fake-live.mjs` 为 13 个用例块、下限合计为 **97**（见 §(b) 的真实单次捕获）。三者分属三个提交；引用本表任何数字都必须同时写出所属 SHA。
+
+`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条用例（该单文件的 `assert.*` 条数：`be80d3c` **52**（B 口径 50）、`8da3947` **76**（74）、`9e883f3` **79**（77）——**三个 SHA 三个值，且 `74` 是 `8da3947` 的 B 口径值，不是 `be80d3c` 的值**；此前本行把 `74` 锚到 `be80d3c` 是错的，已改。口径定义与七套件全量分项见 §2.3）**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
 
 #### (b) 下限机制可用性（真实日志，单次运行，`9e883f3`）
 
-用 7 个套件的真实输出 tee 到日志目录后运行下限脚本。以下为 `9e883f3` 上**一次完整捕获的原文，未拼接**：
+用 7 个套件的真实输出 tee 到日志目录后运行下限脚本。以下为 `13882c4`（当前 HEAD）上**一次完整捕获的原文，未拼接**。同一捕获在 `9e883f3` 上逐行相同——`13882c4` 只改本文件，未动任何脚本，可由 `git show --stat 13882c4` 直接证明：
 
 ```
 GATE_FLOOR ok 1-p0-contracts expected=7 actual=7 — server/ai/tests/day14-p0-contracts.mjs (P0-F CONTRACTS)
