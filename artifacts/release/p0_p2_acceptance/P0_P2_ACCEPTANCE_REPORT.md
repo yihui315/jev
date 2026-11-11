@@ -699,3 +699,32 @@ $ grep -c "superseded_by_sha256:" D:/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_R
 - 未锚定的 `grep -c "superseded_by_sha256"` → 命中 **2** 处，其中第二处**没有值**。把 2 当"键重复/冲突"是误读；把第二处当值解析会拿到空串——一个空串与任何 sha256 都不相等，于是"不匹配"被稳定地误判出来。
 
 同 §10.8 一样：**判据的锚定方式本身是被测对象的一部分。**
+
+### 10.13 追记：§10.8 的 30 行自己没被守护；#19 落地；#9 勘查结论；`GATE_FLOOR_OK` 到底是谁在说话
+
+**（一）§10.8 新增的 30 行，删掉它仍然绿（R19 缺口，aegis 复核、我确认）。**
+那 30 行落在 `Y2` **内部**，而 `Y2` 的 `expect` 没变（`7-no-fake-live` 仍是 13）⇒ 整块删掉，`RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0` 依旧成立。主理人已因此立规则「新增守卫必须占自己的槽位，不允许寄生在别的 check 里」，正解是 `Y6` + `7-no-fake-live 13→14`，与 `Z6` 同槽位、串行在 #15 之后。
+⇒ **在 Y6 落地前，§10.8 的强度只到「当次实测为真」，不构成「以后删了会红」。** 不要把它读成"这一条已经被守住了"。
+
+**（二）§10.8 正文引用的旧判据正则有一处笔误。** 正文写作 `slug:/s*"`，实际代码是 `slug:\s*"`（反斜杠）。照抄正文会写出一条永不匹配的正则。原文不改，以本条为准。
+
+**（三）#19 落地：用例 13/14 从「文本存在」升级为「字节相等」。**
+- 旧判据只断言调用点出现 `bodyText, bodyBytes`。把 builder 内部改回 `(bodyText || "{}")` 后，**HEAD 版测试仍 `PASS=17 FAIL=0 rc=0`** —— 这就是"零灵敏度"的实证，不是推断。
+- 新判据在 13/14 内各加一条行为臂：用 `extractFunctionSource` 取出 `buildEngineRequest` 的源码文本，`new Function` 在进程内执行，喂一段**不合法 UTF-8** 的 body（`{"note":"` + 孤立 `0xE4`，10 字节），断言转发出去的字节与到达的字节相等（回退后为 12 字节，长度自己会说话）。
+- 变异：改回 `(bodyText || "{}")` ⇒ 用例 13 红、14 保持绿；改 Workers 侧 ⇒ 14 红、13 绿。**两侧互不遮盖**，因此红点可归因到具体表面。
+- **为什么不是 import**：`trading_api.mjs` 顶层就 `server.listen()` 且依赖 `D:/` 路径，import 即执行，第 8 套件会在 CI 上死于环境而不是断言。代价写在明处：函数改名或被复制会红在**提取阶段**（显式失败 `could not find …` / `defined more than once`），不是静默跳过。
+- `check()` 块仍 17 个，`8-api-body-read` 的 `expect: 17` **未动**。
+
+**（四）#9 勘查结论：四个安全导出在全仓零调用点，facade 侧没有可保护的路由。**
+`verifyServiceSignature` / `verifyGithubOidc` / `consumeNonce` / `canonicalServicePayload` / `signServiceBody` 在 `*.mjs|*.js|*.ts|*.mts`（排除 `node_modules` 与本模块）内**调用点为 0**，仅有的 3 条匹配是本文档体系的注释；引擎内只有 `sha256Hex` 被 import（`strategy-events.mjs:9`、`verification.mjs:14`）。两个 facade 的引擎调用面（`handlePaperAccount/Orders/ServerEvents/Replay/MarketTick/OrderCancel`）无一处调用校验函数 ⇒ 在 facade 里加"入站校验"保护的是**一条不存在的路**，加"出站签名"则签名由**零个校验者**接收。
+- **源码确证（把 §10.6② 从推断升级）**：`paper-ledger.mjs:37` 的 `isSameOrigin` 是「Origin 缺失即通过」，而两个 facade 都用**硬编码 `origin: ORIGIN`** 重造请求 ⇒ 引擎侧这道检查对 facade 流量**恒为真**。不是"忘了转发"，是**每条路径都在替引擎满足它**。
+- **两个接线陷阱（都在冻结文件内，只能登记不能改）**：① `verifyServiceSignature` 里 `if (options.db) { consumeNonce(...) }` ⇒ 防重放是**按参数启用**的，缺 `db` 时静默降级为"只有 HMAC"，且不报错；② `sha256Hex(rawBody)` 是**字符串语义**（`TextEncoder` 先编码），把 `Buffer` 传进去会隐式 `toString()` 再哈希 —— 与 M1 同形状，而且会**静默地校验一段与线上字节不同的内容**。
+- 结论：这是 **NEEDS REWORK（目标不成立）**，不是"未接线"。
+
+**（五）`GATE_FLOOR_OK` 不标识"谁跑的、什么时候跑的"。**
+`gate-assertion-floor.mjs` **自己不运行任何套件**，只读 `$GATE_LOG_DIR`。实测两个方向：
+- 只往私有目录放一份 8 号日志 ⇒ 它给出 `ok 8-api-body-read expected=17 actual=17`，其余 7 条报 `log-missing`（即它诚实地只说了目录内容）；
+- 用**别人**留下的完整日志 ⇒ 它给出 `GATE_FLOOR_OK suites=8 total_cases=118 exit=0`，而我这一轮从未运行过那 7 个套件。
+- 另有一次观测（UNVERIFIED 成因）：同一目录、同一文件字节，前后两次运行分别给出 `violations=1 rc=1`（`3-market-data … summary-signature-not-found`）与 `exit=0`；该日志 mtime `00:38:15` 晚于前一次读取 —— 与"另一个 agent 正在写同一个 `.gate`"吻合。若成因如此，则该目录**既能假红也能假绿**。
+
+⇒ **引用 `GATE_FLOOR_OK` 时必须同时给出日志的 mtime 区间与实跑者**；单独一行既不能证明"跑过"，也不能证明"跑的是谁的字节"。这与 §10.7 是同一条纪律的第二种形态：**数字没有作者，就没有意义。**
