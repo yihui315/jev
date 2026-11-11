@@ -1,5 +1,5 @@
 /**
- * gate-assertion-floor.mjs — assertion-count floor for the P0/P1/P2/P3P4 gate.
+ * gate-assertion-floor.mjs — CASE-count floor for the P0/P1/P2/P3P4 gate.
  * (Closes C12 / F-22-G. Node stdlib only — no yaml/yargs/chalk/js-yaml.)
  *
  * WHY THIS EXISTS
@@ -14,9 +14,9 @@
  *     file is executed for its side effects only         → exit 0, few asserts
  *   - a suite is rewritten to `process.exit(0)` early     → exit 0, few asserts
  *
- * Exit code alone therefore cannot distinguish "94 assertions passed" from
- * "3 assertions passed and the rest were deleted". This script adds a
- * DECLARATIVE MINIMUM: each suite has a frozen expected assertion count, and a
+ * Exit code alone therefore cannot distinguish "94 cases passed" from
+ * "3 cases passed and the rest were deleted". This script adds a
+ * DECLARATIVE MINIMUM: each suite has a frozen expected CASE count, and a
  * suite that reports fewer than its floor (or loses its summary signature, or
  * reports any FAIL, or is missing from the log directory entirely) is a hard
  * failure.
@@ -29,6 +29,12 @@
  * The floor step then runs THIS script against the same directory. Together:
  *   - non-zero exit        → caught by the gate step (pipefail)
  *   - exit 0 but too few   → caught here
+ *
+ * IMPORTANT (R19): a "case" is one named check block. A single case can hold
+ * many `assert.*` statements, so these floors freeze HOW MANY CASES REPORTED,
+ * not how many assertions ran inside them. Measured on 2026-11-11: the seven
+ * suites carry 751 `assert.*` statements behind 94 cases. Deleting assertions
+ * INSIDE a case is therefore NOT caught here — that is a known open gap.
  *
  * The floors are EXACT, not ranges. An intentional new assertion must bump the
  * number in this table, which makes every count change a visible, reviewable
@@ -118,10 +124,10 @@ const SUITES = [
     slug: "7-no-fake-live",
     label: "scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)",
     expect: 10,
-    // "RESULT: CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10 exit=0"
+    // "RESULT: CORE_CASES=7 EXTRA_CASES=3 TOTAL_CASES=10 exit=0"
     // Here group 2 is EXTRA_ASSERTIONS, NOT a fail count — so this suite
     // declares no failGroup and instead asserts its own `exit=` field is 0.
-    re: /^RESULT: CORE_ASSERTIONS=(\d+) EXTRA_ASSERTIONS=(\d+) TOTAL=(\d+) exit=(\d+)\s*$/m,
+    re: /^RESULT: CORE_CASES=(\d+) EXTRA_CASES=(\d+) TOTAL_CASES=(\d+) exit=(\d+)\s*$/m,
     countGroup: 3,
     exitGroup: 4,
     extra: (log, m) =>
@@ -131,9 +137,9 @@ const SUITES = [
 
 const violations = [];
 let checked = 0;
-let totalAssertions = 0;
+let totalCases = 0;
 
-console.log("=== gate-assertion-floor.mjs — C12 / F-22-G assertion-count floor ===");
+console.log("=== gate-assertion-floor.mjs — C12 / F-22-G case-count floor ===");
 console.log("LOG_DIR " + LOG_DIR);
 
 for (const s of SUITES) {
@@ -199,7 +205,7 @@ for (const s of SUITES) {
   } else {
     console.log(`GATE_FLOOR ok ${s.slug} expected=${s.expect} actual=${count} — ${s.label}`);
   }
-  totalAssertions += count;
+  totalCases += count;
 }
 
 if (violations.length > 0) {
@@ -207,10 +213,10 @@ if (violations.length > 0) {
   for (const v of violations) console.error(v);
   console.error("");
   console.error(
-    `GATE_FLOOR_FAILED suites_checked=${checked} violations=${violations.length} total_assertions_seen=${totalAssertions}`
+    `GATE_FLOOR_FAILED suites_checked=${checked} violations=${violations.length} total_cases_seen=${totalCases}`
   );
   process.exit(1);
 }
 
 console.log("");
-console.log(`GATE_FLOOR_OK suites=${checked} total_assertions=${totalAssertions} exit=0`);
+console.log(`GATE_FLOOR_OK suites=${checked} total_cases=${totalCases} exit=0`);

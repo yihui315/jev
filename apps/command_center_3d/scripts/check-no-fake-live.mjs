@@ -183,6 +183,16 @@ check("EXTRA", "A8 ProvenanceBadge wired into PageContainer.tsx; src/App.tsx unt
   assert.ok(!src.app.includes("ProvenanceBadge"), "src/App.tsx must be untouched (B.2=N/A)");
 });
 
+/**
+ * Drop full-line comments so a text assertion can only be satisfied by LIVE code.
+ * YAML uses `#`; the JS inside a `run: |` block scalar uses `//`. Both forms were
+ * actually used to defeat an earlier version of these guards (see Y2 / Y3 / Y4),
+ * so this helper is the shared discipline rather than a one-off.
+ */
+function stripLineComments(lines) {
+  return lines.filter((x) => !/^\s*(\/\/|#)/.test(x));
+}
+
 // ---- YAML structural self-check (NOT a YAML parser) ------------------------
 function yamlLines(rel) {
   const t = read(rel);
@@ -226,7 +236,7 @@ function workflowTriggerBranches(lines, key) {
   return out;
 }
 
-check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push; PR keeps release rule AND gains feature/v16-**; Track B assertion floor present", () => {
+check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push; PR keeps release rule AND gains feature/v16-**", () => {
   const l = yamlLines(REL.prov);
 
   const push = workflowTriggerBranches(l, "push");
@@ -253,20 +263,48 @@ check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push
   assert.ok(pr.includes("release/jcc-v1.3-final"),
     "PR target rule changed — release/jcc-v1.3-final must be RETAINED in pull_request.branches");
 
-  // ---- R15 / F-25: the v16 Track B assertion floor must survive ------------
-  // F-25 added a frozen `suites/checks` floor to the Track B step in
-  // v16-market-provenance.yml, closing the same defect class as C12/F-22-G on
-  // the second workflow. But the floor is only text in a YAML file: a later
-  // "cleanup" could delete it and the step would silently return to trusting
-  // exit codes alone. This guard makes that deletion a red test.
-  // Verified empirically (see the acceptance record): commenting the floor out
-  // turns this assertion red, restoring it turns it green again.
-  const v16Raw = l.join("\n");
-  assert.ok(/V16_AI_CHECK_COUNT_CHANGED/.test(v16Raw),
+});
+
+// ---- Y3 (R15 / F-25): the v16 Track B assertion floor must survive ----------
+// F-25 added a frozen `suites/checks` floor to the Track B step in
+// v16-market-provenance.yml, closing the same defect class as C12/F-22-G on the
+// second workflow. But the floor is only text in a YAML file: a later "cleanup"
+// could delete it and the step would silently return to trusting exit codes
+// alone. This check makes that deletion a red test.
+//
+// WHY THIS IS ITS OWN `check()` AND NOT A FEW MORE LINES INSIDE Y1: an assertion
+// that lives inside another assertion is unguarded — delete it and the enclosing
+// check still passes. Making it a separate check puts it under the C12/F-22-G
+// exact-count floor (`7-no-fake-live`), so deleting THIS check is itself a hard
+// failure. That is the whole point of having a floor; it would be self-defeating
+// to add guards in a way the floor cannot see.
+check("EXTRA", "Y3 v16 Track B: assertion-count floor present in LIVE code, numbers frozen, every V16_AI_* failure fatal, no continue-on-error", () => {
+  const l = yamlLines(REL.prov);
+  const live = stripLineComments(l);
+  const v16Live = live.join("\n");
+
+  // A text-only grep can be satisfied by the very comment-out that disables the
+  // code: my first version used `l.join("\n")` and stayed GREEN with the floor
+  // commented out, because the string it looked for was still present, just dead.
+  assert.ok(/V16_AI_CHECK_COUNT_CHANGED/.test(v16Live),
     "R15/F-25: v16 Track B assertion-count floor is GONE — the step is back to " +
     "trusting exit codes only, so a suite that silently loses checks would pass");
-  assert.ok(/s\.counts\.suites\s*!==\s*10\s*\|\|\s*s\.counts\.checks\s*!==\s*120/.test(v16Raw),
+  assert.ok(/s\.counts\.suites\s*!==\s*10\s*\|\|\s*s\.counts\.checks\s*!==\s*120/.test(v16Live),
     "R15/F-25: v16 Track B floor numbers drifted from the frozen suites=10 / checks=120");
+
+  // The floor is only a floor if violating it is fatal. Guard this as an
+  // INVARIANT over the whole verifier rather than only the floor line: every
+  // `console.error('V16_AI_...` must carry `process.exit(1)` on the same line.
+  // Softening ANY of the three (not-green / network-calls / count-changed) used
+  // to go unnoticed — found because a mis-targeted mutation softened the first
+  // one and the narrower guard stayed green.
+  const v16Errs = live.filter((x) => /console\.error\(\s*['"]V16_AI_/.test(x));
+  assert.ok(v16Errs.length >= 3,
+    `R15/F-25: expected at least 3 fatal V16_AI_* guards in the Track B verifier, found ${v16Errs.length}`);
+  const soft = v16Errs.filter((x) => !/process\.exit\(\s*[1-9]/.test(x));
+  assert.ok(soft.length === 0,
+    "R15/F-25: a V16_AI_* error is no longer fatal on its own line (log-and-continue): " +
+    JSON.stringify(soft.map((s) => s.trim())));
 
   // The floor must stay hard-fail: no continue-on-error on the Track B step.
   const tbStart = l.findIndex((x) => /-\s*name:\s*Track B/.test(x));
@@ -275,10 +313,35 @@ check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push
   for (let i = tbStart + 1; i < l.length; i++) {
     if (/^      - (name|uses):/.test(l[i])) { tbEnd = i; break; }
   }
-  assert.ok(
-    !l.slice(tbStart, tbEnd).some((x) => !x.trim().startsWith("#") && /^\s*continue-on-error\s*:/.test(x)),
-    "v16 Track B step must NOT have continue-on-error"
-  );
+  const tbStep = l.slice(tbStart, tbEnd);
+  const tbLive = stripLineComments(tbStep);
+  assert.ok(tbLive.length > 3, "v16 Track B step looks truncated — refusing to certify its shape");
+  assert.ok(!tbLive.some((x) => /^\s*continue-on-error\s*:/.test(x)),
+    "v16 Track B step must NOT have continue-on-error");
+});
+
+// ---- Y4 (F-26): the floor must read evidence produced by THIS run -----------
+// The evidence JSON is TRACKED IN GIT. Without a precondition the verifier
+// certifies whatever copy the checkout contains. Proven end-to-end (verbatim step
+// extracted from the YAML and run under `bash -eo pipefail`, the same shell
+// Actions uses): replacing the runner with a no-op that exits 0 and writes
+// nothing STILL prints V16_AI_CONTRACT_OK and exits 0. With the `rm -f`
+// precondition the same no-op fails closed (MODULE_NOT_FOUND, exit 1), while the
+// real path stays green (120/120 checks).
+check("EXTRA", "Y4 v16 Track B: evidence JSON is deleted BEFORE the runner runs, so a stale git-tracked copy cannot certify a run that never happened", () => {
+  const l = yamlLines(REL.prov);
+  const runnerIdx = l.findIndex((x) => /^\s*node server\/ai\/tests\/run-all\.mjs\s*$/.test(x));
+  assert.ok(runnerIdx !== -1, "F-26: cannot locate the Track B `node server/ai/tests/run-all.mjs` line");
+  const preRunner = stripLineComments(l.slice(0, runnerIdx)).join("\n");
+  assert.ok(/rm\s+-f\s+\.\.\/\.\.\/reports\/evidence\/v16_ai\/v16_ai_contract_tests\.json/.test(preRunner),
+    "F-26: the Track B evidence file is no longer deleted before the runner runs — a stale " +
+    "git-tracked JSON can certify a run that never happened (this is a proven fail-open)");
+  // Deleting it must not be paired with a tolerated failure: if the evidence is
+  // missing afterwards the step must die, not warn. `bash -e` gives that for
+  // free, but assert the runner is invoked plainly (no `|| true`, no `set +e`).
+  const runnerLine = l[runnerIdx];
+  assert.ok(!/\|\|\s*true/.test(runnerLine) && !/;\s*true\s*$/.test(runnerLine),
+    "F-26: the Track B runner line tolerates its own failure (`|| true`) — evidence may be missing silently");
 });
 
 /**
@@ -406,4 +469,7 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), eac
 console.log("NOTE: Y1/Y2 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");
 
-console.log(`RESULT: CORE_ASSERTIONS=${core} EXTRA_ASSERTIONS=${extra} TOTAL=${core + extra} exit=0`);
+// Naming (R19): these are NAMED CHECK BLOCKS (`check(...)` cases), not `assert.*`
+// statements. A single case can contain many assertions, so "TOTAL"
+// here must never be read as an assertion count. See the header note.
+console.log(`RESULT: CORE_CASES=${core} EXTRA_CASES=${extra} TOTAL_CASES=${core + extra} exit=0`);

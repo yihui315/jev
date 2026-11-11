@@ -96,7 +96,7 @@ jobs:
       # frozen, declarative per-suite assertion count against the logs written
       # above. It is a SEPARATE step (not folded into the gate) so a violation
       # shows up as its own named red step instead of an anonymous exit 1.
-      - name: Gate assertion-count floor (C12 / F-22-G)
+      - name: Gate case-count floor (C12 / F-22-G)
         working-directory: .
         env:
           GATE_LOG_DIR: ${{ runner.temp }}/jcc-gate
