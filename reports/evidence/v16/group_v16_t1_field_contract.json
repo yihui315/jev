@@ -1,8 +1,8 @@
 {
   "testId": "v16_t1_field_contract",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:14.454Z",
-  "finishedAt": "2026-11-09T13:20:14.502Z",
+  "startedAt": "2026-11-10T23:54:17.384Z",
+  "finishedAt": "2026-11-10T23:54:17.419Z",
   "meta": {
     "coverage": "QA-T1-1: 8 new columns on VERIFIED rows"
   },

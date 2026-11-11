@@ -22,7 +22,16 @@ jobs:
       run:
         working-directory: apps/command_center_3d
     steps:
+      # fetch-depth: 0 — the P0 gap-closure gate below runs
+      # server/ai/tests/day14-p0-runner.mjs, whose B1 falsifiability case calls
+      # runnerSourceAt("ebc3fcc") → `git show ebc3fcc:...`. The default
+      # fetch-depth: 1 omits that object, and day14-p0-lib.mjs THROWS on a
+      # failed `git show` (it never silently skips), so a shallow clone makes
+      # the gate a deterministic false red. Deepening the clone does not change
+      # the verdict of any pre-existing test.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
@@ -64,6 +73,26 @@ jobs:
           name: unit-test-results
           path: apps/command_center_3d/vitest-unit.json
           if-no-files-found: warn
+
+      # P0/P1/P2/P3P4 gap-closure gate. Paths are repo-root relative: this
+      # step overrides the job's default working-directory
+      # (apps/command_center_3d). No continue-on-error: a non-zero exit from
+      # any command fails the run. EVERY script is checked for presence FIRST;
+      # a missing file is a hard failure, never a silent skip.
+      - name: P0/P1/P2/P3P4 gap-closure gate (frozen contracts + data tests)
+        working-directory: .
+        run: |
+          set -e
+          test -f apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs || { echo "P0 CONTRACTS TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs
+          test -f apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs || { echo "P0 RUNNER TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs
+          test -f apps/equity_collector_v45/tests/market-data.test.mjs || { echo "P1 TEST MISSING"; exit 1; }
+          node apps/equity_collector_v45/tests/market-data.test.mjs
+          test -f apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs || { echo "P2 TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs
+          test -f apps/command_center_3d/scripts/day14-research/p3-contracts.mjs || { echo "P3P4 TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs
 
   real-data-probe:
     name: Real Binance market-data probe (non-blocking)

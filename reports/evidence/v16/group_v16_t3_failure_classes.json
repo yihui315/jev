@@ -1,8 +1,8 @@
 {
   "testId": "v16_t3_failure_classes",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:15.175Z",
-  "finishedAt": "2026-11-09T13:20:15.241Z",
+  "startedAt": "2026-11-10T23:54:17.701Z",
+  "finishedAt": "2026-11-10T23:54:17.765Z",
   "meta": {
     "coverage": "QA-T3-1 + QA-T3-5"
   },

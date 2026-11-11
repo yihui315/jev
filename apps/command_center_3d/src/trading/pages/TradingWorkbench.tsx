@@ -7,6 +7,7 @@ import { useJevQuery } from "../api/useJev";
 import { jevFetch, placePaperOrder, makeIds } from "../api/client";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
+import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
 const INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"];
@@ -54,7 +55,7 @@ function KlineChart({ symbol, interval }: { symbol: string; interval: string }) 
   }, [kq.data]);
 
   return (
-    <Panel title="K 线" sub={`${symbol} · ${interval}`} right={<StatusPill label="LIVE" />}>
+    <Panel title="K 线" sub={`${symbol} · ${interval}`} right={<StatusPill label={deriveStatusLabel(kq)} />}>
       <StateView q={kq} emptyText="暂无 K 线数据" />
       <div ref={ref} style={{ width: "100%" }} />
       <SourceFooter meta={kq.meta} />
@@ -69,7 +70,7 @@ function OrderBook({ symbol }: { symbol: string }) {
   const bids = useMemo(() => (depth?.bids || []).slice(0, 12), [depth]);
   const maxQ = Math.max(0, ...[...asks, ...bids].map((r) => Number(r[1])));
   return (
-    <Panel title="盘口深度" sub={symbol} right={<StatusPill label="LIVE" />}>
+    <Panel title="盘口深度" sub={symbol} right={<StatusPill label={deriveStatusLabel(dq)} />}>
       <StateView q={dq} emptyText="暂无盘口" />
       <div className="jev-book">
         <div className="head jev-row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
@@ -196,7 +197,7 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
 
   return (
     <>
-      <Panel title="模拟账户" sub="服务端权威" right={<StatusPill label="LIVE" />}>
+      <Panel title="模拟账户" sub="服务端权威" right={<StatusPill label={deriveStatusLabel(acc)} />}>
         <StateView q={acc} />
         {s ? (
           <div className="jev-grid cols-4">
@@ -223,7 +224,7 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
         <SourceFooter meta={acc.meta} />
       </Panel>
 
-      <Panel title="委托 / 成交" sub={`orders ${orders.data?.orders?.length ?? 0}`} right={<StatusPill label="LIVE" />}>
+      <Panel title="委托 / 成交" sub={`orders ${orders.data?.orders?.length ?? 0}`} right={<StatusPill label={deriveStatusLabel(orders)} />}>
         <StateView q={orders} emptyText="无委托记录" />
         {orders.data?.orders?.length ? (
           <table className="jev-table">
@@ -238,7 +239,7 @@ function AccountAndOrders({ refreshKey }: { refreshKey: number }) {
         <SourceFooter meta={orders.meta} />
       </Panel>
 
-      <Panel title="服务端事件流" sub={`events ${ev.data?.events?.length ?? 0}`} right={<StatusPill label="LIVE" />}>
+      <Panel title="服务端事件流" sub={`events ${ev.data?.events?.length ?? 0}`} right={<StatusPill label={deriveStatusLabel(ev)} />}>
         <StateView q={ev} emptyText="无服务端事件" />
         {ev.data?.events?.length ? (
           <table className="jev-table">
@@ -301,7 +302,7 @@ export function TradingWorkbench({ topbar }: { topbar: React.ReactNode }) {
           <div style={{ gridColumn: "span 2" }}><KlineChart symbol={symbol} interval={interval} /></div>
           <OrderForm symbol={symbol} onPlaced={() => setRefreshKey((k) => k + 1)} />
           <OrderBook symbol={symbol} />
-          <Panel title="逐笔成交" sub={symbol} right={<StatusPill label="LIVE" />}>
+          <Panel title="逐笔成交" sub={symbol} right={<StatusPill label={deriveStatusLabel(trades)} />}>
             <StateView q={trades} emptyText="暂无成交" />
             {trades.data?.map((t: any) => (
               <div className="jev-row" key={t.id} style={{ justifyContent: "space-between", padding: "4px 0", borderBottom: "1px solid var(--border)" }}>

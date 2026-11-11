@@ -1,0 +1,313 @@
+// supervisor.test.mjs — 手写断言；node <path> 必须 exit 0 才算通过
+// 纯内存 fixture，DECLARED_NOT_WIRED：不启动守护进程、不触网、不下单、不碰真实资金。
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import * as S from './index.mjs';
+
+// 被静态扫描的实现文件（明确列举，不含本测试文件本身）。
+const IMPLEMENTATION_FILES = [
+  'core.mjs', 'leader-election.mjs', 'idempotency.mjs', 'resume.mjs',
+  'kill-switch.mjs', 'cost-monitor.mjs', 'watchdog.mjs', 'supervisor.mjs', 'index.mjs',
+];
+
+function srcOf(name) {
+  return readFileSync(new URL('./' + name, import.meta.url), 'utf8');
+}
+
+function ctx(overrides = {}) {
+  const clock = overrides.clock || S.createMemoryClock(overrides.startMs ?? 0);
+  const deps = S.makeDeps({ ...overrides, clock });
+  return { deps, clock };
+}
+
+let PASS = 0, FAIL = 0;
+const lines = [];
+async function test(name, fn) {
+  try { await fn(); PASS++; lines.push('PASS  ' + name); }
+  catch (e) { FAIL++; lines.push('FAIL  ' + name + '\n        ' + (e && e.message ? e.message : String(e))); }
+}
+
+// ① Kill Switch 生效时 cycleImpl 调用 0 次，且不会自动清除
+await test('① Kill Switch 生效时 cycleImpl 调用次数为 0，且不会自动清除', async () => {
+  let calls = 0;
+  const { deps, clock } = ctx({ cycleImpl: async () => { calls++; return { ok: true }; } });
+  const sup = S.createSupervisor(deps);
+  const ks = sup.subsystems.killSwitch;
+  ks.arm('ops-token-1');
+  assert.equal(ks.isHalted(), true);
+  clock.advance(1e9);                       // 时钟推进远超任何可能超时
+  const r1 = await sup.runCycle({ runId: 'run-A', cycle: 0 });
+  const r2 = await sup.runCycle({ runId: 'run-A', cycle: 1 });
+  assert.equal(r1.status, 'HALTED');
+  assert.equal(r2.status, 'HALTED');
+  assert.equal(r1.cycleExecuted, false);
+  assert.equal(calls, 0, 'cycleImpl 调用次数必须为 0');
+  assert.equal(ks.isHalted(), true, '不得自动清除');
+  assert.equal(ks.clear('wrong-token').cleared, false, '错误 token 不得清除');
+  assert.equal(ks.isHalted(), true);
+  assert.throws(() => ks.arm(undefined), /TOKEN/);
+  assert.equal(ks.clear('ops-token-1').cleared, true);
+  assert.equal(ks.isHalted(), false);
+});
+
+// ② 重复 (runId,cycle) 被拒绝、cycleImpl 只执行一次
+await test('② 重复 (runId,cycle) 被拒绝、cycleImpl 只执行一次', async () => {
+  let calls = 0;
+  const { deps } = ctx({ cycleImpl: async () => { calls++; return { ok: true, dataLabel: 'FIXTURE_SYNTHETIC' }; } });
+  const sup = S.createSupervisor(deps);
+  const r1 = await sup.runCycle({ runId: 'run-B', cycle: 7 });
+  const r2 = await sup.runCycle({ runId: 'run-B', cycle: 7 });
+  assert.equal(r1.status, 'COMPLETED');
+  assert.equal(r2.status, 'DUPLICATE');
+  assert.equal(r2.cycleExecuted, false);
+  assert.equal(calls, 1, 'cycleImpl 只能执行一次');
+  const r3 = await sup.runCycle({ runId: 'run-B', cycle: 8 });
+  assert.equal(r3.status, 'COMPLETED');
+  assert.equal(calls, 2);
+  assert.throws(() => sup.subsystems.idempotency.recordCompletion('run-B', 7, {}), /DUPLICATE/);
+});
+
+// ③ 重启后从 lastCycle 正确续接
+await test('③ 重启后从 lastCycle 正确续接', async () => {
+  const fsImpl = S.createMemoryFs();        // 共享持久层 = 重启后仍在
+  const c1 = S.createMemoryClock(0);
+  const sup1 = S.createSupervisor(S.makeDeps({ fsImpl, clock: c1 }));
+  await sup1.runCycle({ runId: 'run-C', cycle: 0 });
+  await sup1.runCycle({ runId: 'run-C', cycle: 1 });
+  await sup1.runCycle({ runId: 'run-C', cycle: 2 });
+  const info = sup1.resume('run-C');
+  assert.equal(info.lastCycle, 2);
+  assert.equal(info.nextCycle, 3);
+  const c2 = S.createMemoryClock(1000);
+  let calls = 0;
+  const sup2 = S.createSupervisor(S.makeDeps({
+    fsImpl, clock: c2,
+    cycleImpl: async () => { calls++; return { ok: true, dataLabel: 'FIXTURE_SYNTHETIC' }; },
+  }));
+  assert.equal(sup2.resume('run-C').lastCycle, 2);
+  const r = await sup2.runNextCycle({ runId: 'run-C' });
+  assert.equal(r.status, 'COMPLETED');
+  assert.equal(r.cycle, 3, '必须从 lastCycle+1 续接');
+  assert.equal(calls, 1);
+  assert.equal(sup2.resume('run-C').lastCycle, 3);
+});
+
+// ④ 账本内容被篡改 → throw，不返回任何 lastCycle
+await test('④ 账本内容被篡改 / 断链 → throw，不返回任何 lastCycle', async () => {
+  const { deps } = ctx();
+  const sup = S.createSupervisor(deps);
+  await sup.runCycle({ runId: 'run-D', cycle: 0 });
+  await sup.runCycle({ runId: 'run-D', cycle: 1 });
+  const ledgerPath = sup.subsystems.idempotency.ledgerPath;
+  const raw = deps.fsImpl.readFileSync(ledgerPath);
+  const rows = raw.split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+  rows[0].cycle = 999;                     // 内容篡改，但不重算 _hash
+  deps.fsImpl.writeFileSync(ledgerPath, rows.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  let threw = false, leaked = null;
+  try { leaked = sup.resume('run-D'); } catch (_e) { threw = true; }
+  assert.equal(threw, true, '篡改必须 throw');
+  assert.equal(leaked, null, '不得返回任何 lastCycle');
+  let calls = 0;
+  const sup2 = S.createSupervisor(S.makeDeps({
+    fsImpl: deps.fsImpl,
+    cycleImpl: async () => { calls++; return { ok: true }; },
+  }));
+  await assert.rejects(() => sup2.runNextCycle({ runId: 'run-D' }), /CHAIN/);
+  assert.equal(calls, 0, '链损坏时不得执行周期');
+
+  // 断链：删除中间一行 → 后续 _prev 对不上
+  const { deps: d2 } = ctx();
+  const s2 = S.createSupervisor(d2);
+  await s2.runCycle({ runId: 'run-D2', cycle: 0 });
+  await s2.runCycle({ runId: 'run-D2', cycle: 1 });
+  await s2.runCycle({ runId: 'run-D2', cycle: 2 });
+  const lp2 = s2.subsystems.idempotency.ledgerPath;
+  const rows2 = d2.fsImpl.readFileSync(lp2).split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+  rows2.splice(1, 1);
+  d2.fsImpl.writeFileSync(lp2, rows2.map((r) => JSON.stringify(r)).join('\n') + '\n');
+  assert.throws(() => s2.resume('run-D2'), /CHAIN/);
+});
+
+// ⑤ 租约未过期时不得接管、过期后可接管
+await test('⑤ 租约未过期时不得接管、过期后可接管', async () => {
+  const clock = S.createMemoryClock(0);
+  const { deps } = ctx({ clock });
+  const el = S.createLeaderElection(deps);
+  const a = el.acquireLease({ ownerToken: 'owner-A', leaseTtlMs: 1000 });
+  assert.equal(a.acquired, true);
+  assert.equal(a.leaseExpiryMs, 1000);
+  clock.set(500);
+  const b1 = el.acquireLease({ ownerToken: 'owner-B', leaseTtlMs: 1000 });
+  assert.equal(b1.acquired, false);
+  assert.equal(b1.reason, 'LEASE_HELD_NOT_EXPIRED');
+  clock.set(1000);                          // 恰好等于 expiry：仍不得接管（严格 >）
+  const b2 = el.acquireLease({ ownerToken: 'owner-B', leaseTtlMs: 1000 });
+  assert.equal(b2.acquired, false);
+  clock.set(1001);
+  const b3 = el.acquireLease({ ownerToken: 'owner-B', leaseTtlMs: 1000 });
+  assert.equal(b3.acquired, true);
+  assert.equal(b3.tookOverExpired, true);
+  assert.equal(el.inspectLease().ownerToken, 'owner-B');
+});
+
+// ⑥ 非持有者释放锁不删除他人锁
+await test('⑥ 非持有者释放锁不删除他人锁', async () => {
+  const { deps } = ctx();
+  const el = S.createLeaderElection(deps);
+  assert.equal(el.acquireLease({ ownerToken: 'owner-A', leaseTtlMs: 5000 }).acquired, true);
+  const before = el.inspectLease();
+  const bad = el.releaseLease('intruder-token');
+  assert.equal(bad.released, false);
+  assert.equal(bad.reason, 'OWNER_MISMATCH');
+  assert.equal(deps.fsImpl.existsSync(el.lockPath), true, '他人锁不得被删除');
+  assert.deepEqual(el.inspectLease(), before, '锁内容不得改变');
+  assert.equal(el.releaseLease('owner-A').released, true);
+  assert.equal(deps.fsImpl.existsSync(el.lockPath), false);
+});
+
+// ⑦ 未实测成本 null + NOT_MEASURED，断言无 0 / 无回填 / 无合并
+await test('⑦ 未实测成本 amount===null 且 note 含 NOT_MEASURED；无 0 / 无回填 / 无合并', async () => {
+  const { deps } = ctx();
+  const m = S.createCostMonitor(deps, { budgetLimit: 1000 });
+  const snap = m.record({ budget: 100, estimated: 90 });   // 不提供 actual
+  assert.equal(snap.actual.amount, null);
+  assert.equal(snap.actual.status, 'NOT_MEASURED');
+  assert.ok(String(snap.actual.note).includes('NOT_MEASURED'));
+  assert.ok(String(snap.actual.note).includes('UNKNOWN, never 0'));
+  for (const v of [snap.budget.amount, snap.estimated.amount, snap.actual.amount, snap.budgetLimit]) {
+    assert.notEqual(v, 0, '不得出现 0');
+  }
+  assert.notEqual(snap.actual.amount, snap.budget.amount, '不得回填预算值');
+  assert.notEqual(snap.actual.amount, snap.estimated.amount, '不得回填估算值');
+  assert.equal(snap.actual.amount, null);
+  assert.deepEqual(snap.columns, ['budget', 'estimated', 'actual']);
+  assert.equal(snap.budget.amount, 100);
+  assert.equal(snap.estimated.amount, 90);
+  assert.equal(snap.merged, false);
+  assert.equal(m.assertNoMerge(snap), true, '合规对象必须通过');
+  assert.throws(() => m.assertNoMerge({ cost: 5, budget: snap.budget, estimated: snap.estimated, actual: snap.actual }), /COST|MERGE/);
+  assert.throws(() => m.assertNoMerge({ ...snap, actual: { ...snap.actual, amount: snap.budget.amount } }), /COST|MERGE/);
+  assert.throws(() => m.assertNoMerge({ ...snap, actual: { ...snap.actual, amount: 0 } }), /COST|MERGE|0/);
+});
+
+// ⑧ 0 样本 → NO_DATA 非 0
+await test('⑧ 0 样本 → NO_DATA 而非 0', async () => {
+  const { deps } = ctx();
+  const m = S.createCostMonitor(deps);
+  const snap = m.snapshot();
+  assert.equal(snap.status, 'NO_DATA');
+  assert.equal(snap.sampleCount, 0);
+  for (const key of ['budget', 'estimated', 'actual']) {
+    assert.equal(snap[key].status, 'NO_DATA');
+    assert.equal(snap[key].amount, null, key + ' 缺失值不得写 0');
+    assert.notEqual(snap[key].amount, 0);
+  }
+  assert.ok(String(snap.actual.note).includes('UNKNOWN, never 0'));
+  assert.equal(m.assertNoMerge(snap), true);
+});
+
+// ⑨ 心跳陈旧检测
+await test('⑨ 心跳陈旧检测（注入时钟，不创建 / 终止进程）', async () => {
+  const clock = S.createMemoryClock(0);
+  const { deps } = ctx({ clock, staleThresholdMs: 100 });
+  const w = S.createWatchdog(deps);
+  assert.equal(w.check().status, 'STALE');
+  assert.equal(w.check().reason, 'NO_HEARTBEAT');
+  w.beat({ runId: 'r', cycle: 0 });
+  assert.equal(w.check().status, 'OK');
+  clock.advance(50);
+  assert.equal(w.check().status, 'OK');
+  clock.advance(51);                       // age = 101 > 100
+  const stale = w.check();
+  assert.equal(stale.status, 'STALE');
+  assert.equal(stale.reason, 'HEARTBEAT_AGE_EXCEEDED');
+  w.beat();                                // 显式心跳恢复，而非自动
+  assert.equal(w.check().status, 'OK');
+});
+
+// ⑩ 源码静态扫描 + DAEMON_BINDING
+await test('⑩ 源码无 daemon/进程/网络调用，且 DAEMON_BINDING===DECLARED_NOT_WIRED', async () => {
+  const all = IMPLEMENTATION_FILES.map(srcOf).join('\n');
+  const banned = [
+    { name: 'setInterval', re: /\bsetInterval\s*\(/ },
+    { name: 'spawn/exec/child_process', re: /\bspawn(Sync)?\s*\(|\bexec(Sync)?\s*\(|child_process/ },
+    { name: 'process kill', re: /process\.kill|\.kill\s*\(|\bkill\s*\(/ },
+    { name: 'fetch(', re: /\bfetch\s*\(/ },
+    { name: 'node:http', re: /node:http/ },
+    { name: 'real URL', re: /https?:\/\// },
+  ];
+  for (const b of banned) {
+    assert.equal(b.re.test(all), false, '源码不得包含禁用调用: ' + b.name);
+  }
+  assert.equal(S.DAEMON_BINDING, 'DECLARED_NOT_WIRED');
+  assert.ok(all.includes('DECLARED_NOT_WIRED'));
+  assert.deepEqual(S.STAGES, ['killSwitch', 'lease', 'idempotency', 'resume', 'cycleImpl', 'record', 'heartbeat']);
+});
+
+// ⑪ fixture 数据不得标 LIVE / REAL，缺失值不得写 0
+await test('⑪ fixture 数据不得标 LIVE / REAL，缺失值不得写 0', async () => {
+  const { deps } = ctx();
+  const out = await deps.cycleImpl({ runId: 'r', cycle: 0, nowMs: deps.nowMs() });
+  assert.notEqual(out.dataLabel, 'LIVE');
+  assert.notEqual(out.dataLabel, 'REAL');
+  assert.equal(out.dataLabel, 'FIXTURE_SYNTHETIC');
+  for (const v of Object.values(out)) assert.notEqual(v, 0);
+  const sup = S.createSupervisor(deps);
+  const r = await sup.runCycle({ runId: 'run-E', cycle: 0 });
+  assert.equal(r.status, 'COMPLETED');
+  assert.deepEqual(r.trace, S.STAGES, '编排顺序必须固定');
+  const rows = deps.fsImpl.readFileSync(sup.subsystems.idempotency.ledgerPath)
+    .split('\n').filter((l) => l.trim()).map((l) => JSON.parse(l));
+  assert.equal(rows.length, 1);
+  assert.notEqual(rows[0].payload.cycleResultLabel, 'LIVE');
+  assert.notEqual(rows[0].payload.cycleResultLabel, 'REAL');
+});
+
+// ⑫ 成本 state 跨重启累计（原子写）
+await test('⑫ 成本 state 跨重启累计（原子写）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const m1 = S.createCostMonitor(S.makeDeps({ fsImpl }));
+  m1.record({ budget: 10, estimated: 8, actual: 7 });
+  m1.record({ budget: 10, estimated: 8 });            // 未实测
+  const m2 = S.createCostMonitor(S.makeDeps({ fsImpl }));   // 重启：新建实例共享 fsImpl
+  const s = m2.snapshot();
+  assert.equal(s.sampleCount, 2);
+  assert.equal(s.budget.amount, 20);
+  assert.equal(s.estimated.amount, 16);
+  assert.equal(s.actual.amount, 7);
+  assert.equal(s.actual.status, 'MEASURED');
+  assert.equal(m2.assertNoMerge(s), true);
+});
+
+// ⑬ 空账本 resume 返回 lastCycle=-1（缺失不写 0）
+await test('⑬ 空账本 resume 返回 lastCycle=-1（缺失不写 0）', async () => {
+  const { deps } = ctx();
+  const sup = S.createSupervisor(deps);
+  const info = sup.resume('run-empty');
+  assert.equal(info.lastCycle, -1);
+  assert.equal(info.nextCycle, 0);
+  assert.equal(info.verified, true);
+  assert.equal(info.recordCount, 0);
+});
+
+// ⑭ 原生链工具：append→verify 通过，篡改 _hash / 断链均 throw
+await test('⑭ 原生链工具：append→verify 通过，篡改 / 断链均 throw', async () => {
+  const { deps } = ctx();
+  const p = '/x/ledger.jsonl';
+  const e1 = S.appendChainEntry(deps.fsImpl, p, { a: 1 });
+  const e2 = S.appendChainEntry(deps.fsImpl, p, { a: 2 });
+  assert.equal(e2._prev, e1._hash);
+  assert.equal(S.verifyChain(S.readJsonl(deps.fsImpl, p)).intact, true);
+  const rows = S.readJsonl(deps.fsImpl, p);
+  const bad1 = rows.map((r) => ({ ...r }));
+  bad1[0]._hash = 'deadbeef';
+  assert.throws(() => S.verifyChain(bad1), /CHAIN/);
+  const bad2 = rows.map((r) => ({ ...r }));
+  bad2[1]._prev = 'GENESIS';
+  assert.throws(() => S.verifyChain(bad2), /CHAIN/);
+});
+
+console.log('=== P6 Supervisor 本地骨架验收（纯内存 fixture / DECLARED_NOT_WIRED）===');
+for (const l of lines) console.log(l);
+console.log('RESULT PASS=' + PASS + ' FAIL=' + FAIL);
+if (FAIL > 0) process.exitCode = 1;

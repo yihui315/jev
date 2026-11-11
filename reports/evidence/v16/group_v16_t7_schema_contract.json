@@ -1,8 +1,8 @@
 {
   "testId": "v16_t7_schema_contract",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:15.597Z",
-  "finishedAt": "2026-11-09T13:20:15.851Z",
+  "startedAt": "2026-11-10T23:54:17.900Z",
+  "finishedAt": "2026-11-10T23:54:17.960Z",
   "meta": {
     "coverage": "QA-T7-2: schema/migration contract"
   },

@@ -4,6 +4,7 @@
 import { useJevQuery } from "../api/useJev";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView } from "../components/common";
 import { TopBar } from "../components/Shell";
+import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
 
 export function AICommandCenter({ topbar }: { topbar: React.ReactNode }) {
   const sys = useJevQuery<any>("system/status");
@@ -68,7 +69,7 @@ export function AICommandCenter({ topbar }: { topbar: React.ReactNode }) {
         </div>
 
         <div className="jev-grid cols-2" style={{ marginTop: 14 }}>
-          <Panel title="实时行情快照（REST_POLLING）" sub="BTC/ETH/ORDI/1000SATS" right={<StatusPill label="LIVE" />}>
+          <Panel title="实时行情快照（REST_POLLING）" sub="BTC/ETH/ORDI/1000SATS" right={<StatusPill label={deriveStatusLabel(ticker)} />}>
             <StateView q={ticker} emptyText="暂无行情" />
             {ticker.data?.map((t: any) => {
               const chg = Number(t.priceChangePercent);

@@ -5,7 +5,7 @@ name: JEV V1.6 — Market Provenance Hardening
 # in-memory SQLite shims with injected fetchers (deterministic, offline).
 on:
   push:
-    branches: ["feature/v16-market-provenance-hardening"]
+    branches: ["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**"]
   pull_request:
     branches: ["release/jcc-v1.3-final"]
   workflow_dispatch:

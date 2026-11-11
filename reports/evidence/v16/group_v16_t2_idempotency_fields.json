@@ -1,8 +1,8 @@
 {
   "testId": "v16_t2_idempotency_fields",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:14.801Z",
-  "finishedAt": "2026-11-09T13:20:14.855Z",
+  "startedAt": "2026-11-10T23:54:17.531Z",
+  "finishedAt": "2026-11-10T23:54:17.569Z",
   "meta": {
     "coverage": "QA-T2-1: idempotency with new columns"
   },
