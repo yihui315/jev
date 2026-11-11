@@ -139,11 +139,29 @@ const SUITES = [
     //           ⑰ red while its message pointed at the legacy model — right colour,
     //           wrong reason. Split so each side owns one claim and each has a
     //           mutation that reddens it and nothing else. delta = +2, so 23 + 2 = 25.
+    // 25 -> 28: ⑲c/⑲d/⑳ — torn-tail truncation with discarded_bytes, a non-chaining
+    //           tail that must stay LEDGER_TAMPERED (and must NOT be truncated away),
+    //           and the bounded re-verify window that makes a same-length in-place
+    //           tamper detectable. 3 new named blocks, so 25 + 3 = 28. Measured, not
+    //           a target.
+    // 28 -> 33: P1 ledger-io fail-closed + the two windows + lease handover.
+    //           ㉑a a whole-cycle suffix truncation with the anchor present must throw
+    //               (it used to be classified and then "repaired" into a runnable
+    //               state, and the measured consequence was a duplicated side effect);
+    //           ㉑b a non-empty ledger with no anchor must throw — deleting the anchor
+    //               file used to switch the whole control off and report CLEAN;
+    //           ㉑c a refusal must be repeatable and must not rewrite the anchor,
+    //               otherwise the same code destroys the evidence it just produced;
+    //           ㉒ a lease handover voids the cursor (the cursor compares LENGTH, so a
+    //               same-length write by the previous holder would pass it);
+    //           ㉓ the operation window, which is the only bound that expires for a
+    //               term that never appends — it had no evidence at all before.
+    //           5 new named blocks, so 28 + 5 = 33. Measured, not a target.
     // Earlier the ⑮ guard was missing, so a caller passing a wrapper object made
     // `0 < undefined` false, the loop ran zero times, and verifyChain returned
     // {intact:true, count:undefined} — a silent pass. See core.mjs:verifyChain.
-    expect: 25,
-    // "RESULT PASS=25 FAIL=0"
+    expect: 33,
+    // "RESULT PASS=33 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
   },
   {

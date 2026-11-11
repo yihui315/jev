@@ -11,3 +11,4 @@ export { createKillSwitch } from './kill-switch.mjs';
 export { createCostMonitor, NOT_MEASURED_NOTE, NO_DATA_NOTE } from './cost-monitor.mjs';
 export { createWatchdog } from './watchdog.mjs';
 export { createSupervisor, DAEMON_BINDING, STAGES } from './supervisor.mjs';
+export { createLedgerIo, ABSOLUTE_MAX, RECOVER } from './ledger-io.mjs';

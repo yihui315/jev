@@ -1,15 +1,20 @@
 // supervisor.test.mjs — 手写断言；node <path> 必须 exit 0 才算通过
 // 纯内存 fixture，DECLARED_NOT_WIRED：不启动守护进程、不触网、不下单、不碰真实资金。
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
 import * as S from './index.mjs';
-import { createMemoryFs, createLegacyStringFs } from './core.mjs';
+import { createMemoryFs } from './core.mjs';
 
-// 被静态扫描的实现文件（明确列举，不含本测试文件本身）。
-const IMPLEMENTATION_FILES = [
-  'core.mjs', 'leader-election.mjs', 'idempotency.mjs', 'resume.mjs',
-  'kill-switch.mjs', 'cost-monitor.mjs', 'watchdog.mjs', 'supervisor.mjs', 'index.mjs',
-];
+// 被静态扫描的实现文件 = 本目录下除测试文件以外的每一个模块。
+//
+// 这里原本是一份手写九人名单，而 ledger-io.mjs（331 行，账本字节的唯一所有者）
+// 不在里面 —— 于是 `banned` 那段对本轮最新、最要紧的实现文件一行都没扫。
+// 和「verify-engine-vendor 命中 0 个文件」「第 9 套件不存在」是同一族：
+// 守卫的 SCOPE 靠手维护，就会悄悄停止覆盖它本该覆盖的东西。
+// 枚举之后必须断言数量：否则删掉文件反而让扫描"更干净"。
+const IMPLEMENTATION_FILES = readdirSync(new URL('./', import.meta.url))
+  .filter((n) => n.endsWith('.mjs') && !/\.test\.mjs$/.test(n))
+  .sort();
 
 function srcOf(name) {
   return readFileSync(new URL('./' + name, import.meta.url), 'utf8');
@@ -236,6 +241,13 @@ await test('⑨ 心跳陈旧检测（注入时钟，不创建 / 终止进程）'
 
 // ⑩ 源码静态扫描 + DAEMON_BINDING
 await test('⑩ 源码无 daemon/进程/网络调用，且 DAEMON_BINDING===DECLARED_NOT_WIRED', async () => {
+  // 枚举本身必须先被断言：如果 readdirSync 指错了目录，上面那句 filter 会得到
+  // 空数组，于是下面每一条 banned 都在"什么都没扫"的情况下全部通过。
+  assert.ok(IMPLEMENTATION_FILES.length >= 10,
+    '静态扫描的实现文件数必须 >= 10，实际 ' + IMPLEMENTATION_FILES.length
+    + '（[' + IMPLEMENTATION_FILES.join(', ') + ']）—— 枚举失效等于扫描空转');
+  assert.ok(IMPLEMENTATION_FILES.includes('ledger-io.mjs'),
+    'ledger-io.mjs 必须被扫描覆盖：它拥有全部账本字节，是本轮最大的一块实现');
   const all = IMPLEMENTATION_FILES.map(srcOf).join('\n');
   const banned = [
     { name: 'setInterval', re: /\bsetInterval\s*\(/ },
@@ -384,6 +396,89 @@ await test('⑯ 内存 fs 尊重 open 模式：a 追写 / w 截断 / fsync 可�
   // 于是 ⑰b 永远拿不到独立定位证据。
 });
 
+// ─── 负对照的锚：逐字原文 + sha256 锁 ──────────────────────────────────────────
+// 取自 d1fc94f（= dbd6368^，字节模型落地前的最后一个提交）。复现命令：
+//   git show d1fc94f:apps/command_center_3d/scripts/supervisor/core.mjs \
+//     | sed -n '/^export function createMemoryFs/,/^}$/p' | sha256sum
+//   -> df6f2cf07e910bffb9d2558786c805bb0a5e59e3a3add3a9e44ddda517ef8094   (1992 字节 / 53 行)
+// 为什么必须是原文：⑰a/⑱a 的全部杀伤力来自「旧模型确实是这样」。手打复述证明的
+// 是作者记得什么，不是旧实现是什么 —— 实测那份复述缺 mkdirSync/renameSync，
+// 且 unlinkSync 由抛 ENOENT 变成静默删除。
+// 锁是 tamper-EVIDENT，不是 tamper-proof：改这份字面量会出现在 diff 里，连锁一起
+// 改是一次两处编辑，评审看得见。
+const LEGACY_FS_SOURCE_SHA256 = 'df6f2cf07e910bffb9d2558786c805bb0a5e59e3a3add3a9e44ddda517ef8094';
+const LEGACY_FS_SOURCE = `export function createMemoryFs(initial) {
+  const files = new Map();
+  if (initial) for (const [k, v] of Object.entries(initial)) files.set(k, String(v));
+  let nextFd = 1;
+  const fds = new Map();
+  const asText = (d) => (Buffer.isBuffer(d) ? d.toString('utf8') : String(d));
+
+  return {
+    existsSync(p) { return files.has(String(p)); },
+    readFileSync(p) {
+      const key = String(p);
+      if (!files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
+      return files.get(key);
+    },
+    writeFileSync(p, data) { files.set(String(p), asText(data)); },
+    appendFileSync(p, data) {
+      const key = String(p);
+      files.set(key, (files.get(key) || '') + asText(data));
+    },
+    unlinkSync(p) {
+      const key = String(p);
+      if (!files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
+      files.delete(key);
+    },
+    renameSync(a, b) {
+      const ka = String(a), kb = String(b);
+      if (!files.has(ka)) { const e = new Error('ENOENT: ' + ka); e.code = 'ENOENT'; throw e; }
+      files.set(kb, files.get(ka));
+      files.delete(ka);
+    },
+    // 'wx' 为原子排他创建：文件已存在则抛 EEXIST，用于租约选举。
+    openSync(p, flags) {
+      const key = String(p);
+      const f = String(flags || 'r');
+      if (f.includes('x') && files.has(key)) {
+        const e = new Error('EEXIST: ' + key); e.code = 'EEXIST'; throw e;
+      }
+      if (f.includes('w') || f.includes('x')) {
+        files.set(key, '');
+      } else if (f.startsWith('a')) {
+        if (!files.has(key)) files.set(key, '');
+      } else if (f.startsWith('r') && !files.has(key)) {
+        const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e;
+      }
+      const fd = nextFd++;
+      fds.set(fd, key);
+      return fd;
+    },
+    closeSync(fd) { fds.delete(fd); },
+    writeSync(fd, data) { const key = fds.get(fd); if (key !== undefined) files.set(key, asText(data)); },
+    mkdirSync() {},
+  };
+}
+`;
+
+function legacyStringFs() {
+  assert.equal(S.sha256(LEGACY_FS_SOURCE), LEGACY_FS_SOURCE_SHA256,
+    '负对照的字面量已经不是 d1fc94f 的原文了。改对照就是在调整答案 —— '
+    + '若确实要换锚，先给出新提交的 git show 输出与新的 sha256sum');
+  // `new Function` 不接受 `export`；去掉它不能改变封印，所以封印校验在原文上做。
+  const factory = new Function(LEGACY_FS_SOURCE.replace(/^export /, '') + '\nreturn createMemoryFs;')();
+  return factory();
+}
+
+// 这三条正是当年那份"手打复述"打错的地方。它们不是重复断言，是"这不是复述"的证明。
+function assertLegacyIsVerbatim(fs) {
+  assert.equal(typeof fs.mkdirSync, 'function', '原文有 mkdirSync；缺了说明这是复述而不是原文');
+  assert.equal(typeof fs.renameSync, 'function', '原文有 renameSync；缺了说明这是复述而不是原文');
+  assert.throws(() => fs.unlinkSync('/x/never-created'), /ENOENT/,
+    '原文的 unlinkSync 对不存在的路径抛 ENOENT；静默删除 = 复述');
+}
+
 // ⑰a/⑰b 与 ⑱a/⑱b —— 拆开的原因不是洁癖，是归因。
 // 原来 ⑰ 一条里装了三件互相独立的主张：legacy 必须错 / real 必须对 / 两者不等。
 // 后果实测：把 real 侧的位置语义改坏，⑰ 也红，而失败消息说的是"旧 string fixture
@@ -391,7 +486,8 @@ await test('⑯ 内存 fs 尊重 open 模式：a 追写 / w 截断 / fsync 可�
 // 现在：a 侧 = 负对照（错的模型必须错），b 侧 = 正向判据（对的实现必须对）。
 // 两者各自都能被一条只红自己的变异打死。
 await test('⑰a 负对照 legacy 侧：旧 string fixture 必须丢失接力写', async () => {
-  const legacy = createLegacyStringFs();
+  const legacy = legacyStringFs();
+  assertLegacyIsVerbatim(legacy);
   const fd = legacy.openSync('/x/pos-legacy.jsonl', 'w');
   legacy.writeSync(fd, '{"seq":1}\n');
   legacy.writeSync(fd, '{"seq":2}\n');
@@ -412,7 +508,8 @@ await test('⑰b 正向判据 real 侧：本 fixture 必须保住接力写', asy
 });
 
 await test('⑱a 负对照 legacy 侧：旧 string fixture 必须把半字节解成 U+FFFD', async () => {
-  const legacy = createLegacyStringFs();
+  const legacy = legacyStringFs();
+  assertLegacyIsVerbatim(legacy);
   const head = Buffer.from('中', 'utf8').subarray(0, 1);      // e4
   const fd = legacy.openSync('/x/torn-legacy.jsonl', 'w');
   legacy.writeSync(fd, head);
@@ -506,6 +603,42 @@ await test('⑲f 崩溃在 intent 与 completion 之间：重启判 IN_DOUBT，�
   assert.equal(after.length, 2, 'in-doubt 早退不得追加记录（epoch+intent 共 2 条）');
   assert.equal(after.filter((e) => e.kind === S.LEDGER_KIND.epoch).length, 1,
     '早退路径不得声明新任期');
+
+  // ── 宣称是"任何写阶段之前"，就必须覆盖"任何写" ────────────────────────────
+  // 复现过的绕过：在早退分支、return 之前插一条 watchdog.beat()（写心跳、不 push
+  // 标签、不进任何 STAGES 写阶段）。上面的判据全绿：账本 2 条没变、trace 3 段没变。
+  // 「判据比宣称窄一档，而窄掉的那一档恰好是利用入口」——所以判据换成
+  // 路径 × 字节 全量快照，那是对 writeFileSync/renameSync 这条路的唯一覆盖方式。
+  //
+  // 不要用 writeCallCount() 兜底：atomicWriteJson 走 writeFileSync + renameSync，
+  // 不经过 openSync/writeSync，所以那个计数器对这种写永远 delta=0。用不覆盖目标
+  // 路径的仪表兜底，等于给漏洞发合格证。这条是实测的，不是推理的。
+  const BASE = S.BASE_DIR;
+  const before2 = snapshotDir(fsImpl, BASE);
+  assert.ok(Object.keys(before2).length >= 2,
+    '前置：快照必须真的看到文件（空快照 = 这条用例在测空气），实际 '
+    + JSON.stringify(Object.keys(before2)));
+  const r2 = await sup2.runNextCycle({ runId: 'run-W2' });
+  const after2 = snapshotDir(fsImpl, BASE);
+  assert.equal(r2.status, 'IN_DOUBT');
+
+  // 白名单必须是空数组。in-doubt 状态下进程不得被看成"活着"：
+  //   * 若它继续心跳 => watchdog 报 OK、租约被续 => 没人接管，集群带着绿灯停摆；
+  //   * 若它不心跳   => 租约过期、别人接管、接管者读到 IN_DOUBT 也停 => 整个集群
+  //     停在同一个 in-doubt 上。
+  // 后者是 IN_DOUBT 无出口的必然形态，不是活锁：没有进展正是设计，而且它是响的
+  // （runNextCycle 返回 status=IN_DOUBT + sideEffectMayHaveOccurred）。别让后人
+  // 把它当 bug "修"成心跳保活。
+  // 要放宽，先改这段注释，再改下一行的长度断言 —— 它钉死"最多一项"。
+  const IN_DOUBT_EXIT_WHITELIST = [];
+  assert.equal(IN_DOUBT_EXIT_WHITELIST.length, 0, '白名单最多一项；两项以上就退化成"随便写"');
+  const allowed = (rel) => IN_DOUBT_EXIT_WHITELIST.some((w) => rel.endsWith('/' + w));
+
+  assert.deepEqual(Object.keys(after2).sort(), Object.keys(before2).sort(),
+    'IN_DOUBT 早退不得新建或删除任何文件');
+  const changed = Object.keys(before2).filter((k) => before2[k] !== after2[k] && !allowed(k));
+  assert.deepEqual(changed, [],
+    'IN_DOUBT 早退路径上不得有任何已知文件字节发生变化，实际变化: ' + JSON.stringify(changed));
 });
 
 // ⑲g completion 必须有配对 intent，否则抛（防止上游绕过写入序）
@@ -551,6 +684,324 @@ await test('⑲i 租约令牌不得以明文进账本（只存摘要）', async 
   assert.equal(ep[0].ownerTokenDigest, S.sha256(token));
   assert.equal(ep[0].ownerToken, undefined);
 });
+
+// ⑲c 撕裂尾巴：完整 JSON 但缺结尾换行，也必须走截断路径并报 discarded_bytes。
+//     这条不是"顺手兼容一下换行"：修复前那种文件在 verifyChain 处直接抛断链，
+//     整个账本报废，恢复只能靠人工删文件——而那等于把"记录缺失"变成"没人看见"。
+await test('⑲c 结尾缺换行：完整 JSON 也按撕裂尾巴截断，并报 discarded_bytes', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock }));
+  await sup.runCycle({ runId: 'run-T', cycle: 0 });
+  const p = sup.subsystems.ledgerIo.ledgerPath;
+  const good = fsImpl.readFileSync(p);
+  const goodLen = good.length;
+
+  // 追加一条"完整 JSON、只是没写结尾换行"的记录（_prev 是假的：它确实是一次
+  // 没写完的写，不该被当成正常记录）
+  const extra = Buffer.from(JSON.stringify({
+    kind: 'cycle_completion', runId: 'run-T', cycle: 1, _prev: 'not-the-head', _hash: 'nope',
+  }), 'utf8');
+  fsImpl.writeFileSync(p, Buffer.concat([good, extra]));
+
+  // 前置：修复前这条路是死的 —— 链校验直接抛，账本不可读
+  assert.throws(() => S.verifyChain(S.readJsonl(fsImpl, p)), /CHAIN/,
+    '前置：未截断时链必须校验失败（否则本用例在测空气）');
+
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(1000) }));
+  const info = sup2.resume('run-T');            // open() 在这里发生
+  const rec = sup2.subsystems.ledgerIo.recovery();
+  assert.equal(rec.mode, S.RECOVER.TORN_TAIL_TRUNCATED);
+  assert.equal(rec.discardedBytes, extra.length, 'discarded_bytes 必须精确等于被丢掉的字节数');
+  assert.equal(fsImpl.readFileSync(p).length, goodLen, '文件必须回到最后一条完整记录处');
+  assert.equal(info.lastCycle, 0, '截断后仍可续跑：cycle 0 是完成的');
+  assert.equal(info.verified, true);
+});
+
+// ⑲d 尾巴完整但 _prev 接不上：这是"外来记录"，不是"没写完的记录"。
+//     区别必须体现在行为上：撕裂可以截断后继续；接不上只能 fail-closed，
+//     而且不得静默丢弃证据（字节要原样留着给人查）。
+await test('⑲d 尾巴 _prev 接不上：LEDGER_TAMPERED，且不得静默截断掉证据', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock }));
+  await sup.runCycle({ runId: 'run-U', cycle: 0 });
+  const p = sup.subsystems.ledgerIo.ledgerPath;
+  const good = fsImpl.readFileSync(p);
+
+  // 完整记录 + 结尾换行 + _prev 指向一个不存在的头
+  const foreign = Buffer.from(JSON.stringify({
+    kind: 'cycle_completion', runId: 'run-U', cycle: 1, _prev: 'deadbeef', _hash: 'cafe',
+  }) + '\n', 'utf8');
+  fsImpl.writeFileSync(p, Buffer.concat([good, foreign]));
+  const tamperedLen = good.length + foreign.length;
+
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(1000) }));
+  assert.throws(() => sup2.resume('run-U'), /CHAIN_BROKEN|LEDGER_TAMPERED/);
+  assert.equal(fsImpl.readFileSync(p).length, tamperedLen,
+    '接不上不等于没写完：不得把它截断掉（截断=销毁证据）');
+  await assert.rejects(() => sup2.runNextCycle({ runId: 'run-U' }), /CHAIN_BROKEN|LEDGER_TAMPERED/,
+    '恢复路径也不得放行');
+});
+
+// ⑳ 游标窗口有界：同长度原地篡改不改变 byteLength，statSync 看不见，
+//    只有"窗口到期强制全量重验"能抓到。这条用例同时证明窗口是有效的和有限的。
+await test('⑳ 游标窗口有界：同长度原地篡改必须在 K 次读取内被抓到', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const base = S.makeDeps({ fsImpl, clock });
+  const K = 4;
+  const io = S.createLedgerIo(base, { maxEntriesBeforeFullReverify: K });
+  const sup = S.createSupervisor({ ...base, ledgerIo: io });
+  for (let c = 0; c < 3; c++) await sup.runCycle({ runId: 'run-V', cycle: c });
+
+  const p = io.ledgerPath;
+  const raw = fsImpl.readFileSync(p);
+  // 等长替换：把 runId 里的一个字符改掉，哈希必然失配，但字节数不变
+  const at = raw.indexOf(Buffer.from('run-V', 'utf8'));
+  assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
+  const mangled = Buffer.from(raw);
+  mangled.write('run-W', at, 'utf8');
+  fsImpl.writeFileSync(p, mangled);
+  assert.equal(fsImpl.readFileSync(p).length, raw.length, '前置：篡改必须保持字节数不变');
+
+  let threwAt = -1;
+  for (let i = 1; i <= K + 1; i++) {
+    try { await sup.runCycle({ runId: 'run-X', cycle: 100 + i }); }
+    catch (e) { if (/CHAIN|LEDGER_TAMPERED/.test(String(e && e.message))) { threwAt = i; break; } throw e; }
+  }
+  assert.ok(threwAt > 0, '同长度篡改在 ' + (K + 1) + ' 次读取内必须被抓到（实际没抓到）');
+  assert.ok(threwAt <= K + 1, '必须在窗口内被抓到，实际第 ' + threwAt + ' 次');
+
+  // 对照：窗口放到无穷大时，同样次数的读取抓不到 —— 证明抓到它的是"窗口"，
+  // 不是 statSync。没有这条对照，本用例证明不了窗口在起作用。
+  const fsImpl2 = S.createMemoryFs();
+  const base2 = S.makeDeps({ fsImpl: fsImpl2, clock: S.createMemoryClock(0) });
+  const io2 = S.createLedgerIo(base2, {
+    maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9,
+  });
+  const sup2 = S.createSupervisor({ ...base2, ledgerIo: io2 });
+  for (let c = 0; c < 3; c++) await sup2.runCycle({ runId: 'run-X', cycle: c });
+  const raw2 = fsImpl2.readFileSync(io2.ledgerPath);
+  const at3 = raw2.indexOf(Buffer.from('run-X', 'utf8'));
+  assert.ok(at3 >= 0, '前置：对照组也必须找到 runId');
+  const mangled2 = Buffer.from(raw2);
+  mangled2.write('run-Y', at3, 'utf8');
+  fsImpl2.writeFileSync(io2.ledgerPath, mangled2);
+  let controlThrew = false;
+  for (let i = 1; i <= K + 1; i++) {
+    try { await sup2.runCycle({ runId: 'run-X', cycle: 100 + i }); }
+    catch (e) { controlThrew = true; break; }
+  }
+  assert.equal(controlThrew, false, '对照：无界窗口下同长度篡改确实抓不到（这才证明 ⑳ 抓它的是窗口）');
+});
+
+// ㉑a 整周期被截掉 + 锚点在 ⇒ 抛。
+//     这是 D-14-0 的复活形态，也是修复前实测到的重复副作用：截掉两个完整周期，
+//     intent 与 completion 在同一段字节里一起没了 ⇒ 账本说"没开始过" ⇒ 放行重跑。
+//     锚点只知道"少了多少字节/多少条"，不知道少的是哪些 (runId, cycle)，所以在未知
+//     集合上放行重跑 = 把 at-most-once 交给运气。降级成 IN_DOUBT 也不行：
+//     哪些周期是 IN_DOUBT 本身也是未知的。
+await test('㉑a 整周期截断（锚点在）⇒ LEDGER_SHORT_TRUNCATED，且不得执行周期体', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock }));
+  for (let c = 0; c < 5; c++) await sup.runCycle({ runId: 'run-S', cycle: c });
+  const io = sup.subsystems.ledgerIo;
+  const raw = fsImpl.readFileSync(io.ledgerPath);
+  const anchorRow = JSON.parse(fsImpl.readFileSync(io.anchorPath).toString('utf8'));
+  assert.equal(anchorRow.count, 15, '前置：5 个周期 × 3 条记录');
+  assert.equal(anchorRow.byteLength, raw.length, '前置：锚点的字节数必须等于实际字节数');
+
+  // 在记录边界截到 9 条 = 只剩周期 0/1/2
+  const rows = raw.toString('utf8').split('\n').filter((l) => l.trim());
+  const cutBuf = Buffer.from(rows.slice(0, 9).join('\n') + '\n', 'utf8');
+  assert.ok(cutBuf.length < raw.length, '前置：必须真的变短');
+  fsImpl.writeFileSync(io.ledgerPath, cutBuf);
+
+  // 前置：剩下 9 条的链是自洽的 —— 否则这条用例只是在测断链检测，
+  // 而链对后缀截断结构性失明正是本用例存在的理由。
+  assert.equal(S.verifyChain(S.readJsonl(fsImpl, io.ledgerPath)).intact, true,
+    '前置：截断后剩余记录必须能通过链校验（链看不见后缀截断）');
+
+  let calls = 0;
+  const sup2 = S.createSupervisor(S.makeDeps({
+    fsImpl, clock: S.createMemoryClock(1000),
+    cycleImpl: async () => { calls++; return { ok: true }; },
+  }));
+  assert.throws(() => sup2.resume('run-S'), /LEDGER_SHORT_TRUNCATED/,
+    '缺口状态下的 resume 必须 throw，不得返回一个"看起来正常"的 lastCycle');
+  await assert.rejects(() => sup2.runCycle({ runId: 'run-S', cycle: 3 }), /LEDGER_SHORT_TRUNCATED/,
+    '周期 3 的副作用可能已经发生过；不得因为账本里没有它而重跑');
+  assert.equal(calls, 0, '未知缺口上不得执行周期体（修复前这里是 1）');
+  assert.equal(fsImpl.readFileSync(io.ledgerPath).length, cutBuf.length,
+    '拒绝之后账本字节必须原样保留：既不许截断，也不许"补齐"');
+});
+
+// ㉑b 删掉锚点 + 账本非空 ⇒ 抛。
+//     修复前这一条是整段 `if (anchor && typeof anchor.byteLength === 'number')` 被
+//     整个跳过，然后报 CLEAN —— 关掉一道控制的最省事办法就是删掉它的证据文件。
+await test('㉑b 账本非空但锚点缺失 ⇒ LEDGER_ANCHOR_MISSING（删锚点不是关控制）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock }));
+  await sup.runCycle({ runId: 'run-AM', cycle: 0 });
+  await sup.runCycle({ runId: 'run-AM', cycle: 1 });
+  const io = sup.subsystems.ledgerIo;
+  const ledgerBefore = fsImpl.readFileSync(io.ledgerPath);
+  fsImpl.unlinkSync(io.anchorPath);
+
+  // 前置：账本本身完好、字节与删除锚点之前完全一致 —— 唯一被拿掉的只有锚点
+  assert.equal(fsImpl.readFileSync(io.ledgerPath).equals(ledgerBefore), true);
+  assert.equal(S.verifyChain(S.readJsonl(fsImpl, io.ledgerPath)).intact, true,
+    '前置：链完好，所以这条用例只可能因为锚点缺失而红');
+
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(1000) }));
+  assert.throws(() => sup2.resume('run-AM'), /LEDGER_ANCHOR_MISSING/);
+
+  // 对照：真正的首次启动（账本也为空）必须允许通过 —— 否则"必须有锚点"就变成了
+  // "永远起不来"，而一条永远红的用例和保护是两件事。
+  const fresh = S.createMemoryFs();
+  const sup3 = S.createSupervisor(S.makeDeps({ fsImpl: fresh, clock: S.createMemoryClock(0) }));
+  const info = sup3.resume('run-AM');
+  assert.equal(info.lastCycle, -1, '首次启动：空账本 + 无锚点必须放行');
+  assert.equal(info.recordCount, 0);
+});
+
+// ㉑c 被拒之后不得销毁证据。修复前实测：下一次写入会把锚点改写成截断后的长度，
+//     此后再没人能发现少了两个周期 —— 这比"没检测到"更坏，它把"曾经能检测到"也消掉了。
+await test('㉑c 被拒之后锚点字节仍是原值，再开仍然拒（不得自我修复）', async () => {
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({ fsImpl, clock }));
+  for (let c = 0; c < 4; c++) await sup.runCycle({ runId: 'run-EV', cycle: c });
+  const io = sup.subsystems.ledgerIo;
+  const anchorBefore = fsImpl.readFileSync(io.anchorPath);
+  const anchorLen = anchorBefore.length;
+  const rows = fsImpl.readFileSync(io.ledgerPath).toString('utf8').split('\n').filter((l) => l.trim());
+  fsImpl.writeFileSync(io.ledgerPath, Buffer.from(rows.slice(0, 6).join('\n') + '\n', 'utf8'));
+
+  const sup2 = S.createSupervisor(S.makeDeps({ fsImpl, clock: S.createMemoryClock(1000) }));
+  assert.throws(() => sup2.resume('run-EV'), /LEDGER_SHORT_TRUNCATED/);
+
+  const anchorAfter = fsImpl.readFileSync(io.anchorPath);
+  assert.equal(anchorAfter.length, anchorLen, '锚点字节数不得改变');
+  assert.equal(anchorAfter.equals(anchorBefore), true,
+    '锚点内容必须逐字节不变：被拒的那次读取不许顺手把锚点改成"看起来一致"');
+  const rec = sup2.subsystems.ledgerIo.recovery();
+  assert.equal(rec.mode, S.RECOVER.SHORT_TRUNCATED);
+  assert.ok(rec.shortageBytes > 0, '必须记下少了多少字节，实际 ' + rec.shortageBytes);
+
+  // 第二次仍然拒：如果第一次的失败路径把锚点"修好"了，这里就会放过
+  assert.throws(() => sup2.resume('run-EV'), /LEDGER_SHORT_TRUNCATED/,
+    '第二次必须仍然拒绝 —— 否则第一次的拒绝只是延迟执行');
+  assert.equal(fsImpl.readFileSync(io.anchorPath).equals(anchorBefore), true);
+});
+
+// ㉒ 租约易主必须作废游标。
+//     游标只比对字节 LENGTH，而"上一个持有者写过"是接管瞬间唯一确定为真的时刻：
+//     等长写入能穿过 statSync，于是本进程会接着往一条自己从未校验过的链上追加。
+await test('㉒ 租约易主作废游标：上一个持有者写的等长篡改，接管后第一次读取就抓到', async () => {
+  const plantedExpiredLease = (fsImpl, sup) => {
+    fsImpl.writeFileSync(sup.subsystems.election.lockPath, S.canonicalize({
+      ownerToken: 'owner-X', leaseExpiryMs: 500, acquiredAtMs: 0, ttlMs: 500, tookOverExpired: false,
+    }));
+  };
+
+  // 对照组：同样接管，但账本没被动过 ⇒ 必须正常完成，且 tookOverExpired 必须为真。
+  // 没有这条对照，"㉒ 红了"可能只是因为接管根本没发生（那测的是别的）。
+  const fsC = S.createMemoryFs();
+  const clockC = S.createMemoryClock(0);
+  const supC = S.createSupervisor(S.makeDeps({
+    fsImpl: fsC, clock: clockC, ownerToken: 'owner-A', leaseTtlMs: 1000,
+    cycleImpl: async () => ({ ok: true }),
+  }));
+  await supC.runCycle({ runId: 'run-TK', cycle: 0 });
+  plantedExpiredLease(fsC, supC);
+  clockC.set(100000);
+  const rC = await supC.runCycle({ runId: 'run-TK', cycle: 1 });
+  assert.equal(rC.lease.tookOverExpired, true, '对照：接管必须真的发生过');
+  assert.equal(rC.status, 'COMPLETED');
+
+  // 实验组：同样的接管，但盘上是等长原地篡改
+  const fsImpl = S.createMemoryFs();
+  const clock = S.createMemoryClock(0);
+  const sup = S.createSupervisor(S.makeDeps({
+    fsImpl, clock, ownerToken: 'owner-A', leaseTtlMs: 1000,
+    cycleImpl: async () => ({ ok: true }),
+  }));
+  await sup.runCycle({ runId: 'run-TK', cycle: 0 });
+  const io = sup.subsystems.ledgerIo;
+  plantedExpiredLease(fsImpl, sup);
+  const raw = fsImpl.readFileSync(io.ledgerPath);
+  const at = raw.indexOf(Buffer.from('run-TK', 'utf8'));
+  assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
+  const mangled = Buffer.from(raw);
+  mangled.write('run-ZZ', at, 'utf8');
+  fsImpl.writeFileSync(io.ledgerPath, mangled);
+  assert.equal(fsImpl.readFileSync(io.ledgerPath).length, raw.length,
+    '前置：篡改必须等长，statSync 才看不见');
+  clock.set(100000);
+
+  await assert.rejects(() => sup.runCycle({ runId: 'run-TK', cycle: 1 }), /CHAIN|LEDGER_TAMPERED/,
+    '接管后必须立即全量重验：游标不作废就会往坏链上接着写，且要到窗口到期才发现');
+});
+
+// ㉓ 只读进程也必须到期。没有 append 时 entries/bytes 两个边界永远不动，
+//    唯一能让窗口到期的是 ops 计数 —— 而这条分支原本一条证据都没有。
+await test('㉓ 只读路径也必须有界：无 append 时 ops 窗口必须强制重验', async () => {
+  const OPS = 3;
+  const setup = async (opts, runId) => {
+    const fsImpl = S.createMemoryFs();
+    const base = S.makeDeps({ fsImpl, clock: S.createMemoryClock(0) });
+    const io = S.createLedgerIo(base, opts);
+    const sup = S.createSupervisor({ ...base, ledgerIo: io });
+    for (let c = 0; c < 2; c++) await sup.runCycle({ runId, cycle: c });
+    return { fsImpl, io };
+  };
+
+  const { fsImpl, io } = await setup({
+    maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9, maxOpsBeforeFullReverify: OPS,
+  }, 'run-RO');
+  const raw = fsImpl.readFileSync(io.ledgerPath);
+  const at = raw.indexOf(Buffer.from('run-RO', 'utf8'));
+  assert.ok(at >= 0, '前置：必须能在盘上找到待篡改的 runId');
+  const mangled = Buffer.from(raw);
+  mangled.write('run-RQ', at, 'utf8');
+  fsImpl.writeFileSync(io.ledgerPath, mangled);
+  assert.equal(fsImpl.readFileSync(io.ledgerPath).length, raw.length, '前置：篡改必须等长');
+
+  let threwAt = -1;
+  for (let i = 1; i <= OPS + 1; i++) {
+    try { io.count(); } catch (e) {
+      if (/CHAIN|LEDGER_TAMPERED/.test(String(e && e.message))) { threwAt = i; break; }
+      throw e;
+    }
+  }
+  assert.ok(threwAt > 0, '只读 ' + (OPS + 1) + ' 次内必须抓到等长篡改（没有任何 append 参与）');
+
+  // 对照：ops 窗口无界时同样次数的只读读不到 —— 抓它的是 ops 窗口，不是 statSync
+  const { fsImpl: fs2, io: io2 } = await setup({
+    maxEntriesBeforeFullReverify: 1e9, maxBytesBeforeFullReverify: 1e9, maxOpsBeforeFullReverify: 1e9,
+  }, 'run-RO');
+  const raw2 = fs2.readFileSync(io2.ledgerPath);
+  const at2 = raw2.indexOf(Buffer.from('run-RO', 'utf8'));
+  assert.ok(at2 >= 0, '前置：对照组也必须找到 runId');
+  const m2 = Buffer.from(raw2);
+  m2.write('run-RQ', at2, 'utf8');
+  fs2.writeFileSync(io2.ledgerPath, m2);
+  let controlThrew = false;
+  for (let i = 0; i < OPS + 1; i++) { try { io2.count(); } catch (_e) { controlThrew = true; break; } }
+  assert.equal(controlThrew, false, '对照：ops 窗口无界时同样次数的只读确实抓不到');
+});
+
+function snapshotDir(fsImpl, dir) {
+  const out = {};
+  for (const p of fsImpl.listSync(dir)) {
+    out[p] = S.sha256(fsImpl.readFileSync(p).toString('hex'));
+  }
+  return out;
+}
 
 function deps_real() { return createMemoryFs(); }
 

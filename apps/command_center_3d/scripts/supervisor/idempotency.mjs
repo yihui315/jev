@@ -11,9 +11,12 @@
 // silent, so `resume` said "cycle N never ran" and the next tick ran it again —
 // at-most-once quietly became at-least-once with no evidence at all. The intent
 // record exists so that the gap is always visible from the ledger alone.
-import {
-  FILES, resolvePath, readJsonl, verifyChain, appendChainEntryDurable, sha256,
-} from './core.mjs';
+//
+// All byte handling now lives in ledger-io.mjs (one verified tail cursor per term).
+// This file owns the RECORD SEMANTICS only: which kinds exist, in what order, and
+// what is allowed to follow what.
+import { sha256 } from './core.mjs';
+import { createLedgerIo } from './ledger-io.mjs';
 
 export const KIND = Object.freeze({
   epoch: 'lease_epoch',
@@ -21,13 +24,15 @@ export const KIND = Object.freeze({
   completion: 'cycle_completion',
 });
 
-export function createIdempotency(deps) {
-  const { fsImpl, baseDir, nowMs } = deps;
-  const ledgerPath = resolvePath(baseDir, FILES.ledger);
+export function createIdempotency(deps, ioArg) {
+  const { nowMs } = deps;
+  const io = ioArg || createLedgerIo(deps);
+  const ledgerPath = io.ledgerPath;
 
-  function entries() { return readJsonl(fsImpl, ledgerPath); }
+  function entries() { return io.entries(); }
 
-  // 每次读取都先全量校验链（fail-closed）。
+  // 每次读取都先校验链（fail-closed）。走游标后这是 O(1)，链的校验由
+  // ledger-io 在开任期时和窗口到期时完成。
   function hasCompleted(runId, cycle) {
     return cycleState(runId, cycle) === 'COMPLETED';
   }
@@ -39,19 +44,7 @@ export function createIdempotency(deps) {
   //   IN_DOUBT  -> intent on disk, no completion: the body MAY already have run
   //   COMPLETED -> completion on disk
   function cycleState(runId, cycle) {
-    const all = entries();
-    verifyChain(all);
-    let sawIntent = false;
-    let sawCompletion = false;
-    let intentEpoch = null;
-    for (const e of all) {
-      if (e.runId !== runId || e.cycle !== cycle) continue;
-      if (e.kind === KIND.intent) { sawIntent = true; intentEpoch = e.epoch; }
-      else if (e.kind === KIND.completion) sawCompletion = true;
-    }
-    if (sawCompletion) return 'COMPLETED';
-    if (sawIntent) return 'IN_DOUBT';
-    return 'ABSENT';
+    return io.cycleState(runId, cycle);
   }
 
   // Fencing token: a monotonically increasing counter derived from the ledger
@@ -59,13 +52,11 @@ export function createIdempotency(deps) {
   // cannot be reset by deleting local state (deleting the ledger is already a
   // chain violation, not a reset).
   function recordLeaseEpoch({ runId, ownerToken, acquiredAtMs }) {
-    const all = entries();
-    verifyChain(all);
-    const epoch = all.filter((e) => e.kind === KIND.epoch).length + 1;
+    const epoch = io.epochCount() + 1;
     // The token never enters the ledger in clear: the epoch identifies the term,
     // the digest lets an investigator correlate it without the ledger becoming a
     // credential store. (Ledger files get copied into evidence bundles.)
-    return appendChainEntryDurable(fsImpl, ledgerPath, {
+    return io.append({
       kind: KIND.epoch,
       runId,
       epoch,
@@ -76,14 +67,12 @@ export function createIdempotency(deps) {
 
   // WRITE-AHEAD. Returns only after the line is on stable storage.
   function recordIntent(runId, cycle, info = {}) {
-    const all = entries();
-    verifyChain(all);
-    const dup = all.some((e) => e.kind === KIND.intent && e.runId === runId && e.cycle === cycle);
+    const state = io.cycleState(runId, cycle);
     // A second intent for the same cycle is not a retry, it is a contract
     // violation: intents are written at most once, and the caller is supposed to
     // have asked cycleState() first.
-    if (dup) throw new Error('INTENT_ALREADY_EXISTS: ' + runId + '#' + cycle);
-    return appendChainEntryDurable(fsImpl, ledgerPath, {
+    if (state !== 'ABSENT') throw new Error('INTENT_ALREADY_EXISTS: ' + runId + '#' + cycle);
+    return io.append({
       kind: KIND.intent,
       runId,
       cycle,
@@ -94,31 +83,33 @@ export function createIdempotency(deps) {
 
   // 重复 (runId, cycle) 一律拒绝：不二次写入、不二次执行周期。
   function recordCompletion(runId, cycle, payload = {}) {
-    const all = entries();
-    verifyChain(all);
-    const dup = all.some((e) => e.kind === KIND.completion && e.runId === runId && e.cycle === cycle);
-    if (dup) throw new Error('DUPLICATE_CYCLE_REJECTED: ' + runId + '#' + cycle);
+    const state = io.cycleState(runId, cycle);
+    if (state === 'COMPLETED') throw new Error('DUPLICATE_CYCLE_REJECTED: ' + runId + '#' + cycle);
     // Completion without a matching intent means the ordering was bypassed
     // somewhere upstream. Accepting it would re-create D-14-0 in a new shape:
     // a completion with no write-ahead record looks recoverable after a later
     // crash, so a re-run gets authorised. Refuse instead.
-    const hasIntent = all.some((e) => e.kind === KIND.intent && e.runId === runId && e.cycle === cycle);
-    if (!hasIntent) throw new Error('COMPLETION_WITHOUT_INTENT: ' + runId + '#' + cycle);
-    const intent = all.find((e) => e.kind === KIND.intent && e.runId === runId && e.cycle === cycle);
-    return appendChainEntryDurable(fsImpl, ledgerPath, {
+    if (state !== 'IN_DOUBT') throw new Error('COMPLETION_WITHOUT_INTENT: ' + runId + '#' + cycle);
+    return io.append({
       kind: KIND.completion,
       runId,
       cycle,
-      epoch: intent ? intent.epoch : null,
+      epoch: io.intentEpoch(runId, cycle),
       completedAtMs: nowMs(),
       payload,
     });
   }
 
-  function verify() { return verifyChain(entries()); }
+  // Explicit, unfiltered chain verification. Kept as a full pass on purpose: it is
+  // the caller saying "I want to know about the whole file right now", not the hot
+  // path (the hot path uses the cursor).
+  function verify() {
+    io.open();
+    return { intact: true, count: io.count(), head: io.headHash() };
+  }
 
   return {
     hasCompleted, cycleState, recordLeaseEpoch, recordIntent, recordCompletion,
-    verify, entries, ledgerPath,
+    verify, entries, ledgerPath, io,
   };
 }

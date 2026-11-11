@@ -7,6 +7,7 @@ import { createResume } from './resume.mjs';
 import { createKillSwitch } from './kill-switch.mjs';
 import { createCostMonitor } from './cost-monitor.mjs';
 import { createWatchdog } from './watchdog.mjs';
+import { createLedgerIo } from './ledger-io.mjs';
 
 export const DAEMON_BINDING = 'DECLARED_NOT_WIRED';
 // The order below is the safety property. Two stages are new for a reason:
@@ -40,10 +41,14 @@ export const STAGES = Object.freeze([
 
 export function createSupervisor(deps) {
   const d = deps || makeDeps();
+  // One ledger cursor per supervisor instance, shared by every subsystem that
+  // touches the ledger. Two independent cursors would each pay a full verify and
+  // could disagree about the tail.
+  const ledgerIo = d.ledgerIo || createLedgerIo(d);
   const killSwitch = createKillSwitch(d);
   const election = createLeaderElection(d);
-  const idempotency = createIdempotency(d);
-  const resume = createResume(d);
+  const idempotency = createIdempotency(d, ledgerIo);
+  const resume = createResume(d, ledgerIo);
   const costMonitor = createCostMonitor(d);
   const watchdog = createWatchdog(d);
   const ownerToken = d.ownerToken;
@@ -75,6 +80,12 @@ export function createSupervisor(deps) {
     }
 
     try {
+      // Taking over an expired lease is the one moment where "somebody else wrote
+      // the ledger" is known to be true rather than merely possible. The cursor
+      // compares byte LENGTH, so a same-length write by the previous holder would
+      // pass it; voiding the cursor forces the next read to verify real bytes.
+      if (lease.tookOverExpired) ledgerIo.invalidate();
+
       // 阶段 3：idempotency（只读判定：先弄清这个周期到底处于什么状态）
       trace.push('idempotency');
       const state = idempotency.cycleState(runId, cycle);
@@ -98,9 +109,9 @@ export function createSupervisor(deps) {
         };
       }
 
-      // 阶段 4：resume（全量校验链；损坏则 throw，绝不执行周期）
+      // 阶段 4：resume（读游标；全量校验在开任期与窗口到期时完成）
       trace.push('resume');
-      const resumeInfo = resume.resume(runId);
+      const resumeInfo = ledgerIo.runState(runId);
 
       // 阶段 5：leaseEpoch（栅栏令牌）。放在这里而不是租约之后，是为了让
       // "重复 / in-doubt" 这两条早退路径一条记录都不写 —— entries() 每次全量
@@ -141,14 +152,16 @@ export function createSupervisor(deps) {
   }
 
   async function runNextCycle(args) {
-    const info = resume.resume(args.runId);   // fail-closed 校验链
+    // Hot path: the cursor, not the full verify. Corruption is still fatal — the
+    // cursor re-verifies when the byte length moves and at the window bound.
+    const info = ledgerIo.runState(args.runId);
     return runCycle({ runId: args.runId, cycle: info.nextCycle });
   }
 
   return {
     runCycle, runNextCycle,
     resume: (runId) => resume.resume(runId),
-    subsystems: { killSwitch, election, idempotency, resume, costMonitor, watchdog },
+    subsystems: { killSwitch, election, idempotency, resume, costMonitor, watchdog, ledgerIo },
     constants: { DAEMON_BINDING, STAGES },
   };
 }

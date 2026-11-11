@@ -9,6 +9,13 @@ export const BASE_DIR = '/supervisor';
 export const FILES = Object.freeze({
   lock: 'leader.lock',
   ledger: 'idempotency.jsonl',
+  // The anchor is the ONLY thing that can detect a suffix truncation across a
+  // restart: the hash chain is structurally blind to it (removing whole records
+  // from the end leaves every remaining link valid). It is a separate small file
+  // rather than a header line in the ledger, because a header would have to be
+  // rewritten in place — and an in-place rewrite of the ledger is exactly the
+  // operation the append-only rule forbids.
+  anchor: 'ledger.anchor.json',
   killSwitch: 'KILL_SWITCH',
   costState: 'cost-state.json',
   heartbeat: 'heartbeat.json',
@@ -169,57 +176,36 @@ export function createMemoryFs(initial) {
     truncateCallCount() { return stats.truncateCalls; },
     writeCallCount() { return stats.writeCalls; },
     mkdirSync() {},
+    // Fixture-only enumeration, used by TESTS to take a path-by-path byte
+    // snapshot of the state directory. It is not part of the injected fs contract
+    // (no production module calls it): a snapshot built from the FILES table can
+    // only see the files someone remembered to list, so a write to a NEW path is
+    // invisible to it — precisely the shape of write that a "nothing grew" test
+    // is supposed to catch.
+    listSync(dirPrefix) {
+      const pre = String(dirPrefix);
+      return [...files.keys()].filter((k) => k.startsWith(pre + '/')).sort();
+    },
   };
 }
 
-// PERMANENT NEGATIVE CONTROL — the fixture as it was BEFORE the byte model.
+// THE PERMANENT NEGATIVE CONTROL USED TO LIVE HERE, AND THAT WAS A DEFECT.
 //
-// Kept importable on purpose. Two cases at the bottom of supervisor.test.mjs
-// assert that THIS model produces the WRONG bytes. Without that, a later
-// "simplification" back to string storage would turn every tearing test green,
-// and green is the most easily accepted wrong state. Same shape as the permanent
-// negative control in server/tests/http-body-read.mjs (case 4).
+// A "deliberately wrong fs" exported from the PRODUCTION module was retyped by
+// hand from memory rather than anchored to the bytes it claimed to reproduce.
+// Measured diff against the real pre-byte-model fixture: the retyped copy was
+// missing `mkdirSync` and `renameSync`, and its `unlinkSync` deleted silently
+// instead of throwing ENOENT. The two negative controls were therefore proving
+// something about what the author remembered, not about what the old code did —
+// and ⑰a / ⑱a draw their whole force from "the old model really was like that".
 //
-// Two defects it reproduces, both measured:
-//   1. `writeSync` ignores the open mode and overwrites the whole file, so two
-//      consecutive writes on one fd leave only the second one.
-//   2. It decodes on write, so the first byte of `中` (e4 b8 ad) is stored as
-//      ef bf bd (U+FFFD, 3 bytes) instead of e4 (1 byte). A torn multi-byte
-//      character cannot exist in this model at all.
-export function createLegacyStringFs(initial) {
-  const files = new Map();
-  if (initial) for (const [k, v] of Object.entries(initial)) files.set(k, String(v));
-  let nextFd = 1;
-  const fds = new Map();
-  const asText = (d) => (Buffer.isBuffer(d) ? d.toString('utf8') : String(d));
-  return {
-    existsSync(p) { return files.has(String(p)); },
-    readFileSync(p) {
-      const key = String(p);
-      if (!files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
-      return files.get(key);
-    },
-    writeFileSync(p, data) { files.set(String(p), asText(data)); },
-    appendFileSync(p, data) {
-      const key = String(p);
-      files.set(key, (files.get(key) || '') + asText(data));
-    },
-    openSync(p, flags) {
-      const key = String(p);
-      const f = String(flags || 'r');
-      if (f.includes('x') && files.has(key)) { const e = new Error('EEXIST: ' + key); e.code = 'EEXIST'; throw e; }
-      if (f.includes('w') || f.includes('x')) files.set(key, '');
-      else if (f.startsWith('a')) { if (!files.has(key)) files.set(key, ''); }
-      else if (f.startsWith('r') && !files.has(key)) { const e = new Error('ENOENT: ' + key); e.code = 'ENOENT'; throw e; }
-      const fd = nextFd++;
-      fds.set(fd, key);
-      return fd;
-    },
-    closeSync(fd) { fds.delete(fd); },
-    writeSync(fd, data) { const key = fds.get(fd); if (key !== undefined) files.set(key, asText(data)); },
-    unlinkSync(p) { files.delete(String(p)); },
-  };
-}
+// It now lives in the TEST file as a verbatim string constant sealed with a
+// sha256 lock, because a negative control's natural failure mode is "adjust the
+// control until it goes green" and a copy-pasted function cannot be sealed. It is
+// also no longer importable from production code, where `createLegacyStringFs`
+// looked like a reusable utility and would have handed anyone who reached for it
+// a filesystem that silently drops relayed writes and turns half a codepoint into
+// U+FFFD.
 
 export function createMemoryClock(startMs = 0) {
   let t = startMs;
