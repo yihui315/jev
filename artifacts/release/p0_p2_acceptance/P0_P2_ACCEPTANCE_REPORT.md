@@ -855,3 +855,98 @@ $ git rev-parse 5fe0b19^:apps/.../supervisor/core.mjs   → 2dfd13a3d908c9d7e153
 - 本次实跑：**做了 ① 和 ②**（`LOGDIR=$(mktemp -d …)`，并写入 `run_started_at`），**没做 ③**（floor 脚本本身未改，它仍不校验新鲜度）。
 - ⇒ **本节这组读数不存在"目录里被塞进旧日志"的风险**（目录是本轮新建的，且 `HEAD_BEFORE == HEAD_AFTER`）；但**这一保证是本次操作带来的，不是脚本带来的**。下一步任何人跑 floor，若不给私有目录，仍然回到旧状态。
 - ⇒ 因此 `GATE-LOGDIR-SHARED` **仍是 OPEN**，归 `Y6` 槽位，不得因为本节有一次干净实跑而被读成"已修"。
+
+### 10.15 干净克隆上的锁存实跑（`e621a7c` 与 `b71a80e`）；报告无法包含自己的最终 SHA；「路径存在」≠「内容存在」
+
+#### （一）两次读数，都在**干净克隆**上、都锁存
+
+§10.14 的读数取自共享工作区 `D:\jev_worktrees\v2ops`。共享工作区有两个弱点：① 有未跟踪残留时，"绿"可能依赖本地遗留物；② 别的 agent 正在改文件时，测的可能是**变异体**（§10.10 的 `dbd6368` 就是这个形态）。所以补做真克隆：
+
+```
+$ git clone --no-hardlinks --branch feature/jev-v2-ops-integration <worktree> <temp>/clone-e621a7c
+$ git -C <clone> rev-parse HEAD
+e621a7c168ae652e6df107f7e72679a6b2be86b4
+
+$ git -C <clone> status --porcelain | wc -l
+0
+```
+
+在克隆里按 `ci.yml:72-99` 跑 8 套件（日志写 `mktemp -d` 私有目录 + `run_started_at`），两次分别是：
+
+| 被测 SHA | 克隆内 porcelain | 8 套件 rc | floor | 锁存 |
+|---|---|---:|---|---|
+| `e621a7c168ae652e6df107f7e72679a6b2be86b4` | 0 行 | 全 0 | `GATE_FLOOR_OK suites=8 total_cases=126 exit=0` | `LATCH_OK` |
+| `b71a80e3c52ec831a715c409f9d8425315cefa8b` | 0 行 | 全 0 | `GATE_FLOOR_OK suites=8 total_cases=126 exit=0` | `LATCH_OK` |
+
+逐条（两次同值）：
+```
+GATE_FLOOR ok 1-p0-contracts       expected=7  actual=7
+GATE_FLOOR ok 2-p0-runner          expected=24 actual=24
+GATE_FLOOR ok 3-market-data        expected=10 actual=10
+GATE_FLOOR ok 4-inference-evidence expected=17 actual=17
+GATE_FLOOR ok 5-p3-contracts       expected=12 actual=12
+GATE_FLOOR ok 6-supervisor         expected=25 actual=25
+GATE_FLOOR ok 7-no-fake-live       expected=14 actual=14
+GATE_FLOOR ok 8-api-body-read      expected=17 actual=17
+```
+
+⇒ **提交的字节是自足的**：不需要工作区里的任何未跟踪文件，8 个套件在干净克隆上全部达标。这一条是 §10.14 做不到的——那份读数在共享工作区里取得。
+⇒ **这不是 CI 已验证**：克隆的 `origin` 指向**本地工作区路径**，不是 GitHub。远端 `origin/feature/jev-v2-ops-integration` 仍为 `00e08e39ba298d73d93ce126eca7e85f02b77238`，`AHEAD_COUNT=19`，`git merge-base --is-ancestor e621a7c origin/…` → **NOT_REACHABLE**。任何"CI 已通过"的写法都是错的。
+
+#### （二）报告不可能包含自己的最终 SHA —— 所以判据必须换成可机器校验的**差分**
+
+`b71a80e` 就是把 §10.14 写进报告的提交。它一落地，§10.14 里引用的被测 SHA `e621a7c` 立刻成了"上一笔"，而本节引用的 `b71a80e` 又会在本节被提交的那一刻变成"上一笔"。**这个序列不收敛**：把读数写进被读数的那棵树，读数就永远落后一格。
+
+不要去追最终 SHA（追不到）。换成一条**可执行的断言**：
+
+```
+# 读数只绑定到「被测 SHA」；报告提交必须是它的 docs-only 后代
+$ git diff --name-only <MEASURED_SHA>..<REPORT_COMMIT> | grep -cv '\.md$'
+0
+```
+
+实测 `e621a7c..b71a80e`：
+```
+$ git diff --name-only e621a7c..b71a80e
+artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md
+$ git diff --name-only e621a7c..b71a80e | grep -cv '\.md$'
+0          (exit 1 = 没有任何非 .md 文件)
+```
+⇒ 满足该断言时，"`e621a7c` 上 126/126"这句话对 `b71a80e` **同样成立**，且这个推理是**机器可复核的**，不依赖作者的记忆力。
+⇒ 反过来：若某次报告提交里混进了一个 `.mjs`，`grep -cv '\.md$'` 立刻非 0，上面那句话就自动失效。**这就是"把判据放在被判定对象之外"的可用形态**——判据不再是"我保证没改代码"，而是一条能跑的命令。
+
+#### （三）本节的第二个理由：共享工作区里**当时有活跃变异**
+
+取读数期间，共享工作区是：
+```
+$ git status --porcelain
+ M apps/command_center_3d/scripts/supervisor/core.mjs     ← 另一位正在改
+ M reports/JEV_REAL_TRADING_SECURITY.md                   ← 另一位未提交稿
+```
+若在那一刻于工作区跑 floor，测到的 `6-supervisor` 就是**未知版本**；若恰好此刻有人提交，就复现 `dbd6368`。
+⇒ 因此**门禁读数一律在干净克隆里取**，共享工作区只用于编辑。这一条比"跑完再 cp 回来"强：它不需要任何还原步骤，因而不存在"忘了还原"这个失败模式。
+
+#### （四）「路径存在」≠「内容存在」——`git cat-file -e` 会给出假安慰
+
+```
+$ git cat-file -e origin/feature/jev-v2-ops-integration:apps/command_center_3d/scripts/check-no-fake-live.mjs
+$ echo $?
+0                      ← "路径存在"
+```
+但那个路径上的**内容里没有 `Y9`**：
+```
+$ git show origin/…:…/check-no-fake-live.mjs | grep -c 'Y9'   → 0
+$ git show origin/…:…/check-no-fake-live.mjs | grep -c 'Y2'   → 4
+$ git rev-parse origin/…:…/check-no-fake-live.mjs             → c424e1630c5c86c2f2f62d175c35761b77fc81e0
+$ git rev-parse b71a80e:…/check-no-fake-live.mjs              → fcac2c4179432cadbe05e7fe5a1279059a2024f5
+```
+⇒ **存在性检查只能否证"文件不存在"，永远不能证明"内容已推送"。** 判定"某提交的某文件在远端"必须比 blob：`[ "$(git rev-parse origin/…:P)" = "$(git rev-parse <C>:P)" ]`。
+⇒ 这条与 §10.7（数字没有作者就没有意义）同源：**路径没有 blob 就没有意义。**
+
+#### （五）顺带回答 #23 的一半：`git archive` 不行，**真克隆可以**
+
+`#23` 记录：`2-p0-runner` 的 B1 在运行时依赖 `.git`，所以 `git archive` 导出的树跑不了它，因而"提交字节"无法用 `git archive` 验证。
+本节的做法绕开了它：**用 `git clone` 而不是 `git archive`**。克隆是完整的仓库（有 `.git`），可以 `checkout --detach <SHA>`，因此既能拿到确定的字节，又能满足 B1 的 `.git` 依赖。实测 `2-p0-runner` 在两次克隆里都是 `rc=0`、`actual=24`。
+⇒ `#23` 仍未关（它问的可能是 CI 里怎么取字节，而 CI 本来就是 clone），但**"无法验证提交字节"这个结论不成立**：可以验证，方法是克隆 + `checkout --detach` + 锁存 HEAD。
+
+**记一条限制**：本节两次读数都是 Windows 上 Node 的**本机**执行结果；克隆的 `origin` 是本地路径。它证明的是"这些字节在本机这次 Node 上自洽"，不是"在 GitHub runner 上同样绿"。这两个命题的差距必须保留。
