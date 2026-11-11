@@ -48,7 +48,7 @@ jobs:
       #
       # ORDERING RATIONALE (F-21): this gate used to sit after Install /
       # Typecheck / Build / Unit tests. On Run 42968141252 a red unit test made
-      # GitHub report this step as `skipped`, so all 94 assertions never ran —
+      # GitHub report this step as `skipped`, so all 96 gate cases never ran —
       # the gate disappeared at exactly the moment it was most needed. Putting
       # it first is only legitimate because NONE of the seven suites imports
       # anything outside `node:*` stdlib and repo-relative paths: they were
@@ -91,7 +91,7 @@ jobs:
           test -f apps/command_center_3d/scripts/check-no-fake-live.mjs || { echo "NO-FAKE-LIVE CHECK MISSING"; exit 1; }
           node apps/command_center_3d/scripts/check-no-fake-live.mjs 2>&1 | tee "$GATE_LOG_DIR/7-no-fake-live.log"
 
-      # C12 / F-22-G: exit codes alone cannot tell "94 assertions passed" from
+      # C12 / F-22-G: exit codes alone cannot tell "96 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a
       # frozen, declarative per-suite assertion count against the logs written
       # above. It is a SEPARATE step (not folded into the gate) so a violation

@@ -466,7 +466,7 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared set of 7 (comment-proof), eac
   console.log(`      ci.yml gate suites: ${got.length} (declared ${GATE_SUITES.length}), all with test -f hard-fail`);
   console.log(`      ci.yml gate step index ${start} < Install ${installIdx} (F-21 ordering asserted)`);
 });
-console.log("NOTE: Y1/Y2 are pure-text structure self-checks, NOT a YAML parser run");
+console.log("NOTE: Y1/Y2/Y3/Y4 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");
 
 // Naming (R19): these are NAMED CHECK BLOCKS (`check(...)` cases), not `assert.*`

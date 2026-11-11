@@ -90,9 +90,14 @@
 LIVE(real Binance): total=4 passed=4 failed=0 skipped=0
 ```
 
-### 2.3 94 条断言的逐套件对齐（日志原文，非推算）
+### 2.3 94 个**用例块**的逐套件对齐（日志原文，非推算）
 
-| # | 套件 | 断言 | 日志收尾签名（原文） |
+> **命名更正（重要，见 §9.3）**：这里冻结的 94 是**具名用例块**（`check(...)` / `suite.check(...)`）的数量，**不是** `assert.*` 语句数。
+> 主理人本轮实测：七个套件在 94 个用例块内共含 **751 条 `assert.*` 语句**
+> （43 / 133 / 114 / 165 / 120 / 102 / 74）。
+> 因此「94 条断言通过」这一说法在此前若干轮里被反复使用，**是错的**；它还掩盖了一个真实缺口——用例块内部的断言被删掉，门禁不会发现。
+
+| # | 套件 | 用例块 | 日志收尾签名（原文） |
 |---|---|---|---|
 | 1 | `day14-p0-contracts.mjs` | 7 | `SUMMARY P0-F CONTRACTS (frozen modules, VERIFIED now): 7 pass, 0 fail` |
 | 2 | `day14-p0-runner.mjs` | 24 | `SUMMARY P0-F RUNNER (sandbox fault injection + R1-R6 + F-12): 24 pass, 0 fail` |
@@ -188,7 +193,10 @@ V16_SUITE_OK {"total":8,"pass":8,"fail":0}
 V16_AI_CONTRACT_OK {"suites":10,"checks":120,"passed":120,"failed":0} network_calls=0
 ```
 
-> **关于「104 条」这个数字的诚实处理**：早期报告写作「V1.5 baseline 8 组 + V1.6 新套件（104 断言）」。本次实测给出的可核验量是**三条独立签名**：H 检查 9/9、V1.5 baseline **8 组 / 95 断言**、V1.6 套件 **8 组 / 8 pass**、Track B **10 套件 / 120 检查 / 120 通过**。本报告**不再沿用「104」这个未在日志中直接出现的合计数**，改用上述四条原始签名——数字 104 无法从任何一行日志读出，而 95 / 8 / 120 可以。
+> **关于「104 条」这个数字的处理（含一次自我更正）**：本报告初稿写「104 不出现在任何日志行，故不沿用」，并据此暗示该数字不可核验。**这个判断是错的**：
+> `reports/evidence/v16/summary.json` 明写 `assertions: {total: 104, passed: 104, failed: 0}`。104 只是不出现在 **stdout**，它一直是机器可读的。
+> 本轮已把它冻结进流水线（`assertions.total!==104` 即硬失败），并同时保留 stdout 侧的四条签名：H 9/9、V1.5 **8 组 / 95 断言**、V1.6 套件 **8 组 / 8 pass**、Track B **10 套件 / 120 检查 / 120 通过**。
+> 教训：**「我在日志里没看到」不等于「不存在」**——把检索范围当成证据范围，是同一类错误的另一种形式。
 
 ---
 
@@ -270,7 +278,7 @@ b=6: buyNotional=26 maxQty=0.000346664000 minSellQty=0.000333330000 margin=+1.33
 
 ### 5.1 修复后的验证
 
-#### (a) 断言总量守恒（本轮没有靠删测试变绿）
+#### (a) 用例块总数守恒（但 `assert.*` 语句数**没有**被冻结）
 
 | 套件 | 修复前 | 修复后 | 日志签名 |
 |---|---|---|---|
@@ -280,10 +288,10 @@ b=6: buyNotional=26 maxQty=0.000346664000 minSellQty=0.000333330000 margin=+1.33
 | `inference-evidence.test.mjs` | 17 | **17** | `PASS=17 FAIL=0` |
 | `p3-contracts.mjs` | 12 | **12** | `PASS=12 FAIL=0 TOTAL=12` |
 | `supervisor.test.mjs` | 14 | **14** | `RESULT PASS=14 FAIL=0` |
-| `check-no-fake-live.mjs` | 10 | **10**（7 CORE + 3 EXTRA） | `RESULT: CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10 exit=0` |
-| **合计** | **94** | **94** | — |
+| `check-no-fake-live.mjs` | 10 | **12**（7 CORE + 5 EXTRA；Y3/Y4 从 Y1 拆出） | `RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0` |
+| **合计** | **94** | **96** | — |
 
-`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条断言**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
+`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条用例（内含 74 条 `assert.*`）**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
 
 #### (b) 下限机制可用性（真实日志）
 
@@ -298,7 +306,7 @@ GATE_FLOOR ok 5-p3-contracts expected=12 actual=12
 GATE_FLOOR ok 6-supervisor expected=14 actual=14
 GATE_FLOOR ok 7-no-fake-live expected=10 actual=10
 
-GATE_FLOOR_OK suites=7 total_assertions=94 exit=0
+GATE_FLOOR_OK suites=7 total_cases=96 exit=0
 ```
 
 把第 4 个套件的 `PASS=17` 改成 `PASS=16`（模拟「退出码 0 但悄悄少一条」）：
@@ -319,7 +327,9 @@ GATE_FLOOR_FAILED suites_checked=7 violations=1 total_assertions_seen=93
 | T3 | 把 `Install` 步骤抢到 gate 之前（F-21 回归） | 红 | `AssertionError: F-21: the gate must run BEFORE \`npm ci\` (Install) …`，exit 1 |
 | T4 | 断言数 17 → 16 | 红 | `GATE_FLOOR_VIOLATION … expected=17 actual=16`，exit 1 |
 
-**对照组**：还原后重跑，`RESULT: CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10 exit=0`，`GATE_FLOOR_OK suites=7 total_assertions=94 exit=0`。
+**对照组**：还原后重跑，`RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0`，`GATE_FLOOR_OK suites=7 total_cases=96 exit=0`。
+
+> **这里有一次我自己的失误，写下来**：第一次提交下限时，脚本产出从 10 个用例变成了 12 个（Y1 的 Track-B 守卫被拆成独立的 Y3/Y4），而我的 `expect` 仍是 10、验证用的日志还是拆分前的旧日志——于是**本地全绿、CI 必红**。这与 F-26 要防的「陈旧证据为不存在的运行背书」是同一类错误，只是发生在我自己的验证流程里。修正后 `total_cases=96`。
 
 > **这组测试针对的正是旧 Y2 的核心缺陷**：修复前，即使 `ci.yml` 已被大改（gate 从第 10 步前移到第 1 步、新增下限步骤），旧 Y2 仍然输出 `[PASS][EXTRA] Y2 ci.yml: 5 gate scripts …` 且 `TOTAL=10 exit=0`。也就是说，旧断言对它所声明的属性**没有鉴别力**。修复后同样的改动会被抓住。
 
@@ -333,8 +343,8 @@ gate 前置到 `npm ci` 之前，唯一成立条件是「7 个套件都不依赖
 |---|---|---|
 | `.github/workflows/ci.yml` | 修改 | gate 前移为首个 `run` step；`pull_request.branches` 增 `feature/**`；每套件 tee 到 `${{ runner.temp }}/jcc-gate`；新增独立的「断言数下限」step |
 | `.github/workflows/v16-market-provenance.yml` | 修改 | `push.branches` 增 `feature/jev-**`；`pull_request.branches` 增 `feature/v16-**`（保留 `release/jcc-v1.3-final`）；只加不减 |
-| `apps/command_center_3d/scripts/check-no-fake-live.mjs` | 修改 | Y1 改为按 trigger 块解析；Y2 改为剔注释 + 行首锚定 + 路径集合相等 + F-21 顺序守卫；断言总数不变 |
-| `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | **新增** | 声明式断言数下限（7 套件，精确值），纯 `node:` 标准库 |
+| `apps/command_center_3d/scripts/check-no-fake-live.mjs` | 修改 | Y1 改为按 trigger 块解析；Y2 改为剔注释 + 行首锚定 + 路径集合相等 + F-21 顺序守卫；**用例块总数仍 10**（内部 `assert.*` 仍 74，未冻结） |
+| `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | **新增** | 声明式**用例块**下限（7 套件，精确值 94），纯 `node:` 标准库 |
 | `reports/JEV_REAL_TRADING_SECURITY.md` | 修改 1 行 | H7 阻断脱敏 |
 | `reports/JEV_V2_FINAL_ACCEPTANCE_SUPPLEMENT.md` | **新增** | 本文件 |
 
@@ -490,12 +500,16 @@ F-24（夹具抖动）与 F-25（Track B 无形状下限）**已在本轮修掉*
 | 3 | 「PR 页面 0 个 check」 | PR 上有 1 类检查（Docker 冒烟），**但正确性门禁不在其中** | 方向对、表述错 |
 | 4 | 「Y2 检查 5 个 gate scripts」 | 实际 7 个；且旧 Y2 对被检查文件大改后仍然 `TOTAL=10 exit=0` | 检查无鉴别力 |
 | 5 | `b=5` 视为「通过」 | 通过余量仅 **6.0e-9**，紧贴悬崖 | 稳定性不等于正确性 |
+| 6 | 「94 条断言」 | **94 个用例块**；块内共 **751 条 `assert.*`**。下限冻结的是前者 | 主理人措辞错误，由成员指出并实测确认。已把输出字段改名为 `*_CASES` / `TOTAL_CASES` |
+| 7 | 「104 不在任何日志里，口径不可核验」 | 104 确实不在 stdout，但**在 `reports/evidence/v16/summary.json` 的 `assertions.total` 里**，完全可核验 | 主理人以「日志」偷换了「证据」，并据此否定了正确数字 |
 
 ### 9.4 本报告的证据等级
 
 | 结论 | 等级 | 依据 |
 |---|---|---|
-| `be80d3c` 主 CI 逐 step + 94 断言 | **VERIFIED** | GitHub jobs API + 日志逐行 |
+| `be80d3c` 主 CI 逐 step + 94 个用例块 | **VERIFIED** | GitHub jobs API + 日志逐行 |
+| 94 个用例块背后的 751 条 `assert.*` | **VERIFIED（本机实测）** | 逐文件正则计数，非推算 |
+| 「用例块内部删断言会被门禁抓住」 | **不成立（未修）** | 下限只冻结用例块数量 |
 | `be80d3c` V1.6 红（H7 命中 1/215） | **VERIFIED** | Run 日志 + 本机算法复刻 |
 | `6a12192` 五 run 全绿 | **VERIFIED** | GitHub runs API |
 | `6a12192` V1.6 各项数字 | **VERIFIED** | 日志原文签名 |
