@@ -256,6 +256,13 @@ check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push
   // --- C14: a PR whose BASE is a v16 branch must run this workflow ---
   assert.ok(pr.includes("feature/v16-**"),
     "C14: pull_request trigger must cover feature/v16-** or the PR runs zero checks");
+  // ...and the same for a PR whose BASE is another ops branch. This entry was
+  // added to the workflow and left UNASSERTED: deleting it kept all 13 cases
+  // green, which is exactly the F-23 "a guard nobody counts" defect reintroduced
+  // by the commit that fixed F-23. Asserted here so the entry cannot be dropped
+  // silently.
+  assert.ok(pr.includes("feature/jev-**"),
+    "F-22-C: pull_request trigger must cover feature/jev-** or an ops-base PR runs zero checks");
   // ...and the release-target rule is RETAINED, not traded away. This is the
   // stronger form of the old `l.some(x => /release\/jcc-v1\.3-final/)` check:
   // it now asserts the entry is inside `pull_request.branches`, not merely

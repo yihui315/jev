@@ -366,8 +366,35 @@ now taken:
 artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md
 $ git status --short artifacts/release/p0_p2_acceptance/
 ?? artifacts/release/p0_p2_acceptance/      ← visible to git ⇒ committable, no -f needed
-$ md5sum ...  → 55367ff7… (identical to the copies below)
+$ md5sum artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md \
+         artifacts/acceptance/P0_P2_ACCEPTANCE_REPORT.md \
+         /d/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_REPORT.md \
+  | awk '{print $1}' | sort -u | wc -l
+1                                  ← all three copies byte-identical to EACH OTHER
 ```
+
+> **Why there is no literal hash on the line above.** An earlier revision of this section
+> printed `55367ff7…` here, and the immediate "fix" printed `3d5afce1…` — both are now wrong,
+> which is the whole point. A document cannot quote its own digest: editing the sentence that
+> states the digest changes the digest. The stale value then sits in release evidence looking
+> authoritative, which is the same defect class as the `751` retraction in §7.2.
+> The bindings that survive editing are instead:
+>
+> 1. the three copies are byte-identical **to each other** — machine-checkable at any time, by
+>    anyone, with the command above;
+> 2. content hashes of the files this report *describes* (the report does not modify them, so
+>    these are stable), identical at `9e883f3` and at the HEAD this report was finalised on:
+>
+> | file | sha256 |
+> |---|---|
+> | `apps/command_center_3d/scripts/check-no-fake-live.mjs` | `4223ef3d3c111c57e5efe1e693303c5a9f33dba25e14232790541ac08f813da9` |
+> | `apps/command_center_3d/scripts/gate-assertion-floor.mjs` | `5e06954909acfaa9b5ff014ded93717601a6fef533ca2e0750022efb6fede254` |
+> | `apps/command_center_3d/server/ai/tests/e2e_real_engine.mjs` | `442bf00c154d7eb9a027395a92a10f0549671a40feaaeb6b9ad1a906b52fcf1e` |
+>
+> Point 2 is the load-bearing one for this report: it proves the `total_cases=97` capture was
+> produced by the same code at both SHAs, so no re-run is needed to trust it across doc-only
+> commits. Verify with
+> `git show 9e883f3:<path> | sha256sum` and `sha256sum <path>`.
 
 Three copies exist, one of them authoritative:
 
