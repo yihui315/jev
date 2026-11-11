@@ -728,3 +728,130 @@ $ grep -c "superseded_by_sha256:" D:/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_R
 - 另有一次观测（UNVERIFIED 成因）：同一目录、同一文件字节，前后两次运行分别给出 `violations=1 rc=1`（`3-market-data … summary-signature-not-found`）与 `exit=0`；该日志 mtime `00:38:15` 晚于前一次读取 —— 与"另一个 agent 正在写同一个 `.gate`"吻合。若成因如此，则该目录**既能假红也能假绿**。
 
 ⇒ **引用 `GATE_FLOOR_OK` 时必须同时给出日志的 mtime 区间与实跑者**；单独一行既不能证明"跑过"，也不能证明"跑的是谁的字节"。这与 §10.7 是同一条纪律的第二种形态：**数字没有作者，就没有意义。**
+
+### 10.14 私有日志目录下的全量门禁实跑（`e621a7c`）；三处已过期读数；一处提交信息与自身 diff 不符
+
+本节全部读数在 `D:\jev_worktrees\v2ops` 这份克隆上取得。远端 `origin/feature/jev-v2ops-integration` 仍为 `00e08e3`，**不包含本节引用的任何一个提交**（C36 三段式）。
+
+#### （一）8 套件全量实跑：`GATE_FLOOR_OK suites=8 total_cases=126 exit=0`，HEAD 前后锁存
+
+命令与读数（`set -o pipefail`，与 `ci.yml:72-99` 的 gate step 同构；日志写**私有** `mktemp -d`，不写 `.gate`）：
+
+```
+$ HEAD_BEFORE=$(git rev-parse HEAD)
+  LOGDIR=$(mktemp -d "${TMPDIR:-/tmp}/jcc-gate-XXXXXXXX")
+  node apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs                > "$LOGDIR/1-p0-contracts.log" 2>&1
+  node apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs                   > "$LOGDIR/2-p0-runner.log" 2>&1
+  node apps/equity_collector_v45/tests/market-data.test.mjs                         > "$LOGDIR/3-market-data.log" 2>&1
+  node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs  > "$LOGDIR/4-inference-evidence.log" 2>&1
+  node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs               > "$LOGDIR/5-p3-contracts.log" 2>&1
+  node apps/command_center_3d/scripts/supervisor/supervisor.test.mjs                > "$LOGDIR/6-supervisor.log" 2>&1
+  node apps/command_center_3d/scripts/check-no-fake-live.mjs                        > "$LOGDIR/7-no-fake-live.log" 2>&1
+  node apps/command_center_3d/server/tests/http-body-read.mjs                       > "$LOGDIR/8-api-body-read.log" 2>&1
+  node apps/command_center_3d/scripts/gate-assertion-floor.mjs "$LOGDIR"
+
+HEAD_BEFORE=e621a7c168ae652e6df107f7e72679a6b2be86b4
+LOG_DIR=C:\Users\Administrator\AppData\Local\Temp/jcc-gate-ZM4BhUEz
+STEP 1-p0-contracts        rc=0
+STEP 2-p0-runner           rc=0
+STEP 3-market-data         rc=0
+STEP 4-inference-evidence  rc=0
+STEP 5-p3-contracts        rc=0
+STEP 6-supervisor          rc=0
+STEP 7-no-fake-live        rc=0
+STEP 8-api-body-read       rc=0
+STEP_RC_AGG=0
+
+GATE_FLOOR ok 1-p0-contracts       expected=7  actual=7
+GATE_FLOOR ok 2-p0-runner          expected=24 actual=24
+GATE_FLOOR ok 3-market-data        expected=10 actual=10
+GATE_FLOOR ok 4-inference-evidence expected=17 actual=17
+GATE_FLOOR ok 5-p3-contracts       expected=12 actual=12
+GATE_FLOOR ok 6-supervisor         expected=25 actual=25
+GATE_FLOOR ok 7-no-fake-live       expected=14 actual=14
+GATE_FLOOR ok 8-api-body-read      expected=17 actual=17
+
+GATE_FLOOR_OK suites=8 total_cases=126 exit=0
+FLOOR_EXIT=0
+HEAD_AFTER=e621a7c168ae652e6df107f7e72679a6b2be86b4
+LATCH_OK
+```
+
+**PASS 判据**：8 个套件的 `rc` 全 0（`STEP_RC_AGG=0`）+ 8 条 floor 全 `expected == actual` + `FLOOR_EXIT=0` + `HEAD_BEFORE == HEAD_AFTER`。
+**为什么必须锁存**：§10.10 的 `dbd6368` 事故形态就是"测量跑在一棵会动的树上，读数是绿的，被提交的字节是红的"。只记 `HEAD` 而不比对前后，等于事后填空（RZ-17）。
+
+#### （二）算术交叉核对：`118 + 7 + 1 = 126`
+
+上一版引用的 `total_cases=118` 属于 `dbd6368` 时代。两次 bump 可逐项对上：
+
+| 套件 | 118 时代 | `e621a7c` | delta | 来源 |
+|---|---:|---:|---:|---|
+| `6-supervisor` | 18 | 25 | +7 | `daa9386`（⑲e/⑲f/⑲g/⑲h/⑲i = 18→23）+ `daa9386`（⑰⑱ 拆 ⑰a/⑰b/⑱a/⑱b = 23→25） |
+| `7-no-fake-live` | 13 | 14 | +1 | `52a6c9b`（`Y9` 独立槽位，`EXTRA_CASES` 6→7） |
+| 合计 | 118 | **126** | **+8** | 118 + 8 = 126 ✓ |
+
+⇒ **结论**：floor 的 `expect` 表与实跑计数在 `e621a7c` 上**同盘一致**；`118` 这个数字从 `daa9386` 起就作废，不得用于 HEAD。
+⇒ 另外，`dbd6368` 是红提交（§10.15/§12.10.15(a)），所以**任何绑定在 `118` 上的"绿"引用同时失去出处**，不只是失去数字。
+
+#### （三）三处**已过期**的读数（均出自 aegis 未提交稿 §12.10.14/15）
+
+这三条不是"他说错了"，而是**读数在写成文字之后、提交之前又被别人的提交改掉了**。记在这里是因为它们是本节纪律的活样本：**一个读数没有绑定 commit，就会被下一个 commit 悄悄作废。**
+
+1. `grep -c Y7 apps/command_center_3d/scripts/check-no-fake-live.mjs` → 他记 **1**（"仅注释"）。**现在实测 0。**
+   ```
+   $ grep -c 'Y7' scripts/check-no-fake-live.mjs   → 0
+   $ grep -c 'Y9' scripts/check-no-fake-live.mjs   → 4
+   ```
+   成因：主理人在 `e621a7c` 删掉了那处交叉引用（提交信息：`remove the Y7 cross-reference from the Y9 comment`）。他的 `1` 是 `52a6c9b` 时代的值。
+   **影响**：结论方向不变（"`Y9` 是独立命名 check、`Y7` 是另一个东西"仍成立），但**佐证那一行的数字错了**。RZ-15（"剩 1 处 `Y7`"）可据此**关闭**。
+
+2. `git status --porcelain` 的未跟踪文件数 → 他记 **8 个**并逐个列举。**现在实测 0 个**：
+   ```
+   $ git status --porcelain | grep -c '^??'   → 0
+   $ git status --porcelain                   →  M reports/JEV_REAL_TRADING_SECURITY.md
+   ```
+   测量残留已被清理。⇒ 他 §12.10.15(i) 的**结论（不加 `.gitignore`）我仍然签**，但"现盘实测 8 个"这句必须改成带 commit 的历史读数，否则读者会去 `ls` 一个不存在的状态。
+
+3. `6-supervisor` 的 floor `expect` → harbor 在消息里说"floor 未动"、他记 `23`。**现在实测 25**，且是 `daa9386` **自己**把 `23 → 25` 与拆分写进同一笔。
+   ```
+   $ grep -A40 'slug: "6-supervisor"' scripts/gate-assertion-floor.mjs | grep 'expect:'
+   expect: 25
+   ```
+   ⇒ "floor 未动"在 harbor 发消息的时点为真、现在是假。这条同时也是给 `Y6` 作者的正向提醒：**凡是"某文件未动"的声明，都必须带 `git rev-parse <commit>:<path>`。**
+
+#### （四）**`5fe0b19` 的提交信息第 1 节与它自己的 diff 不符**（NEW，VERIFIED）
+
+`5fe0b19` 的提交信息写：
+
+> 本提交把 :219 恢复为测量值（HEAD:core.mjs 从 `0d578764…` 回到 `2dfd13a3…`）。
+
+实测：**`5fe0b19` 对 `core.mjs` 的 diff 是 0 删除 / 26 新增**，纯属加入 `appendChainEntryDurable`，**不含任何回退**。
+
+```
+$ git show 5fe0b19 -- apps/command_center_3d/scripts/supervisor/core.mjs | grep -cE '^-[^-]'   → 0
+$ git show 5fe0b19 -- apps/command_center_3d/scripts/supervisor/core.mjs | grep -cE '^\+[^+]'   → 26
+$ git rev-parse 5fe0b19^:apps/.../supervisor/core.mjs   → 2dfd13a3d908c9d7e15399ef9347107b642b75e8   (= 它自称"改回"的那个值)
+```
+
+`core.mjs` 的 blob 演变（逐提交实测）：
+
+| commit | `core.mjs` blob | 说明 |
+|---|---|---|
+| `dbd6368` | `0d578764…` | **变异体**（`createLegacyStringFs` 的 `writeSync` 用 `+` 接力写） |
+| `341f8a5` | `0d578764…` | 仍是变异体 |
+| `7a2a4e7` | `2dfd13a3…` | **真正的回退在这里**（`writeSync` 去掉 `+`），提交信息 `fix(supervisor): dbd6368 shipped a mutation in the legacy negative control` |
+| `f5bea66` / `ab7a467` / `3a40e67` / `318c004` | `2dfd13a3…` | 已修复 |
+| `5fe0b19` / `52a6c9b` / `daa9386` / `e621a7c` | `b679389b…` | 加入 `appendChainEntryDurable` |
+
+⇒ **三条后果**：
+1. **"谁修了 `dbd6368`"有两个答案，其中一个是错的。** `git log --grep` 会把 `5fe0b19` 也检索出来。以 diff 为准：是 `7a2a4e7`。
+2. **任何"`318c004` 还是红的"的推断都是错的**：`318c004` 的 `core.mjs` 已经是修复值 `2dfd13a3`（差异来自 `7a2a4e7`，不是 `5fe0b19`）。aegis 在 `318c004` 上测得 `PASS=18 FAIL=0` 是**自洽**的。
+3. **提交信息不能自证，diff 才能。** 这与本节自己的教训是同一句话的另一面：`GATE_FLOOR_OK` 不标识实跑者，**提交信息也不标识提交内容**。历史不可改（amend 会改写后续所有提交），所以更正只能落在文档里——就是这里。
+
+#### （五）本次实跑在 `GATE-LOGDIR-SHARED` 上的位置：**只做到第 1 条**
+
+`GATE-LOGDIR-SHARED`（P2）的三条整改是：① 每轮 `mktemp -d` 独占目录；② 目录内写 `run_started_at`；③ floor 断言每份日志 `mtime >= run_started_at`。
+
+- 本次实跑：**做了 ① 和 ②**（`LOGDIR=$(mktemp -d …)`，并写入 `run_started_at`），**没做 ③**（floor 脚本本身未改，它仍不校验新鲜度）。
+- ⇒ **本节这组读数不存在"目录里被塞进旧日志"的风险**（目录是本轮新建的，且 `HEAD_BEFORE == HEAD_AFTER`）；但**这一保证是本次操作带来的，不是脚本带来的**。下一步任何人跑 floor，若不给私有目录，仍然回到旧状态。
+- ⇒ 因此 `GATE-LOGDIR-SHARED` **仍是 OPEN**，归 `Y6` 槽位，不得因为本节有一次干净实跑而被读成"已修"。
