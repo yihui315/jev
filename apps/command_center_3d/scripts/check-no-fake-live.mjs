@@ -226,7 +226,7 @@ function workflowTriggerBranches(lines, key) {
   return out;
 }
 
-check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push; PR keeps release rule AND gains feature/v16-**", () => {
+check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push; PR keeps release rule AND gains feature/v16-**; Track B assertion floor present", () => {
   const l = yamlLines(REL.prov);
 
   const push = workflowTriggerBranches(l, "push");
@@ -252,6 +252,33 @@ check("EXTRA", "Y1 v16-market-provenance.yml: v16 branches + feature/jev-** push
   // somewhere in the file.
   assert.ok(pr.includes("release/jcc-v1.3-final"),
     "PR target rule changed — release/jcc-v1.3-final must be RETAINED in pull_request.branches");
+
+  // ---- R15 / F-25: the v16 Track B assertion floor must survive ------------
+  // F-25 added a frozen `suites/checks` floor to the Track B step in
+  // v16-market-provenance.yml, closing the same defect class as C12/F-22-G on
+  // the second workflow. But the floor is only text in a YAML file: a later
+  // "cleanup" could delete it and the step would silently return to trusting
+  // exit codes alone. This guard makes that deletion a red test.
+  // Verified empirically (see the acceptance record): commenting the floor out
+  // turns this assertion red, restoring it turns it green again.
+  const v16Raw = l.join("\n");
+  assert.ok(/V16_AI_CHECK_COUNT_CHANGED/.test(v16Raw),
+    "R15/F-25: v16 Track B assertion-count floor is GONE — the step is back to " +
+    "trusting exit codes only, so a suite that silently loses checks would pass");
+  assert.ok(/s\.counts\.suites\s*!==\s*10\s*\|\|\s*s\.counts\.checks\s*!==\s*120/.test(v16Raw),
+    "R15/F-25: v16 Track B floor numbers drifted from the frozen suites=10 / checks=120");
+
+  // The floor must stay hard-fail: no continue-on-error on the Track B step.
+  const tbStart = l.findIndex((x) => /-\s*name:\s*Track B/.test(x));
+  assert.ok(tbStart !== -1, "v16 Track B step not found");
+  let tbEnd = l.length;
+  for (let i = tbStart + 1; i < l.length; i++) {
+    if (/^      - (name|uses):/.test(l[i])) { tbEnd = i; break; }
+  }
+  assert.ok(
+    !l.slice(tbStart, tbEnd).some((x) => !x.trim().startsWith("#") && /^\s*continue-on-error\s*:/.test(x)),
+    "v16 Track B step must NOT have continue-on-error"
+  );
 });
 
 /**
