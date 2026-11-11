@@ -5,6 +5,8 @@
 > 锚定提交：`be80d3c46ab7410ee1e1da6c4741938e1bcde1f4`
 > 锚定 PR：[#7](https://github.com/yihui315/jev/pull/7)（Draft，未合并）
 > 出具时间：2026-11-11（CST）
+>
+> **锚点与当前 tip 的关系（务必区分）**：上文锚点 `be80d3c` 是本报告的**验收范围**，其后代码已继续前进。凡引用**锚点之后**提交的 gate 输出，本文一律在就地标注 SHA（如 §(b) 的 `9e883f3`）；**未标 SHA 的数字默认指锚点态**。引用任何 gate 输出前请先做「per-suite 行之和 = summary 行」加总校验。
 
 ---
 
@@ -295,30 +297,37 @@ b=6: buyNotional=26 maxQty=0.000346664000 minSellQty=0.000333330000 margin=+1.33
 | `check-no-fake-live.mjs` | 10 | **12**（7 CORE + 5 EXTRA；Y3/Y4 从 Y1 拆出） | `RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0` |
 | **合计** | **94** | **96** | — |
 
-`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条用例（内含 74 条 `assert.*`）**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
+`check-no-fake-live.mjs` 的 A1–A8 / Y1 / Y2 十条用例（`be80d3c` 时内含 74 条 `assert.*`；`8da3947` 为 76 条；`9e883f3` 为 79 条——口径见 §2.3，**此三者分属三个 SHA，不可混用**）**一条未删、一条未放宽**；Y1 由「文件里存在某字符串」升级为「在 `pull_request.branches` 数组内存在」；Y2 由「5 个脚本各含 test -f」升级为「7 脚本路径集合与声明集合**相等**」。
 
-#### (b) 下限机制可用性（真实日志）
+#### (b) 下限机制可用性（真实日志，单次运行，`9e883f3`）
 
-用 7 个套件的真实输出 tee 到日志目录后运行下限脚本：
+用 7 个套件的真实输出 tee 到日志目录后运行下限脚本。以下为 `9e883f3` 上**一次完整捕获的原文，未拼接**：
 
 ```
-GATE_FLOOR ok 1-p0-contracts expected=7 actual=7
-GATE_FLOOR ok 2-p0-runner expected=24 actual=24
-GATE_FLOOR ok 3-market-data expected=10 actual=10
-GATE_FLOOR ok 4-inference-evidence expected=17 actual=17
-GATE_FLOOR ok 5-p3-contracts expected=12 actual=12
-GATE_FLOOR ok 6-supervisor expected=14 actual=14
-GATE_FLOOR ok 7-no-fake-live expected=10 actual=10
+GATE_FLOOR ok 1-p0-contracts expected=7 actual=7 — server/ai/tests/day14-p0-contracts.mjs (P0-F CONTRACTS)
+GATE_FLOOR ok 2-p0-runner expected=24 actual=24 — server/ai/tests/day14-p0-runner.mjs (P0-F RUNNER)
+GATE_FLOOR ok 3-market-data expected=10 actual=10 — equity_collector_v45/tests/market-data.test.mjs
+GATE_FLOOR ok 4-inference-evidence expected=17 actual=17 — server/ai/evidence/tests/inference-evidence.test.mjs
+GATE_FLOOR ok 5-p3-contracts expected=12 actual=12 — scripts/day14-research/p3-contracts.mjs
+GATE_FLOOR ok 6-supervisor expected=14 actual=14 — scripts/supervisor/supervisor.test.mjs
+GATE_FLOOR ok 7-no-fake-live expected=13 actual=13 — scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)
 
-GATE_FLOOR_OK suites=7 total_cases=96 exit=0
+GATE_FLOOR_OK suites=7 total_cases=97 exit=0
 ```
 
-把第 4 个套件的 `PASS=17` 改成 `PASS=16`（模拟「退出码 0 但悄悄少一条」）：
+`7+24+10+17+12+14+13 = 97`，与末行 `total_cases=97` 一致。**「per-suite 行之和 = summary 行」就是判断这是否为单次运行的判据**，引用任何下限日志都应先做这一步加总。
+
+把第 4 个套件的 `PASS=17` 改成 `PASS=16`（模拟「退出码 0 但悄悄少一条」），仍在同一份日志上：
 
 ```
 GATE_FLOOR_VIOLATION 4-inference-evidence expected=17 actual=16
-GATE_FLOOR_FAILED suites_checked=7 violations=1 total_assertions_seen=93
+
+GATE_FLOOR_FAILED suites_checked=7 violations=1 total_cases_seen=96
 ```
+
+退出码 1；`97−1=96`，同样自洽。
+
+> **本节曾有一处错误，已更正（与 `751` 同源：跨口径 / 跨提交拼接）**：原块中 per-suite 行来自 `7-no-fake-live expected=10`（该口径下合计 **94**）的旧捕获，而末行被写成 `total_cases=96`——**94 与 96 并列，算术上不可能来自同一次运行**；违规块则使用已退役字段名 `total_assertions_seen=93`（现脚本输出 `total_cases_seen`，R19 正名时改名）。现已替换为 `9e883f3` 的单次捕获，并附上「per-suite 之和 = summary」自校验，使同类拼接可被读者当场发现。
 
 #### (c) 门禁自身的抗绕过（主理人独立复现，未采信成员自证）
 
@@ -329,9 +338,9 @@ GATE_FLOOR_FAILED suites_checked=7 violations=1 total_assertions_seen=93
 | T1 | 把 `node …/supervisor.test.mjs` 那一行注释掉 | 红 | `AssertionError: ci.yml gate suite set drifted … missing(1): ["apps/command_center_3d/scripts/supervisor/supervisor.test.mjs"]`，exit 1 |
 | T2 | `ci.yml` 的 `pull_request.branches` 回退为 `["main","master"]` | 红 | `AssertionError: F-22-C: ci.yml pull_request.branches must include feature/** …`，exit 1 |
 | T3 | 把 `Install` 步骤抢到 gate 之前（F-21 回归） | 红 | `AssertionError: F-21: the gate must run BEFORE \`npm ci\` (Install) …`，exit 1 |
-| T4 | 断言数 17 → 16 | 红 | `GATE_FLOOR_VIOLATION … expected=17 actual=16`，exit 1 |
+| T4 | **用例块数** 17 → 16（不是「断言数」，R19） | 红 | `GATE_FLOOR_VIOLATION 4-inference-evidence expected=17 actual=16`，exit 1 |
 
-**对照组**：还原后重跑，`RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0`，`GATE_FLOOR_OK suites=7 total_cases=96 exit=0`。
+**对照组**：还原后重跑，`RESULT: CORE_CASES=7 EXTRA_CASES=5 TOTAL_CASES=12 exit=0`、`GATE_FLOOR_OK suites=7 total_cases=96 exit=0`（此二数对应 `8da3947`，即 Y5 加入之前；当前 HEAD `9e883f3` 为 `TOTAL_CASES=13`、`total_cases=97`，见 §(b)）。
 
 > **这里有一次我自己的失误，写下来**：第一次提交下限时，脚本产出从 10 个用例变成了 12 个（Y1 的 Track-B 守卫被拆成独立的 Y3/Y4），而我的 `expect` 仍是 10、验证用的日志还是拆分前的旧日志——于是**本地全绿、CI 必红**。这与 F-26 要防的「陈旧证据为不存在的运行背书」是同一类错误，只是发生在我自己的验证流程里。修正后 `total_cases=96`。
 
@@ -490,7 +499,7 @@ F-24（夹具抖动）与 F-25（Track B 无形状下限）**已在本轮修掉*
 | Run ID | 工作流 | 事件 | 结论 | 作用 |
 |---|---|---|---|---|
 | `43034811896` | `v16-market-provenance.yml` | push | success | **首次自动触发**，H7 + V1.5/V1.6 + Track B 全跑 |
-| `43034812162` | `ci.yml` | push | success | gate 为首步，`GATE_FLOOR_OK suites=7 total_assertions=94` |
+| `43034812162` | `ci.yml` | push | success | gate 为首步，`GATE_FLOOR_OK suites=7 total_assertions=94`（**原文照引**：该 run 时字段名为 `total_assertions`、口径为用例块；R19 正名后现为 `total_cases`，数值亦随 Y3/Y4/Y5 增至 97。勿把此行的 94 当作当前值） |
 | `43034822227` | `v16-market-provenance.yml` | pull_request | success | PR #7 页面首次出现该 check（C14 生效） |
 | `43034822261` | `ci.yml` | pull_request | success | PR #7 页面首次出现主 CI check（F-22-C 生效） |
 | `43034822375` | `cloud-staging-runtime.yml` | pull_request | success | 容器构建 + fail-closed 启动 |
