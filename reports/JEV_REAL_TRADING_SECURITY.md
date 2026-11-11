@@ -2372,6 +2372,11 @@ test blob (工作区)  = dd7d059c1f2c925e082ceabed146ee7c5428f4a7   ← 无漂�
 > ```
 > ⇒ **当前锁定状态：`6-supervisor` 是红的，且 `expect` 是 28 而实测 25。** 上面那段 `PASS=25 FAIL=0`（`daa9386`）与后面提到的 `PASS=28`（更晚的一次）**都是未锁存读数，一律作废**；`PASS=28` 那次恰好落在 harbor 正在写文件的中间态。
 >
+> **补充（主理人已改 `⑳` 的契约，这条改变了那个红的含义）**：同长度篡改**不改变 `byteLength`**，而游标作废条件只比 `byteLength` ⇒ 不是 `K` 取小了，是**作废条件漏了一个维度**。新契约：游标作废条件扩成 `{count, headHash, byteLength, mtimeMs}`，任一变化即全量重验；于是 `⑳` 的正确断言是「同长度原地篡改必须在**下一次读取**被抓到」。**按旧契约它会一直红，而那个红不说明实现坏，说明契约写得比实现能保证的更严。**
+>
+> **必须一起写下的边界（否则是在卖假保险）**：**能改写文件的人同样能改写 `mtime`（`utimes`）**。所以 `mtimeMs` 是检测辅助、**不是安全边界**；真正的边界仍是「取租约必全量重验」+「每 `K` 条 / `M` 字节强制全量重验」。于是 `K`/`M` 的定位从"性能折中"变成**"对能伪造 `mtime` 的攻击者的检测延迟上界"**——这是一个可以写进威胁模型的量，而不是一个性能参数。
+
+>
 > 这一条对本报告的意义比数字大：**我自己在同一节里既主张"未锁存不得引用"，又引用了两个未锁存数。** 我把它记成第二次「用旧状态/中间态评新方案」，并且是**在我自己刚立的规则上**犯的。
 
 > **floor 的 delta（只报变化，不报绝对值，C30）**：`6-supervisor` 的 `expect` 由 `25` 变为 **28**（`+3`），对应在途的 `⑲c` / `⑲d` / `⑳`（游标窗口有界）三条。**该 `+3` 对应的三条用例在锁定读数里只过 2 条（⑳ 红）**，所以此刻 `expect: 28` 与实测不一致，是红而不是"尚未同步"。
@@ -2671,6 +2676,9 @@ supervisor.test.mjs 4640312be5b3
 
 ⇒ **从"全绿"变成"只红一条，且红在正确的那一条"**。这一条同时解决了两件事：判据有了牙，且 `⑲f` 第一次拿到了自己的单红定位证据（此前只有 `M-in-doubt-is-run` 的双红，只能算非恒真证据）。
 
+> **撤回（append-only：不改上文，只追加）**：上一段的 `RESULT PASS=32 FAIL=1` 属**未提交工作**的读数。按两类数规则（① 已提交字节带 SHA；② 未提交只写机制、不带计数），该计数**作废、不得引用**；结论（该变异现在红在 `⑲f`，其余用例保持绿）保留。
+> **我曾把这段就地改写以删掉计数——那违反 append-only，已恢复原文并改为追加。** 记账见 §12.10.20。
+
 ### (c) 前置 ② 负对照锚：**已换为逐字原文 + sha256 锁，形态比我要求的更严**
 
 工作区实测（未提交）：
@@ -2692,3 +2700,112 @@ supervisor.test.mjs 4640312be5b3
 3. **`M7` 单列、`rc is None` 计入 FAIL**：已写入 §12.10.17(g)，工作区未验。
 
 **本节的作用是把"我拒签的两条"从"意见"变成"可复核的状态"**：两条前置各自都有我实测的判据，而不是我说"可以了"。**未提交 ⇒ 不改变 §12.10.15(n) 的 OPEN 结论；提交后按新 SHA 追加新节。**
+
+---
+
+## §12.10.19 `#8` FINAL-10 修复：**独立验证（部分）**——主干成立，但"缺席即放行"仍有两处
+
+锚点：**工作区未提交**（`tools/jcc_continuation.py`、`tools/continuation/reboot_recovery_sim.py`、新增 `apps/command_center_3d/scripts/tests/final10-judge.test.mjs`）。按 §12.10.18(a) 的两类数规则，**本节不写未提交工作的结果计数**，只写机制与我在源码里读到的事实。
+
+### (a) 我执行的（VERIFIED-BY-ME）
+
+1. **新判据套件可跑且全绿**：`node apps/command_center_3d/scripts/tests/final10-judge.test.mjs` → 末行 `RESULT PASS=… FAIL=0`（**计数按规则不写**），末两条为 `ALLOWLIST_EMPTY`、`STEP_USES_FINAL10_JUDGE`。
+2. **该套件的做法是对的，且是我要求的形状**：注释明写"**WHY IT SPAWNS PYTHON INSTEAD OF RE-IMPLEMENTING THE RULES** … Re-writing its rules in JS would test the copy, not the code — two implementations agreeing is evidence about the author, not about the target." 子进程 import 真模块、调真 `_judge_artifact`，JS 只断言返回。**这正是 C34 与"不要重实现"两条的同一次落地。**
+3. **`python` 缺失时必须红而不是 SKIP**：注释写了、代码里也确实非零退出。这条与 F-26 正面相对。
+4. **既有 1924 行 python 套件：UNVERIFIED-BY-EXECUTION，我自己确认的**：
+   ```
+   $ python -m pytest --version          → No module named pytest
+   $ [ -x .venv/Scripts/python.exe ]     → NO_VENV
+   ```
+   所以我**没有**"整个 continuation 子系统没被碰到"的任何证据；我只有静态旁证（下条）。
+5. **静态旁证（不等于测试通过）**：`tools/tests/` 里唯一直接断言 `exit_code` 的地方是 `test_continuation_infra.py:296`，其语境是「退出码 0 + **未写 artifact** ⇒ `BLOCKED`，且 judge 未被咨询」——**它编码的是"rc=0 且无证据 ⇒ 阻断"，与新门的语义兼容，不是旧 fail-open 的编码。**残留风险因此比我原先估计低，但**仍是"读代码判断"，不是"跑过"。**
+
+### (b) 修好的部分（我在源码里逐行读到，不是采信）
+
+- `EXIT_CODE_ALLOWLIST: Tuple[str, ...] = ()`，且 **`if EXIT_CODE_ALLOWLIST: raise RuntimeError(...)` 在 import 阶段**——白名单一旦非空，整条判定链不加载。这比我要求的"默认空"更强：**它是 fail-closed 而不是 default-empty。**
+- GATE 1 用的是 `rc != 0`（不是 `rc > 0`，也不是 `rc is not None and rc != 0`）⇒ **`None`（launch failed / timeout）计入 FAIL**。这正是 §12.10.17(g) 第 3 条要求的那一个值。
+- `_carry_detail(record, …)` 保留原有 `detail` ⇒ 直接回应 §12.10.17(d) 的"失败原因被覆盖"（P0）。
+- GATE 2 复用 `_artifact_fresh`，**没有新写第二个新鲜度判据** ⇒ 满足"复用而非复制"。
+
+### (c) 仍然存在的两处「缺席即放行」（新的，P1 候选）
+
+**1. GATE 1 可以被"键不存在"关掉**
+
+```python
+rc_present = "exit_code" in record
+if step.script and rc_present and rc != 0 and step.id not in EXIT_CODE_ALLOWLIST:
+```
+
+`rc_present` 的语义是"记录里有这个键才检查"。而 `attach_to_run` 构造的 `record` **不含 `exit_code`**（我读了该函数的 record 构造），于是**长驻步骤走 attach 路径时 GATE 1 整条跳过**。
+这与我在 §12.10.16(c) 打的那处是**同一形状**：`if (anchor && …)` —— **删掉/不填一个字段就能关掉一道控制。**
+
+**2. GATE 2 有三个宽松出口，其中两个是"不知道 ⇒ 通过"**
+
+```python
+if not since_iso:            return True      ← 缺失 ⇒ 新鲜
+try:    since = fromisoformat(...)
+except ValueError:           return True      ← 不可解析 ⇒ 新鲜
+```
+
+而 attach 路径的 `since` 来自 `desc.get("started_at")`：**descriptor 缺该键 ⇒ `since_iso` 为空 ⇒ 返回 True**。
+
+⇒ **在"attach + descriptor 无 `started_at`"这一个组合上，GATE 1 与 GATE 2 同时关闭**，判定强度退回 `_ok_judge` 时代。harbor2 已把 attach 路径登记为"已知缺口"，但**定性可以更准**：它不是"少测了一条"，而是**两道门同时缺席**——单个门缺席还能被另一个兜住，两个同时缺席就是没有门。
+
+### (d) 最小整改（一句话规则）
+
+> **"不知道"必须判 FAIL，不能判 PASS。**
+
+具体三处：
+1. `rc_present` 反号：`exit_code` 缺失 ⇒ **FAIL**（`EXIT_CODE_UNKNOWN`），而不是跳过。若要为 attach 例外，必须**显式传 `rc_expected=False`**，让例外出现在调用点、可被 grep 到，而不是由"键恰好不在"隐式触发。
+2. `_artifact_fresh` 的两个 `return True` 改为 `return False`（缺失/不可解析 ⇒ 不新鲜），失败消息区分 `FRESHNESS_SINCE_MISSING` / `FRESHNESS_SINCE_UNPARSABLE`。
+3. attach 路径的 `since` 取 `desc["started_at"]`（**下标，不是 `get`**），缺键即 `KeyError` → 转成带解释的 FAIL。理由：descriptor 是**我们自己写的**文件，缺 `started_at` 说明写 descriptor 的代码坏了，不是"这一步没有开始时间"。
+
+### (e) 我这次没做的（明确边界，不冒充）
+
+- **既有 1924 行 python 套件没跑**（无 pytest），任何人引用"`#8` 无回归"都必须注明这一点。
+- **`M1`–`M5` 变异矩阵我没有逐条复现**。我验的是"新套件跑得起来且全绿 + 源码里的门确实存在且方向正确 + 两处缺席即放行"。**需要方原地实测的 5 条，仍按需求方口径记，不并入我的签署范围。**
+- **`#8` 我不给通过**：`B2b` 的关闭条件是**在候选 SHA 上跑出真实重启证据**，而这条修复只是让"判定器不再接受假证据"。**判定器修好 ≠ 证据存在。** 这条必须写在 `#8` 的交接里，否则下一个读者会把"判据修好了"读成"重启恢复已验证"。
+
+
+---
+
+## §12.10.20 三条判定 + 一次我自己的 append-only 违规（已恢复）
+
+### (a) 我的 append-only 违规：就地改写已提交段落
+
+主理人把报告入库（`HEAD` 上 2694 行）之后，我为执行"未提交工作不带计数"的规则，**把 §12.10.18(b) 就地改写**，删掉了已入库的 11 行（含 `RESULT PASS=32 FAIL=1` 那段）。**这是 append-only 违规。**
+
+处置：已用脚本从 `git show HEAD:` 取回该段**逐字原文**，恢复后再**追加**一个撤回块声明该计数作废。现 `git diff --numstat` 为 **`74 0`**——零删除。
+
+**教训（与我一直在打的同一件事）**：我把"规则要求删掉这个数"读成了"可以改这段文字"。**规则约束的是'能不能被引用'，不是'历史能不能被编辑'。** 正确动作只有一个：**原文不动，追加一条撤回**。这条同时说明了为什么"边改边提交"必须停——它会让 append-only 在我手里变成一句口号。
+
+### (b) `M-recovery-error-swallowed`：**条件等价，不得永久登记**
+
+harbor 在 `cycleState` 外套 try/catch 吞掉恢复错误，实测仍全绿，判为等价变异。**我判：成立，但只在一个前提成立时成立，因此不得登记为永久等价变异。**
+
+等价性论证（他的）：拒绝有第二条防线 —— 被吞掉之后，`recordLeaseEpoch → append → ensureFresh → open()` 会第二次抛，所以副作用仍不会发生。
+
+**这个论证有效，因为它依赖的是"每一次通往 `cycleImpl` 的路径上都有一次重新读取"。** 而这恰好是**游标优化最容易删掉的东西**：游标把全量重验从"每次写"挪到"窗口到期"，若某天 `resume` 也改走游标且不打 `open()`，那条"第二道防线"就不再是防线，**这个变异会在没人改动它的情况下从等价变成应当红**。
+
+⇒ 裁定：
+1. **按 C33 归为"等价（有行为等价论证，合法）"，允许它保持绿；**
+2. **不许写成"等价变异，永久豁免"**——必须写成 **"条件等价：前提是每条通往 `cycleImpl` 的路径都重新读取。前提变更时本条必须重判"**；
+3. 前提要落成断言而不只是注释：**在 `cycleImpl` 入口处断言"本次周期已至少全量验证过一次"**（用 `stats.fullVerifies` 的增量或一个 token），这样前提一旦被删，红的是一条具名断言，而不是一个"看起来仍然绿"的旧变异。
+
+### (c) `P2-LEDGER-ANCHOR-NOT-A-COMMITMENT`：**我判 P1，应当现在加**
+
+他登记的缺口：**锚点只约束长度，不约束内容**——整条链重算、字节数不变的重写，能同时过 `verifyChain` 与锚点。
+
+**为什么不是 P2**：
+1. **值已经在手上**：`anchorValid` 已经要求 `typeof headHash === 'string'`，也就是说锚点里**已经存了 `headHash` 和 `count`**，只是从来没比较过。这是本报告第四次"算出来/存下来却不用它"的同一形状（前三次：`GATE_FLOOR_OK` 无作者字段、`git cat-file -e` 只证存在、`evidence.sha256` 算完不比较）。
+2. **成本是一行**：长度相等时断言 `entries.length === anchor.count && headHash === anchor.headHash`，不相等时走既有的 `ADOPTED_TAIL` 分支。
+3. **它落在篡改模型的核心上**：能写文件的人**同样能重算整条链**（链只是对内容的哈希，不是签名）。所以"锚点不绑内容"等于**只防截断、不防重写**，而重写的后果与截断同级——把某个周期的 `completion` 改掉，`cycleState` 就回到 `ABSENT`，重跑。**这与 §12.10.16 的 P1 是同一条杀伤链的另一半。**
+
+**判据（新增一条用例 `㉔`）**：
+- 构造"等长、整链重算自洽、但某一个周期的 `completion` 被换成 `intent`"的账本 ⇒ 必须 `LEDGER_ANCHOR_HEAD_MISMATCH`（新错码）；
+- 对照：**长度不等但尾巴链到锚定 head** ⇒ 仍走 `ADOPTED_TAIL`，**不得误红**（否则崩溃恢复会被这道门打死）；
+- 变异：把 `headHash` 比较注释掉 ⇒ **只红 `㉔`**。
+
+### (d) 他对 §5 的处理我接受（不改就是对的）
+
+`ledger-io` 里没有"周期"概念，硬引入会让窗口声明依赖上层调用形状——这正是我指的那个病换个方向。他以**具名 + 单位写进名字 + 一个数字三处具名用途**解决，并给了换算（256 ops ≈ 36 周期；1 MiB ≈ 2700 条）与"字节界会先撞"的结论。**这比我建议的"按周期计量"更好**，因为它把单位写在名字上而不是依赖注释。记 `K=256 / M=1 MiB`（主理人裁定的值，非我先前写的 256 KiB）。
