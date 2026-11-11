@@ -13,7 +13,7 @@
 |---|---|---|
 | high | 0 | 0 |
 | medium | 6 | 3（F-18 / F-19 / F-21） |
-| low | 4 | 2（F-22 / F-23） |
+| low | 4 | 2（F-22-C / F-23） |
 | 流程偏差 | 3 | 2（DEV-09 / DEV-10） |
 | 覆盖面缺口 | 3 | 1（CI 触发分支） |
 
@@ -82,13 +82,15 @@
 
 **修复方向**：gate 前移至 job 第一步。
 
-### F-22（low，本轮新发现）— V1.6 溯源门禁未覆盖集成分支
+### F-22-C（low，本轮新发现）— V1.6 溯源门禁未覆盖集成分支
 
-**现象**：`v16-market-provenance.yml` 的 `on.push.branches` = `["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**"]`，不匹配 `feature/jev-v2-ops-integration`。
+> **编号冲突说明**：旧 CI 评估报告里的 `F-22` 指另一件事（配置文件与工作树指纹一致性，记为 `F-22-G`）。本轮新增本条记为 **`F-22-C`**（C = coverage）。两者不是同一个缺陷，引用时必须带后缀。
 
-**它让什么失效**：本分支上 V1.5 baseline 8 组 + V1.6 新套件（104 断言）**未运行**。CI 覆盖率在这一点上低于 `feature/v16-p0-gap-closure`。
+**现象**：`v16-market-provenance.yml` 的 `on.push.branches` = `["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**"]`，不匹配 `feature/jev-v2-ops-integration`。同理 `ci.yml` 的 `on.pull_request.branches` 只有 `["main", "master"]`，本 PR 的 PR 事件也不会触发 `ci.yml`。
 
-**修复方向**：补 `feature/jev-**`（一行）。本轮刻意未改，避免再次扩大提交面。
+**它让什么失效**：本分支上 V1.5 baseline 8 组 + V1.6 新套件（104 断言）**未运行**；CI 覆盖率在该维度上低于 `feature/v16-p0-gap-closure`。
+
+**修复方向**：两处触发分支各补一条（`feature/jev-**`）。本轮刻意未改，避免再次扩大提交面。
 
 ### F-23（low，本轮新发现）— 静态断言文案与实际 gate 数量脱节
 
@@ -166,7 +168,7 @@
 1. F-19 修复（锚必须被读取）
 2. F-14 / F-15 修复（P3 解锁）
 3. F-21 gate 前移
-4. F-22 触发分支补齐
+4. F-22-C 触发分支补齐（`v16-market-provenance.yml` 与 `ci.yml` 的 PR 触发各补一条）
 5. 独立凭据域（F-05）
 6. 单独授权的 Shadow 环境（禁止自动开启持续付费任务）
 

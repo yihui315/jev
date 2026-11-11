@@ -159,17 +159,43 @@ fatal: Not a valid object name 5834c3c
 
 ### 5.1 三次真实运行
 
-| Run ID | 事件 | SHA | 结论 |
-|---|---|---|---|
-| `42968141252` | push | `fa7740f` | **failure** |
-| `42969534182` | push | `f5fea09` | **success** |
-| `42969557367` | pull_request（Cloud Staging Docker Runtime Gate） | `f5fea09` | **success** |
+### 5.1 真实运行（按「它到底证明了什么」分类，不可混用）
+
+| Run ID | workflow | 事件 | SHA | 结论 | 能证明什么 |
+|---|---|---|---|---|---|
+| `42968141252` | **ci.yml**（Trading Workbench CI） | push | `fa7740f` | **failure** | 修复前的真实基线：unit 步骤确实红 |
+| `42969534182` | **ci.yml** | push | `f5fea09` | **success** | 当前代码的 build-and-test 全绿 |
+| `42970318111` | **ci.yml** | push | `0d1d6c5` | **success** | 同上（配置逐字节相同，见下） |
+| `42969557367` | **Cloud Staging Docker Runtime Gate** | pull_request | `f5fea09` | **success** | **仅证明 staging 容器冒烟**，与 `ci.yml` 无关，**不得**计入 CI 签收 |
+| `42970326463` | **Cloud Staging Docker Runtime Gate** | pull_request | `0d1d6c5` | **success** | 同上 |
+
+**一处必须纠正的口径**：初次撰写时我把 `42969557367` 与 `42969534182` 并列写进 CI 裁定理由，这是错的。`ci.yml` 的 `on.pull_request.branches` 只有 `["main", "master"]`，本 PR 的 base 是 `feature/v16-market-provenance-hardening`，**PR 事件根本不会触发 `ci.yml`**。因此 CI 侧的证据只有 push 事件的三次运行，staging gate 是另一件事。
+
+**「换 SHA 是否意味着换了被测对象？」——不。** 三次 push 运行上的 `ci.yml` 与 `vite.config.ts` 在 git 层面是**同一个 blob**：
+
+```
+f5fea09 .github/workflows/ci.yml -> 468238f423db829337f04fe3d7890c801d3865b1
+0d1d6c5 .github/workflows/ci.yml -> 468238f423db829337f04fe3d7890c801d3865b1
+2b6be4a .github/workflows/ci.yml -> 468238f423db829337f04fe3d7890c801d3865b1
+```
+
+后续提交只改 `reports/` 下的文档，**没有一行代码或 CI 配置发生变化**。所以「`0d1d6c5` 绿」与「分支尖端绿」在工程上是同一件事，不是碰巧。
+
+---
+
+### 5.1b 本文件不锚定分支尖端
+
+写进台账的 `finalVerifiedSha` 一旦落笔就会被下一次文档提交顶掉——这是结构性的，不是谁疏忽。因此：
+
+- **权威证据是上面这张运行清单**，不是某个 SHA 字符串。
+- 判断「当前是否绿」的正确方法是：取 `git rev-parse HEAD`，在上表找同 SHA 的运行，或看该 SHA 的 `ci.yml` blob 是否仍是 `468238f4…`。
+- 这一条与项目既有纪律一致：**唯一稳定锚点是内容，不是指针。**
 
 ### 5.2 逐条核对
 
 | # | 要求 | 结论 | 证据 |
 |---|---|---|---|
-| 1 | 测试在最新代码上执行 | **VERIFIED** | 两个 success 运行的 `head_sha` 均为 `f5fea09` |
+| 1 | 测试在最新代码上执行 | **VERIFIED** | `ci.yml` 的三次 push 运行分别绑定 `fa7740f` / `f5fea09` / `0d1d6c5`；三个 SHA 的 `ci.yml` blob 同为 `468238f4…`，被测配置未变 |
 | 2 | `fetch-depth: 0` 生效 | **VERIFIED** | gate 日志含 `B1 apparatus: ebc3fcc baseline WITH broken gate DOES warn+continue + approve via simplified fallback`；该用例必须 `git show ebc3fcc` 才能跑 |
 | 3 | 正式 `build-and-test` 成功 | **VERIFIED** | 步骤 5/6/7/10 全 success |
 | 4 | 非阻断探针不冒充通过 | **已隔离** | 探针为独立 job `Real Binance market-data probe (non-blocking)`，其 success **不计入**本签收 |
@@ -234,9 +260,11 @@ CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10   check-no-fake-live
 
 ### CI = GO WITH CONDITIONS
 
-成立依据：真实 Run `42969534182` / `42969557367` 在 `f5fea09` 上 success，步骤级与断言级证据齐备。
+成立依据：**`ci.yml`** 在 `f5fea09`（Run `42969534182`）与 `0d1d6c5`（Run `42970318111`）上 success，步骤级与断言级证据齐备；且三个 SHA 的 `ci.yml` blob 同为 `468238f4…`，被测配置完全一致。
 
-条件：① 上条两处覆盖缺口；② 本结论仅覆盖 `f5fea09` 这一个提交，不构成对分支未来提交的保证；③ `real-data-probe` 的 success 不进入本裁定。
+明确排除：Run `42969557367` / `42970326463` 属 Cloud Staging 容器冒烟，**不作为 CI 证据**；`real-data-probe` 作业的 success 同样**不进入本裁定**。
+
+条件：① gate 位置（F-21）与 V1.6 溯源门禁覆盖（F-22-C）两处缺口未补；② 本结论只覆盖 `ci.yml` 的 build-and-test，不覆盖未触发的 `v16-market-provenance.yml`；③ 结论锚定的是**配置内容** `468238f4…`，不是某个会移动的 SHA。
 
 ### Security = GO WITH CONDITIONS
 

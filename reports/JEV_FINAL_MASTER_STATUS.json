@@ -877,11 +877,12 @@
         "fixed": false
       },
       {
-        "id": "F-22",
+        "id": "F-22-C",
         "severity": "low",
         "topic": "v16-market-provenance.yml 触发分支不含 feature/jev-*",
         "impact": "V1.5 baseline 8 组 + V1.6 套件（104 断言）未在本分支运行",
-        "fixed": false
+        "fixed": false,
+        "idNote": "C = coverage。旧 CI 评估报告里的 F-22 指另一件事（配置与工作树指纹一致性，记为 F-22-G），两者不是同一缺陷。"
       },
       {
         "id": "F-23",
@@ -1060,7 +1061,8 @@
         "p3-contracts": 12,
         "supervisor": 14,
         "check-no-fake-live": 10
-      }
+      },
+      "evidenceType": "主理人从 Actions 运行日志中逐条 grep 得到，非成员转述；独立 QA 因 API 权限未取得日志，其未能直读不构成反驳。"
     },
     "fetchDepthProof": "gate 日志含 B1 apparatus 一行，明确旧基线 ebc3fcc WITH broken gate DOES warn+continue + approve via simplified fallback；该用例必须 git show ebc3fcc 才能跑，跑到即证明 fetch-depth:0 生效。",
     "fetchDepthSideFinding": "同一行日志同时构成『旧基线确实用简化风控放行』的前后对比证据。",
@@ -1068,7 +1070,17 @@
     "noGreenBySkipping": "修复前 fa7740f 的 gate 为 skipped 且整体 failure，说明跳过不会被误判为绿。",
     "finalVerifiedSha": "0d1d6c587b1f2881c9949b7cb3fae5c9ffb75685",
     "finalVerifiedRun": 42970318111,
-    "stagingGateRun": 42970326463
+    "stagingGateRun": 42970326463,
+    "stagingGateNotCiEvidence": "ci.yml 的 on.pull_request.branches 仅 [main, master]，本 PR base 为 feature/v16-market-provenance-hardening，PR 事件不触发 ci.yml。故 42969557367 / 42970326463 只证明 staging 容器冒烟，不作 CI 证据。",
+    "branchTipIsMovingTarget": "本快照不锚定分支尖端。权威证据是运行清单 + ci.yml blob 468238f4…。台账里的 finalVerifiedSha 会随下一次文档提交过期，这是结构性的。",
+    "ciConfigBlobStable": {
+      ".github/workflows/ci.yml": "468238f423db829337f04fe3d7890c801d3865b1",
+      "appliesTo": [
+        "f5fea09",
+        "0d1d6c5",
+        "2b6be4a"
+      ]
+    }
   },
   "sevenAdjudications": {
     "engineeringIntegration": {
@@ -1077,7 +1089,7 @@
     },
     "ci": {
       "verdict": "GO_WITH_CONDITIONS",
-      "reason": "真实 Run 42969534182 / 42969557367 @ f5fea09 success；F-21 gate 位置、F-22 触发分支为条件"
+      "reason": "ci.yml push 运行 42969534182 (@f5fea09) 与 42970318111 (@0d1d6c5) 均 success；三个 SHA 的 ci.yml blob 同为 468238f4…，被测配置一致。Cloud Staging 运行 42969557367/42970326463 不计入 CI 证据。条件：F-21 gate 位置、F-22-C 触发覆盖。"
     },
     "security": {
       "verdict": "GO_WITH_CONDITIONS",
