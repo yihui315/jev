@@ -534,10 +534,13 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared gate suite set (comment-proof
 // -----------------------------------------------------------------------------
 // Y9 — REGISTRATION, NOT A SAFETY CLAIM.
 //
-// (Named Y9, not Y7: Y7 is the literal-tautology scan. This is a different
-// fact — an absence of call sites — and the floor comment, the report section
-// and any mutation list will reference it BY NAME. Two facts sharing one name is
-// how "three lines are not three guards" happens a second time.)
+// (Named Y9 so the floor comment, the report section and any mutation list can
+// reference it BY NAME. Two facts sharing one name is how "three lines are not
+// three guards" happens a second time.
+// A literal-tautology scan is a DIFFERENT check. It is not written yet, so it
+// gets no number here — citing a number for a check that does not exist
+// announces something that is not there, which is the same error as quoting a
+// future floor value as if it had been measured.)
 //
 // The frozen engine ships a complete service-to-service trust implementation:
 // HMAC-SHA256 over `v1.<ts>.<nonce>.<actor>.<sha256(rawBody)>`, a GitHub OIDC
