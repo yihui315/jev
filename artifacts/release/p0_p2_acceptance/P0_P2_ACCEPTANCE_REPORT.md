@@ -594,7 +594,7 @@ RESULT PASS=14 FAIL=3   → exit 1
 **缺陷（由 harbor 与 aegis 独立指出，落在我这次提交的射程内）**：`check-no-fake-live.mjs` 的 Y2 里，`GATE_SUITES`（ci.yml 侧）已是 comment-proof 的**集合**比较，而 30 行之后对 floor 表的校验**只比 `slug:` 条数**：
 
 ```js
-const floorSlugs = (floorSrc.match(/^\s{4}slug:/s*"[^"]+"/gm) || []).length;
+const floorSlugs = (floorSrc.match(/^\s{4}slug:\s*"[^"]+"/gm) || []).length;
 assert.equal(floorSlugs, GATE_SUITES.length, ...);
 ```
 
@@ -706,7 +706,7 @@ $ grep -c "superseded_by_sha256:" D:/jev/artifacts/acceptance/P0_P2_ACCEPTANCE_R
 那 30 行落在 `Y2` **内部**，而 `Y2` 的 `expect` 没变（`7-no-fake-live` 仍是 13）⇒ 整块删掉，`RESULT: CORE_CASES=7 EXTRA_CASES=6 TOTAL_CASES=13 exit=0` 依旧成立。主理人已因此立规则「新增守卫必须占自己的槽位，不允许寄生在别的 check 里」，正解是 `Y6` + `7-no-fake-live 13→14`，与 `Z6` 同槽位、串行在 #15 之后。
 ⇒ **在 Y6 落地前，§10.8 的强度只到「当次实测为真」，不构成「以后删了会红」。** 不要把它读成"这一条已经被守住了"。
 
-**（二）§10.8 正文引用的旧判据正则有一处笔误。** 正文写作 `slug:/s*"`，实际代码是 `slug:\s*"`（反斜杠）。照抄正文会写出一条永不匹配的正则。原文不改，以本条为准。
+**（二）§10.8 正文引用的旧判据正则有一处笔误，已在原地更正。** 正文原写作 `slug:/s*"`，实际代码是 `slug:\s*"`（反斜杠）。照抄正文会写出一条**永不匹配**的正则——一条靠"匹配不到任何东西"来通过的守卫，正是本节在讲的那个失败形态。原文**已改为正确写法**，因为这不是历史读数、是可被逐字抄走并直接致盲的代码片段；保留错误片段并要求读者"以本条为准"，等于把致盲风险交给读者的记忆力。
 
 **（三）#19 落地：用例 13/14 从「文本存在」升级为「字节相等」。**
 - 旧判据只断言调用点出现 `bodyText, bodyBytes`。把 builder 内部改回 `(bodyText || "{}")` 后，**HEAD 版测试仍 `PASS=17 FAIL=0 rc=0`** —— 这就是"零灵敏度"的实证，不是推断。
