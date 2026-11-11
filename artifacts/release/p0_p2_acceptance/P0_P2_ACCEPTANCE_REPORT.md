@@ -1028,3 +1028,138 @@ _jugde_artifact(): rec = load_json(path); ok, detail = step.judge(rec)
 
 **注意 1**：这三条一旦落地，`FINAL-10` 当天会**变红**（因为旧文件不在、`platform` 缺失、`release_sha` 不匹配）。**这是正确行为，不是回归**；不要为了让流水线变绿而去补写一份"看起来对"的 json。
 **注意 2**：`publish_release_evidence.py` 的 verdict 文字里写的是"every FINAL-phase leg is present and **unchanged since it was judged**"——这是**防篡改**，不是**防陈旧**。一个 7 周前被判过、之后没人动的文件，天然满足"unchanged since judged"。两种守卫不能互相冒充。
+
+### 10.17 `#8` 修复轮：把「不知道」从通过改成拒绝（20 条具名用例 / 11 变异 / 真实 `run_step` 冒烟）
+
+§10.16 判 `FINAL-10` 的判定链 fail-open。修复归本角色，验证归 aegis（不自签）。本节记录**工作区字节**上的实测；工作区尚未提交，因此本节不是「已入库字节」的读数，提交后须在提交字节上重跑（`dbd6368`/`51fe94c` 的教训：被提交的不是被测的那份）。
+
+被测字节（`sha256sum`，本节全部读数都绑这三个值）：
+
+```
+47c1551b5fc3dc8584836a423ba10642d48af7389387a588f68b54aebefc05d5  tools/jcc_continuation.py
+144739372240bc13f6d27e72381b995773887b7d35fa29cab85dbb6c44d21e2e  tools/continuation/reboot_recovery_sim.py
+d22197e842f70316abfe8a633ec39b79cb761a012de44526e317d4dd72dab007  apps/command_center_3d/scripts/tests/final10-judge.test.mjs
+```
+
+**环节 1｜`rc_present` 是第二层 fail-open，与 §10.16 的「陈旧证据」不是同一个洞。**
+
+第一版修复把 `rc is None` 判成 FAIL，形态是：
+
+```
+rc_present = "exit_code" in record
+if step.script and rc_present and rc != 0 and step.id not in EXIT_CODE_ALLOWLIST:
+```
+
+`exit_code` 缺键的路径恰好是**最该拦的三条**：`launch failed`（`[WinError 2]`）、`timeout`、`attach` 回来的 record。于是「记录里没有这个键」被读成「这一步不需要退出码」——**数据冒充策略**。它比「忘了检查」更坏：字段缺席看起来像「这条不适用」，而不像「这条没跑」。
+
+修法：缺键 ⇒ `FAIL`，理由串带 `EXIT_CODE_UNKNOWN`。豁免登记为
+
+```
+EXIT_CODE_EXEMPT: Tuple[str, ...] = ()
+if EXIT_CODE_EXEMPT: raise RuntimeError(...)     ← raise，不是 assert
+```
+
+即「豁免」只能由一个具名常量触发，而该常量在导入阶段就被断言为空；不能用「键恰好不在」隐式触发。
+
+**环节 2｜「两门同缺」落在关键步骤上，不是理论组合。**
+
+```
+$ python -c "…;s=[x for x in m.STEPS if x.id=='FINAL-10_REBOOT_SIM'][0];print(s.long_running, s.timeout_s)"
+True 1800
+$ grep -n "LONG_RUNNING_MIN_S" tools/jcc_continuation.py
+126:LONG_RUNNING_MIN_S = 1800
+```
+
+即 `FINAL-10_REBOOT_SIM` **走 attach**。attach 构造的 record 不含 `exit_code`（GATE 1 关），而 `desc.get("started_at")` 缺省时旧 `_artifact_fresh` 返回 `True`（GATE 2 关）。**在这一条路径上，§10.16 之后的第一版修复整个不存在**，判定强度退回 `_ok_judge` 时代。
+
+**环节 3｜四处改动。**
+
+| # | 改动 | 挡住的东西 |
+|---|---|---|
+| 1 | `rc_missing`（缺键）⇒ `FAIL`/`EXIT_CODE_UNKNOWN` + `EXIT_CODE_EXEMPT` 空断言 | 用「不写字段」关掉 GATE 1 |
+| 2 | `_freshness_verdict(path, since) -> (ok, tag)`，两个 `return True` → `return False` | 用「不知道起跑时间」关掉 GATE 2 |
+| 3 | GATE 2 的 `since` 用**键存在**判定，不再 `or started_at` | 「attach 时刻」冒名顶替「本次起跑时刻」 |
+| 4 | `attach_to_run` 把 descriptor 的 `exit_code` 接进 record；没有则不写键 | 让 attach 变成无差别拒绝（有码就照码判） |
+
+`_freshness_verdict` 的 5 个 tag：`ARTIFACT_MISSING` / `FRESHNESS_SINCE_MISSING` / `FRESHNESS_SINCE_UNPARSABLE` / `ARTIFACT_PREDATES_RUN` / `FRESH`。`_artifact_fresh` 变成它的布尔薄包装，`run_pipeline` 那 3 个调用点一行未改。**两个半守卫的分工写进了注释**：mtime 挡「文件旧」，三字段挡「文件新但属于别的 run」，只留一半各有洞。
+
+**环节 4｜实测。**
+
+```
+$ node apps/command_center_3d/scripts/tests/final10-judge.test.mjs
+RESULT PASS=20 FAIL=0                       exit=0
+```
+
+20 条具名用例（不是预估的 10，也不是上一版的 12）：`GOOD`、`GOOD_DETAIL_IS_JUDGE_TEXT`、`OLD_SHA`、`NO_PLATFORM`、`OLD_CHECKED_AT`、`RC_NONZERO`、`RC_NONE_LAUNCH_FAILED`、`JUDGE_FAIL_KEEPS_DETAIL`、`NO_FILE`、`STALE_MTIME`、`ALLOWLIST_EMPTY`、`STEP_USES_FINAL10_JUDGE`、`OUT_DELETED_BEFORE_WRITE`、`GATE_1_RC_ABSENT`、`FRESHNESS_SINCE_MISSING`、`FRESHNESS_SINCE_UNPARSABLE`、`EXEMPT_EMPTY`、`ATTACH_RC_IN_DESCRIPTOR`、`ATTACH_RC_ABSENT`、`ATTACH_NO_STARTED_AT`。
+
+变异矩阵（11 条，变异体只写 `%TEMP%/h2-mut-final10/r-<id>/` 沙箱，**不进被测路径**；`M0`/`M10` 前后三文件 sha256 相同，锁存成立）：
+
+```
+MUTATION                      rc  PASS FAIL  RED
+M0-baseline                   0   20   0     (none)
+M1-judge-reverted             1   15   5     OLD_SHA,NO_PLATFORM,OLD_CHECKED_AT,JUDGE_FAIL_KEEPS_DETAIL,STEP_USES_FINAL10_JUDGE
+M2-no-mtime-compare           1   19   1     STALE_MTIME
+M3-exit-ignored               1   18   2     RC_NONZERO,RC_NONE_LAUNCH_FAILED
+M4-allowlist-nonempty         1    1   19    (19 条具名，含 ALLOWLIST_EMPTY,EXEMPT_EMPTY)
+M5-no-delete-before-write     1   19   1     OUT_DELETED_BEFORE_WRITE
+M6-rc-absent-skips            1   18   2     GATE_1_RC_ABSENT,ATTACH_RC_ABSENT
+M7a-gate1-carry-erased        1   18   2     RC_NONE_LAUNCH_FAILED,GATE_1_RC_ABSENT
+M7b-judge-carry-erased        1   19   1     JUDGE_FAIL_KEEPS_DETAIL
+M8-since-missing-is-fresh     1   18   2     FRESHNESS_SINCE_MISSING,ATTACH_NO_STARTED_AT
+M9-since-unparsable-is-fresh  1   19   1     FRESHNESS_SINCE_UNPARSABLE
+M10-attach-drops-exit-code    1   19   1     ATTACH_RC_IN_DESCRIPTOR
+MATRIX_OK
+```
+
+可主张的只是**弱形式**：每条用例都有至少一个「只红它自己的」变异（`M10`→`ATTACH_RC_IN_DESCRIPTOR`、`M9`→`FRESHNESS_SINCE_UNPARSABLE`、`M7b`→`JUDGE_FAIL_KEEPS_DETAIL`、`M5`→`OUT_DELETED_BEFORE_WRITE`、`M2`→`STALE_MTIME`）。**「每个变异只红一条」是假的**（`M1` 一红 5 条，`M8` 红 2 条）。
+
+真实 `run_step` 冒烟（真 `Popen`、真退出码、真 launch failure；`%TEMP%/h2-mut-final10/runstep-smoke.py`）：
+
+```
+R1_REAL_EXIT0      PASS  status=PASS exit_code=0
+R1_RECORD_FIELDS   PASS  freshness_since == started_at
+R2_REAL_EXIT3      PASS  status=FAIL exit_code=3     ← 产物好也不翻案
+R3_NO_ARTIFACT     PASS  status=BLOCKED "artifact missing"
+R4_LAUNCH_FAILED   PASS  status=FAIL "launch failed: [WinError 2] … | exit code None from …"
+R4_RC_IS_NONE      PASS  exit_code=None（键存在）
+```
+
+`-O` 下的白名单守卫（`%TEMP%/h2-mut-final10/octest/`）：
+
+```
+python -O，ALLOWLIST 非空   → exit=1  RuntimeError
+python -O，EXEMPT   非空    → exit=1  RuntimeError
+python -O，assert False     → exit=0  无异常        ← assert 会静默消失
+python   ，assert False     → exit=1  AssertionError
+```
+
+**环节 5｜这一轮自己抓到的两个陷阱（都属「断言指向了错的对象」）**
+
+1. **`MUST_MENTION` 会挑到门禁自己的话术。** `GATE_1_RC_ABSENT` 起初要求 detail 含 `launch failed`，而 GATE 1 的固定文案里就有 `(launch failed, timeout, …)` ⇒ 拒绝文本自己满足了「原因存活」，`M7a` 只红一条。改成要求 `WinError 2`（只可能来自被携带的原文）后才红两条。**「原因还在」的断言词必须不可能出现在门禁自己的固定话术里。**
+2. **单侧括号的变异体会退化成 SyntaxError，从而「红掉一切」。** 去掉 `_carry_detail(record, (…)` 的左括号却留下 `))`，`M7a` 首次跑出 `PASS=1 FAIL=19`——看起来像强杀伤，实际是探针在 import 阶段就死了，和 §10.16 里「fail-closed 无具名红点」是同一族。修法两件：变异体必须双侧改；探针失败不再早退，改为把每个期望用例报成**具名 FAIL**（于是 `M4` 从「1 条匿名红」变成 19 条具名红）。
+
+**环节 6｜`artifacts/acceptance/REBOOT_RECOVERY.json` 移出 tracked 的依据。**
+
+```
+$ grep -n '^OUT' tools/continuation/reboot_recovery_sim.py
+61:OUT = os.path.join(ROOT, "artifacts", "acceptance", "REBOOT_RECOVERY.json")
+$ grep -n 'io.open(OUT, "w"' tools/continuation/reboot_recovery_sim.py   → 每次重写
+$ grep -n 'os.remove(OUT)' …                                            → 写前先删
+$ git check-ignore -v artifacts/acceptance/REBOOT_RECOVERY.json         → exit 1（未被忽略）
+$ git rev-parse HEAD:artifacts/acceptance/REBOOT_RECOVERY.json
+1e9c8ca06f4de293a5210123ff4227fdded7ddb9     (4748 B)
+```
+
+结论：它是**生成物**（该步骤每次跑都重写），被 tracked 的后果是「干净树」与「这一轮跑过」长得一样——337 个提交前、`release_sha=cefed661…`、无 `platform` 的 PASS 文件躺在树里。删除**不销毁证据**：`git show <commit>:<path>` 随时可回取（blob `1e9c8ca0`）。**也不建议加 `.gitignore`**：FINAL-10B 的职责就是提交本轮产物，忽略规则会与它冲突；未跟踪而不忽略时 `git add` 照常工作。
+
+**注意（写给下一个人）**：本节修的是**「不再接受假证据」**，不是**「重启恢复已验证」**。`B2b` 的关闭条件仍是候选 SHA 上的真实重启证据；判定器变绿不等于证据存在。
+
+**本节仍未关闭**
+
+| # | 项 | 状态 |
+|---|---|---|
+| 1 | 既有 `tools/tests/test_continuation_infra.py`（1924 行）未跑：`python -m pytest --version` → `No module named pytest`（真实 exit=1），`.venv` → `NO_VENV` | **UNVERIFIED**（不是「无回归」） |
+| 2 | `_artifact_fresh` 收紧后，`run_pipeline` 的 attach/relaunch 判定随之变化（缺 `started_at` 的 descriptor 由「attach」变「RUN_LOST→重启」） | 只有静态推理，**无执行证据** |
+| 3 | 第 9 套件尚未入闸（floor 无 `9-*` 条目） | 不得从「未验收」移出 |
+| 4 | `OUT_DELETED_BEFORE_WRITE` 是**文本序**检查（`os.remove(OUT)` 出现在 `io.open(OUT,"w")` 之前） | 已写清退条件：改用 `unlink`/`shutil`/上下文管理器删除的那天，该条失去意义而仍然通过 |
+| 5 | `attach` 的新鲜度在 attach 那层先拒绝，故 `FRESHNESS_SINCE_MISSING` 在 attach 路径上到不了 GATE 2 | 两道独立拒绝，各自有单测；`M8` 同时红两条（不掩饰） |
