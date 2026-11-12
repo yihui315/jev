@@ -1,10 +1,18 @@
 /**
  * check-no-fake-live.mjs — P7 static assertions (Node stdlib only).
  *
- * Why this exists: `apps/command_center_3d/node_modules` is MISSING on this
- * host, so `tsc --noEmit` / `vitest run` cannot be executed and TypeScript
- * type-checking is UNVERIFIED. This script is the honest substitute: pure
- * Node stdlib, static source assertions, no network, no dependencies.
+ * Why this exists: the P7 "no fabricated live state" invariants must be
+ * checkable BEFORE `npm ci` and WITHOUT any dependency or network, because
+ * this gate is the FIRST run step in ci.yml (F-21). It therefore uses pure
+ * Node stdlib and static source assertions.
+ *
+ * P0-B status update (2026-11-12): dependencies ARE now installed locally
+ * (`npm ci` EXIT=0 / 239 packages, lockfile byte-identical) and both
+ * `npx tsc --noEmit` and `npx vitest run` EXIT=0 (22 files / 217 passed /
+ * 3 skipped). `vite.config.ts` excludes these hand-written `node` runners
+ * from vitest collection. Real GitHub Actions remains NOT_RUN: 0 push,
+ * 0 Run ID. This script is a dependency-free PRE-FLIGHT gate, not a
+ * substitute for, or evidence of, a real CI run.
  *
  * It is a STATIC assertion script, not a unit test runner. It reads source
  * text and asserts the "no fabricated state" invariants hold in the P7 files.

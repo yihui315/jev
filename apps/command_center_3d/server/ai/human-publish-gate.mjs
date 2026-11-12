@@ -61,6 +61,8 @@ export const GATE_CODES = Object.freeze({
   SECRET_MISSING: "GATE_SECRET_REQUIRED",
   UNKNOWN_ACTION: "ACTION_UNKNOWN_FAIL_CLOSED",
   INVALID_SCOPE: "GRANT_SCOPE_INVALID",
+  STATE_REQUIRED: "GATE_STATE_REQUIRED",
+  AUDIT_REQUIRED: "GATE_AUDIT_REQUIRED",
   UNGATED: "UNGATED_UNATTENDED",
 });
 
@@ -181,16 +183,46 @@ export class AppendOnlyAuditLog {
   }
 }
 
+/**
+ * Length-prefixed, unambiguous HMAC preimage.
+ *
+ * Aegis (independent review, 2026-11-12) found a REAL collision in the previous
+ * `fields.join("|")` form: `strategyId`, `strategyVersion` and `nonce` are
+ * client-controlled and may contain `|`, so a grant minted for
+ * (strategyId="A", version="B|C") could be re-read as ("A|B", "C") with the
+ * SAME signature — i.e. re-scoped without the server secret. Prefixing every
+ * field with its byte-independent character length makes the boundary
+ * unambiguous for ANY field content, including pipes, colons and newlines.
+ * (Rejecting `|` would also work but needlessly narrows valid identifiers.)
+ * This changes the signature preimage, so grants minted by the old form are
+ * intentionally invalid; P0 has no persisted grants.
+ */
 function canonicalGrant(g) {
-  return [
+  const fields = [
     GATE_VERSION, g.grantId, g.actorHash, g.actorUserId, g.authMethod,
     g.action, g.strategyId, g.strategyVersion, g.contentHash, g.nonce,
     String(g.issuedAtMs), String(g.expiresAtMs),
-  ].join("|");
+  ];
+  return fields.map((f) => {
+    const s = String(f);
+    return s.length + ":" + s;
+  }).join("|");
 }
 
 function signGrant(g, secret) {
   return createHmac("sha256", String(secret)).update(canonicalGrant(g), "utf8").digest("hex");
+}
+
+/** Aegis HARD CONDITION 6: omitting state/audit must fail closed, never silently degrade. */
+export function isGateStateValid(state) {
+  return !!state &&
+    !!state.consumedNonces && typeof state.consumedNonces.has === "function" &&
+    typeof state.consumedNonces.add === "function" &&
+    !!state.revokedGrantIds && typeof state.revokedGrantIds.has === "function";
+}
+
+export function isAuditValid(audit) {
+  return !!audit && typeof audit.append === "function" && typeof audit.verifyChain === "function";
 }
 
 function validScope({ strategyId, version, contentHash }) {
@@ -262,7 +294,11 @@ export function verifyPublishGrant({
   if (typeof secret !== "string" || secret.length < 16) return deny(GATE_CODES.SECRET_MISSING);
   if (!assertServerActor(actor)) return deny(GATE_CODES.INVALID_ACTOR);
   if (!grant || typeof grant !== "object" || grant.schema !== GATE_VERSION) return deny(GATE_CODES.NO_GRANT);
-  if (state && state.revokedGrantIds && state.revokedGrantIds.has(grant.grantId)) return deny(GATE_CODES.REVOKED, grant.grantId);
+  // Fail closed when the replay/revocation store is missing. The old code used
+  // `if (state && state.consumedNonces)` guards, which silently degraded into
+  // "replay protection off" when a caller forgot to pass state (Aegis R4).
+  if (!isGateStateValid(state)) return deny(GATE_CODES.STATE_REQUIRED);
+  if (state.revokedGrantIds.has(grant.grantId)) return deny(GATE_CODES.REVOKED, grant.grantId);
   if (!safeHexEqual(grant.signature, signGrant(grant, secret))) return deny(GATE_CODES.BAD_SIGNATURE);
   if (!Number.isFinite(nowMs)) return deny(GATE_CODES.INVALID_SCOPE, "nowMs required");
   if (nowMs < grant.issuedAtMs) return deny(GATE_CODES.NOT_YET_VALID);
@@ -314,6 +350,18 @@ export async function enforceHumanPublishGate({
       detail: "Shadow/Paper internal simulation stays unattended",
     });
     return { ok: true, gated: false, code: GATE_CODES.UNGATED, action };
+  }
+
+  // Aegis HARD CONDITION 6: the choke point must never approve when its
+  // replay/revocation store or append-only audit log is missing. Without this,
+  // omitting an optional argument silently turned the gate into "verify the
+  // signature and forget everything else". A denial here cannot be recorded —
+  // there is no log to record it in — which is precisely why it fails closed.
+  if (!isGateStateValid(state)) {
+    return { ok: false, gated: true, code: GATE_CODES.STATE_REQUIRED };
+  }
+  if (!isAuditValid(audit)) {
+    return { ok: false, gated: true, code: GATE_CODES.AUDIT_REQUIRED };
   }
 
   const clientField = findClientSuppliedApproval(body);

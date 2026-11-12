@@ -276,12 +276,15 @@ const SUITES = [
   {
     slug: "10-human-publish-gate",
     label: "scripts/tests/human-publish-gate.test.mjs (P0-A HUMAN_PUBLISH_GATE reverse tests)",
-    expect: 22,
-    // "RESULT PASS=22 FAIL=0". Six mandated reverse tests (no grant, forged
+    expect: 25,
+    // "RESULT PASS=25 FAIL=0". Six mandated reverse tests (no grant, forged
     // confirmationId, expired, replay, edited content, valid grant) plus
     // identity/scope/signature/audit/red-line checks and the Paper unattended
-    // regression. This entry is what stops the new gate's tests from being
-    // silently deleted while the suite still exits 0.
+    // regression, plus N23/N24 (Aegis C1 delimiter-collision FAIL fix: a
+    // shifted-boundary grant must not verify, at module AND HTTP level) and
+    // N25 (Aegis C6: missing state/audit fails closed). This entry is what
+    // stops the new gate's tests from being silently deleted while the suite
+    // still exits 0.
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
     failGroup: 2,
   },

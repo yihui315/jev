@@ -334,5 +334,76 @@ await test("N22 static: paper/execute route contains no HUMAN_PUBLISH_GATE call"
   assert.equal(src.includes('/api/jev/ai/publish/'), true, "publish delegation must be wired");
 });
 
+// ---- Aegis independent review findings (2026-11-12) ----------------------
+
+await test("N23 Aegis C1 FAIL fix: pipe in version cannot re-scope a grant", async () => {
+  const st = fresh();
+  const g = issuePublishGrant({
+    actor: actor(), action: ACTION, strategyId: "A", version: "B|C",
+    contentHash: HASH_A, ttlMs: 300000, nowMs: T0, secret: SECRET,
+    nonce: "nonce-pipe", audit: st.audit,
+  });
+  assert.equal(g.ok, true);
+  // The old `fields.join("|")` preimage made these two tuples identical:
+  //   ["A", "B|C"]  ->  "A|B|C"
+  //   ["A|B", "C"]  ->  "A|B|C"   (same HMAC, no secret needed)
+  const shifted = { ...g.grant, strategyId: "A|B", strategyVersion: "C" };
+  const v = await enforceHumanPublishGate({
+    body: {}, actor: actor(), action: ACTION,
+    strategyId: "A|B", version: "C", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, grant: shifted,
+    state: st, audit: st.audit,
+  });
+  assert.equal(v.ok, false, "shifted-boundary grant must NOT verify");
+  assert.equal(v.code, GATE_CODES.BAD_SIGNATURE);
+  // Positive control: the original grant still verifies for its OWN scope.
+  const good = await enforceHumanPublishGate({
+    body: {}, actor: actor(), action: ACTION,
+    strategyId: "A", version: "B|C", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, grant: g.grant,
+    state: st, audit: st.audit,
+  });
+  assert.equal(good.ok, true, "length-prefixed preimage must not break legitimate pipes");
+});
+
+await test("N24 Aegis C1 over HTTP: shifted-boundary grant is refused by the route", async () => {
+  const rt = createPublishRuntime();
+  const issued = await callPublish("/api/jev/ai/publish/grant", {
+    action: ACTION, strategyId: "A", version: "B|C", content: CONTENT_A, nonce: "http-pipe-1",
+  }, rt);
+  assert.equal(issued.status, 200);
+  const shifted = { ...issued.body.data.grant, strategyId: "A|B", strategyVersion: "C" };
+  const r = await callPublish("/api/jev/ai/publish/execute", {
+    action: ACTION, strategyId: "A|B", version: "C", content: CONTENT_A, grant: shifted,
+  }, rt);
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, GATE_CODES.BAD_SIGNATURE);
+  assert.equal(r.body.data.gate, GATE_NAME);
+});
+
+await test("N25 Aegis C6: missing state or audit fails closed, never degrades", async () => {
+  const st = fresh();
+  const g = grant(st);
+  const common = {
+    body: {}, actor: actor(), action: ACTION,
+    strategyId: "STRAT-7", version: "v3", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, grant: g.grant,
+  };
+  const noState = await enforceHumanPublishGate({ ...common, state: undefined, audit: st.audit });
+  assert.equal(noState.ok, false);
+  assert.equal(noState.code, GATE_CODES.STATE_REQUIRED);
+  const noAudit = await enforceHumanPublishGate({ ...common, state: st, audit: undefined });
+  assert.equal(noAudit.ok, false);
+  assert.equal(noAudit.code, GATE_CODES.AUDIT_REQUIRED);
+  // A missing state must also be refused by the lower-level verifier.
+  const direct = verifyPublishGrant({
+    grant: g.grant, actor: actor(), action: ACTION,
+    strategyId: "STRAT-7", version: "v3", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, state: undefined, audit: st.audit,
+  });
+  assert.equal(direct.ok, false);
+  assert.equal(direct.code, GATE_CODES.STATE_REQUIRED);
+});
+
 console.log(`RESULT PASS=${PASS} FAIL=${FAIL}`);
 if (FAIL > 0) process.exit(1);

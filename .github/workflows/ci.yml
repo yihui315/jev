@@ -48,13 +48,15 @@ jobs:
       #
       # ORDERING RATIONALE (F-21): this gate used to sit after Install /
       # Typecheck / Build / Unit tests. On Run 42968141252 a red unit test made
-      # GitHub report this step as `skipped`, so all 96 gate cases never ran —
+      # GitHub report this step as `skipped`, so every gate case never ran —
       # the gate disappeared at exactly the moment it was most needed. Putting
-      # it first is only legitimate because NONE of the seven suites imports
-      # anything outside `node:*` stdlib and repo-relative paths: they were
-      # re-run on this host with apps/command_center_3d/node_modules ABSENT and
-      # all seven exited 0 (see the acceptance report). If a suite ever gains a
-      # node_modules import, this ordering must be re-proven rather than assumed.
+      # it first is only legitimate because NONE of the 11 gate suites imports
+      # anything outside `node:*` stdlib and repo-relative paths. This was
+      # re-proven on a clean bundle clone with node_modules ABSENT: all 11
+      # suites exited 0 (logs_restored_6f91d29/). Dependencies ARE installed
+      # on the CI host for the later tsc/vitest steps; the gate itself must
+      # stay dependency-free. If a suite ever gains a node_modules import,
+      # this ordering must be re-proven rather than assumed.
       #
       # HARD-FAIL SEMANTICS ARE NOT WEAKENED: `set -euo pipefail`, a `test -f`
       # presence check before every suite, and no `continue-on-error` / no
@@ -83,9 +85,10 @@ jobs:
           node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs 2>&1 | tee "$GATE_LOG_DIR/4-inference-evidence.log"
           test -f apps/command_center_3d/scripts/day14-research/p3-contracts.mjs || { echo "P3P4 TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs 2>&1 | tee "$GATE_LOG_DIR/5-p3-contracts.log"
-          # Final three suites. All are hand-written `node <path>` assertion
-          # scripts (node:assert + exit code), which is why they are excluded
-          # from vitest's collection in vite.config.ts and run here instead.
+          # Remaining hand-written `node <path>` assertion suites (6-11).
+          # They use node:assert + exit code rather than describe/it, so
+          # vite.config.ts excludes them from vitest collection and they run
+          # here instead. The floor below freezes each one's case count.
           test -f apps/command_center_3d/scripts/supervisor/supervisor.test.mjs || { echo "SUPERVISOR TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/supervisor/supervisor.test.mjs 2>&1 | tee "$GATE_LOG_DIR/6-supervisor.log"
           test -f apps/command_center_3d/scripts/check-no-fake-live.mjs || { echo "NO-FAKE-LIVE CHECK MISSING"; exit 1; }
@@ -102,10 +105,11 @@ jobs:
           # agreeing is evidence about the author, not about the target.
           test -f apps/command_center_3d/scripts/tests/final10-judge.test.mjs || { echo "FINAL-10 JUDGE TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/tests/final10-judge.test.mjs 2>&1 | tee "$GATE_LOG_DIR/9-final10-judge.log"
-          # P0-A HUMAN_PUBLISH_GATE: 22 cases. Six mandated reverse tests plus
-          # identity/scope/replay/audit fail-closed checks. Case N12 is the
-          # Paper/Shadow unattended regression: it proves the new gate did NOT
-          # touch /api/jev/ai/paper/execute.
+          # P0-A HUMAN_PUBLISH_GATE: 25 cases. Six mandated reverse tests plus
+          # identity/scope/replay/audit fail-closed checks. N12 is the
+          # Paper/Shadow unattended regression; N23/N24 are the Aegis C1
+          # delimiter-collision fix (a shifted-boundary grant must be refused);
+          # N25 is the Aegis C6 state/audit fail-closed fix.
           test -f apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs || { echo "HUMAN PUBLISH GATE TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs 2>&1 | tee "$GATE_LOG_DIR/10-human-publish-gate.log"
           # P0-C JEV AI Provider Gateway: 16 cases. Per-runtime 4/6/2 registry,
@@ -115,7 +119,7 @@ jobs:
           test -f apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs || { echo "PROVIDER INTERFACE TEST MISSING"; exit 1; }
           node apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs 2>&1 | tee "$GATE_LOG_DIR/11-provider-interface.log"
 
-      # C12 / F-22-G: exit codes alone cannot tell "96 cases passed" from
+      # C12 / F-22-G: exit codes alone cannot tell "208 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a
       # frozen, declarative per-suite assertion count against the logs written
       # above. It is a SEPARATE step (not folded into the gate) so a violation
@@ -128,9 +132,9 @@ jobs:
           set -euo pipefail
           # Invoked through a variable on purpose: the Y2 static check in
           # check-no-fake-live.mjs collects every line-start `node <path>.mjs`
-          # invocation and demands that set EQUAL the seven gate suites. The
+          # invocation and demands that set EQUAL the 11 gate suites. The
           # floor script is not a gate suite, so it is referenced indirectly and
-          # therefore cannot be mistaken for an eighth suite by that check.
+          # therefore cannot be mistaken for a 12th suite by that check.
           GATE_FLOOR_SCRIPT="apps/command_center_3d/scripts/gate-assertion-floor.mjs"
           test -f "$GATE_FLOOR_SCRIPT" || { echo "GATE FLOOR SCRIPT MISSING"; exit 1; }
           node "$GATE_FLOOR_SCRIPT" "$GATE_LOG_DIR"
