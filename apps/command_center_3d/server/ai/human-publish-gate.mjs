@@ -61,6 +61,7 @@ export const GATE_CODES = Object.freeze({
   SECRET_MISSING: "GATE_SECRET_REQUIRED",
   UNKNOWN_ACTION: "ACTION_UNKNOWN_FAIL_CLOSED",
   INVALID_SCOPE: "GRANT_SCOPE_INVALID",
+  MALFORMED_SCOPE: "GRANT_SCOPE_MALFORMED_UTF16",
   STATE_REQUIRED: "GATE_STATE_REQUIRED",
   AUDIT_REQUIRED: "GATE_AUDIT_REQUIRED",
   UNGATED: "UNGATED_UNATTENDED",
@@ -184,26 +185,58 @@ export class AppendOnlyAuditLog {
 }
 
 /**
- * Length-prefixed, unambiguous HMAC preimage.
+ * Length-prefixed, unambiguous HMAC preimage — with well-formed UTF-16 only.
  *
- * Aegis (independent review, 2026-11-12) found a REAL collision in the previous
- * `fields.join("|")` form: `strategyId`, `strategyVersion` and `nonce` are
- * client-controlled and may contain `|`, so a grant minted for
- * (strategyId="A", version="B|C") could be re-read as ("A|B", "C") with the
- * SAME signature — i.e. re-scoped without the server secret. Prefixing every
- * field with its byte-independent character length makes the boundary
- * unambiguous for ANY field content, including pipes, colons and newlines.
- * (Rejecting `|` would also work but needlessly narrows valid identifiers.)
- * This changes the signature preimage, so grants minted by the old form are
- * intentionally invalid; P0 has no persisted grants.
+ * Round 1 (Aegis independent review, 2026-11-12): the old
+ * `fields.join("|")` form let client-controlled `strategyId` / `version` /
+ * `nonce` re-scope a grant without the secret: (A, "B|C") and ("A|B", C)
+ * produced the same preimage. Length prefixes fixed the BOUNDARY ambiguity.
+ *
+ * Round 2 (Aegis recheck, same day): boundary uniqueness was necessary but
+ * NOT sufficient. `createHmac.update(str, "utf8")` folds every malformed lone
+ * surrogate (\uD800..\uDFFF) AND U+FFFD into the SAME bytes `ef bf bd`, while
+ * `s.length === 1` for all of them. A grant minted for U+FFFD could therefore
+ * be re-labelled to a lone surrogate with the same length prefix, the same
+ * preimage BYTES, the same signature and no secret. Root cause: the UTF-8
+ * encoding of arbitrary JS strings is NOT injective.
+ *
+ * Fix: REJECT non-well-formed UTF-16 in every signed field BEFORE the HMAC is
+ * computed (issuer) and BEFORE it is compared (verifier). The UTF-8 encoding
+ * of a well-formed string IS injective, so length prefixes then become truly
+ * unambiguous. We must NOT normalise with toWellFormed(): that would keep the
+ * two strings equivalent and leave the attack working. Reject; fail closed.
+ * P0 has no persisted grants, so tightening validation invalidates nothing.
  */
-function canonicalGrant(g) {
-  const fields = [
+function grantFields(g) {
+  return [
     GATE_VERSION, g.grantId, g.actorHash, g.actorUserId, g.authMethod,
     g.action, g.strategyId, g.strategyVersion, g.contentHash, g.nonce,
     String(g.issuedAtMs), String(g.expiresAtMs),
   ];
-  return fields.map((f) => {
+}
+
+/** Stdlib-only well-formed UTF-16 check (no String.isWellFormed dependency). */
+function isWellFormedUtf16(s) {
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    if (c >= 0xD800 && c <= 0xDBFF) {
+      const next = s.charCodeAt(i + 1);
+      if (!(next >= 0xDC00 && next <= 0xDFFF)) return false;
+      i++;
+    } else if (c >= 0xDC00 && c <= 0xDFFF) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/** True when ANY signed field contains a malformed UTF-16 code unit. */
+export function hasMalformedUtf16(g) {
+  return grantFields(g || {}).some((f) => !isWellFormedUtf16(String(f)));
+}
+
+function canonicalGrant(g) {
+  return grantFields(g).map((f) => {
     const s = String(f);
     return s.length + ":" + s;
   }).join("|");
@@ -260,6 +293,10 @@ export function issuePublishGrant({
     actorUserId: actor.userId,
     authMethod: actor.authMethod,
   };
+  // Never sign a preimage whose UTF-8 encoding is ambiguous.
+  if (hasMalformedUtf16(grant)) {
+    return fail(GATE_CODES.MALFORMED_SCOPE, "malformed UTF-16 in signed grant fields");
+  }
   grant.signature = signGrant(grant, secret);
   if (audit) audit.append({
     atMs: nowMs, type: "GRANT_ISSUED", code: GATE_CODES.OK, action,
@@ -299,6 +336,12 @@ export function verifyPublishGrant({
   // "replay protection off" when a caller forgot to pass state (Aegis R4).
   if (!isGateStateValid(state)) return deny(GATE_CODES.STATE_REQUIRED);
   if (state.revokedGrantIds.has(grant.grantId)) return deny(GATE_CODES.REVOKED, grant.grantId);
+  // Reject malformed UTF-16 BEFORE computing/comparing the HMAC. Otherwise
+  // Node folds the lone surrogate into U+FFFD and the tampered grant hashes
+  // to the same bytes as a legitimately minted one (Aegis recheck round 2).
+  if (hasMalformedUtf16(grant)) {
+    return deny(GATE_CODES.MALFORMED_SCOPE, "malformed UTF-16 in signed grant fields");
+  }
   if (!safeHexEqual(grant.signature, signGrant(grant, secret))) return deny(GATE_CODES.BAD_SIGNATURE);
   if (!Number.isFinite(nowMs)) return deny(GATE_CODES.INVALID_SCOPE, "nowMs required");
   if (nowMs < grant.issuedAtMs) return deny(GATE_CODES.NOT_YET_VALID);

@@ -405,5 +405,90 @@ await test("N25 Aegis C6: missing state or audit fails closed, never degrades", 
   assert.equal(direct.code, GATE_CODES.STATE_REQUIRED);
 });
 
+// ---- Aegis recheck round 2 (2026-11-12): utf8-folding collision -----------
+
+await test("N26 Aegis R2: a lone surrogate cannot re-label a grant", async () => {
+  const st = fresh();
+  const g = issuePublishGrant({
+    actor: actor(), action: ACTION, strategyId: "\uFFFD", version: "v1",
+    contentHash: HASH_A, ttlMs: 300000, nowMs: T0, secret: SECRET,
+    nonce: "nonce-surrogate", audit: st.audit,
+  });
+  assert.equal(g.ok, true, "U+FFFD is well-formed and must still be issuable");
+  const tampered = { ...g.grant, strategyId: "\uD800" };
+  assert.notEqual(tampered.strategyId, g.grant.strategyId);
+  assert.equal(tampered.signature, g.grant.signature, "attacker kept the ORIGINAL signature");
+  const v = await enforceHumanPublishGate({
+    body: {}, actor: actor(), action: ACTION,
+    strategyId: "\uD800", version: "v1", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, grant: tampered,
+    state: st, audit: st.audit,
+  });
+  assert.equal(v.ok, false, "utf8-folding re-label must NOT verify");
+  assert.equal(v.code, GATE_CODES.MALFORMED_SCOPE);
+  // Positive control: the original well-formed U+FFFD grant still works.
+  const st2 = fresh();
+  const good = await enforceHumanPublishGate({
+    body: {}, actor: actor(), action: ACTION,
+    strategyId: "\uFFFD", version: "v1", contentHash: HASH_A,
+    nowMs: T0, secret: SECRET, grant: g.grant,
+    state: st2, audit: st2.audit,
+  });
+  assert.equal(good.ok, true, "well-formed U+FFFD scope must still be usable");
+});
+
+await test("N27 Aegis R2 over HTTP: lone-surrogate re-label is refused", async () => {
+  const rt = createPublishRuntime();
+  const issued = await callPublish("/api/jev/ai/publish/grant", {
+    action: ACTION, strategyId: "\uFFFD", version: "v1",
+    content: CONTENT_A, nonce: "http-surrogate-1",
+  }, rt);
+  assert.equal(issued.status, 200);
+  const tampered = { ...issued.body.data.grant, strategyId: "\uD800" };
+  const r = await callPublish("/api/jev/ai/publish/execute", {
+    action: ACTION, strategyId: "\uD800", version: "v1",
+    content: CONTENT_A, grant: tampered,
+  }, rt);
+  assert.equal(r.status, 403);
+  assert.equal(r.body.code, GATE_CODES.MALFORMED_SCOPE);
+  assert.equal(r.body.data.gate, GATE_NAME);
+});
+
+await test("N28 Aegis R2: issuer refuses malformed UTF-16; legal non-ASCII works", async () => {
+  const st = fresh();
+  // Lone HIGH, lone LOW, a high surrogate followed by a normal char, and a
+  // trailing lone surrogate must all be refused at ISSUE time.
+  for (const s of ["\uD800", "\uDC00", "x\uD800y", "\uDFFF"]) {
+    const r = issuePublishGrant({
+      actor: actor(), action: ACTION, strategyId: s, version: "v1",
+      contentHash: HASH_A, ttlMs: 300000, nowMs: T0, secret: SECRET,
+      nonce: "bad-" + s.length + "-" + s.charCodeAt(0), audit: st.audit,
+    });
+    assert.equal(r.ok, false, "must reject " + JSON.stringify(s));
+    assert.equal(r.code, GATE_CODES.MALFORMED_SCOPE);
+  }
+  // Positive controls: pipes, colons, newlines, CJK, an emoji surrogate PAIR
+  // and U+FFFD are all well-formed and must remain usable identifiers.
+  const legal = ["A|B", "a:b\nc", "策略-7", "\u{1F680}", "\uFFFD"];
+  for (let i = 0; i < legal.length; i++) {
+    const s = legal[i];
+    const r = issuePublishGrant({
+      actor: actor(), action: ACTION, strategyId: s, version: "v1",
+      contentHash: HASH_A, ttlMs: 300000, nowMs: T0, secret: SECRET,
+      nonce: "legal-" + i, audit: st.audit,
+    });
+    assert.equal(r.ok, true, "must accept well-formed " + JSON.stringify(s));
+    const st2 = fresh();
+    const v = await enforceHumanPublishGate({
+      body: {}, actor: actor(), action: ACTION,
+      strategyId: s, version: "v1", contentHash: HASH_A,
+      nowMs: T0, secret: SECRET, grant: r.grant,
+      state: st2, audit: st2.audit,
+    });
+    assert.equal(v.ok, true, "well-formed scope must verify: " + JSON.stringify(s));
+    assert.equal(v.code, GATE_CODES.OK);
+  }
+});
+
 console.log(`RESULT PASS=${PASS} FAIL=${FAIL}`);
 if (FAIL > 0) process.exit(1);
