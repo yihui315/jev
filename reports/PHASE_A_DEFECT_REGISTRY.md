@@ -2,7 +2,7 @@
 
 本文件是 F-21 / F-22 / F-23 / C14 的**唯一权威定义**。此前这些编号只出现在
 `_verify_tmp/*.json` 与多份验收报告的散落文字中，没有权威定义、没有固定代码位置、
-也没有可复现的验收断言。本登记依据**当前真实 CI**重新建立，并由 Aegis 独立复核。
+也没有可复现的验收断言。本登记依据**当前真实 CI**重新建立；**Aegis 的独立复核结论见 §5 与统一验收结果 §8（`GO WITH CONDITIONS`，窄域）**。本登记由 Team Lead 编写，**不得自证「已独立验收通过」**；此前第 5 行「并由 Aegis 独立复核」的完成式表述已按 Aegis 条件 C2 撤回。
 
 ## 0. 基线声明（出处先于结论）
 
@@ -11,7 +11,7 @@
 | 唯一集成分支 | `feature/jev-v2-ops-integration` |
 | 本次基线提交 | `bde4223166abb452e1e3b6649ab69ec0c5273c1b` (`bde4223`) |
 | 工作树 | `D:\jev_worktrees\v2ops` |
-| 远端对应 | `origin/feature/jev-v2-ops-integration` = `00e08e39`（PR #7 head），本地 **ahead 32**，且 `merge-base --is-ancestor` 退出码 0 |
+| 远端对应 | `origin/feature/jev-v2-ops-integration` = `00e08e39`（PR #7 head），本地 **ahead 33**（起始 32 + `bad2828` 1），且 `merge-base --is-ancestor` 退出码 0 |
 | 明确排除 | `master` HEAD `a3dd89c` / `origin/master` `2e5ef36`；`/d/jev` HEAD `e5e34ff` 属 **另一分支** `feat/jev-trading-workbench` |
 | 工作流数量 | **5 个**（不是 1 个）：`ci.yml`、`cloud-staging-runtime.yml`、`jev-cloudflare-staging.yml`、`v14-acceptance.yml`、`v16-market-provenance.yml` |
 
@@ -114,7 +114,7 @@
 | **P0-A4** | `ci.yml` 的 `Unit test statistics`（`if: always()`）在 `vitest-unit.json` 缺失时 `process.exit(0)` 并打印 `no unit report`；从不校验 `numFailedTests`；`Archive unit report` 用 `if-no-files-found: warn`。 | 报告缺失 / 非法 / 任一 `numFailedTests !== 0` → `console.error` + `process.exit(1)`；归档改 `if-no-files-found: error`。 | `node --check` 全绿；YAML 结构自检 TAB=0、括号失衡行=0；Y2/Y6 复跑 `15/15` exit 0。 |
 
 **回归结果（补丁后工作树）**：9 个套件全部 `rc=0`，`GATE_FLOOR_OK suites=9
-total_cases=167 exit=0`。红测 7/7 通过（`phase_a_mutations.py`，`MUTATIONS_EXIT=0`）。
+total_cases=167 exit=0`。变异 / 红测 7/7 通过（`phase_a_mutations.py`，`MUTATIONS_EXIT=0`）；**其中 M2a 是刻意 GREEN 正控**（证明修复前 floor 对 `FAIL=1` 盲视），不是红测，不得把 7 项统称「红测」。
 
 ## 3. 证据路径与命令
 
@@ -155,7 +155,55 @@ total_cases=167 exit=0`。红测 7/7 通过（`phase_a_mutations.py`，`MUTATION
 
 | 复核人 | 范围 | 结论 |
 | --- | --- | --- |
-| Aegis（独立安全审计，非编写者） | 本登记定义、CI 修复、fail-closed 风控、凭据/账本边界 | **PENDING — 见统一验收结果中的 Aegis 回传** |
+| Aegis（独立安全审计，非编写者） | 本登记定义、CI 修复、fail-closed 风控、凭据/账本边界 | **已回传：`GO WITH CONDITIONS`（窄域 = 仅 Phase A 代码补丁的安全视角）**。不是 P0/P1/P2 产品 GO，不推翻 `artifacts/release/p0_p2_acceptance/P0_P2_ACCEPTANCE_REPORT.md` §9 的 NO-GO；该文件 `:448` 的 GO 亦为窄域，不得读作整体 GO。硬条件 C1–C4 落地情况见统一验收结果 §8 |
 
 > 本登记由 Team Lead 编写；**编写者不得自签 QA**。任何 GO 结论必须来自 Aegis 的
 > 独立回传，且不得以本地 `GATE_FLOOR_OK` 冒充独立验收。
+>
+> **【Aegis 硬条件 C1–C4 落地记录】**
+> - **C1**：`reports/JEV_REAL_TRADING_SECURITY.md:900` 的陈旧 `tsc/vitest = VERIFIED` 已改为
+>   **NOT_RUN**（当时 `test -d apps/command_center_3d/node_modules` → `ABSENT`），并加全篇覆盖声明，
+>   覆盖 `:616/:888/:899/:1000/:1006/:1280/:1284` 的同源历史表述。
+>   **【P0-B 后状态更新 · 2026-11-12】**：主理人执行令批准安装依赖后，`npm ci`
+>   （`--ignore-scripts --no-audit --no-fund`）EXIT=0 / 239 packages / `package-lock.json`
+>   字节未变（sha256 `c4b255de…d34`）；`npx tsc --noEmit` **EXIT=0**；`npx vitest run`
+>   **EXIT=0**（22 files / 217 passed / 3 skipped）。因此这两项**由 NOT_RUN 变为本地 PASS**，
+>   但仍是**本地等价证据**：0 push、0 个真实 GitHub Actions Run ID，**不得写成「CI 已通过」**。
+>   同时修复了 `vite.config.ts` 的既有回归：两个手写 `node` 断言脚本被 vitest 误收集，
+>   曾使 `vitest run` EXIT=1（2 failed files）。
+> - **C2**：本文件第 5 行的完成式「并由 Aegis 独立复核」已撤回并改为回传引用；§5 的
+>   `PENDING` 已按实际回传结论订正。
+> - **C3**：基线、ahead、文件数已与 `bad2828` 对齐 —— `ahead 33`、
+>   `git diff-tree` 提交 **5 文件**（4 代码 + 1 登记）、**3 份未提交文档**、
+>   `origin/...` 仍 `00e08e39`、0 push / 0 merge / 0 PR 状态修改。
+> - **C4**：统一验收结果持续显式标注 `tsc`/`vitest` **NOT_RUN**、**0 个真实 CI Run ID**、
+>   2 项 **UNVERIFIED**（four-agent identity distinguishable、WorkBuddy 原生权限流），
+>   且不得写成「CI passed / security verified」。**Aegis 的 UNVERIFIED / NOT_RUN 项不因
+>   本订正升级为 PASS。**
+>
+> **订正的入库边界（裁决②已授权，单独本地提交）**：主理人 2026-11-12 执行令批准
+> 「C1–C3 / §8.6 文档订正」单独本地提交、**保留历史版本、不推送远端**。本登记是该订正的
+> 唯一入库载体：`bad2828` 提交态与两份 Git Bundle **字节不变**（HEAD SHA、5 个提交 blob
+> 均未改），历史版本完整保留；新提交只追加本文件的订正行。三份大文档
+> （`P0_P2_ACCEPTANCE_REPORT.md` / `JEV_REAL_TRADING_SECURITY.md` /
+> `independent_verify.json`）本体按裁决③ **继续隔离、未提交、未合并进正式代码**；
+> 统一验收结果 `P0_UNIFIED_ACCEPTANCE.md` 位于工作树之外的证据目录，物理上不入库。
+> 0 push / 0 merge / 0 PR 状态修改 / 0 Release 修改。
+>
+> **【两套 C1–C4 的区分 · 不得混淆】**：上方的 C1–C4 是 Aegis **首份**独立回传的硬条件
+> （`tsc/vitest NOT_RUN`、撤回完成式、对齐 `bad2828`、持续标注 UNVERIFIED）。Aegis 另有
+> **第二份补充裁定**，针对下单路径 / Release Gate 条目 `no automatic side-effect actuator
+> exists or is enabled in P0–P2`，也带有独立的 C1'–C4'：要求区分子系统 A（JCC Core 控制面）
+> 与子系统 B（V1.6 Track B AI 纸面交易，**不得用 `AGENTS.md` N4 背书**）、禁止
+> 「explicit human-confirmed HTTP route with confirmationId + a second risk_check PASS」
+> 的强化版描述（`HUMAN_PUBLISH_GATE` ABSENT、`confirmationId` 自动派生、执行时无第二次
+> `riskCheck()`）、保持三项红线。其事实边界与落地状态见**统一验收结果 §8.6**。
+> **【裁决①已作出 · 2026-11-12】**：主理人批准**强制实施** `HUMAN_PUBLISH_GATE`，并明确
+> 区分 Shadow / Paper 内部模拟交易（允许 AI 无人值守）与策略晋级、对外发布、生产部署、
+> 真实交易授权（必须真实身份认证的人工批准）；`confirmationId` 自动生成**不属于**人工批准，
+> 缺少有效授权必须拒绝。P0-A 已落地服务端强制闸门
+> （`server/ai/human-publish-gate.mjs` + `server/ai/publish-routes.mjs`），含身份绑定、
+> 策略 / 版本 / 内容哈希、时效、唯一 nonce 防重放、撤销、append-only 哈希链审计，
+> 以及 22 项反向测试（CI 第 10 套件）。因此「严格解释 ⇒ NO-GO」的前提已由实现消除；
+> **但该结论须经 Aegis 独立复核后才生效，本登记不代签 QA**，也不得把首套 C1–C4 的
+> `DONE` 读作补充裁定已由实现者自行闭合。
