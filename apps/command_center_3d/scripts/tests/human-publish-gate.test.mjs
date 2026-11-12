@@ -490,5 +490,117 @@ await test("N28 Aegis R2: issuer refuses malformed UTF-16; legal non-ASCII works
   }
 });
 
+// ---- Aegis recheck round 3 (2026-11-12): String()-type-confusion bypass ----
+
+await test("N29 Aegis R3: String()-type-confusion single-use bypass is closed", async () => {
+  // Issue a legit grant with a STRING nonce "1".
+  const st = fresh();
+  const g = grant(st, { nonce: "1" });
+  assert.equal(g.ok, true);
+  // Attacker flips the nonce to the NUMBER 1, keeps the ORIGINAL signature.
+  const tampered = { ...g.grant, nonce: 1 };
+  assert.notEqual(typeof tampered.nonce, "string");
+  assert.equal(tampered.signature, g.grant.signature, "attacker kept the original signature");
+  // The verifier must reject the type-violating grant fail-closed.
+  const v = await enforce(st, { grant: tampered });
+  assert.equal(v.ok, false, "non-string nonce must NOT verify (was a secret-free replay bypass)");
+  assert.equal(v.code, GATE_CODES.MALFORMED_FIELD_TYPE);
+  // Every other String()-equivalent-but-type-distinct value on nonce is refused.
+  const show = (v) => (typeof v === "bigint" ? v.toString() + "n" : JSON.stringify(v));
+  for (const bad of [true, false, null, [1, 2], { x: 1 }, 10n, undefined]) {
+    const t2 = { ...g.grant, nonce: bad };
+    const vv = await enforce(fresh(), { grant: t2 });
+    assert.equal(vv.ok, false, "must reject nonce=" + show(bad));
+    assert.equal(vv.code, GATE_CODES.MALFORMED_FIELD_TYPE);
+  }
+  // Legitimate string "1" still verifies and still obeys single-use.
+  const stGood = fresh();
+  const first = await enforce(stGood, { grant: g.grant });
+  assert.equal(first.ok, true);
+  const second = await enforce(stGood, { grant: g.grant });
+  assert.equal(second.ok, false);
+  assert.equal(second.code, GATE_CODES.REPLAY);
+});
+
+await test("N30 Aegis R3 over HTTP: string/number nonce mismatch refused; single-use preserved", async () => {
+  const rt = createPublishRuntime();
+  const issued = await callPublish("/api/jev/ai/publish/grant", {
+    action: ACTION, strategyId: "STRAT-7", version: "v3", content: CONTENT_A, nonce: "1",
+  }, rt);
+  assert.equal(issued.status, 200);
+  // Attack: same signature, nonce flipped to a NUMBER -> 403 type violation.
+  const tampered = { ...issued.body.data.grant, nonce: 1 };
+  const attack = await callPublish("/api/jev/ai/publish/execute", {
+    action: ACTION, strategyId: "STRAT-7", version: "v3", content: CONTENT_A, grant: tampered,
+  }, rt);
+  assert.equal(attack.status, 403);
+  assert.equal(attack.body.code, GATE_CODES.MALFORMED_FIELD_TYPE);
+  // Single-use still holds: the FIRST legit execute is allowed...
+  const first = await callPublish("/api/jev/ai/publish/execute", {
+    action: ACTION, strategyId: "STRAT-7", version: "v3", content: CONTENT_A, grant: issued.body.data.grant,
+  }, rt);
+  assert.equal(first.status, 200);
+  assert.equal(first.body.ok, true);
+  // ...and the SECOND legit execute with the same string nonce is a replay.
+  const second = await callPublish("/api/jev/ai/publish/execute", {
+    action: ACTION, strategyId: "STRAT-7", version: "v3", content: CONTENT_A, grant: issued.body.data.grant,
+  }, rt);
+  assert.equal(second.status, 403);
+  assert.equal(second.body.code, GATE_CODES.REPLAY);
+});
+
+await test("N31 Aegis R3: every signed field is type-checked, not just nonce", async () => {
+  const st = fresh();
+  const g = grant(st);
+  assert.equal(g.ok, true);
+  const badFields = {
+    action: 123,
+    strategyId: 7,
+    strategyVersion: 9,
+    contentHash: { h: "x" },
+    actorHash: true,
+    actorUserId: null,
+    authMethod: undefined,
+    grantId: [],
+  };
+  for (const k of Object.keys(badFields)) {
+    const tampered = { ...g.grant, [k]: badFields[k] };
+    const v = await enforce(fresh(), { grant: tampered });
+    assert.equal(v.ok, false, "must reject " + k + "=" + JSON.stringify(badFields[k]));
+    assert.equal(v.code, GATE_CODES.MALFORMED_FIELD_TYPE, k);
+  }
+  // The time fields must be finite numbers; a string time is also rejected.
+  const tBad = { ...g.grant, issuedAtMs: "now", expiresAtMs: "later" };
+  const vt = await enforce(fresh(), { grant: tBad });
+  assert.equal(vt.ok, false);
+  assert.equal(vt.code, GATE_CODES.MALFORMED_FIELD_TYPE);
+});
+
+await test("N32 Aegis R3 positive control: legal string scopes/nonces work, single-use per nonce", async () => {
+  const legalNonces = ["1", "0", "true", "null", "1,2", "[object Object]", "undefined", "A|B", "策略-7"];
+  for (let i = 0; i < legalNonces.length; i++) {
+    const n = legalNonces[i];
+    const st = fresh();
+    const g = grant(st, { nonce: n });
+    assert.equal(g.ok, true, "must issue for nonce=" + JSON.stringify(n));
+    const first = await enforce(st, { grant: g.grant });
+    assert.equal(first.ok, true, "must verify first use for nonce=" + JSON.stringify(n));
+    const second = await enforce(st, { grant: g.grant });
+    assert.equal(second.ok, false, "must REPLAY on reuse for nonce=" + JSON.stringify(n));
+    assert.equal(second.code, GATE_CODES.REPLAY);
+  }
+  // Two DIFFERENT string nonces are independent single-use scopes.
+  const stA = fresh();
+  const a = grant(stA, { nonce: "true" });
+  const stB = fresh();
+  const b = grant(stB, { nonce: "null" });
+  assert.equal(a.ok, true);
+  assert.equal(b.ok, true);
+  const va = await enforce(stA, { grant: a.grant });
+  const vb = await enforce(stB, { grant: b.grant });
+  assert.equal(va.ok, true);
+  assert.equal(vb.ok, true, "different string nonces are independent");
+});
+
 console.log(`RESULT PASS=${PASS} FAIL=${FAIL}`);
 if (FAIL > 0) process.exit(1);

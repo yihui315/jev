@@ -62,6 +62,7 @@ export const GATE_CODES = Object.freeze({
   UNKNOWN_ACTION: "ACTION_UNKNOWN_FAIL_CLOSED",
   INVALID_SCOPE: "GRANT_SCOPE_INVALID",
   MALFORMED_SCOPE: "GRANT_SCOPE_MALFORMED_UTF16",
+  MALFORMED_FIELD_TYPE: "GRANT_FIELD_TYPE_INVALID",
   STATE_REQUIRED: "GATE_STATE_REQUIRED",
   AUDIT_REQUIRED: "GATE_AUDIT_REQUIRED",
   UNGATED: "UNGATED_UNATTENDED",
@@ -185,33 +186,40 @@ export class AppendOnlyAuditLog {
 }
 
 /**
- * Length-prefixed, unambiguous HMAC preimage — with well-formed UTF-16 only.
+ * Type-aware, length-prefixed HMAC preimage — well-formed UTF-16 only, and
+ * INJECTIVE over JavaScript values (not merely over strings).
  *
- * Round 1 (Aegis independent review, 2026-11-12): the old
- * `fields.join("|")` form let client-controlled `strategyId` / `version` /
- * `nonce` re-scope a grant without the secret: (A, "B|C") and ("A|B", C)
- * produced the same preimage. Length prefixes fixed the BOUNDARY ambiguity.
+ * Round 1 (Aegis, 2026-11-12): old `fields.join("|")` let (A,"B|C") and
+ * ("A|B",C) collide. Length prefixes fixed the BOUNDARY ambiguity.
  *
- * Round 2 (Aegis recheck, same day): boundary uniqueness was necessary but
- * NOT sufficient. `createHmac.update(str, "utf8")` folds every malformed lone
- * surrogate (\uD800..\uDFFF) AND U+FFFD into the SAME bytes `ef bf bd`, while
- * `s.length === 1` for all of them. A grant minted for U+FFFD could therefore
- * be re-labelled to a lone surrogate with the same length prefix, the same
- * preimage BYTES, the same signature and no secret. Root cause: the UTF-8
- * encoding of arbitrary JS strings is NOT injective.
+ * Round 2 (Aegis recheck): boundary uniqueness was necessary but not
+ * sufficient — `createHmac.update(str,"utf8")` folds every malformed lone
+ * surrogate AND U+FFFD into the same bytes, so a U+FFFD grant could be
+ * re-labelled to a lone surrogate with an identical preimage. Fix: REJECT
+ * non-well-formed UTF-16 in every signed field before the HMAC is computed or
+ * compared. Do NOT normalise with toWellFormed() — that keeps the two strings
+ * equivalent and leaves the attack working.
  *
- * Fix: REJECT non-well-formed UTF-16 in every signed field BEFORE the HMAC is
- * computed (issuer) and BEFORE it is compared (verifier). The UTF-8 encoding
- * of a well-formed string IS injective, so length prefixes then become truly
- * unambiguous. We must NOT normalise with toWellFormed(): that would keep the
- * two strings equivalent and leave the attack working. Reject; fail closed.
+ * Round 3 (Aegis recheck R2): even with well-formed UTF-16, `String(f)` is NOT
+ * injective over JS values. String("1") === String(1) === "1", and the same
+ * holds for null/"null", true/"true", [1,2]/"1,2", {}/"[object Object]". A
+ * grant minted for nonce "1" could therefore be replayed with nonce 1 (a
+ * number): the preimage was byte-identical, the signature matched, and the
+ * replay Set keys by RAW value so "1" and 1 are different keys — a secret-free
+ * single-use bypass. Two complementary fixes:
+ *   (a) `validateGrantTypes()` enforces the exact JS type of every signed
+ *       field at BOTH issuance and verification (fail closed). A client-
+ *       supplied non-string nonce is rejected outright, before the HMAC.
+ *   (b) `encodeField()` tags each field with its JS type, so the HMAC
+ *       preimage is injective over values: "1" -> `s:1`, 1 -> `n:1`. Even if
+ *       validation were bypassed, the signature would not be.
  * P0 has no persisted grants, so tightening validation invalidates nothing.
  */
 function grantFields(g) {
   return [
     GATE_VERSION, g.grantId, g.actorHash, g.actorUserId, g.authMethod,
     g.action, g.strategyId, g.strategyVersion, g.contentHash, g.nonce,
-    String(g.issuedAtMs), String(g.expiresAtMs),
+    g.issuedAtMs, g.expiresAtMs,
   ];
 }
 
@@ -230,16 +238,61 @@ function isWellFormedUtf16(s) {
   return true;
 }
 
-/** True when ANY signed field contains a malformed UTF-16 code unit. */
+/** True when ANY signed STRING field contains a malformed UTF-16 code unit. */
 export function hasMalformedUtf16(g) {
-  return grantFields(g || {}).some((f) => !isWellFormedUtf16(String(f)));
+  return grantFields(g || {}).some(
+    (f) => typeof f === "string" && !isWellFormedUtf16(f),
+  );
+}
+
+/**
+ * Encode a single field with an explicit type tag so the HMAC preimage is
+ * injective over JavaScript values. Two values that String()-coerce to the
+ * same text but have different JS types produce DIFFERENT tokens.
+ */
+function encodeField(f) {
+  const t = typeof f;
+  let tag;
+  let payload;
+  if (t === "string") { tag = "s"; payload = f; }
+  else if (t === "number") {
+    if (Number.isNaN(f)) { tag = "x"; payload = "nan"; }
+    else if (!Number.isFinite(f)) { tag = "i"; payload = f < 0 ? "neg-inf" : "pos-inf"; }
+    else if (Object.is(f, -0)) { tag = "n"; payload = "neg-zero"; }
+    else { tag = "n"; payload = String(f); }
+  } else if (t === "boolean") { tag = "b"; payload = f ? "1" : "0"; }
+  else if (t === "bigint") { tag = "B"; payload = f.toString(); }
+  else if (f === null) { tag = "z"; payload = "null"; }
+  else if (f === undefined) { tag = "u"; payload = "undefined"; }
+  else { tag = "Y"; payload = Object.prototype.toString.call(f); }
+  const token = tag + ":" + payload;
+  return token.length + ":" + token;
 }
 
 function canonicalGrant(g) {
-  return grantFields(g).map((f) => {
-    const s = String(f);
-    return s.length + ":" + s;
-  }).join("|");
+  return grantFields(g).map(encodeField).join("|");
+}
+
+/**
+ * The grant contract: every signed field has an exact JS type. strategyId,
+ * strategyVersion, contentHash, nonce and the identity fields MUST be strings;
+ * issuedAtMs / expiresAtMs MUST be finite numbers. Any deviation is rejected
+ * fail-closed (Aegis recheck R2 — secret-free single-use bypass via
+ * String()-equivalent but type-distinct field values).
+ */
+const SIGNED_STRING_FIELDS = Object.freeze([
+  "grantId", "actorHash", "actorUserId", "authMethod",
+  "action", "strategyId", "strategyVersion", "contentHash", "nonce",
+]);
+
+export function validateGrantTypes(g) {
+  if (!g || typeof g !== "object") return false;
+  for (const k of SIGNED_STRING_FIELDS) {
+    if (typeof g[k] !== "string") return false;
+  }
+  if (typeof g.issuedAtMs !== "number" || !Number.isFinite(g.issuedAtMs)) return false;
+  if (typeof g.expiresAtMs !== "number" || !Number.isFinite(g.expiresAtMs)) return false;
+  return true;
 }
 
 function signGrant(g, secret) {
@@ -297,6 +350,12 @@ export function issuePublishGrant({
   if (hasMalformedUtf16(grant)) {
     return fail(GATE_CODES.MALFORMED_SCOPE, "malformed UTF-16 in signed grant fields");
   }
+  // Enforce the exact JS type of every signed field (Aegis recheck R2 — the
+  // issuer always coerces to the contract types, so this is belt-and-suspenders
+  // here, but it makes the invariant self-documenting and future-proof).
+  if (!validateGrantTypes(grant)) {
+    return fail(GATE_CODES.MALFORMED_FIELD_TYPE, "signed field types violated at issuance");
+  }
   grant.signature = signGrant(grant, secret);
   if (audit) audit.append({
     atMs: nowMs, type: "GRANT_ISSUED", code: GATE_CODES.OK, action,
@@ -336,6 +395,13 @@ export function verifyPublishGrant({
   // "replay protection off" when a caller forgot to pass state (Aegis R4).
   if (!isGateStateValid(state)) return deny(GATE_CODES.STATE_REQUIRED);
   if (state.revokedGrantIds.has(grant.grantId)) return deny(GATE_CODES.REVOKED, grant.grantId);
+  // Enforce the exact JS type of every signed field BEFORE the HMAC is touched
+  // (Aegis recheck R2). A client-supplied non-string nonce (e.g. number 1 where
+  // the issued grant had string "1") is rejected here, closing the secret-free
+  // single-use bypass at the boundary regardless of the signature.
+  if (!validateGrantTypes(grant)) {
+    return deny(GATE_CODES.MALFORMED_FIELD_TYPE, "signed field types violated");
+  }
   // Reject malformed UTF-16 BEFORE computing/comparing the HMAC. Otherwise
   // Node folds the lone surrogate into U+FFFD and the tampered grant hashes
   // to the same bytes as a legitimately minted one (Aegis recheck round 2).

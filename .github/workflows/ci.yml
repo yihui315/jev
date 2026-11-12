@@ -105,12 +105,14 @@ jobs:
           # agreeing is evidence about the author, not about the target.
           test -f apps/command_center_3d/scripts/tests/final10-judge.test.mjs || { echo "FINAL-10 JUDGE TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/tests/final10-judge.test.mjs 2>&1 | tee "$GATE_LOG_DIR/9-final10-judge.log"
-          # P0-A HUMAN_PUBLISH_GATE: 28 cases. Six mandated reverse tests plus
+          # P0-A HUMAN_PUBLISH_GATE: 32 cases. Six mandated reverse tests plus
           # identity/scope/replay/audit fail-closed checks. N12 is the
           # Paper/Shadow unattended regression; N23/N24 are the Aegis C1
           # delimiter-collision fix (a shifted-boundary grant must be refused);
           # N25 is the Aegis C6 state/audit fail-closed fix; N26/N27/N28 are
-          # the Aegis round-2 malformed-UTF-16 fix (reject, do not normalise).
+          # the Aegis round-2 malformed-UTF-16 fix (reject, do not normalise);
+          # N29/N30/N31/N32 are the Aegis round-3 String()-type-confusion fix
+          # (reject non-string signed fields; type-aware, injective HMAC preimage).
           test -f apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs || { echo "HUMAN PUBLISH GATE TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs 2>&1 | tee "$GATE_LOG_DIR/10-human-publish-gate.log"
           # P0-C JEV AI Provider Gateway: 16 cases. Per-runtime 4/6/2 registry,
@@ -120,7 +122,7 @@ jobs:
           test -f apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs || { echo "PROVIDER INTERFACE TEST MISSING"; exit 1; }
           node apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs 2>&1 | tee "$GATE_LOG_DIR/11-provider-interface.log"
 
-      # C12 / F-22-G: exit codes alone cannot tell "211 cases passed" from
+      # C12 / F-22-G: exit codes alone cannot tell "215 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a
       # frozen, declarative per-suite assertion count against the logs written
       # above. It is a SEPARATE step (not folded into the gate) so a violation

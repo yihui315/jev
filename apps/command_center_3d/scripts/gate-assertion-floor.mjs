@@ -276,7 +276,7 @@ const SUITES = [
   {
     slug: "10-human-publish-gate",
     label: "scripts/tests/human-publish-gate.test.mjs (P0-A HUMAN_PUBLISH_GATE reverse tests)",
-    expect: 28,
+    expect: 32,
     // "RESULT PASS=28 FAIL=0". Six mandated reverse tests (no grant, forged
     // confirmationId, expired, replay, edited content, valid grant) plus
     // identity/scope/signature/audit/red-line checks and the Paper unattended
