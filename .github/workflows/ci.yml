@@ -102,6 +102,18 @@ jobs:
           # agreeing is evidence about the author, not about the target.
           test -f apps/command_center_3d/scripts/tests/final10-judge.test.mjs || { echo "FINAL-10 JUDGE TEST MISSING"; exit 1; }
           node apps/command_center_3d/scripts/tests/final10-judge.test.mjs 2>&1 | tee "$GATE_LOG_DIR/9-final10-judge.log"
+          # P0-A HUMAN_PUBLISH_GATE: 22 cases. Six mandated reverse tests plus
+          # identity/scope/replay/audit fail-closed checks. Case N12 is the
+          # Paper/Shadow unattended regression: it proves the new gate did NOT
+          # touch /api/jev/ai/paper/execute.
+          test -f apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs || { echo "HUMAN PUBLISH GATE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs 2>&1 | tee "$GATE_LOG_DIR/10-human-publish-gate.log"
+          # P0-C JEV AI Provider Gateway: 16 cases. Per-runtime 4/6/2 registry,
+          # four-state (registered/configured/verified/callable) bookkeeping, and
+          # the provider-attribution guard that stops one model's success from
+          # being recorded as another model's. No network calls are made here.
+          test -f apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs || { echo "PROVIDER INTERFACE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs 2>&1 | tee "$GATE_LOG_DIR/11-provider-interface.log"
 
       # C12 / F-22-G: exit codes alone cannot tell "96 cases passed" from
       # "3 assertions passed and the rest were deleted". This step enforces a

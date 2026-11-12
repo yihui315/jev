@@ -273,6 +273,28 @@ const SUITES = [
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
     failGroup: 2,
   },
+  {
+    slug: "10-human-publish-gate",
+    label: "scripts/tests/human-publish-gate.test.mjs (P0-A HUMAN_PUBLISH_GATE reverse tests)",
+    expect: 22,
+    // "RESULT PASS=22 FAIL=0". Six mandated reverse tests (no grant, forged
+    // confirmationId, expired, replay, edited content, valid grant) plus
+    // identity/scope/signature/audit/red-line checks and the Paper unattended
+    // regression. This entry is what stops the new gate's tests from being
+    // silently deleted while the suite still exits 0.
+    re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
+  },
+  {
+    slug: "11-provider-interface",
+    label: "server/ai/tests/t10-provider-interface.test.mjs (P0-C JEV AI Provider Gateway)",
+    expect: 16,
+    // "RESULT PASS=16 FAIL=0". Per-runtime 4/6/2, four-state booleans,
+    // no callable provider, and the attribution guard (A7-A11). Keeps the
+    // Provider inventory from silently losing its teeth while CI stays green.
+    re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
+  },
 ];
 
 const violations = [];

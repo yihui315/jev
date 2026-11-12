@@ -392,6 +392,8 @@ const GATE_SUITES = [
   "apps/command_center_3d/scripts/check-no-fake-live.mjs",
   "apps/command_center_3d/server/tests/http-body-read.mjs",
   "apps/command_center_3d/scripts/tests/final10-judge.test.mjs",
+  "apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs",
+  "apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs",
 ];
 
 check("EXTRA", "Y2 ci.yml: gate suites == declared gate suite set (comment-proof), each test -f hard-fail; tsc/vitest kept; gate is first run step; no continue-on-error", () => {

@@ -93,6 +93,21 @@ export default defineConfig({
       ...configDefaults.exclude,
       "scripts/supervisor/supervisor.test.mjs",
       "server/ai/evidence/tests/inference-evidence.test.mjs",
+      // P0-B: these two directories are EXCLUSIVELY hand-written
+      // `node <path>` assertion runners owned by the CI gap-closure gate
+      // (ci.yml runs them with `node ... | tee`, before `npm ci`). They are
+      // not vitest suites and must never be collected by `vitest run`.
+      // Directory-scoped patterns, not a hand-maintained file list: a new
+      // runner added under either directory (e.g. the P0-A
+      // HUMAN_PUBLISH_GATE reverse tests, or Relay's provider-interface
+      // tests) would otherwise silently turn `vitest run` red with
+      // "No test suite found in file" — which is exactly the regression
+      // measured on 2026-11-12 (2 failed files, VITEST_EXIT=1).
+      // The gate's own case-count floor (gate-assertion-floor.mjs) is what
+      // keeps these scripts honest; excluding them from vitest removes NO
+      // assertion from CI.
+      "scripts/tests/**/*.test.mjs",
+      "server/ai/tests/**/*.test.mjs",
     ],
   },
 });
