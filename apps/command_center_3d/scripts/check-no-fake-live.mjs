@@ -667,7 +667,39 @@ check("EXTRA", "Y9 the service-auth trust path is UNREACHABLE here (0 call sites
   console.log("      consumeNonce / canonicalServicePayload / signServiceBody have 0 call sites.");
   console.log("      An unreachable verifier rejects nothing — this records an absence.");
 });
-console.log("NOTE: Y1/Y2/Y3/Y4/Y5/Y9 are pure-text structure self-checks, NOT a YAML parser run");
+// ---- Y6 (Phase A / P0): trigger coverage must be proven on CONCRETE refs -----
+// Y1/Y2 assert the LITERAL presence of "feature/**" / "feature/v16-**" strings.
+// A literal is not coverage: it stays green if the wildcard is misspelled, if a
+// later negation removes the match, or if the branch family is renamed. Y6
+// glob-matches the two refs that actually matter against BOTH workflows:
+//   * push on the integration branch feature/jev-v2-ops-integration (F-22-C)
+//   * pull_request BASE of PR #7, feature/v16-market-provenance-hardening (C14)
+// It is a separate named check so the C12/F-22-G case floor counts it: deleting
+// Y6 is then itself a hard red instead of a silent loss of the guard.
+function triggerGlobMatches(list, ref) {
+  assert.ok(Array.isArray(list) && list.length > 0,
+    "trigger branch list for " + ref + " is empty or unparsed - fail closed");
+  return list.some((g) => {
+    const escaped = g.replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*");
+    return new RegExp("^" + escaped + "$").test(ref);
+  });
+}
+
+check("EXTRA", "Y6 Phase A: both workflows glob-match the integration branch on push and PR #7 base on pull_request (C14 / F-22-C, not a literal string check)", () => {
+  const ciL = yamlLines(REL.ci);
+  const provL = yamlLines(REL.prov);
+  const HEAD_REF = "feature/jev-v2-ops-integration";
+  const PR7_BASE = "feature/v16-market-provenance-hardening";
+  assert.ok(triggerGlobMatches(workflowTriggerBranches(ciL, "push"), HEAD_REF),
+    "F-22-C: ci.yml push does not match " + HEAD_REF);
+  assert.ok(triggerGlobMatches(workflowTriggerBranches(provL, "push"), HEAD_REF),
+    "F-22-C: v16-market-provenance.yml push does not match " + HEAD_REF);
+  assert.ok(triggerGlobMatches(workflowTriggerBranches(ciL, "pull_request"), PR7_BASE),
+    "F-22-C: ci.yml pull_request base does not match " + PR7_BASE);
+  assert.ok(triggerGlobMatches(workflowTriggerBranches(provL, "pull_request"), PR7_BASE),
+    "C14: v16-market-provenance.yml pull_request base does not match " + PR7_BASE);
+});
+console.log("NOTE: Y1/Y2/Y3/Y4/Y5/Y6/Y9 are pure-text structure self-checks, NOT a YAML parser run");
 console.log("      (pyyaml / ruby-yaml / yq / js-yaml all unavailable in this environment).");
 
 // Naming (R19): these are NAMED CHECK BLOCKS (`check(...)` cases), not `assert.*`

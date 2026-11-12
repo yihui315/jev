@@ -83,6 +83,7 @@ const SUITES = [
     expect: 7,
     // "SUMMARY P0-F CONTRACTS (frozen modules, VERIFIED now): 7 pass, 0 fail"
     re: /^SUMMARY P0-F CONTRACTS\b.*?:\s*(\d+) pass,\s*(\d+) fail\s*$/m,
+    failGroup: 2,
   },
   {
     slug: "2-p0-runner",
@@ -90,6 +91,7 @@ const SUITES = [
     expect: 24,
     // "SUMMARY P0-F RUNNER (sandbox fault injection + R1-R6 + F-12): 24 pass, 0 fail"
     re: /^SUMMARY P0-F RUNNER\b.*?:\s*(\d+) pass,\s*(\d+) fail\s*$/m,
+    failGroup: 2,
   },
   {
     slug: "3-market-data",
@@ -97,6 +99,7 @@ const SUITES = [
     expect: 10,
     // "PASS=10 FAIL=0" (+ "RESULT=PASS")
     re: /^PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
     extra: (log) => (/^RESULT=PASS\s*$/m.test(log) ? null : 'missing "RESULT=PASS" verdict line'),
   },
   {
@@ -106,6 +109,7 @@ const SUITES = [
     // "PASS=17 FAIL=0" — take the LAST occurrence in this suite's own log.
     re: /^PASS=(\d+) FAIL=(\d+)\s*$/m,
     last: true,
+    failGroup: 2,
     extra: (log) =>
       /---- P2 inference-evidence/.test(log) ? null : "missing P2 inference-evidence report header",
   },
@@ -207,19 +211,23 @@ const SUITES = [
     expect: 45,
     // "RESULT PASS=45 FAIL=0"
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
   },
   {
     slug: "7-no-fake-live",
     label: "scripts/check-no-fake-live.mjs (static P7 + YAML self-checks)",
-    expect: 14,
-    // "RESULT: CORE_CASES=7 EXTRA_CASES=7 TOTAL_CASES=14 exit=0"
-    // 10 -> 12 -> 13 -> 14: Y3 (F-25 floor survival + fatality invariant), Y4 (F-26
+    expect: 15,
+    // "RESULT: CORE_CASES=7 EXTRA_CASES=8 TOTAL_CASES=15 exit=0"
+    // 10 -> 12 -> 13 -> 14 -> 15: Y3 (F-25 floor survival + fatality invariant), Y4 (F-26
     // Track B evidence freshness), Y5 (R22 V1.6 evidence freshness) and Y9 (the
     // service-auth trust path is UNREACHABLE — 0 call sites) are separate named
     // checks ON PURPOSE, so that deleting any of them is caught HERE. A guard
     // folded inside another check would itself be unguarded.
     // Y9 is a REGISTRATION, not a safety claim: it asserts an absence (five exports,
     // zero call sites), so "PASS" here means "still unreachable", not "safe".
+    // 14 -> 15: Y6 (Phase A) glob-matches the CONCRETE integration branch and
+    // PR #7 base against BOTH workflows' trigger lists, so a literal
+    // `includes("feature/**")` can no longer stand in for real coverage.
     // Here group 2 is EXTRA_CASES, NOT a fail count — so this suite
     // declares no failGroup and instead asserts its own `exit=` field is 0.
     re: /^RESULT: CORE_CASES=(\d+) EXTRA_CASES=(\d+) TOTAL_CASES=(\d+) exit=(\d+)\s*$/m,
@@ -240,6 +248,7 @@ const SUITES = [
     // flushed before teardown (over a real socket), and static wiring guards that
     // fail if a facade stops calling the shared reader.
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
   },
   {
     slug: "9-final10-judge",
@@ -262,12 +271,30 @@ const SUITES = [
     // This suite is the JUDGE. It says nothing about whether the reboot evidence
     // exists; it only says the judge refuses evidence it cannot interpret.
     re: /^RESULT PASS=(\d+) FAIL=(\d+)\s*$/m,
+    failGroup: 2,
   },
 ];
 
 const violations = [];
 let checked = 0;
 let totalCases = 0;
+
+// Phase A / P0 weak-assertion fix. At bde4223 only 5-p3-contracts declared
+// failGroup and 7-no-fake-live declared exitGroup; the other SEVEN suites had
+// neither, so a log reading `RESULT PASS=45 FAIL=3` satisfied `expect: 45`
+// and was reported GATE_FLOOR_OK. Measured mutation: with
+// `RESULT PASS=20 FAIL=1` in 9-final10-judge.log the pre-fix floor exits 0;
+// this version exits 1 with reason=fail-count=1. Every entry must now declare
+// where its failure signal comes from, or the floor refuses to run at all.
+for (const s of SUITES) {
+  if (!s.failGroup && !s.exitGroup) {
+    console.error(
+      `GATE_FLOOR_CONFIG ${s.slug} declares neither failGroup nor exitGroup: ` +
+      `its failures would be invisible to this gate`
+    );
+    process.exit(1);
+  }
+}
 
 console.log("=== gate-assertion-floor.mjs — C12 / F-22-G case-count floor ===");
 console.log("LOG_DIR " + LOG_DIR);

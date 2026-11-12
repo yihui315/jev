@@ -43,7 +43,7 @@ const PY_CANDIDATES = [
 ].filter(Boolean);
 
 const PROBE = String.raw`
-import io, json, os, sys, tempfile
+import datetime, io, json, os, sys, tempfile
 
 repo = os.environ["JCC_REPO"]
 sys.path.insert(0, os.path.join(repo, "tools"))
@@ -52,6 +52,15 @@ import jcc_continuation as m
 REL = "artifacts/acceptance/REBOOT_RECOVERY.json"
 GOOD_SHA = "a" * 40
 RUN_START = "2026-11-12T01:00:00+08:00"
+# Phase A / P0 clock-bomb fix. EVERY mtime this fixture writes is now an
+# ABSOLUTE epoch derived from RUN_START, never a read of the host clock.
+# The old form used st.st_mtime (i.e. "now") plus a -7200 shift, so the
+# STALE_MTIME case only meant "stale" while host_now was inside
+# [RUN_START, RUN_START + 7200s]. At 2026-11-12 13:50+08 the "stale" sample
+# is NEWER than the run start and the case is permanently red on a pristine
+# bde4223 checkout (measured RESULT PASS=19 FAIL=1 at two independent restore
+# paths). RUN_START is a fixed ISO timestamp, so this is clock-independent.
+RUN_START_EPOCH = datetime.datetime.fromisoformat(RUN_START).timestamp()
 _UNSET = object()
 
 m._LEASE["head_sha"] = GOOD_SHA
@@ -80,8 +89,9 @@ def run(name, rec, *, write=True, exit_code=0, mtime_shift=None, started_at=RUN_
         with io.open(path, "w", encoding="utf-8") as fh:
             json.dump(rec, fh)
         if mtime_shift is not None:
-            st = os.stat(path)
-            os.utime(path, (st.st_atime + mtime_shift, st.st_mtime + mtime_shift))
+            # Absolute epoch, never (now + shift); see RUN_START_EPOCH above.
+            os.utime(path, (RUN_START_EPOCH + mtime_shift,
+                            RUN_START_EPOCH + mtime_shift))
     # The judge must come from the STEPS TABLE, not from a name written here.
     # Hard-coding m._final10_judge would make every case below pass even if the
     # table still wired _ok_judge -- the test would be checking a function that
@@ -174,7 +184,9 @@ run("JUDGE_FAIL_KEEPS_DETAIL", r, detail="operator note: candidate was bbbb..., 
 # 6. no artifact at all -> red
 run("NO_FILE", None, write=False)
 
-# 7. fresh-looking content, but the file predates the step's start -> red
+# 7. fresh-looking content, but the file predates the step's start -> red.
+#    mtime_shift=-7200 is applied to RUN_START_EPOCH, so this assertion has
+#    the same meaning at every wall-clock time (Phase A clock-bomb fix).
 run("STALE_MTIME", good_rec(), mtime_shift=-7200)
 
 # 8. the exemption list must stay empty; an unargued exemption is the bug itself

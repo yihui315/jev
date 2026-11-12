@@ -142,8 +142,21 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const p = 'vitest-unit.json';
-          if (!fs.existsSync(p)) { console.log('no unit report'); process.exit(0); }
+          if (!fs.existsSync(p)) {
+            console.error('UNIT_REPORT_MISSING: ' + p + ' - the unit step produced no report');
+            process.exit(1);
+          }
           const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          // Phase A / P0: an exit code alone cannot certify the unit suite.
+          // A missing/invalid report or ANY failed test is a hard red here,
+          // even though this step runs under `if: always()`.
+          if (!Number.isInteger(j.numTotalTests) || j.numTotalTests <= 0 ||
+              !Number.isInteger(j.numPassedTests) || j.numFailedTests !== 0) {
+            console.error('UNIT_REPORT_INVALID ' + JSON.stringify({
+              total: j.numTotalTests, passed: j.numPassedTests,
+              failed: j.numFailedTests, skipped: j.numPendingTests }));
+            process.exit(1);
+          }
           const s = 'UNIT(mock/offline): total=' + j.numTotalTests +
             ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
             ' skipped=' + j.numPendingTests;
@@ -158,7 +171,7 @@ jobs:
         with:
           name: unit-test-results
           path: apps/command_center_3d/vitest-unit.json
-          if-no-files-found: warn
+          if-no-files-found: error
 
       # The P0/P1/P2/P3P4 gap-closure gate used to live HERE (after unit tests).
       # It now runs as the first `run` step of this job — see the F-21 note at
