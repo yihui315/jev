@@ -16,8 +16,8 @@
 export const PHASES = Object.freeze({
   A: {
     label: "Phase A — P0-B 强制人工发布闸门",
-    verdict: "GO (narrow, P0-B CI/test-quality)",
-    note: "215/215 + Bundle 恢复 DIRTY=0 / 树 SHA 一致；真实 CI Run ID NOT_RUN",
+    verdict: "RED (P0 floor Y9 conflict)",
+    note: "全量 floor 11 套件中 10 套精确通过（200/200），但 check-no-fake-live Y9 因 Phase B D1 引入的 consumeNonce 调用点（20 处）而 FAIL；待主理人裁决 Y9 重定界 vs Phase B D1 重构。真实 CI Run ID 仍 NOT_RUN。",
   },
   B: {
     label: "Phase B — 服务端授权 (C2/C3/D1/F-19/F-14/F-15)",
@@ -146,6 +146,18 @@ export function formatReport(report) {
     );
   }
   L.push("");
+  // Surface any Phase A floor violations (fail-closed gate detail) so the
+  // report is self-explanatory rather than just showing a red row.
+  const violationSuites = report.suites.filter((s) => s.floorViolations && s.floorViolations.length);
+  if (violationSuites.length) {
+    L.push("## Phase A floor violations (must be reconciled)");
+    L.push("");
+    for (const s of violationSuites) {
+      L.push(`- **${s.label}** (${s.floorViolations.length}):`);
+      for (const v of s.floorViolations) L.push(`  - \`${v}\``);
+    }
+    L.push("");
+  }
   L.push("## Phase verdicts (honest)");
   for (const [k, v] of Object.entries(report.phases)) {
     L.push(`- **${k}**: ${v.label} → \`${v.verdict}\`${v.note ? ` — ${v.note}` : ""}`);
