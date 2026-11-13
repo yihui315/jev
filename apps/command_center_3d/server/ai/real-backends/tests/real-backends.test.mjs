@@ -188,7 +188,12 @@ describe("unblock path wired (configured => constructs + behaves)", () => {
     test("tampered signature => SIGNATURE_INVALID", async () => {
       const tok = H.sign(baseClaims());
       const [h, p, s] = tok.split(".");
-      const bad = `${h}.${p}.${s.slice(0, -1)}A`;
+      // Flip real bits in the FIRST signature byte — this deterministically changes
+      // the whole 256-byte signature (unlike toggling the last base64url char, whose
+      // low bits are padding and may leave the decoded bytes unchanged => false pass).
+      const sigBytes = Buffer.from(s, "base64url");
+      sigBytes[0] ^= 0xff;
+      const bad = `${h}.${p}.${sigBytes.toString("base64url")}`;
       const r = await mkIdP().verifyToken(bad);
       assert.equal(r.ok, false);
       assert.equal(r.code, "SIGNATURE_INVALID");
@@ -231,14 +236,21 @@ describe("unblock path wired (configured => constructs + behaves)", () => {
     });
   });
 
-  describe("RealIdP.verifyToken fail-closed network path (no injected fetch)", () => {
-    test("attempts the real IdP JWKS endpoint and fails closed (JWKS_UNAVAILABLE)", async () => {
-      // Uses the default global fetch against the configured (unreachable) URL.
-      const idp = new RealIdP(loadRealIdPConfig(CONFIGURED_ENV));
+  describe("RealIdP.verifyToken fail-closed on fetch failure (deterministic, no real network)", () => {
+    test("uses the configured JWKS URL and fails closed when fetch fails", async () => {
+      // Inject a fetch that simulates an endpoint/network failure. This proves the
+      // fail-closed behavior deterministically WITHOUT depending on real DNS/network
+      // (a real-network-dependent test would be flaky in CI — see REAL_CI).
+      let calledUrl = null;
+      const idp = new RealIdP({
+        ...loadRealIdPConfig(CONFIGURED_ENV),
+        fetchImpl: async (url) => { calledUrl = url; throw new Error("simulated network failure"); },
+      });
       const header = { alg: "RS256", kid: "k1" };
       const h = Buffer.from(JSON.stringify(header)).toString("base64url");
       const p = Buffer.from(JSON.stringify({ iss: "x" })).toString("base64url");
       const r = await idp.verifyToken(`${h}.${p}.AAAA`);
+      assert.equal(calledUrl, CONFIGURED_ENV.REAL_IDP_JWKS_URL); // consults the configured endpoint
       assert.equal(r.ok, false);
       assert.equal(r.code, "JWKS_UNAVAILABLE");
     });
