@@ -34,14 +34,17 @@ const FILE_RE = /^archive-(\d{4}-\d{2}-\d{2})\.jsonl$/;
  * Append a single record to the day's ledger file.
  * @param {string} dir  base ledger directory (created if missing)
  * @param {object} record  arbitrary JSON-serializable object
+ * @param {Date|number|string} [ts]  optional explicit timestamp; defaults to
+ *        `new Date()`. Used by the offline SIMULATION harness to stamp records
+ *        with simulated calendar days so daily rotation can be exercised.
  * @returns {string} the exact JSON line written
  */
-export function appendRecord(dir, record) {
+export function appendRecord(dir, record, ts = new Date()) {
   const base = resolveDir(dir);
   fs.mkdirSync(base, { recursive: true });
-  const ts = new Date();
-  const line = JSON.stringify({ ...record, _ts: ts.toISOString(), _day: dayKey(ts) });
-  fs.appendFileSync(path.join(base, `archive-${dayKey(ts)}.jsonl`), line + "\n", "utf8");
+  const d = ts instanceof Date ? ts : new Date(ts);
+  const line = JSON.stringify({ ...record, _ts: d.toISOString(), _day: dayKey(d) });
+  fs.appendFileSync(path.join(base, `archive-${dayKey(d)}.jsonl`), line + "\n", "utf8");
   return line;
 }
 

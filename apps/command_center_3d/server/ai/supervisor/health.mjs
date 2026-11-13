@@ -8,6 +8,7 @@
 // It performs NO network calls and NO provider/model calls.
 
 import fs from "node:fs";
+import path from "node:path";
 
 const ALLOWED_MODES = ["OFF", "SHADOW", "PAPER", "LIVE"];
 
