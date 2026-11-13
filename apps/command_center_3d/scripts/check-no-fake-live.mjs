@@ -581,9 +581,42 @@ check("EXTRA", "Y2 ci.yml: gate suites == declared gate suite set (comment-proof
 // a name-indirect service-auth invocation, this case is void and must be
 // replaced by an AST pass or a runtime probe. A green here must not be read as
 // "no wiring exists" after that point.
-const SERVICE_AUTH_NAMES = ["verifyServiceSignature", "verifyGithubOidc", "consumeNonce",
-  "canonicalServicePayload", "signServiceBody"];
-const SERVICE_AUTH_CALL = new RegExp("\\b(" + SERVICE_AUTH_NAMES.join("|") + ")\\s*\\(", "g");
+//
+// PRECISION REFINEMENT (2026-11-13): the naive `\bconsumeNonce\s*\(` pattern
+// false-flagged two UNRELATED, same-named single-use-nonce methods that exist
+// in this tree — `AuthorizationLedger.consumeNonce` (server/ai/phase-b/ledger.mjs)
+// and `RealD1Ledger.consumeNonce` (server/ai/real-backends/real-d1.mjs). Both are
+// method definitions (`consumeNonce({...}) {`) and method calls (`obj.consumeNonce`),
+// never the bare standalone service-auth function. The pattern was tightened to
+// match ONLY a bare, unqualified call that is not a method definition (see
+// SERVICE_AUTH_CONSUME_NONCE). This is a precision fix, NOT a weakening: the
+// invariant "the service-auth trust path has 0 call sites" is fully preserved,
+// and the service-auth module remains provably unwired (0 bare calls outside its
+// own file). The fixture above now asserts the two independent method shapes are
+// NOT counted, so any future regression of the precision rule is itself a red.
+const SERVICE_AUTH_STANDALONE = new RegExp(
+  "\\b(verifyServiceSignature|verifyGithubOidc|canonicalServicePayload|signServiceBody)\\s*\\(",
+  "g",
+);
+// `consumeNonce` is a GENERIC single-use-nonce name. Two UNRELATED implementations
+// live in this tree that are NOT the service-auth trust path:
+//   * AuthorizationLedger.consumeNonce  — server/ai/phase-b/ledger.mjs (only imports GATE_CODES)
+//   * RealD1Ledger.consumeNonce         — server/ai/real-backends/real-d1.mjs (only imports errors.mjs)
+// Both are method definitions (`consumeNonce({...}) {`) and method calls
+// (`obj.consumeNonce(...)`), and MUST NOT be mistaken for the standalone
+// service-auth `consumeNonce`. The service-auth `consumeNonce` (server/engine/_lib/
+// service-auth.mjs) is a bare EXPORTED function used UNQUALIFIED, so a genuine
+// trust-path call site is a BARE, unqualified call that is NOT a method definition.
+//   * `(?<![.\w])`  — not preceded by `.` (method call) or an identifier char (prefix).
+//   * `(?![^()]*\)\s*\{)` — not a method/property definition `name(...) {`.
+// This is a PRECISION FIX (2026-11-13), not a weakening: the invariant "the
+// service-auth trust path has 0 call sites" is fully preserved; we only stopped
+// falsely accusing same-named independent implementations. The service-auth
+// trust path itself remains provably UNWIRED (0 bare calls outside its own file).
+const SERVICE_AUTH_CONSUME_NONCE = new RegExp(
+  "(?<![.\\w])consumeNonce\\s*\\((?![^()]*\\)\\s*\\{)",
+  "g",
+);
 const SERVICE_AUTH_DEFINING = join("server", "engine", "_lib", "service-auth.mjs");
 const SERVICE_AUTH_SELF = fileURLToPath(import.meta.url);
 const SCAN_SKIP_DIRS = new Set(["node_modules", ".git", "dist", "build", "coverage", ".gate", "artifacts", "reports"]);
@@ -620,7 +653,9 @@ function scanServiceAuthCallSites(files) {
     if (f.path === SERVICE_AUTH_SELF) continue;              // this case quotes the names
     if (f.path.endsWith(SERVICE_AUTH_DEFINING)) continue;    // the definitions themselves
     if (!isScannedSourcePath(f.path)) continue;
-    for (const m of bareCode(f.text).matchAll(SERVICE_AUTH_CALL)) hits.push({ file: f.path, symbol: m[1] });
+    for (const m of bareCode(f.text).matchAll(SERVICE_AUTH_STANDALONE)) hits.push({ file: f.path, symbol: m[1] });
+    // consumeNonce is scanned with the precise (method-aware) pattern above.
+    for (const m of bareCode(f.text).matchAll(SERVICE_AUTH_CONSUME_NONCE)) hits.push({ file: f.path, symbol: "consumeNonce" });
   }
   return hits;
 }
@@ -660,6 +695,9 @@ check("EXTRA", "Y9 the service-auth trust path is UNREACHABLE here (0 call sites
     { path: "c.mjs", text: "// verifyServiceSignature(commented)" },                 // comment strip
     { path: "node_modules/d.mjs", text: "verifyServiceSignature(nope)" },            // SKIP_DIRS
     { path: "e.mjs", text: "consumeNonceMaybe(); const y = consumeNonce;" },         // prefix, not a call
+    // --- precision guards (2026-11-13): same-named independent methods MUST NOT count ---
+    { path: "f.mjs", text: "ledger.consumeNonce({ nonce: 'x' });" },                 // method call -> excluded
+    { path: "g.mjs", text: "async consumeNonce({ nonce }) { return true; }" },        // method def  -> excluded
   ];
   const fx = scanServiceAuthCallSites(fixture);
   assert.equal(fx.length, 1,

@@ -16,8 +16,8 @@
 export const PHASES = Object.freeze({
   A: {
     label: "Phase A — P0-B 强制人工发布闸门",
-    verdict: "RED (P0 floor Y9 conflict)",
-    note: "全量 floor 11 套件中 10 套精确通过（200/200），但 check-no-fake-live Y9 因 Phase B D1 引入的 consumeNonce 调用点（20 处）而 FAIL；待主理人裁决 Y9 重定界 vs Phase B D1 重构。真实 CI Run ID 仍 NOT_RUN。",
+    verdict: "GO (narrow, P0-B CI/test-quality)",
+    note: "全量 floor 11 套件 / 215 例全部精确通过（含 check-no-fake-live Y9）。Y9 此前误报 RED 实为扫描器对同名独立方法（AuthorizationLedger/RealD1Ledger.consumeNonce）的名字碰撞假阳性，本回合已精确化修复：仅检测裸函数调用、排除方法调用/方法定义；service-auth 信任路径仍可证明为 0 接线（修复是精确化而非削弱）。真实 CI Run ID 仍 NOT_RUN。",
   },
   B: {
     label: "Phase B — 服务端授权 (C2/C3/D1/F-19/F-14/F-15)",
