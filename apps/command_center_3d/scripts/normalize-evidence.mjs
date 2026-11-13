@@ -28,7 +28,7 @@
 import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const HERE = dirname(fileURLToPath(import.meta.url));               // .../apps/command_center_3d/scripts
 const REPO_ROOT = resolve(HERE, "..", "..", "..");                  // repo root
@@ -188,6 +188,43 @@ function payloadOf(obj) {
   return obj;
 }
 
+/* ------------------------------------------------- F-18 修复：性能/事实分离
+ * 墙钟派生的「性能测量」字段（latency_ms / latencyMs）随执行上下文变化——
+ * 同一决策两次运行其时延必然不同。若纳入跨批次比较用的 payload 哈希，会导致
+ * 「本地 vs CI / 今天 vs 昨天」的哈希比对假阳性（同批次内可比、跨批次不可比）。
+ *
+ * 修复：把它们从「事实哈希」(payloadSha256) 中排除，但仍完整保留在归一化输出
+ * 里供审计（rec.payloadPerfExcluded）。排除规则是「仅当键值为数字（一次墙钟
+ * 测量）时才排除」——若只是 schema 合约里声明的字段名字符串、数组元素或 null，
+ * 一律保留，避免误伤合约与领域时间戳（price_ts / fetched_at / freshness_ms）。 */
+const PERF_MEASURE_KEYS = new Set(["latency_ms", "latencyMs"]);
+
+/** 投影出「事实载荷」：深拷贝并剔除数字型的墙钟性能测量键。 */
+function projectFactPayload(node) {
+  if (Array.isArray(node)) return node.map(projectFactPayload);
+  if (node && typeof node === "object") {
+    const out = {};
+    for (const key of Object.keys(node)) {
+      if (PERF_MEASURE_KEYS.has(key) && typeof node[key] === "number") continue; // 排除墙钟测量
+      out[key] = projectFactPayload(node[key]);
+    }
+    return out;
+  }
+  return node;
+}
+
+/** 收集被排除的性能测量值（供审计记录，不销毁证据）。 */
+function pickPerfValues(node, acc = {}) {
+  if (Array.isArray(node)) { for (const v of node) pickPerfValues(v, acc); return acc; }
+  if (node && typeof node === "object") {
+    for (const key of Object.keys(node)) {
+      if (PERF_MEASURE_KEYS.has(key) && typeof node[key] === "number") acc[key] = node[key];
+      pickPerfValues(node[key], acc);
+    }
+  }
+  return acc;
+}
+
 /* --------------------------------------------------------------- diff */
 
 function collectDiffs(a, b, pathLabel, acc, limit) {
@@ -219,22 +256,22 @@ function short(v) {
 
 /* ---------------------------------------------------------------- main */
 
-function main() {
-  if (!existsSync(EVID_DIR)) {
-    console.error(`EVIDENCE DIR MISSING: ${EVID_DIR}`);
+function main({ evidDir = EVID_DIR, outDir = OUT_DIR } = {}) {
+  if (!existsSync(evidDir)) {
+    console.error(`EVIDENCE DIR MISSING: ${evidDir}`);
     process.exit(2);
   }
-  mkdirSync(OUT_DIR, { recursive: true });
+  mkdirSync(outDir, { recursive: true });
 
-  const entries = readdirSync(EVID_DIR);
+  const entries = readdirSync(evidDir);
   const jsonFiles = entries
     .filter((n) => n.toLowerCase().endsWith(".json"))
     .filter((n) => {
-      try { return statSync(join(EVID_DIR, n)).isFile(); } catch { return false; }
+      try { return statSync(join(evidDir, n)).isFile(); } catch { return false; }
     })
     .sort();
   const skippedDirs = entries
-    .filter((n) => { try { return statSync(join(EVID_DIR, n)).isDirectory(); } catch { return false; } })
+    .filter((n) => { try { return statSync(join(evidDir, n)).isDirectory(); } catch { return false; } })
     .sort();
 
   /* 可选：把仓库外的证据文件（例如另一次执行的 RESULT_JSON）纳入同一比较视图。
@@ -248,14 +285,14 @@ function main() {
   const extraItems = extraArgs.map((p) => ({
     name: basename(p),
     rawPath: resolve(p),
-    outPath: join(OUT_DIR, "_external", basename(p)),
+    outPath: join(outDir, "_external", basename(p)),
     outRel: "_external/" + basename(p),
     status: "EXTERNAL",
   }));
-  if (extraItems.length) mkdirSync(join(OUT_DIR, "_external"), { recursive: true });
+  if (extraItems.length) mkdirSync(join(outDir, "_external"), { recursive: true });
 
   const items = [
-    ...jsonFiles.map((n) => ({ name: n, rawPath: join(EVID_DIR, n), outPath: join(OUT_DIR, n), outRel: n, status: "OK" })),
+    ...jsonFiles.map((n) => ({ name: n, rawPath: join(evidDir, n), outPath: join(outDir, n), outRel: n, status: "OK" })),
     ...extraItems,
   ];
 
@@ -321,10 +358,13 @@ function main() {
     const testId = normalized.testId || (normalized.result && normalized.result.testId) || null;
     if (testId) {
       const payload = payloadOf(normalized);
-      const payloadSha = sha256(Buffer.from(stableStringify(payload) + "\n", "utf8"));
+      // F-18：事实哈希排除墙钟性能测量键（latency_ms/latencyMs 数字值），保证跨批次可复现
+      const factPayload = projectFactPayload(payload);
+      const payloadSha = sha256(Buffer.from(stableStringify(factPayload) + "\n", "utf8"));
       rec.payloadSha256 = payloadSha;
+      rec.payloadPerfExcluded = pickPerfValues(payload);
       if (!normalizedByTestId.has(testId)) normalizedByTestId.set(testId, []);
-      normalizedByTestId.get(testId).push({ file: name, sha: payloadSha, obj: payload });
+      normalizedByTestId.get(testId).push({ file: name, sha: payloadSha, obj: factPayload, raw: payload });
     } else {
       rec.payloadSha256 = null;
     }
@@ -338,11 +378,14 @@ function main() {
         const A = runs[i], B = runs[j];
         const equal = A.sha === B.sha;
         const diffs = equal ? [] : collectDiffs(A.obj, B.obj, "", [], 30);
+        // F-18：即便事实哈希相同，也诚实标注「仅性能测量（时延）不同」，避免误读为完全一致
+        const perfDiffers = JSON.stringify(pickPerfValues(A.raw)) !== JSON.stringify(pickPerfValues(B.raw));
         pairs.push({
           testId,
           a: A.file, aPayloadSha256: A.sha,
           b: B.file, bPayloadSha256: B.sha,
           identicalAfterNormalization: equal,
+          perfDiffers,
           diffCount: equal ? 0 : diffs.length,
           diffTruncated: !equal && diffs.length >= 30,
           diffs,
@@ -357,16 +400,25 @@ function main() {
     purpose:
       "保留原始证据（原文件一字未改），同时生成去除非确定性字段的标准化比较视图。" +
       "剥离范围是白名单式的、逐条计数的；verdict/checks/pass/detail/所有哈希值一律保留。",
-    sourceDir: "reports/evidence/v16",
-    outputDir: "reports/evidence/v16/_normalized",
+    sourceDir: evidDir,
+    outputDir: outDir,
     scannedAtIsStripped: true,
     rules: {
       strippedTimeKeys: [...EXEC_TIME_KEYS].sort(),
       strippedStringPatterns: STRING_RULES.map((r) => ({ id: r.id, pattern: String(r.re), replacement: r.to })),
+      hashScope: {
+        description:
+          "payloadSha256 的确定性口径 = 对 payloadOf(normalized) 做『事实投影』后哈希；" +
+          "事实投影剔除墙钟派生的性能测量键，使跨批次比较可复现（本地 vs CI / 今天 vs 昨天）。",
+        determinismExcludedKeys: [...PERF_MEASURE_KEYS].sort(),
+        exclusionRule: "仅当键值为数字（一次墙钟测量）时排除；字段名字符串 / 数组元素 / null 一律保留",
+        preservedForAudit: "被排除的性能值记录在每条 rec.payloadPerfExcluded，不销毁证据",
+      },
       explicitlyPreserved: [
         "verdict / overall / pass / detail / checks / exitCode",
         "所有 sha256 / fullHash / strippedHash / payload_sha256 值",
-        "领域时间戳 price_ts / fetched_at / freshness_ms（哈希载荷的一部分，剥掉即销毁证据）",
+        "领域时间戳 price_ts / fetched_at / freshness_ms（事实哈希载荷的一部分，剥掉即销毁证据）",
+        "性能测量键 latency_ms / latencyMs 的『值』不删，仅移出事实哈希（见 rec.payloadPerfExcluded）",
         "stdout 正文与 stderr 正文（仅替换 PID 与绝对路径）",
       ],
       serialization: "对象键名升序 + 2 空格缩进 + 末尾换行（stableStringify）",
@@ -398,12 +450,12 @@ function main() {
     },
   };
 
-  writeFileSync(join(OUT_DIR, "MANIFEST.json"), stableStringify(manifest) + "\n", "utf8");
+  writeFileSync(join(outDir, "MANIFEST.json"), stableStringify(manifest) + "\n", "utf8");
 
   /* ------------------------------------------------ 控制台摘要（给人看） */
   const L = [];
-  L.push(`source: ${EVID_DIR}`);
-  L.push(`output: ${OUT_DIR}`);
+  L.push(`source: ${evidDir}`);
+  L.push(`output: ${outDir}`);
   L.push(`json files scanned : ${jsonFiles.length}`);
   L.push(`normalized OK      : ${manifest.counts.normalizedOk}`);
   L.push(`parse failed       : ${manifest.counts.parseFailed}`);
@@ -422,4 +474,9 @@ function main() {
   console.log(L.join("\n"));
 }
 
-main();
+// 仅在被直接执行时运行（import 时不触发，便于单元测试注入临时目录）
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main();
+}
+
+export { projectFactPayload, pickPerfValues, payloadOf, main };
