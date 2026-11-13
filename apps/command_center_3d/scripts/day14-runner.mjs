@@ -77,10 +77,12 @@ const LEGACY_FREEZE_EXPECTED = Object.freeze({
 });
 
 // 运行时只读配置（值继承 legacy，红线另由 RED_LINES 强制）
+// F-14：单笔名义上限不得从此处继承 legacy 的 200 —— LEGACY_FREEZE_EXPECTED.maxNotionalPerTrade
+// 仅是 P0-E 防篡改历史快照（verifyConfigFreeze 逐字段校验用），不是生效风控口径。
+// 生效口径以 RISK_LIMITS.maxNotionalUsd 为准（见下方 EFFECTIVE_MAX_NOTIONAL_USD）。
 const CFG = Object.freeze({
   maxCycles: LEGACY_FREEZE_EXPECTED.maxCycles,
   virtualCapitalUsdt: LEGACY_FREEZE_EXPECTED.virtualCapitalUsdt,
-  maxNotionalPerTrade: LEGACY_FREEZE_EXPECTED.maxNotionalPerTrade,
   callBudgetUsd: LEGACY_FREEZE_EXPECTED.callBudgetUsd,
   // engine 保守口径（COMMUNITY-VERIFIED，需实测）：fee 0.001 + slippage 0.015
   engineFeeRate: LEGACY_FREEZE_EXPECTED.feeRate,
@@ -150,6 +152,10 @@ if (typeof formalRiskGate !== "function") throw new Error("[day14] FATAL: riskCh
 
 // 风控 limits 由本 runner 固定；AI/provider/调用方不得覆盖（P0-B）。
 const RISK_LIMITS = Object.freeze({ ...DEFAULT_RISK_LIMITS });
+// F-14: 生效单笔名义上限的唯一权威来源 = 正式风控 RISK_LIMITS.maxNotionalUsd（当前 1000）。
+// 任何从 LEGACY_FREEZE_EXPECTED.maxNotionalPerTrade(200) 推断「上限 = 200」都是错的；
+// 200 仅是 P0-E 防篡改历史快照，仅供 verifyConfigFreeze 逐字段校验，不是生效口径。
+const EFFECTIVE_MAX_NOTIONAL_USD = RISK_LIMITS.maxNotionalUsd;
 const RISK_APPROVED = RISK_CODES.APPROVED;      // "RISK_APPROVED" (BUY/SELL 通过)
 const RISK_HOLD = RISK_CODES.HOLD_NO_ORDER;      // "RISK_HOLD_NO_ORDER" (HOLD 无订单)
 
@@ -870,7 +876,7 @@ export {
   reconcile,
   makeFixtureFetcher,
   makeFixtureProvider,
-  RED_LINES, CFG, COST_MODELS, LEGACY_FREEZE_EXPECTED, RISK_LIMITS,
+  RED_LINES, CFG, COST_MODELS, LEGACY_FREEZE_EXPECTED, RISK_LIMITS, EFFECTIVE_MAX_NOTIONAL_USD,
 };
 
 // CLI — robust main-module detection (Windows path/case/drive-letter safe)
