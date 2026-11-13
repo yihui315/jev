@@ -73,10 +73,12 @@ test("F-14 enforcement: formal risk gate caps at 1000, not 200 (real measured no
   assert.equal(over.max_notional_usd, 1000, "rejection reports the real cap 1000, not 200");
 });
 
-test("F-14 static: runner risk path uses RISK_LIMITS (1000) and never falls back to legacy notional", () => {
-  // 风险判定调用必须显式传入 limits: RISK_LIMITS（生效口径）
-  assert.ok(/riskCheckImpl\(\s*\{[^}]*limits:\s*RISK_LIMITS\s*\}/s.test(RUNNER_SRC),
-    "runner must call riskCheckImpl with limits: RISK_LIMITS");
+test("F-14 static: runner risk path uses RISK_LIMITS (1000) via locked gate and never falls back to legacy notional", () => {
+  // 风险判定调用必须经由 effectiveRiskGate 且显式传入 limits: RISK_LIMITS（生效口径）
+  assert.ok(/effectiveRiskGate\(\s*\{[^}]*limits:\s*RISK_LIMITS\s*\}/s.test(RUNNER_SRC),
+    "runner must call effectiveRiskGate with limits: RISK_LIMITS");
+  // 锁定的注入面必须存在（F-15）：lockRiskGate 保证注入门无法绕过正式门
+  assert.ok(/function\s+lockRiskGate/.test(RUNNER_SRC), "lockRiskGate must exist to lock the riskCheckImpl injection surface");
   // 不得存在「名义 > CFG.maxNotionalPerTrade(200)」这类回退到 legacy 200 的简化名义检查
   assert.equal(/notional\s*>\s*CFG\.maxNotionalPerTrade/.test(RUNNER_SRC), false,
     "no fallback notional check referencing the dead CFG.maxNotionalPerTrade(200)");

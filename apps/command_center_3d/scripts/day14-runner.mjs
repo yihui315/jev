@@ -156,6 +156,24 @@ const RISK_LIMITS = Object.freeze({ ...DEFAULT_RISK_LIMITS });
 // 任何从 LEGACY_FREEZE_EXPECTED.maxNotionalPerTrade(200) 推断「上限 = 200」都是错的；
 // 200 仅是 P0-E 防篡改历史快照，仅供 verifyConfigFreeze 逐字段校验，不是生效口径。
 const EFFECTIVE_MAX_NOTIONAL_USD = RISK_LIMITS.maxNotionalUsd;
+
+/**
+ * F-15：锁定 riskCheckImpl 注入面。
+ * 注入的门只能「收紧」（与正式门取交集），绝不能「放宽 / 绕过」正式风控——
+ * 即便调用方传入一个永远放行的门，正式门拒绝的单据仍被拒绝。
+ * 默认（未注入 / 注入 === 正式门）直接用正式门；injected 为 null / 非函数由入口守卫 throw。
+ */
+function lockRiskGate(injected, formal) {
+  if (injected === formal) return formal; // 默认链路：直接正式门
+  return (args) => {
+    const a = formal(args);
+    if (!a.approved) return a;            // 正式门拒绝 => 以正式门为准，注入门无法放宽
+    const b = injected(args);
+    if (!b.approved) return b;            // 注入门额外拒绝 => 收紧（拒绝）
+    return a;                             // 两者都放行 => 以正式门口径放行
+  };
+}
+
 const RISK_APPROVED = RISK_CODES.APPROVED;      // "RISK_APPROVED" (BUY/SELL 通过)
 const RISK_HOLD = RISK_CODES.HOLD_NO_ORDER;      // "RISK_HOLD_NO_ORDER" (HOLD 无订单)
 
@@ -568,6 +586,8 @@ export async function runDay14(opts = {}) {
     throw new Error("[day14] FATAL fail-closed: formal riskCheck unavailable — termination (no records, no approvals)");
   if (typeof fetchMarket !== "function" || typeof evaluateCycle !== "function" || !engineImpl)
     throw new Error("[day14] FATAL fail-closed: real path modules unavailable");
+  // F-15：锁定注入面——注入的门只能收紧，不能绕过正式门（详见 lockRiskGate）
+  const effectiveRiskGate = lockRiskGate(riskCheckImpl, formalRiskGate);
   const { freezeHash } = verifyConfigFreeze();
 
   // (1) runId + 不可变配置
@@ -639,7 +659,7 @@ export async function runDay14(opts = {}) {
       aiKind = "none";
       providerResult = { ok: false, kind: "no-call", model: null, status: "NO_CALL_UNVERIFIED_MARKET", latencyMs: null, costUsd: 0, note: "fail-closed: market unverified, provider not invoked" };
       decision = buildDecision(i, { action: "HOLD", symbol: "BTCUSDT", reason: "MARKET_UNVERIFIED_FAILCLOSED" }, acq.marketContextId);
-      gate = riskCheckImpl({ decision, context: null, nowMs, limits: RISK_LIMITS });
+      gate = effectiveRiskGate({ decision, context: null, nowMs, limits: RISK_LIMITS });
       gateName = "formal-risk-gate(fail-closed)";
       ctx.providerConsecutiveFails++;
     } else {
@@ -665,7 +685,7 @@ export async function runDay14(opts = {}) {
         decisionClass = "NO_ACTION";
         decision = buildDecision(i, { action: "HOLD", symbol: "BTCUSDT", reason: "PROVIDER_FAILED_FAILCLOSED" }, acq.marketContextId);
         const context = buildRiskContext(acq, decision);
-        gate = riskCheckImpl({ decision, context, nowMs, limits: RISK_LIMITS });
+        gate = effectiveRiskGate({ decision, context, nowMs, limits: RISK_LIMITS });
         gateName = "formal-risk-gate(fail-closed-provider)";
         orderable = false;
         execution = "NONE";
@@ -675,7 +695,7 @@ export async function runDay14(opts = {}) {
 
         // STEP 3: 正式风控全量校验；context 由 provenance 构造，limits 固定，不接受 provider 覆盖
         const context = buildRiskContext(acq, decision);
-        gate = riskCheckImpl({ decision, context, nowMs, limits: RISK_LIMITS });
+        gate = effectiveRiskGate({ decision, context, nowMs, limits: RISK_LIMITS });
         gateName = "formal-risk-gate";
         orderable = gate.approved === true && gate.code === RISK_APPROVED && decision.action !== "HOLD";
 
@@ -692,6 +712,7 @@ export async function runDay14(opts = {}) {
           s.shadowGatedOrders++;
         } else if (decision.action !== "HOLD" && gate.approved === false) {
           execution = "RISK_REJECTED";
+          s.riskBreach = true; // F-15: 真实风控拦截必须反映到 state，否则该标志恒 false、统计失真
           s.riskDenials++;
         }
       }
