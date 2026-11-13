@@ -566,10 +566,16 @@ export async function runDay14(opts = {}) {
 
   // (1) runId + 不可变配置
   const run = resolveRun({ outDir, newRun, nowMs, freezeHash });
-  const { dir, runId } = run;
+  const { dir, runId, isNew } = run;
 
   // (2) journals：启动全量校验链 + 恢复末尾哈希（模拟重启同样生效）
   const journals = makeJournals(dir);
+
+  // (2.5) F-19: external anchor READ-BACK on recovery（非否认性）。
+  // 内部链(makeJournal)自校验内容/链接完整性，但无法检测「外部锚点被篡改」
+  // 或「日志被静默回滚/截断」(空/短链会被当作新 GENESIS 接受)。此处读取上一次
+  // 运行写出的外部锚点并比对重算链 tip；不一致或缺失(非空恢复) => fail-closed。
+  verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew });
 
   // (3) state 恢复
   let s = loadState(dir, runId);
@@ -760,19 +766,67 @@ export async function runDay14(opts = {}) {
   return summary;
 }
 
+// F-19: external anchor filename. Written at end of run; READ BACK on resume.
+const ANCHOR_FILENAME = "day14-anchor.json";
+
 // 锚点：覆盖恢复后的链 tip + runId + freezeHash + recovery（P0-E 扩展）
 function writeAnchor({ dir, journals, runId, freezeHash, recovery, s }) {
   const tips = {};
   for (const [name, j] of Object.entries(journals)) tips[name] = j.prev;
+  const tipsRoot = sha256Hex(JSON.stringify(tips)); // F-19: single comparable chain-tip root
   const root = sha256Hex(JSON.stringify({ freezeHash, runId, tips, cycle: s.cycle, ts: recovery.at }));
   const anchor = {
-    root, freezeHash, runId, journalTips: tips, cycle: s.cycle,
+    root, tipsRoot, freezeHash, runId, journalTips: tips, cycle: s.cycle,
     chainResumedFrom: recovery.recoveredTipHashes,
     generatedAt: recovery.at,
     note: "local anchor over recovered chain + runId + legacy freeze hash; external anchor = commit SHA (not pushed in this task)",
   };
-  writeFileSync(join(dir, "day14-anchor.json"), JSON.stringify(anchor, null, 2));
+  writeFileSync(join(dir, ANCHOR_FILENAME), JSON.stringify(anchor, null, 2));
   return anchor;
+}
+
+/**
+ * F-19 — external anchor READ-BACK on recovery (non-repudiation).
+ *
+ * The internal journal chain (makeJournal) self-verifies content/link integrity,
+ * but it CAN be silently rolled back: deleting or truncating a journal file makes
+ * makeJournal accept a shorter/empty chain as a fresh GENESIS. It also cannot
+ * detect a tampered EXTERNAL anchor record. This function closes that gap: on
+ * resume it reads the externally-stored anchor written by the previous run and
+ * verifies the recomputed chain tip matches. Mismatch (or a missing anchor on a
+ * non-empty resume) => fail-closed. This is the proof the recovery path reads the
+ * EXTERNAL anchor, NOT merely the internal hash chain.
+ *
+ * @param {{dir:string, journals:object, runId:string, isNew:boolean}} opts
+ */
+function verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew }) {
+  if (isNew) return { ok: true, code: "NO_PRIOR_ANCHOR", detail: "new run, skip external anchor read-back" };
+  const tips = {};
+  for (const [name, j] of Object.entries(journals)) tips[name] = j.prev;
+  const tipsRoot = sha256Hex(JSON.stringify(tips));
+  const anchorPath = join(dir, ANCHOR_FILENAME);
+  if (!existsSync(anchorPath)) {
+    // No prior anchor. If the chain is non-empty, the anchor was lost/rolled back.
+    const nonEmpty = Object.values(tips).some((t) => typeof t === "string" && t.length > 0);
+    if (nonEmpty) {
+      throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: external anchor missing but recovered chain is non-empty (rollback/loss of non-repudiation record)");
+    }
+    return { ok: true, code: "NO_PRIOR_ANCHOR", detail: "no prior anchor and empty chain (first boot)" };
+  }
+  let anchor;
+  try { anchor = JSON.parse(readFileSync(anchorPath, "utf8")); }
+  catch (e) { throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: external anchor unparseable (tampered/corrupt): " + e.message); }
+  if (anchor.runId !== runId) {
+    throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: external anchor runId '" + anchor.runId + "' != active runId '" + runId + "'");
+  }
+  if (anchor.tipsRoot !== tipsRoot) {
+    const mismatched = [];
+    for (const [name, t] of Object.entries(tips)) {
+      if (anchor.journalTips && anchor.journalTips[name] !== t) mismatched.push(name);
+    }
+    throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: recovered chain tip root disagrees with external anchor (external tamper or silent rollback). journals=" + mismatched.join(","));
+  }
+  return { ok: true, code: "AUDIT_ANCHOR_VERIFIED", detail: { tipsRoot } };
 }
 
 // 内部自检（NOT independent QA；独立验收见 task #2 independent-qa）。不自证整体绿。
