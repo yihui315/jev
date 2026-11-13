@@ -11,6 +11,12 @@ import { loadSupervisorConfig } from "./config.mjs";
 import { evaluateStartGate } from "./gate.mjs";
 import { startSupervisor, getActualStartCount } from "./launcher.mjs";
 import { checkHealth } from "./health.mjs";
+import {
+  runSupervisorLoop,
+  writeDailySummary,
+  summarizeDay,
+  stableHash,
+} from "./loop.mjs";
 
 /**
  * Load config, evaluate the start gate, and either refuse (this session) or
@@ -47,6 +53,10 @@ export {
   startSupervisor,
   getActualStartCount,
   checkHealth,
+  runSupervisorLoop,
+  writeDailySummary,
+  summarizeDay,
+  stableHash,
 };
 
 export { ALLOWED_MODES } from "./config.mjs";

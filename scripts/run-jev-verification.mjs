@@ -53,10 +53,14 @@ function findFile(root, basename) {
 const SUITES = [
   { phase: "B", label: "Phase B isolated", rel: "scripts/tests/phase-b.test.mjs" },
   { phase: "B", label: "Aegis adversarial", rel: "scripts/tests/phase-b-adversarial.test.mjs" },
+  { phase: "B", label: "Aegis security (replay/forge/concurrency)", rel: "server/ai/phase-b/tests/security.test.mjs" },
+  { phase: "B", label: "Real backends contract", rel: "server/ai/real-backends/tests/real-backends.test.mjs" },
+  { phase: "F19", label: "F-19 WORM tamper recovery", rel: "server/ai/real-backends/tests/real-worm.test.mjs" },
   { phase: "C", label: "Provider gateway", rel: "server/ai/provider-gateway/tests/run-all.mjs" },
   { phase: "D", label: "Trade-loop verify", rel: "scripts/tests/phase-d/phase-d-verify.mjs" },
   { phase: "E/F", label: "Supervisor simulation", rel: "server/ai/supervisor/tests/simulation.test.mjs" },
   { phase: "E/F", label: "Supervisor gate", rel: "server/ai/supervisor/tests/supervisor-gate.test.mjs" },
+  { phase: "E/F", label: "Supervisor loop (unattended)", rel: "server/ai/supervisor/tests/loop.test.mjs" },
   { phase: "G", label: "Commercial verdict", rel: "server/ai/commercial/tests/commercial.test.mjs" },
 ];
 

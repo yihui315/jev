@@ -17,6 +17,7 @@
 // self-test uses to prove no timer was ever created.
 
 import { evaluateStartGate } from "./gate.mjs";
+import { runSupervisorLoop } from "./loop.mjs";
 
 // Incremented only when a REAL continuous loop is actually built. Never touched
 // on a refused start. Intentionally 0 throughout this fail-closed session.
@@ -45,27 +46,28 @@ export function startSupervisor(config, flags = {}, opts = {}) {
   // =========================================================================
   // FUTURE / FULLY-AUTHORIZED ENVIRONMENT ONLY — NOT EXECUTED IN THIS SESSION.
   // -------------------------------------------------------------------------
-  // The block below is intentionally a STUB. When (and only when) the gate has
-  // passed in a properly authorized environment, this is where the Supervisor
-  // would build:
-  //   * a daily-archive rotation job (Phase E 7-day / Phase F 30-day),
-  //   * a periodic health-check job (see health.mjs),
-  //   * an auto-pause loop that halts the run if health degrades.
+  // When (and only when) the gate above has passed in a properly authorized
+  // environment, this is where the Supervisor builds its continuous loop.
+  // `runSupervisorLoop` is itself FAIL-CLOSED: it re-checks the gate and builds
+  // the loop only on canStart===true. It performs NO trading, NO network, NO
+  // paid APIs — only local health checks + JSONL ledger writes (see loop.mjs).
   //
-  // It MUST NOT run while this scaffold is fail-closed. No setInterval /
-  // setTimeout / loop is created here. The real-trading path is unreachable
-  // because the gate above already forbids starting without full authorization.
+  // This branch is UNREACHABLE in the current fail-closed scaffold: the gate
+  // always refuses under default / unauthorized config, so we never reach here
+  // and __actualStartCount stays 0. The block is kept as the real hand-off.
   // =========================================================================
-  //
-  // __actualStartCount += 1; // <- only on a REAL start (future env)
-  // const dailyArchive = setInterval(() => { ... }, 24h);
-  // const healthCheck  = setInterval(() => { ... }, 60s);
-  // return {
-  //   started: true,
-  //   handle: { stop: () => { clearInterval(dailyArchive); clearInterval(healthCheck); } },
-  // };
+  __actualStartCount += 1; // <- only on a REAL start (authorized env)
+  const loop = runSupervisorLoop({ config, flags, deps: opts.deps || {} });
+  const handle = loop.handle;
+  return {
+    started: true,
+    handle: {
+      stop: () => handle.stop(),
+      done: handle.done,
+    },
+    loop,
+  };
 
-  // Defensive guard: this scaffold session never reaches a real start.
-  // (Left as a no-op to make intent explicit; __actualStartCount is untouched.)
-  return { started: false, reasons: ["SCAFFOLD_NO_START"] };
+  // (No code past this point is reachable; left for clarity that the scaffold
+  // session never reaches a real start under unauthorized config.)
 }
