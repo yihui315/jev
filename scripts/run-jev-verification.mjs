@@ -55,25 +55,34 @@ const SUITES = [
   { phase: "B", label: "Aegis adversarial", rel: "scripts/tests/phase-b-adversarial.test.mjs" },
   { phase: "B", label: "Aegis security (replay/forge/concurrency)", rel: "server/ai/phase-b/tests/security.test.mjs" },
   { phase: "B", label: "Real backends contract", rel: "server/ai/real-backends/tests/real-backends.test.mjs" },
+  { phase: "B", label: "V16 AI contract (t1-t9 + e2e real engine)", rel: "server/ai/tests/run-all.mjs" },
   { phase: "F19", label: "F-19 WORM tamper recovery", rel: "server/ai/real-backends/tests/real-worm.test.mjs" },
   { phase: "C", label: "Provider gateway", rel: "server/ai/provider-gateway/tests/run-all.mjs" },
   { phase: "D", label: "Trade-loop verify", rel: "scripts/tests/phase-d/phase-d-verify.mjs" },
+  { phase: "D", label: "V16 equity-collector contract", rel: "../equity_collector_v45/tests/v16/run-all.mjs" },
   { phase: "E/F", label: "Supervisor simulation", rel: "server/ai/supervisor/tests/simulation.test.mjs" },
   { phase: "E/F", label: "Supervisor gate", rel: "server/ai/supervisor/tests/supervisor-gate.test.mjs" },
   { phase: "E/F", label: "Supervisor loop (unattended)", rel: "server/ai/supervisor/tests/loop.test.mjs" },
   { phase: "G", label: "Commercial verdict", rel: "server/ai/commercial/tests/commercial.test.mjs" },
 ];
 
-/** Parse pass/fail counts from a suite's combined output (last match wins). */
+// Parse pass/fail counts from a suite's combined output (last match wins).
+// Honest coverage requires handling every output style we actually run, with
+// case-sensitive separation so a JSON group count ("pass":8) is NEVER mistaken
+// for a check count ("passed":104):
+//   - node:test TAP:         "# pass N" / "# fail N"
+//   - V16 AI contract:       "passed=N" / "failed=N"          (TOTAL line)
+//   - V16 equity collector:  "passed":N / "failed":N          (assertions JSON)
+//   - gateway / phase-d:      "RESULT PASS=N" / "FAIL=N"      (uppercase, no "#")
 function parseCounts(out) {
-  let pass = 0;
-  let fail = 0;
-  const passRe = /pass[ =](\d+)/gi;
-  const failRe = /fail[ =](\d+)/gi;
+  let lastPass = null;
+  let lastFail = null;
   let m;
-  while ((m = passRe.exec(out))) pass = parseInt(m[1], 10);
-  while ((m = failRe.exec(out))) fail = parseInt(m[1], 10);
-  return { pass, fail };
+  const passRe = /#\s*[Pp]ass\s+(\d+)|passed["\s:=]+(\d+)|PASS["\s:=]+(\d+)/g;
+  const failRe = /#\s*[Ff]ail\s+(\d+)|failed["\s:=]+(\d+)|FAIL["\s:=]+(\d+)/g;
+  while ((m = passRe.exec(out))) lastPass = parseInt(m[1] || m[2] || m[3], 10);
+  while ((m = failRe.exec(out))) lastFail = parseInt(m[1] || m[2] || m[3], 10);
+  return { pass: lastPass ?? 0, fail: lastFail ?? 0 };
 }
 
 function runSuite(suite) {
