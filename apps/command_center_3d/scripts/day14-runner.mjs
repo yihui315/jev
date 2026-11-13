@@ -574,8 +574,8 @@ export async function runDay14(opts = {}) {
   // (2.5) F-19: external anchor READ-BACK on recovery（非否认性）。
   // 内部链(makeJournal)自校验内容/链接完整性，但无法检测「外部锚点被篡改」
   // 或「日志被静默回滚/截断」(空/短链会被当作新 GENESIS 接受)。此处读取上一次
-  // 运行写出的外部锚点并比对重算链 tip；不一致或缺失(非空恢复) => fail-closed。
-  verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew });
+  // 运行写出的外部锚点并比对重算链 tip（及其 bundle root）；不一致或缺失(非空恢复) => fail-closed。
+  verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew, freezeHash, cycle: journals.market.count });
 
   // (3) state 恢复
   let s = loadState(dir, runId);
@@ -799,10 +799,12 @@ function writeAnchor({ dir, journals, runId, freezeHash, recovery, s }) {
  *
  * @param {{dir:string, journals:object, runId:string, isNew:boolean}} opts
  */
-function verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew }) {
+function verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew, freezeHash, cycle }) {
   if (isNew) return { ok: true, code: "NO_PRIOR_ANCHOR", detail: "new run, skip external anchor read-back" };
   const tips = {};
   for (const [name, j] of Object.entries(journals)) tips[name] = j.prev;
+  // cycle at resume start = record count of any journal (recovery asserts all equal)
+  if (typeof cycle !== "number") cycle = journals.market ? journals.market.count : 0;
   const tipsRoot = sha256Hex(JSON.stringify(tips));
   const anchorPath = join(dir, ANCHOR_FILENAME);
   if (!existsSync(anchorPath)) {
@@ -825,6 +827,13 @@ function verifyExternalAnchorOnRecovery({ dir, journals, runId, isNew }) {
       if (anchor.journalTips && anchor.journalTips[name] !== t) mismatched.push(name);
     }
     throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: recovered chain tip root disagrees with external anchor (external tamper or silent rollback). journals=" + mismatched.join(","));
+  }
+  // defense-in-depth: also bind the full anchor bundle hash (root), not just tipsRoot.
+  if (typeof freezeHash === "string") {
+    const recomputedRoot = sha256Hex(JSON.stringify({ freezeHash, runId, tips, cycle, ts: anchor.generatedAt }));
+    if (anchor.root !== recomputedRoot) {
+      throw new Error("AUDIT_CHAIN_ANCHOR_MISMATCH: external anchor bundle hash (root) disagrees with recomputed anchor (external tamper)");
+    }
   }
   return { ok: true, code: "AUDIT_ANCHOR_VERIFIED", detail: { tipsRoot } };
 }

@@ -49,6 +49,7 @@ test("F-19 mutation: tampered EXTERNAL anchor (journals untouched) => fail-close
     // so makeJournal's internal chain check would still pass — this proves the
     // failure comes from the EXTERNAL anchor read-back, not internal consistency.
     const a = JSON.parse(readFileSync(anchorPath, "utf8"));
+    a.root = "0".repeat(64);
     a.tipsRoot = "0".repeat(64);
     a.journalTips = {
       market: "deadbeef", decision: "deadbeef", risk: "deadbeef",
