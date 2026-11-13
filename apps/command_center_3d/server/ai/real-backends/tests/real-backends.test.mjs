@@ -17,6 +17,7 @@
 
 import assert from "node:assert/strict";
 import { test, describe } from "node:test";
+import crypto from "node:crypto";
 
 import {
   realBackendsAvailable,
@@ -99,6 +100,27 @@ const CONFIGURED_ENV = {
   REAL_WORM_API_KEY: "key",
 };
 
+// ---- offline RSA signing harness (no network, no real IdP) ------------------
+// Generates a real RSA key pair, exposes a JWKS doc + a sign() that produces a
+// genuinely RS256-signed JWT, and a fake fetch that returns the JWKS. This lets
+// verifyToken be exercised end-to-end offline without any credentials.
+function makeRsaSigner() {
+  const { publicKey, privateKey } = crypto.generateKeyPairSync("rsa", { modulusLength: 2048 });
+  const jwk = publicKey.export({ format: "jwk" });
+  const kid = "k1";
+  const jwksDoc = { keys: [{ ...jwk, kid, use: "sig", alg: "RS256" }] };
+  const b64u = (obj) => Buffer.from(typeof obj === "string" ? obj : JSON.stringify(obj)).toString("base64url");
+  const sign = (payload) => {
+    const header = { alg: "RS256", kid, typ: "JWT" };
+    const h = b64u(header);
+    const p = b64u(payload);
+    const sig = crypto.sign("sha256", Buffer.from(`${h}.${p}`), privateKey);
+    return `${h}.${p}.${sig.toString("base64url")}`;
+  };
+  const fakeFetch = async () => ({ ok: true, json: async () => jwksDoc });
+  return { jwksDoc, fakeFetch, sign };
+}
+
 describe("realBackendsAvailable", () => {
   test("false across the board with empty env", () => {
     const r = realBackendsAvailable({});
@@ -132,10 +154,94 @@ describe("fail-closed (unconfigured => NotConfiguredError)", () => {
 });
 
 describe("unblock path wired (configured => constructs + behaves)", () => {
-  test("RealIdP constructs and verifyToken refuses to run without live provider", async () => {
+  test("RealIdP constructs with configured env", async () => {
     const idp = new RealIdP(loadRealIdPConfig(CONFIGURED_ENV));
     assert.equal(idp.config.configured, true);
-    await assert.rejects(() => idp.verifyToken("any.token.here"), /live provider integration/);
+  });
+
+  describe("RealIdP.verifyToken (implemented, offline via injected fetch)", () => {
+    const H = makeRsaSigner();
+    const baseClaims = (over = {}) => ({
+      iss: CONFIGURED_ENV.REAL_IDP_ISSUER_URL,
+      aud: CONFIGURED_ENV.REAL_IDP_AUDIENCE,
+      exp: Math.floor((Date.now() + 3600_000) / 1000),
+      sub: "user-1",
+      amr: ["mfa"],
+      ...over,
+    });
+    const mkIdP = () =>
+      new RealIdP({ ...loadRealIdPConfig(CONFIGURED_ENV), fetchImpl: H.fakeFetch });
+
+    test("malformed token => MALFORMED_TOKEN", async () => {
+      const r = await mkIdP().verifyToken("not-a-jwt");
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "MALFORMED_TOKEN");
+    });
+
+    test("valid signed token => IDP_VERIFIED with claims", async () => {
+      const r = await mkIdP().verifyToken(H.sign(baseClaims()));
+      assert.equal(r.ok, true);
+      assert.equal(r.code, "IDP_VERIFIED");
+      assert.equal(r.claims.sub, "user-1");
+    });
+
+    test("tampered signature => SIGNATURE_INVALID", async () => {
+      const tok = H.sign(baseClaims());
+      const [h, p, s] = tok.split(".");
+      const bad = `${h}.${p}.${s.slice(0, -1)}A`;
+      const r = await mkIdP().verifyToken(bad);
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "SIGNATURE_INVALID");
+    });
+
+    test("expired token => EXP_EXPIRED", async () => {
+      const r = await mkIdP().verifyToken(
+        H.sign(baseClaims({ exp: Math.floor((Date.now() - 1000) / 1000) })),
+      );
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "EXP_EXPIRED");
+    });
+
+    test("missing MFA amr => AMR_MISSING", async () => {
+      const r = await mkIdP().verifyToken(H.sign(baseClaims({ amr: ["pwd"] })));
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "AMR_MISSING");
+      assert.deepEqual(r.detail.missing, ["mfa"]);
+    });
+
+    test("wrong audience => AUD_MISMATCH", async () => {
+      const r = await mkIdP().verifyToken(H.sign(baseClaims({ aud: "other-aud" })));
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "AUD_MISMATCH");
+    });
+
+    test("wrong issuer => ISS_MISMATCH", async () => {
+      const r = await mkIdP().verifyToken(H.sign(baseClaims({ iss: "https://evil.example.com" })));
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "ISS_MISMATCH");
+    });
+
+    test("unsupported alg (HS256) => UNSUPPORTED_ALG (checked before crypto.verify)", async () => {
+      const header = { alg: "HS256", kid: "k1" };
+      const h = Buffer.from(JSON.stringify(header)).toString("base64url");
+      const p = Buffer.from(JSON.stringify(baseClaims())).toString("base64url");
+      const r = await mkIdP().verifyToken(`${h}.${p}.AAAA`);
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "UNSUPPORTED_ALG");
+    });
+  });
+
+  describe("RealIdP.verifyToken fail-closed network path (no injected fetch)", () => {
+    test("attempts the real IdP JWKS endpoint and fails closed (JWKS_UNAVAILABLE)", async () => {
+      // Uses the default global fetch against the configured (unreachable) URL.
+      const idp = new RealIdP(loadRealIdPConfig(CONFIGURED_ENV));
+      const header = { alg: "RS256", kid: "k1" };
+      const h = Buffer.from(JSON.stringify(header)).toString("base64url");
+      const p = Buffer.from(JSON.stringify({ iss: "x" })).toString("base64url");
+      const r = await idp.verifyToken(`${h}.${p}.AAAA`);
+      assert.equal(r.ok, false);
+      assert.equal(r.code, "JWKS_UNAVAILABLE");
+    });
   });
 
   test("RealD1Ledger: first consume CONSUMED, replay => REPLAY (UNIQUE + INSERT OR IGNORE)", async () => {
