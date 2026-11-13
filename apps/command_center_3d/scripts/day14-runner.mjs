@@ -131,7 +131,7 @@ function verifyConfigFreeze() {
 
 // ---- 顶层真实模块导入：失败即 throw 终止（P0-B fail-closed，不 warn 继续） ----
 let fetchMarket, evaluateCycle, resolveNetworkContext, buildMarkContracts;
-let EXCHANGE_US, MARKET_SPOT, frozenEngine, formalRiskGate, RISK_CODES, DEFAULT_RISK_LIMITS;
+let EXCHANGE_US, MARKET_SPOT, frozenEngine, formalRiskGate, RISK_CODES, DEFAULT_RISK_LIMITS, isRealEgressNetworkContext;
 let DECISION_SCHEMA_VERSION;
 try {
   ({ fetchMarket } = await import("../../equity_collector_v45/src/market.mjs"));
@@ -143,7 +143,7 @@ try {
   throw new Error("[day14] FATAL: reuse import (provenance/engine/schema) failed — fail-closed: " + e.message);
 }
 try {
-  ({ riskCheck: formalRiskGate, RISK_CODES, DEFAULT_RISK_LIMITS } = await import("../server/ai/risk-gate.mjs"));
+  ({ riskCheck: formalRiskGate, RISK_CODES, DEFAULT_RISK_LIMITS, isRealEgressNetworkContext } = await import("../server/ai/risk-gate.mjs"));
 } catch (e) {
   // 正式风控不可用 => 直接终止，绝无 fallback / warn-and-continue
   throw new Error("[day14] FATAL: formal risk-gate import failed — fail-closed termination: " + e.message);
@@ -391,7 +391,9 @@ function buildRiskContext(acq, decision) {
     symbol: decision.symbol,
     markPriceUsd: acq.marksUsd[decision.symbol] ?? null,
     priceTs: acq.market.priceTs,
-    markQuality: "verified",
+    markQuality: "verified", // provenance 自洽（real & synthetic 均可能）；真实出网由 networkContext 区分
+    networkContext: acq.networkContext,
+    realEgress: isRealEgressNetworkContext(acq.networkContext),
   };
 }
 
@@ -428,6 +430,7 @@ async function acquireCycleMarket({ fetchImpl, nowMs, heldSymbols, networkContex
     marketKind: verified ? "fixture-verified" : "unverified",
     isReal: false, // 由 provenance 决定：fixture fetcher 永不产生真实 egress
     dataMode: "fixture",
+    networkContext, // C9: 透传网络上下文，供风控绑定「真实出网」语义
     market,
     guard,
     marksUsd,
@@ -698,17 +701,23 @@ export async function runDay14(opts = {}) {
         gate = effectiveRiskGate({ decision, context, nowMs, limits: RISK_LIMITS });
         gateName = "formal-risk-gate";
         orderable = gate.approved === true && gate.code === RISK_APPROVED && decision.action !== "HOLD";
+        const realEgressVerified = isRealEgressNetworkContext(context?.networkContext); // C9: 真实出网绑定
 
-        if (orderable && RED_LINES.allowBuySell) {
-          // 真实成交路径（P3 解锁后）；本任务 allowBuySell=false 恒不进入。
+        if (orderable && RED_LINES.allowBuySell && realEgressVerified) {
+          // 真实成交路径（P3 解锁后且上下文确为真实出网核实）；synthetic 永远不进。
           execution = "ENGINE_EXEC";
+        } else if (orderable && RED_LINES.allowBuySell && !realEgressVerified) {
+          // C9 阻断：P3 解锁后，synthetic / 本地测试桩上下文（即便 mark_quality=verified）禁止真实成交。
+          execution = "REJECTED_SYNTHETIC_NO_REAL_EGRESS";
+          s.riskBreach = true;
+          s.riskDenials++;
         } else if (orderable && simulateFills) {
           // 仅本地内存模拟，验证「成交走 engineImpl」接线；不触网/不下单/不写 DB。
           const r = executeIntent({ engineImpl, account, harness: s.harness, decision, acq, cycle: i });
           execution = "SIMULATED_FILL_LOCAL:" + r.fillCount;
           s.shadowGatedOrders++;
         } else if (orderable) {
-          execution = "SHADOW_GATED"; // 可下单意图被红线拦截
+          execution = "SHADOW_GATED"; // 可下单意图被红线拦截（fail-closed）
           s.shadowGatedOrders++;
         } else if (decision.action !== "HOLD" && gate.approved === false) {
           execution = "RISK_REJECTED";
@@ -729,7 +738,7 @@ export async function runDay14(opts = {}) {
       failClosedReason: decisionClass === "NO_ACTION"
         ? (acq.verified ? "PROVIDER_FAILED" : "MARKET_UNVERIFIED") : null,
       riskLimits: RISK_LIMITS,
-      context: acq.verified ? { symbol: decision.symbol, markQuality: "verified", priceTs: acq.market.priceTs, markPriceUsd: acq.marksUsd[decision.symbol] ?? null } : null,
+      context: acq.verified ? { symbol: decision.symbol, markQuality: "verified", priceTs: acq.market.priceTs, markPriceUsd: acq.marksUsd[decision.symbol] ?? null, networkContext: acq.networkContext, realEgress: isRealEgressNetworkContext(acq.networkContext) } : null,
       checks: gate.checks || null, evaluated: gate.evaluated || null,
       confidenceIgnored: gate.confidence_ignored ?? null,
     });
