@@ -52,6 +52,15 @@ async function aiMarketContext(ctx, symbol) {
  */
 export async function handleAiApi(request, env, url, ctx) {
   const pathname = url.pathname;
+  // P0-A: HUMAN_PUBLISH_GATE routes. They sit behind the SAME lazy import
+  // boundary as the rest of /api/jev/ai/*, i.e. after the red lines and Basic
+  // auth in onRequest. A dynamic import keeps non-publish routes from loading
+  // the gate module (Cloudflare Workers runtime constraint). The Paper
+  // unattended path /api/jev/ai/paper/execute below is deliberately untouched.
+  if (pathname.startsWith("/api/jev/ai/publish/")) {
+    const { handlePublishApi } = await import("./publish-routes.mjs");
+    return handlePublishApi(request, env, url, ctx);
+  }
   const { envelope, buildEngineRequest, engine, engineEnv } = ctx;
   const engineRuntime = engineEnv || env;
   const db = env.PAPER_DB;

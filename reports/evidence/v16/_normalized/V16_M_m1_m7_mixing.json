@@ -1,0 +1,121 @@
+{
+  "exitCode": 0,
+  "file": "v16_m1_m7_mixing.mjs",
+  "id": "V16_M",
+  "label": "m1_m7_mixing",
+  "node": "v22.22.2",
+  "result": {
+    "checks": [
+      {
+        "detail": [
+          "Binance.US|spot",
+          "Binance.US|spot"
+        ],
+        "name": "M1_partition_key_self_consistent",
+        "pass": true
+      },
+      {
+        "detail": {
+          "globalEq": 99000000000000,
+          "usPeak": 18244694700000
+        },
+        "name": "M2_global_sentinel_exceeds_us_peak_so_leak_is_visible",
+        "pass": true
+      },
+      {
+        "detail": {
+          "globalEq": 99000000000000,
+          "peakUS": 18244694700000,
+          "usPeak": 18244694700000
+        },
+        "name": "M2_peak_restricted_to_same_partition",
+        "pass": true
+      },
+      {
+        "detail": {
+          "globalEq": 99000000000000,
+          "peakGlobal": 99000000000000
+        },
+        "name": "M6_no_cross_market_aggregation_global_isolated",
+        "pass": true
+      },
+      {
+        "detail": {
+          "code": "MARKET_SOURCE_NOT_VERIFIED"
+        },
+        "name": "M3_auto_fallback_fails_closed",
+        "pass": true
+      },
+      {
+        "detail": {
+          "code": "MARKET_SOURCE_NOT_VERIFIED"
+        },
+        "name": "M3_last_good_price_fails_closed",
+        "pass": true
+      },
+      {
+        "detail": {
+          "sameSeries": true,
+          "written": 0
+        },
+        "name": "M5_mark_series_constant_across_rerun",
+        "pass": true
+      },
+      {
+        "detail": {
+          "after": [
+            "v45eq_23639e5473569414cfea7916dfb149adbb626b838b533c25f256a52c8b1045a5"
+          ],
+          "before": [
+            "v45eq_23639e5473569414cfea7916dfb149adbb626b838b533c25f256a52c8b1045a5"
+          ]
+        },
+        "name": "M4_snapshot_id_stable_across_rerun",
+        "pass": true
+      },
+      {
+        "detail": {
+          "peakUS2": 18244694700000,
+          "sentinelEquities": [
+            80000000000000,
+            80000000000001,
+            80000000000002
+          ],
+          "usPeak": 18244694700000
+        },
+        "name": "M7_unproven_rows_excluded_from_peak",
+        "pass": true
+      },
+      {
+        "detail": {
+          "note": "each sentinel > usPeak; if exclusion failed, MAX would exceed usPeak",
+          "usPeak": 18244694700000
+        },
+        "name": "M7_sentinels_exceed_us_peak_so_leak_is_visible",
+        "pass": true
+      },
+      {
+        "detail": {
+          "code": "HISTORY_PROVENANCE_UNPROVEN"
+        },
+        "name": "M7_history_provenance_guard_code",
+        "pass": true
+      }
+    ],
+    "extra": {
+      "globalEq": 99000000000000,
+      "peakGlobal": 99000000000000,
+      "peakUS": 18244694700000,
+      "peakUS2": 18244694700000,
+      "usPeak": 18244694700000
+    },
+    "meta": {
+      "coverage": "QA-M1..M7"
+    },
+    "testId": "v16_m1_m7_mixing",
+    "verdict": "PASS"
+  },
+  "stderr": "(node:<PID>) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "stdout": "RESULT_JSON:{\"checks\": [{\"detail\": [\"Binance.US|spot\",\"Binance.US|spot\"],\"name\": \"M1_partition_key_self_consistent\",\"pass\": true},{\"detail\": {\"globalEq\": 99000000000000,\"usPeak\": 18244694700000},\"name\": \"M2_global_sentinel_exceeds_us_peak_so_leak_is_visible\",\"pass\": true},{\"detail\": {\"globalEq\": 99000000000000,\"peakUS\": 18244694700000,\"usPeak\": 18244694700000},\"name\": \"M2_peak_restricted_to_same_partition\",\"pass\": true},{\"detail\": {\"globalEq\": 99000000000000,\"peakGlobal\": 99000000000000},\"name\": \"M6_no_cross_market_aggregation_global_isolated\",\"pass\": true},{\"detail\": {\"code\": \"MARKET_SOURCE_NOT_VERIFIED\"},\"name\": \"M3_auto_fallback_fails_closed\",\"pass\": true},{\"detail\": {\"code\": \"MARKET_SOURCE_NOT_VERIFIED\"},\"name\": \"M3_last_good_price_fails_closed\",\"pass\": true},{\"detail\": {\"sameSeries\": true,\"written\": 0},\"name\": \"M5_mark_series_constant_across_rerun\",\"pass\": true},{\"detail\": {\"after\": [\"v45eq_23639e5473569414cfea7916dfb149adbb626b838b533c25f256a52c8b1045a5\"],\"before\": [\"v45eq_23639e5473569414cfea7916dfb149adbb626b838b533c25f256a52c8b1045a5\"]},\"name\": \"M4_snapshot_id_stable_across_rerun\",\"pass\": true},{\"detail\": {\"peakUS2\": 18244694700000,\"sentinelEquities\": [80000000000000,80000000000001,80000000000002],\"usPeak\": 18244694700000},\"name\": \"M7_unproven_rows_excluded_from_peak\",\"pass\": true},{\"detail\": {\"note\": \"each sentinel > usPeak; if exclusion failed, MAX would exceed usPeak\",\"usPeak\": 18244694700000},\"name\": \"M7_sentinels_exceed_us_peak_so_leak_is_visible\",\"pass\": true},{\"detail\": {\"code\": \"HISTORY_PROVENANCE_UNPROVEN\"},\"name\": \"M7_history_provenance_guard_code\",\"pass\": true}],\"extra\": {\"globalEq\": 99000000000000,\"peakGlobal\": 99000000000000,\"peakUS\": 18244694700000,\"peakUS2\": 18244694700000,\"usPeak\": 18244694700000},\"meta\": {\"coverage\": \"QA-M1..M7\"},\"testId\": \"v16_m1_m7_mixing\",\"verdict\": \"PASS\"}\n",
+  "verdict": "PASS"
+}

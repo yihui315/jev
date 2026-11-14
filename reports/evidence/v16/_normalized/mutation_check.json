@@ -1,0 +1,10 @@
+{
+  "conclusion": "If partition regressed, M2/M7/NEG2 peak assertions would FAIL (sentinel exceeds usPeak)",
+  "correct_not_polluted": true,
+  "globalSentinel": 99000000000000,
+  "mutant_is_polluted": true,
+  "mutant_no_partition_peak": 99000000000000,
+  "note": "Mutation check (NOT one of the 8 groups): proves peak assertions are not natural passes",
+  "selectHistoryPeak_US": 18244694700000,
+  "usPeak": 18244694700000
+}

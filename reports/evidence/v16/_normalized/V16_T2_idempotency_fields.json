@@ -1,0 +1,108 @@
+{
+  "exitCode": 0,
+  "file": "v16_t2_idempotency_fields.mjs",
+  "id": "V16_T2",
+  "label": "idempotency_fields",
+  "node": "v22.22.2",
+  "result": {
+    "checks": [
+      {
+        "detail": {
+          "written": 1
+        },
+        "name": "first_run_writes_one",
+        "pass": true
+      },
+      {
+        "detail": [
+          1,
+          0,
+          0
+        ],
+        "name": "repeats_write_zero",
+        "pass": true
+      },
+      {
+        "detail": [
+          1,
+          1,
+          1
+        ],
+        "name": "provenance_row_count_stays_one",
+        "pass": true
+      },
+      {
+        "detail": [
+          "af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2",
+          "af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2",
+          "af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2"
+        ],
+        "name": "full_provenance_row_hash_identical_across_3_runs",
+        "pass": true
+      },
+      {
+        "detail": [
+          "62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9",
+          "62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9",
+          "62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9"
+        ],
+        "name": "full_snapshot_row_hash_identical_across_3_runs",
+        "pass": true
+      },
+      {
+        "detail": {
+          "fullHash": "af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2",
+          "strippedHash": "865f432e19ab3212b6629521989a49029f1e1de2a32de4848c205be54d385b35"
+        },
+        "name": "new_columns_contribute_to_row_hash",
+        "pass": true
+      },
+      {
+        "detail": [
+          "local_test_shim",
+          "local_test_shim",
+          "local_test_shim"
+        ],
+        "name": "network_context_constant_across_3_runs",
+        "pass": true
+      },
+      {
+        "detail": [
+          "{\"BTCUSDT\":{\"exchange\":\"Binance.US\",\"market\":\"spot\",\"symbol\":\"BTCUSDT\",\"base_asset\":\"BTC\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 base_asset unit\",\"unit_multiplier\":1,\"status\":\"SUPPORTED\",\"reason\":null,\"price_ts\":\"2026-02-02T02:40:00.000Z\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"2026-02-02T02:40:00.000Z\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\",\"data_quality\":\"VERIFIED\"}}",
+          "{\"BTCUSDT\":{\"exchange\":\"Binance.US\",\"market\":\"spot\",\"symbol\":\"BTCUSDT\",\"base_asset\":\"BTC\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 base_asset unit\",\"unit_multiplier\":1,\"status\":\"SUPPORTED\",\"reason\":null,\"price_ts\":\"2026-02-02T02:40:00.000Z\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"2026-02-02T02:40:00.000Z\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\",\"data_quality\":\"VERIFIED\"}}",
+          "{\"BTCUSDT\":{\"exchange\":\"Binance.US\",\"market\":\"spot\",\"symbol\":\"BTCUSDT\",\"base_asset\":\"BTC\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 base_asset unit\",\"unit_multiplier\":1,\"status\":\"SUPPORTED\",\"reason\":null,\"price_ts\":\"2026-02-02T02:40:00.000Z\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"2026-02-02T02:40:00.000Z\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\",\"data_quality\":\"VERIFIED\"}}"
+        ],
+        "name": "mark_contracts_json_constant_across_3_runs",
+        "pass": true
+      },
+      {
+        "detail": {
+          "changedPrice": "37475.88500000",
+          "hashUnchanged": true,
+          "written": 0
+        },
+        "name": "different_price_same_cycle_does_not_rewrite",
+        "pass": true
+      },
+      {
+        "detail": {
+          "storedEquity": 17495177000000,
+          "storedMarks": "{\"BTCUSDT\":\"74951.77000000\"}"
+        },
+        "name": "no_price_backfill_into_stored_row",
+        "pass": true
+      }
+    ],
+    "extra": {
+      "cycle_key": "same-cycle-v16"
+    },
+    "meta": {
+      "coverage": "QA-T2-1: idempotency with new columns"
+    },
+    "testId": "v16_t2_idempotency_fields",
+    "verdict": "PASS"
+  },
+  "stderr": "(node:<PID>) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "stdout": "RESULT_JSON:{\"checks\": [{\"detail\": {\"written\": 1},\"name\": \"first_run_writes_one\",\"pass\": true},{\"detail\": [1,0,0],\"name\": \"repeats_write_zero\",\"pass\": true},{\"detail\": [1,1,1],\"name\": \"provenance_row_count_stays_one\",\"pass\": true},{\"detail\": [\"af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2\",\"af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2\",\"af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2\"],\"name\": \"full_provenance_row_hash_identical_across_3_runs\",\"pass\": true},{\"detail\": [\"62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9\",\"62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9\",\"62a52d8c7ae98ea507afbbeaf912176a61c4032f2906fef0479356348a1790b9\"],\"name\": \"full_snapshot_row_hash_identical_across_3_runs\",\"pass\": true},{\"detail\": {\"fullHash\": \"af384d3367d49b5f16f10ac8a77b38ef2a898e6f34d9f368d658650d65c117e2\",\"strippedHash\": \"865f432e19ab3212b6629521989a49029f1e1de2a32de4848c205be54d385b35\"},\"name\": \"new_columns_contribute_to_row_hash\",\"pass\": true},{\"detail\": [\"local_test_shim\",\"local_test_shim\",\"local_test_shim\"],\"name\": \"network_context_constant_across_3_runs\",\"pass\": true},{\"detail\": [\"{\\\"BTCUSDT\\\":{\\\"exchange\\\":\\\"Binance.US\\\",\\\"market\\\":\\\"spot\\\",\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"base_asset\\\":\\\"BTC\\\",\\\"quote_asset\\\":\\\"USDT\\\",\\\"price_unit\\\":\\\"USDT per 1 base_asset unit\\\",\\\"unit_multiplier\\\":1,\\\"status\\\":\\\"SUPPORTED\\\",\\\"reason\\\":null,\\\"price_ts\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"price_ts_source\\\":\\\"exchange_serverTime\\\",\\\"source_host\\\":\\\"api.binance.us\\\",\\\"source_url\\\":\\\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\\\",\\\"network_context\\\":\\\"local_test_shim\\\",\\\"fetched_at\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"freshness_ms\\\":0,\\\"freshness_verdict\\\":\\\"FRESH\\\",\\\"payload_sha256\\\":\\\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\\\",\\\"data_quality\\\":\\\"VERIFIED\\\"}}\",\"{\\\"BTCUSDT\\\":{\\\"exchange\\\":\\\"Binance.US\\\",\\\"market\\\":\\\"spot\\\",\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"base_asset\\\":\\\"BTC\\\",\\\"quote_asset\\\":\\\"USDT\\\",\\\"price_unit\\\":\\\"USDT per 1 base_asset unit\\\",\\\"unit_multiplier\\\":1,\\\"status\\\":\\\"SUPPORTED\\\",\\\"reason\\\":null,\\\"price_ts\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"price_ts_source\\\":\\\"exchange_serverTime\\\",\\\"source_host\\\":\\\"api.binance.us\\\",\\\"source_url\\\":\\\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\\\",\\\"network_context\\\":\\\"local_test_shim\\\",\\\"fetched_at\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"freshness_ms\\\":0,\\\"freshness_verdict\\\":\\\"FRESH\\\",\\\"payload_sha256\\\":\\\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\\\",\\\"data_quality\\\":\\\"VERIFIED\\\"}}\",\"{\\\"BTCUSDT\\\":{\\\"exchange\\\":\\\"Binance.US\\\",\\\"market\\\":\\\"spot\\\",\\\"symbol\\\":\\\"BTCUSDT\\\",\\\"base_asset\\\":\\\"BTC\\\",\\\"quote_asset\\\":\\\"USDT\\\",\\\"price_unit\\\":\\\"USDT per 1 base_asset unit\\\",\\\"unit_multiplier\\\":1,\\\"status\\\":\\\"SUPPORTED\\\",\\\"reason\\\":null,\\\"price_ts\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"price_ts_source\\\":\\\"exchange_serverTime\\\",\\\"source_host\\\":\\\"api.binance.us\\\",\\\"source_url\\\":\\\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\\\",\\\"network_context\\\":\\\"local_test_shim\\\",\\\"fetched_at\\\":\\\"2026-02-02T02:40:00.000Z\\\",\\\"freshness_ms\\\":0,\\\"freshness_verdict\\\":\\\"FRESH\\\",\\\"payload_sha256\\\":\\\"502c6ad769868c18d090f1681fc2af3767a24a4bc173a9106169b353f646e02e\\\",\\\"data_quality\\\":\\\"VERIFIED\\\"}}\"],\"name\": \"mark_contracts_json_constant_across_3_runs\",\"pass\": true},{\"detail\": {\"changedPrice\": \"37475.88500000\",\"hashUnchanged\": true,\"written\": 0},\"name\": \"different_price_same_cycle_does_not_rewrite\",\"pass\": true},{\"detail\": {\"storedEquity\": 17495177000000,\"storedMarks\": \"{\\\"BTCUSDT\\\":\\\"74951.77000000\\\"}\"},\"name\": \"no_price_backfill_into_stored_row\",\"pass\": true}],\"extra\": {\"cycle_key\": \"same-cycle-v16\"},\"meta\": {\"coverage\": \"QA-T2-1: idempotency with new columns\"},\"testId\": \"v16_t2_idempotency_fields\",\"verdict\": \"PASS\"}\n",
+  "verdict": "PASS"
+}

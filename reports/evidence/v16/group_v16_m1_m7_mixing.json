@@ -1,8 +1,8 @@
 {
   "testId": "v16_m1_m7_mixing",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:16.137Z",
-  "finishedAt": "2026-11-09T13:20:16.186Z",
+  "startedAt": "2026-11-11T04:55:00.807Z",
+  "finishedAt": "2026-11-11T04:55:00.845Z",
   "meta": {
     "coverage": "QA-M1..M7"
   },

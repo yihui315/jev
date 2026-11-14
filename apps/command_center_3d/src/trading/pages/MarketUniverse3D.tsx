@@ -9,6 +9,7 @@ import * as THREE from "three";
 import { useJevQuery } from "../api/useJev";
 import { Panel, Banner, StatusPill, SourceFooter, StateView } from "../components/common";
 import { TopBar } from "../components/Shell";
+import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
 
 const ALL = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT", "BNBUSDT", "SOLUSDT"];
 const COLLECTOR_ONLY = new Set(["BNBUSDT", "SOLUSDT"]);
@@ -98,7 +99,7 @@ export function MarketUniverse3D({ topbar }: { topbar: React.ReactNode }) {
             const chg = t ? Number(t.priceChangePercent) : 0;
             const collector = COLLECTOR_ONLY.has(sym);
             return (
-              <Panel key={sym} title={sym} sub={collector ? "仅采集" : "可交易"} right={<StatusPill label={collector ? "BACKFILL" : "LIVE"} />}>
+              <Panel key={sym} title={sym} sub={collector ? "仅采集" : "可交易"} right={<StatusPill label={collector ? "BACKFILL" : deriveStatusLabel(tq)} />}>
                 <div className="jev-metric"><span className="label">最新价</span><span className="value sm">{t ? Number(t.lastPrice).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—"}</span></div>
                 <div className="jev-metric"><span className="label">24h 涨跌</span><span className={`value sm ${chg >= 0 ? "jev-up" : "jev-down"}`}>{chg >= 0 ? "+" : ""}{chg.toFixed(2)}%</span></div>
               </Panel>

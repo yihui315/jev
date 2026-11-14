@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // Dev server binds 127.0.0.1:4781 only (v1.2 dev UI port). The final v1.2 UI
@@ -80,5 +81,33 @@ export default defineConfig({
     // files serially keeps the cache single-writer and the run clean; the suite
     // is small, so the time cost is negligible.
     fileParallelism: false,
+    // NOT vitest suites: these two are hand-written `node <path>` assertion
+    // scripts (node:assert + process.exit, no describe/it). They matched the
+    // default `**/*.test.mjs` glob and made every `vitest run` fail with
+    // "No test suite found in file" — a red unit-test job for a test-runner
+    // mismatch, not for a real defect. Their correct entry point is `node`,
+    // which the CI gap-closure gate below uses. `configDefaults` is spread in
+    // on purpose: setting `exclude` replaces vitest's defaults wholesale, and
+    // a bare array would silently stop excluding node_modules/dist.
+    exclude: [
+      ...configDefaults.exclude,
+      "scripts/supervisor/supervisor.test.mjs",
+      "server/ai/evidence/tests/inference-evidence.test.mjs",
+      // P0-B: these two directories are EXCLUSIVELY hand-written
+      // `node <path>` assertion runners owned by the CI gap-closure gate
+      // (ci.yml runs them with `node ... | tee`, before `npm ci`). They are
+      // not vitest suites and must never be collected by `vitest run`.
+      // Directory-scoped patterns, not a hand-maintained file list: a new
+      // runner added under either directory (e.g. the P0-A
+      // HUMAN_PUBLISH_GATE reverse tests, or Relay's provider-interface
+      // tests) would otherwise silently turn `vitest run` red with
+      // "No test suite found in file" — which is exactly the regression
+      // measured on 2026-11-12 (2 failed files, VITEST_EXIT=1).
+      // The gate's own case-count floor (gate-assertion-floor.mjs) is what
+      // keeps these scripts honest; excluding them from vitest removes NO
+      // assertion from CI.
+      "scripts/tests/**/*.test.mjs",
+      "server/ai/tests/**/*.test.mjs",
+    ],
   },
 });

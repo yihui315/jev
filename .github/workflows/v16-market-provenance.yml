@@ -5,9 +5,21 @@ name: JEV V1.6 — Market Provenance Hardening
 # in-memory SQLite shims with injected fetchers (deterministic, offline).
 on:
   push:
-    branches: ["feature/v16-market-provenance-hardening"]
+    # Additive only (F-22-C / C14): "feature/jev-**" covers the V2 ops /
+    # integration branches (e.g. feature/jev-v2-ops-integration) whose PR base
+    # is a v16 branch. The three pre-existing entries stay as they are.
+    branches: ["feature/v16-market-provenance-hardening", "feature/v16-p0-gap-closure", "feature/v16-**", "feature/jev-**"]
   pull_request:
-    branches: ["release/jcc-v1.3-final"]
+    # "feature/v16-**" is ADDED, "release/jcc-v1.3-final" is RETAINED on purpose:
+    # the release-target rule is still a live invariant (asserted by Y1 in
+    # check-no-fake-live.mjs), dropping it would be a silent gate regression.
+    # NOTE ON SEMANTICS: GitHub filters `pull_request.branches` on the BASE ref,
+    # not the head ref. That is why PR #7 (head feature/jev-v2-ops-integration,
+    # base feature/v16-market-provenance-hardening) already runs this gate.
+    # "feature/jev-**" is added so a PR whose BASE is another ops branch is
+    # covered too — it does NOT widen head coverage, and it cannot: a PR that
+    # targets main/master still does not match, which stays a registered gap.
+    branches: ["release/jcc-v1.3-final", "feature/v16-**", "feature/jev-**"]
   workflow_dispatch:
 
 permissions:
@@ -80,13 +92,25 @@ jobs:
       - name: V1.6 new suites (field contract / mixing guard / units / migration / negative)
         working-directory: apps/equity_collector_v45
         run: |
+          # F-26 (same fail-open as Track B, same fix): summary.json is TRACKED
+          # IN GIT, so without a precondition a runner that writes nothing can be
+          # certified by the copy inherited from the last commit. Delete first so
+          # require() fails closed (MODULE_NOT_FOUND) instead.
+          rm -f ../../reports/evidence/v16/summary.json
           node tests/v16/run-all.mjs
           node -e "
           const p=require('path').resolve('../../reports/evidence/v16/summary.json');
           const s=require(p);
           if(s.overall!=='PASS'||s.counts.fail!==0){
             console.error('V16_SUITE_NOT_GREEN',JSON.stringify(s.counts));process.exit(1);}
-          console.log('V16_SUITE_OK '+JSON.stringify(s.counts));
+          if(s.counts.total!==8){
+            console.error('V16_SUITE_COUNT_CHANGED expected_groups=8',JSON.stringify(s.counts));process.exit(1);}
+          // R20: counts.total counts GROUPS, not assertions. The 104 figure that
+          // earlier reports leaned on lives here and nowhere in stdout, so freeze
+          // it explicitly — otherwise the number everyone quotes is unfrozen.
+          if(!s.assertions||s.assertions.total!==104||s.assertions.failed!==0){
+            console.error('V16_ASSERTION_COUNT_CHANGED expected_assertions=104',JSON.stringify(s.assertions));process.exit(1);}
+          console.log('V16_SUITE_OK '+JSON.stringify(s.counts)+' assertions='+JSON.stringify(s.assertions));
           "
 
       - name: Track B — AI Mock Contract Tests (offline, deterministic, no cost)
@@ -95,6 +119,21 @@ jobs:
           # Mock contract tests only, per the owner's CI policy: normal PR CI
           # never spends real provider tokens (Real-AI runs live in a separate
           # controlled task). The runner itself proves zero network usage.
+          #
+          # F-25 (same class as C12/F-22-G, second workflow): overall=PASS and
+          # failed=0 alone cannot tell "120 checks passed" from "3 checks passed
+          # and the rest were deleted". Freeze the shape so a silently shrinking
+          # suite is a hard failure instead of a green step. Bumping a number
+          # below is intentional friction: it must happen in the same commit that
+          # adds or removes a suite/check.
+          # F-26 (fail-closed freshness). The verifier below validates a JSON file
+          # that is TRACKED IN GIT, so without a precondition it can certify the
+          # copy inherited from the last commit — i.e. a run that never happened.
+          # Proven: replace the runner line with a no-op that exits 0 and writes
+          # nothing, and the step still prints V16_AI_CONTRACT_OK / exit 0. Delete
+          # the evidence first so `require()` fails closed (MODULE_NOT_FOUND) if the
+          # runner did not produce fresh evidence in THIS run.
+          rm -f ../../reports/evidence/v16_ai/v16_ai_contract_tests.json
           node server/ai/tests/run-all.mjs
           node -e "
           const p=require('path').resolve('../../reports/evidence/v16_ai/v16_ai_contract_tests.json');
@@ -103,6 +142,8 @@ jobs:
             console.error('V16_AI_CONTRACT_NOT_GREEN',JSON.stringify(s.counts));process.exit(1);}
           if(s.environment.network_calls!==0){
             console.error('V16_AI_TESTS_MADE_NETWORK_CALLS',s.environment.network_calls);process.exit(1);}
+          if(s.counts.suites!==10||s.counts.checks!==120){
+            console.error('V16_AI_CHECK_COUNT_CHANGED expected_suites=10 expected_checks=120',JSON.stringify(s.counts));process.exit(1);}
           console.log('V16_AI_CONTRACT_OK '+JSON.stringify(s.counts)+' network_calls=0');
           "
 

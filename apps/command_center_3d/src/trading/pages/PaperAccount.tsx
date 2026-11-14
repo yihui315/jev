@@ -6,6 +6,7 @@ import { useJevQuery } from "../api/useJev";
 import { jevFetch, cancelPaperOrder } from "../api/client";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
+import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
 
 export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
   const [sessionReady, setSessionReady] = useState(false);
@@ -46,25 +47,25 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
         </Banner>
 
         <div className="jev-grid cols-4">
-          <Panel title="净值 / 现金" right={<StatusPill label="LIVE" />}>
+          <Panel title="净值 / 现金" right={<StatusPill label={deriveStatusLabel(acc)} />}>
             <Metric label="净值" value={s ? fmtUsd(s.equity) : "—"} />
             <Metric label="可用现金" value={s ? fmtUsd(s.availableCash) : "—"} />
             <Metric label="市值" value={s ? fmtUsd(s.marketValue) : "—"} />
             <SourceFooter meta={acc.meta} />
           </Panel>
-          <Panel title="盈亏" right={<StatusPill label="LIVE" />}>
+          <Panel title="盈亏" right={<StatusPill label={deriveStatusLabel(acc)} />}>
             <Metric label="未实现" value={s ? fmtUsd(s.unrealizedPnl) : "—"} tone={s && s.unrealizedPnl >= 0 ? "up" : "down"} />
             <Metric label="已实现" value={s ? fmtUsd(s.realizedPnl) : "—"} tone={s && s.realizedPnl >= 0 ? "up" : "down"} />
             <Metric label="总盈亏" value={s ? fmtUsd(s.totalPnl) : "—"} tone={s && s.totalPnl >= 0 ? "up" : "down"} />
             <SourceFooter meta={acc.meta} />
           </Panel>
-          <Panel title="风险" right={<StatusPill label="LIVE" />}>
+          <Panel title="风险" right={<StatusPill label={deriveStatusLabel(acc)} />}>
             <Metric label="回撤" value={s ? (Number(s.drawdown) * 100).toFixed(2) + "%" : "—"} />
             <Metric label="敞口占比" value={s ? (Number(s.exposurePct) * 100).toFixed(1) + "%" : "—"} />
             <Metric label="日亏损熔断" value={s ? (s.dailyLossLocked ? "触发" : "正常") : "—"} tone={s && s.dailyLossLocked ? "down" : undefined} />
             <SourceFooter meta={acc.meta} />
           </Panel>
-          <Panel title="事件回放验证" right={<StatusPill label={replay.data?.verified ? "VERIFIED" : "LIVE"} />}>
+          <Panel title="事件回放验证" right={<StatusPill label={replay.data?.verified ? "VERIFIED" : deriveStatusLabel(replay)} />}>
             <Metric label="回放结果" value={replay.data ? (replay.data.verified ? "一致 ✓" : "不一致 ✗") : "—"} tone={replay.data?.verified ? "up" : replay.data ? "down" : undefined} />
             <Metric label="快照数" value={replay.data?.snapshots ?? "—"} />
             <Metric label="最后序列" value={replay.data?.lastSequence ?? "—"} />
@@ -73,7 +74,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
         </div>
 
         <div className="jev-grid cols-2" style={{ marginTop: 14 }}>
-          <Panel title="持仓" sub={s ? `${s.positions?.length ?? 0} 个` : ""} right={<StatusPill label="LIVE" />}>
+          <Panel title="持仓" sub={s ? `${s.positions?.length ?? 0} 个` : ""} right={<StatusPill label={deriveStatusLabel(acc)} />}>
             <StateView q={acc} emptyText="无持仓" />
             {s?.positions?.length ? (
               <table className="jev-table">
@@ -88,7 +89,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
             <SourceFooter meta={acc.meta} />
           </Panel>
 
-          <Panel title="权益曲线" sub={equity.data?.table_present ? `${equity.data.count} 点` : "快照表未创建"} right={<StatusPill label={equity.data?.count ? "LIVE" : "NO_DATA"} />}>
+          <Panel title="权益曲线" sub={equity.data?.table_present ? `${equity.data.count} 点` : "快照表未创建"} right={<StatusPill label={equity.data?.count ? deriveStatusLabel(equity) : "NO_DATA"} />}>
             <StateView q={equity} emptyText="无权益快照：冻结引擎前 3 个迁移未创建 equity 快照表，因此不展示任何曲线（绝不伪造）" />
             {equity.data?.count ? (
               <table className="jev-table">
@@ -104,7 +105,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
           </Panel>
         </div>
 
-        <Panel title="委托与撤单" sub={`${orders.data?.orders?.length ?? 0} 笔`} right={<StatusPill label="LIVE" />} >
+        <Panel title="委托与撤单" sub={`${orders.data?.orders?.length ?? 0} 笔`} right={<StatusPill label={deriveStatusLabel(orders)} />} >
           <StateView q={orders} emptyText="无委托" />
           {orders.data?.orders?.length ? (
             <table className="jev-table">
@@ -120,7 +121,7 @@ export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
           <SourceFooter meta={orders.meta} />
         </Panel>
 
-        <Panel title="服务端事件流（账户状态哈希链）" sub={`${events.data?.events?.length ?? 0} 条`} right={<StatusPill label="LIVE" />}>
+        <Panel title="服务端事件流（账户状态哈希链）" sub={`${events.data?.events?.length ?? 0} 条`} right={<StatusPill label={deriveStatusLabel(events)} />}>
           <StateView q={events} emptyText="无事件" />
           {events.data?.events?.length ? (
             <table className="jev-table">

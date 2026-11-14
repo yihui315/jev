@@ -4,7 +4,11 @@ on:
   push:
     branches: ["feat/jev-trading-workbench", "feat/**", "feature/**", "main", "master"]
   pull_request:
-    branches: ["main", "master"]
+    # F-22-C: "main","master" alone meant a PR whose BASE is an integration
+    # branch got ZERO checks published on the PR page (the push trigger below is
+    # a different event and does not populate PR checks). "feature/**" is added
+    # so an integration branch used as a PR base also runs this workflow.
+    branches: ["main", "master", "feature/**"]
 
 permissions:
   contents: read
@@ -22,12 +26,122 @@ jobs:
       run:
         working-directory: apps/command_center_3d
     steps:
+      # fetch-depth: 0 — the P0 gap-closure gate below runs
+      # server/ai/tests/day14-p0-runner.mjs, whose B1 falsifiability case calls
+      # runnerSourceAt("ebc3fcc") → `git show ebc3fcc:...`. The default
+      # fetch-depth: 1 omits that object, and day14-p0-lib.mjs THROWS on a
+      # failed `git show` (it never silently skips), so a shallow clone makes
+      # the gate a deterministic false red. Deepening the clone does not change
+      # the verdict of any pre-existing test.
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: apps/command_center_3d/package-lock.json
+
+      # =========================================================================
+      # P0/P1/P2/P3P4 gap-closure gate — THIS MUST REMAIN THE FIRST `run` STEP
+      # (i.e. immediately after checkout + setup-node, and BEFORE `npm ci`).
+      #
+      # ORDERING RATIONALE (F-21): this gate used to sit after Install /
+      # Typecheck / Build / Unit tests. On Run 42968141252 a red unit test made
+      # GitHub report this step as `skipped`, so every gate case never ran —
+      # the gate disappeared at exactly the moment it was most needed. Putting
+      # it first is only legitimate because NONE of the 11 gate suites imports
+      # anything outside `node:*` stdlib and repo-relative paths. This was
+      # re-proven on a clean bundle clone with node_modules ABSENT: all 11
+      # suites exited 0 (logs_restored_6f91d29/). Dependencies ARE installed
+      # on the CI host for the later tsc/vitest steps; the gate itself must
+      # stay dependency-free. If a suite ever gains a node_modules import,
+      # this ordering must be re-proven rather than assumed.
+      #
+      # HARD-FAIL SEMANTICS ARE NOT WEAKENED: `set -euo pipefail`, a `test -f`
+      # presence check before every suite, and no `continue-on-error` / no
+      # `if: always()` anywhere in this step.
+      #
+      # Each suite is teed into its own log so the assertion-count floor step
+      # below can prove the suites still assert as much as they claim to
+      # (C12 / F-22-G). Logs go to $RUNNER_TEMP on purpose — keeping the
+      # workspace byte-identical to the checkout avoids editing .gitignore and
+      # removes any chance of a stale log being committed.
+      # =========================================================================
+      - name: P0/P1/P2/P3P4 gap-closure gate (frozen contracts + data tests)
+        working-directory: .
+        env:
+          GATE_LOG_DIR: ${{ runner.temp }}/jcc-gate
+        run: |
+          set -euo pipefail
+          mkdir -p "$GATE_LOG_DIR"
+          test -f apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs || { echo "P0 CONTRACTS TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs 2>&1 | tee "$GATE_LOG_DIR/1-p0-contracts.log"
+          test -f apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs || { echo "P0 RUNNER TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs 2>&1 | tee "$GATE_LOG_DIR/2-p0-runner.log"
+          test -f apps/equity_collector_v45/tests/market-data.test.mjs || { echo "P1 TEST MISSING"; exit 1; }
+          node apps/equity_collector_v45/tests/market-data.test.mjs 2>&1 | tee "$GATE_LOG_DIR/3-market-data.log"
+          test -f apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs || { echo "P2 TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs 2>&1 | tee "$GATE_LOG_DIR/4-inference-evidence.log"
+          test -f apps/command_center_3d/scripts/day14-research/p3-contracts.mjs || { echo "P3P4 TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/day14-research/p3-contracts.mjs 2>&1 | tee "$GATE_LOG_DIR/5-p3-contracts.log"
+          # Remaining hand-written `node <path>` assertion suites (6-11).
+          # They use node:assert + exit code rather than describe/it, so
+          # vite.config.ts excludes them from vitest collection and they run
+          # here instead. The floor below freezes each one's case count.
+          test -f apps/command_center_3d/scripts/supervisor/supervisor.test.mjs || { echo "SUPERVISOR TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/supervisor/supervisor.test.mjs 2>&1 | tee "$GATE_LOG_DIR/6-supervisor.log"
+          test -f apps/command_center_3d/scripts/check-no-fake-live.mjs || { echo "NO-FAKE-LIVE CHECK MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/check-no-fake-live.mjs 2>&1 | tee "$GATE_LOG_DIR/7-no-fake-live.log"
+          # Request-body reader: byte fidelity (a multi-byte character split across a
+          # chunk boundary must not be rewritten) + the byte cap. This suite also
+          # carries a permanent NEGATIVE CONTROL that runs the pre-fix reader and
+          # asserts it corrupts the body, so the assertions cannot silently lose
+          # their teeth.
+          test -f apps/command_center_3d/server/tests/http-body-read.mjs || { echo "HTTP BODY TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/tests/http-body-read.mjs 2>&1 | tee "$GATE_LOG_DIR/8-api-body-read.log"
+          # The FINAL-10 evidence judge. It runs the real module in a subprocess
+          # instead of re-implementing the rules in JS: two implementations
+          # agreeing is evidence about the author, not about the target.
+          test -f apps/command_center_3d/scripts/tests/final10-judge.test.mjs || { echo "FINAL-10 JUDGE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/tests/final10-judge.test.mjs 2>&1 | tee "$GATE_LOG_DIR/9-final10-judge.log"
+          # P0-A HUMAN_PUBLISH_GATE: 32 cases. Six mandated reverse tests plus
+          # identity/scope/replay/audit fail-closed checks. N12 is the
+          # Paper/Shadow unattended regression; N23/N24 are the Aegis C1
+          # delimiter-collision fix (a shifted-boundary grant must be refused);
+          # N25 is the Aegis C6 state/audit fail-closed fix; N26/N27/N28 are
+          # the Aegis round-2 malformed-UTF-16 fix (reject, do not normalise);
+          # N29/N30/N31/N32 are the Aegis round-3 String()-type-confusion fix
+          # (reject non-string signed fields; type-aware, injective HMAC preimage).
+          test -f apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs || { echo "HUMAN PUBLISH GATE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/scripts/tests/human-publish-gate.test.mjs 2>&1 | tee "$GATE_LOG_DIR/10-human-publish-gate.log"
+          # P0-C JEV AI Provider Gateway: 16 cases. Per-runtime 4/6/2 registry,
+          # four-state (registered/configured/verified/callable) bookkeeping, and
+          # the provider-attribution guard that stops one model's success from
+          # being recorded as another model's. No network calls are made here.
+          test -f apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs || { echo "PROVIDER INTERFACE TEST MISSING"; exit 1; }
+          node apps/command_center_3d/server/ai/tests/t10-provider-interface.test.mjs 2>&1 | tee "$GATE_LOG_DIR/11-provider-interface.log"
+
+      # C12 / F-22-G: exit codes alone cannot tell "215 cases passed" from
+      # "3 assertions passed and the rest were deleted". This step enforces a
+      # frozen, declarative per-suite assertion count against the logs written
+      # above. It is a SEPARATE step (not folded into the gate) so a violation
+      # shows up as its own named red step instead of an anonymous exit 1.
+      - name: Gate case-count floor (C12 / F-22-G)
+        working-directory: .
+        env:
+          GATE_LOG_DIR: ${{ runner.temp }}/jcc-gate
+        run: |
+          set -euo pipefail
+          # Invoked through a variable on purpose: the Y2 static check in
+          # check-no-fake-live.mjs collects every line-start `node <path>.mjs`
+          # invocation and demands that set EQUAL the 11 gate suites. The
+          # floor script is not a gate suite, so it is referenced indirectly and
+          # therefore cannot be mistaken for a 12th suite by that check.
+          GATE_FLOOR_SCRIPT="apps/command_center_3d/scripts/gate-assertion-floor.mjs"
+          test -f "$GATE_FLOOR_SCRIPT" || { echo "GATE FLOOR SCRIPT MISSING"; exit 1; }
+          node "$GATE_FLOOR_SCRIPT" "$GATE_LOG_DIR"
+
       - name: Install
         run: npm ci
       - name: Typecheck
@@ -47,8 +161,21 @@ jobs:
           node <<'NODE'
           const fs = require('fs');
           const p = 'vitest-unit.json';
-          if (!fs.existsSync(p)) { console.log('no unit report'); process.exit(0); }
+          if (!fs.existsSync(p)) {
+            console.error('UNIT_REPORT_MISSING: ' + p + ' - the unit step produced no report');
+            process.exit(1);
+          }
           const j = JSON.parse(fs.readFileSync(p, 'utf8'));
+          // Phase A / P0: an exit code alone cannot certify the unit suite.
+          // A missing/invalid report or ANY failed test is a hard red here,
+          // even though this step runs under `if: always()`.
+          if (!Number.isInteger(j.numTotalTests) || j.numTotalTests <= 0 ||
+              !Number.isInteger(j.numPassedTests) || j.numFailedTests !== 0) {
+            console.error('UNIT_REPORT_INVALID ' + JSON.stringify({
+              total: j.numTotalTests, passed: j.numPassedTests,
+              failed: j.numFailedTests, skipped: j.numPendingTests }));
+            process.exit(1);
+          }
           const s = 'UNIT(mock/offline): total=' + j.numTotalTests +
             ' passed=' + j.numPassedTests + ' failed=' + j.numFailedTests +
             ' skipped=' + j.numPendingTests;
@@ -63,7 +190,13 @@ jobs:
         with:
           name: unit-test-results
           path: apps/command_center_3d/vitest-unit.json
-          if-no-files-found: warn
+          if-no-files-found: error
+
+      # The P0/P1/P2/P3P4 gap-closure gate used to live HERE (after unit tests).
+      # It now runs as the first `run` step of this job — see the F-21 note at
+      # the top of the `steps:` list. It was NOT deleted and it was NOT made
+      # non-blocking: moving it is the whole fix for F-21, keeping it here would
+      # let an upstream failure report it as `skipped`.
 
   real-data-probe:
     name: Real Binance market-data probe (non-blocking)
