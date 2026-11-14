@@ -7,7 +7,7 @@ import { useJevQuery } from "../api/useJev";
 import { jevFetch, placePaperOrder, makeIds } from "../api/client";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
-import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
+import { deriveStatusLabel } from "../provenance";
 
 const SYMBOLS = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT"];
 const INTERVALS = ["1m", "5m", "15m", "1h", "4h", "1d"];

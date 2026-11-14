@@ -1,5 +1,8 @@
 // JEV Trading Desk V1.0 — app shell + hash router with refresh restore.
 // Six pages all consume the single /api/jev adapter (see api/client.ts).
+// V2 Cockpit: a 7th page (#/cockpit) is added WITHOUT touching the six
+// existing pages, so no existing functionality is lost. It is the default
+// home, and every original hash route stays reachable.
 import { useEffect, useState, useCallback, type FormEvent } from "react";
 import { Sidebar, TopBar, AuditDrawer, NAV, type PageId } from "./components/Shell";
 import { AICommandCenter } from "./pages/AICommandCenter";
@@ -8,6 +11,7 @@ import { MarketUniverse3D } from "./pages/MarketUniverse3D";
 import { StrategyArena } from "./pages/StrategyArena";
 import { PaperAccount } from "./pages/PaperAccount";
 import { AIExpertTeam } from "./pages/AIExpertTeam";
+import { TradingCockpit } from "./pages/TradingCockpit";
 import { getPreviewCreds, setPreviewCreds, clearPreviewCreds } from "./api/previewAuth";
 
 const ROUTE_RE = /^#\/?([a-z]+)$/;
@@ -15,8 +19,8 @@ const ROUTE_RE = /^#\/?([a-z]+)$/;
 function readRoute(): PageId {
   const h = window.location.hash || "";
   const m = h.match(ROUTE_RE);
-  const id = m ? (m[1] as PageId) : "command";
-  return NAV.some((n) => n.id === id) ? id : "command";
+  const id = m ? (m[1] as PageId) : "cockpit";
+  return NAV.some((n) => n.id === id) ? id : "cockpit";
 }
 
 function useClock() {
@@ -50,6 +54,7 @@ export function TradingApp() {
   const meta: Record<PageId, string> = {
     command: "VERIFIED", workbench: "LIVE", universe: "LIVE",
     strategy: "NO_DATA", account: "LIVE", team: "BLOCKED",
+    cockpit: "LIVE",
   };
   const title = NAV.find((n) => n.id === page)?.label ?? "";
   const clock = `${now.toISOString().slice(0, 19).replace("T", " ")} UTC`;
@@ -88,6 +93,7 @@ export function TradingApp() {
         {page === "strategy" && <StrategyArena topbar={topbar} />}
         {page === "account" && <PaperAccount topbar={topbar} />}
         {page === "team" && <AIExpertTeam topbar={topbar} />}
+        {page === "cockpit" && <TradingCockpit topbar={topbar} />}
       </main>
       {auditOpen && <AuditDrawer onClose={() => setAuditOpen(false)} />}
       {showLogin ? (

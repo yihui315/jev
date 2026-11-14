@@ -6,7 +6,7 @@ import { useJevQuery } from "../api/useJev";
 import { jevFetch, cancelPaperOrder } from "../api/client";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView, fmtUsd, fmtPrice, fmtQty } from "../components/common";
 import { TopBar } from "../components/Shell";
-import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
+import { deriveStatusLabel } from "../provenance";
 
 export function PaperAccount({ topbar }: { topbar: React.ReactNode }) {
   const [sessionReady, setSessionReady] = useState(false);

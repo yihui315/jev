@@ -197,3 +197,249 @@ body {
   border-radius: 8px; padding: 10px; font-size: 13px; cursor: pointer;
 }
 .jev-login button[type="submit"]:disabled { opacity: .45; cursor: not-allowed; }
+
+/* ==========================================================================
+ * V2 Trading Cockpit — APPENDED theme & layout (dense institutional dark).
+ * Every selector is prefixed `.cockpit-` / `.ck-` so the six legacy pages are
+ * untouched. Desktop-wide (>=1440px) first; min-height/min-width keep the
+ * chart at a non-zero height and stop panes from overflowing.
+ * ========================================================================== */
+:root {
+  --ck-bg: #05080E;
+  --ck-surface: #0B121C;
+  --ck-surface-2: #0F1826;
+  --ck-border: #1E2C3E;
+  --ck-border-strong: #2C3E55;
+  --ck-text: #DCE7F4;
+  --ck-muted: #6E819A;
+  --ck-green: #1FD1A5;
+  --ck-red: #FF5364;
+  --ck-amber: #F5B544;
+  --ck-blue: #4C8DFF;
+  --ck-cyan: #38BDF8;
+}
+
+.cockpit {
+  display: flex; flex-direction: column; gap: 10px;
+  background: radial-gradient(140% 120% at 12% -10%, rgba(40,80,140,.10), transparent 55%), var(--ck-bg);
+  min-height: 100%;
+}
+
+/* ---- generic panel ---- */
+.cockpit-panel {
+  background: linear-gradient(180deg, var(--ck-surface-2), var(--ck-surface));
+  border: 1px solid var(--ck-border); border-radius: 8px;
+  min-width: 0; min-height: 0;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.cockpit-panel > .ck-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 12px; border-bottom: 1px solid var(--ck-border);
+  background: rgba(255,255,255,.015); flex: 0 0 auto;
+}
+.cockpit-panel > .ck-head .ck-title {
+  font-size: 11px; font-weight: 700; letter-spacing: .8px;
+  text-transform: uppercase; color: var(--ck-text);
+}
+.cockpit-panel > .ck-head .ck-sub { color: var(--ck-muted); font-size: 10.5px; font-family: var(--mono); }
+.cockpit-panel > .ck-head .ck-spacer { flex: 1; }
+.cockpit-panel > .ck-body { flex: 1; min-height: 0; overflow: auto; padding: 10px 12px; }
+.cockpit-panel > .ck-body.flush { padding: 0; }
+
+/* ---- domain & status badges ---- */
+.ck-badge {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: .5px;
+  padding: 1px 6px; border-radius: 3px; border: 1px solid var(--ck-border-strong);
+  color: var(--ck-muted); white-space: nowrap; text-transform: uppercase;
+}
+.ck-badge.live { color: var(--ck-green); border-color: rgba(31,209,165,.45); background: rgba(31,209,165,.08); }
+.ck-badge.paper { color: var(--ck-amber); border-color: rgba(245,181,68,.45); background: rgba(245,181,68,.08); }
+.ck-badge.blocked { color: var(--ck-red); border-color: rgba(255,83,100,.45); background: rgba(255,83,100,.08); }
+.ck-badge.nodata { color: var(--ck-muted); }
+.ck-badge.unavailable { color: var(--ck-amber); border-color: rgba(245,181,68,.45); }
+.ck-badge.real { color: var(--ck-cyan); border-color: rgba(56,189,248,.4); }
+
+/* ---- honest N/A state ---- */
+.ck-na { color: var(--ck-muted); font-family: var(--mono); font-size: 11px; }
+.ck-na.big {
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  height: 100%; min-height: 120px; margin: 10px; font-size: 12px; letter-spacing: .5px;
+  color: var(--ck-amber); border: 1px dashed var(--ck-border-strong); border-radius: 6px;
+}
+
+/* ---- top metric strip ---- */
+.cockpit-strip {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1px; background: var(--ck-border);
+  border: 1px solid var(--ck-border); border-radius: 8px; overflow: hidden; flex: 0 0 auto;
+}
+.cockpit-strip > * { background: var(--ck-surface); }
+
+/* ---- main workspace: work columns + right analysis rail ---- */
+.cockpit-workspace {
+  display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 10px;
+  /* Explicit height makes percentage split ratios meaningful and guarantees
+     the chart never collapses to zero. Desktop-wide (>=1440px) is the target. */
+  height: clamp(760px, calc(100vh - 168px), 1180px);
+  min-height: 760px; flex: 0 0 auto;
+}
+.cockpit-rail { min-height: 0; }
+
+/* ---- vertical split (upper market / lower ledger) ---- */
+.cockpit-vsplit { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+.cockpit-vpane { min-height: 0; min-width: 0; overflow: hidden; display: flex; }
+.cockpit-vpane.lower { flex: 1 1 0; }
+
+/* ---- horizontal split (chart / book+order) ---- */
+.cockpit-hsplit { display: flex; min-height: 0; min-width: 0; width: 100%; }
+.cockpit-hpane { min-height: 0; min-width: 0; overflow: hidden; display: flex; }
+.cockpit-hpane.right { flex: 1 1 0; }
+
+/* ---- splitters ---- */
+.ck-splitter { flex: 0 0 8px; position: relative; cursor: col-resize; background: transparent; }
+.ck-splitter::after {
+  content: ""; position: absolute; inset: 2px 3px;
+  border-radius: 4px; background: var(--ck-border); transition: background .15s;
+}
+.ck-splitter:hover::after { background: var(--ck-blue); }
+.ck-splitter.v { cursor: row-resize; }
+.ck-splitter.v::after { inset: 3px 2px; }
+
+/* ---- chart (explicit non-zero height) ---- */
+.cockpit-chart { width: 100%; height: 320px; }
+.cockpit-chart-wrap { position: relative; }
+.cockpit-chart-legend {
+  position: absolute; left: 10px; top: 8px; z-index: 2;
+  font-family: var(--mono); font-size: 10.5px; color: var(--ck-muted);
+  background: rgba(5,8,14,.72); border: 1px solid var(--ck-border);
+  border-radius: 5px; padding: 4px 8px; pointer-events: none;
+}
+
+/* ---- segmented controls / forms ---- */
+.ck-seg { display: inline-flex; border: 1px solid var(--ck-border); border-radius: 6px; overflow: hidden; }
+.ck-seg button {
+  background: var(--ck-surface); color: var(--ck-muted); border: none;
+  padding: 5px 10px; cursor: pointer; font-family: var(--mono); font-size: 11px;
+}
+.ck-seg button.on { background: var(--ck-surface-2); color: var(--ck-text); box-shadow: inset 0 -2px 0 var(--ck-blue); }
+.ck-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.ck-form { display: flex; flex-direction: column; gap: 8px; }
+.ck-field { display: flex; flex-direction: column; gap: 3px; }
+.ck-field label { color: var(--ck-muted); font-size: 10.5px; }
+.ck-input, .ck-select {
+  background: var(--ck-bg); border: 1px solid var(--ck-border-strong); color: var(--ck-text);
+  border-radius: 5px; padding: 6px 8px; font-family: var(--mono); font-size: 11.5px; width: 100%;
+}
+.ck-input:focus, .ck-select:focus { outline: none; border-color: var(--ck-blue); }
+.ck-btn {
+  border: none; border-radius: 5px; padding: 8px 12px; cursor: pointer;
+  font-size: 11.5px; font-weight: 700; letter-spacing: .3px; color: #04121A;
+}
+.ck-btn.buy { background: var(--ck-green); }
+.ck-btn.sell { background: var(--ck-red); color: #1A0406; }
+.ck-btn.ghost { background: var(--ck-surface-2); color: var(--ck-text); border: 1px solid var(--ck-border-strong); }
+.ck-btn.confirm { background: var(--ck-amber); color: #241703; }
+.ck-btn:disabled { opacity: .45; cursor: not-allowed; }
+.ck-msg { font-family: var(--mono); font-size: 11px; }
+.ck-msg.ok { color: var(--ck-green); }
+.ck-msg.err { color: var(--ck-red); }
+
+/* ---- order book ---- */
+.ck-book { font-family: var(--mono); font-size: 10.5px; }
+.ck-book .row { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; padding: 2px 6px; position: relative; }
+.ck-book .row .bar { position: absolute; top: 0; bottom: 0; right: 0; opacity: .13; z-index: 0; }
+.ck-book .row span { position: relative; z-index: 1; text-align: right; }
+.ck-book .row .px { text-align: left; }
+.ck-book .asks .px { color: var(--ck-red); }
+.ck-book .bids .px { color: var(--ck-green); }
+.ck-book .mid { text-align: center; padding: 4px; color: var(--ck-muted); border-top: 1px solid var(--ck-border); border-bottom: 1px solid var(--ck-border); margin: 3px 0; }
+.ck-book .head { color: var(--ck-muted); }
+
+/* ---- tables ---- */
+.ck-table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 10.5px; }
+.ck-table th, .ck-table td { text-align: right; padding: 4px 7px; border-bottom: 1px solid var(--ck-border); white-space: nowrap; }
+.ck-table th:first-child, .ck-table td:first-child { text-align: left; }
+.ck-table th { color: var(--ck-muted); font-weight: 500; position: sticky; top: 0; background: var(--ck-surface); z-index: 1; }
+.ck-table tbody tr:hover { background: rgba(76,141,255,.06); }
+.ck-up { color: var(--ck-green); }
+.ck-down { color: var(--ck-red); }
+
+/* ---- bottom row: cost attribution + risk alerts ---- */
+.cockpit-bottom { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 10px; flex: 0 0 auto; }
+.ck-risk-list { display: flex; flex-direction: column; gap: 6px; }
+.ck-risk {
+  display: flex; gap: 8px; align-items: flex-start; font-family: var(--mono);
+  font-size: 10.5px; padding: 6px 8px; border: 1px solid var(--ck-border);
+  border-radius: 5px; background: var(--ck-surface);
+}
+.ck-risk .dot { flex: 0 0 7px; height: 7px; border-radius: 50%; margin-top: 4px; }
+.ck-risk.crit { border-color: rgba(255,83,100,.4); } .ck-risk.crit .dot { background: var(--ck-red); }
+.ck-risk.warn { border-color: rgba(245,181,68,.4); } .ck-risk.warn .dot { background: var(--ck-amber); }
+.ck-risk.info .dot { background: var(--ck-blue); }
+
+/* ---- help overlay ---- */
+.ck-help-backdrop { position: fixed; inset: 0; background: rgba(3,6,11,.72); z-index: 60; display: flex; align-items: center; justify-content: center; }
+.ck-help {
+  width: 460px; max-width: 92vw; background: var(--ck-surface);
+  border: 1px solid var(--ck-border-strong); border-radius: 10px; padding: 18px 20px;
+  box-shadow: 0 24px 70px rgba(0,0,0,.6);
+}
+.ck-help h2 { margin: 0 0 12px; font-size: 14px; }
+.ck-help table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.ck-help td { padding: 5px 6px; border-bottom: 1px solid var(--ck-border); }
+.ck-help td.k { font-family: var(--mono); color: var(--ck-blue); white-space: nowrap; width: 130px; }
+.ck-help .note { color: var(--ck-amber); font-size: 11px; margin-top: 12px; }
+
+/* ---- provenance footer ---- */
+.ck-source { display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 12px; border-top: 1px solid var(--ck-border); color: var(--ck-muted); font-size: 10px; font-family: var(--mono); flex: 0 0 auto; }
+.ck-source .v { color: var(--ck-text); }
+
+/* ---- responsive ---- */
+@media (max-width: 1439px) {
+  .cockpit-workspace { grid-template-columns: minmax(0, 1fr) 280px; }
+  .cockpit-bottom { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+@media (max-width: 1180px) {
+  .cockpit-workspace { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .cockpit-rail { min-height: 260px; }
+  .cockpit-vsplit { min-height: 720px; }
+  .cockpit-bottom { grid-template-columns: 1fr; }
+  .cockpit-hsplit { flex-direction: column; }
+  .cockpit-hpane.left, .cockpit-hpane.right { flex: 1 1 auto; }
+  .ck-splitter { display: none; }
+}
+
+/* ==========================================================================
+ * P0 layout fix (APPENDED overrides — every original rule above is untouched).
+ * Root cause: .cockpit-workspace was pinned to a fixed clamp() height while
+ * the panes/panels used overflow:hidden, so the order ticket and cost section
+ * were clipped permanently; .jev-content (overflow-y:auto) kept scrolling
+ * trapped and documentElement.scrollHeight stayed == viewport height.
+ * Fix: the Cockpit is now a naturally-tall, document-level scrolling page;
+ * every pane grows with its content; no ancestor clips content away.
+ * ========================================================================== */
+.jev-content.cockpit-content {
+  flex: 0 0 auto;      /* no longer a fixed-height flex item */
+  overflow: visible;   /* content extends the document => real page scroll */
+}
+.cockpit { min-height: 0; }
+
+/* workspace grows with its content instead of a fixed clamp() height */
+.cockpit-workspace {
+  height: auto;
+  min-height: 0;
+  align-items: start;
+}
+
+/* no ancestor may permanently clip the order ticket / ledger / cost section */
+.cockpit-panel,
+.cockpit-vpane,
+.cockpit-hpane { overflow: visible; }
+
+.cockpit-hsplit { align-items: flex-start; }
+.cockpit-vpane.lower { min-height: 220px; }
+.cockpit-hpane { position: relative; }
+
+/* now that panels are overflow:visible, keep wide nowrap tables from creating
+   horizontal document overflow — each body stays a bounded scroll context */
+.cockpit-panel > .ck-body { min-width: 0; max-width: 100%; overflow-x: auto; }

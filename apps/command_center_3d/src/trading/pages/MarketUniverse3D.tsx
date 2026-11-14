@@ -9,7 +9,7 @@ import * as THREE from "three";
 import { useJevQuery } from "../api/useJev";
 import { Panel, Banner, StatusPill, SourceFooter, StateView } from "../components/common";
 import { TopBar } from "../components/Shell";
-import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
+import { deriveStatusLabel } from "../provenance";
 
 const ALL = ["BTCUSDT", "ETHUSDT", "ORDIUSDT", "1000SATSUSDT", "BNBUSDT", "SOLUSDT"];
 const COLLECTOR_ONLY = new Set(["BNBUSDT", "SOLUSDT"]);

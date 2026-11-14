@@ -108,6 +108,37 @@ export default defineConfig({
       // assertion from CI.
       "scripts/tests/**/*.test.mjs",
       "server/ai/tests/**/*.test.mjs",
+      // P0-B follow-up (2026-11-14): the same class of hand-written
+      // assertion runners also lives in these FIVE server/ai feature
+      // directories, never vitest globals. The default `**/*.test.mjs` glob
+      // collected all 14 of them and failed each with "No test suite found
+      // in file" (the 14 failed files of the baseline run). Their correct
+      // entry point is `node`, not vitest — but in TWO distinct shapes:
+      //   7 self-running node:test scripts -> `node <path>`;
+      //   7 provider-gateway `t-c-*` files export `async function run()`
+      //     and do NOT self-execute -> their real entry point is
+      //     `node server/ai/provider-gateway/tests/run-all.mjs`, which
+      //     aggregates them (34 cases, `RESULT PASS=34 FAIL=0`).
+      // These 14 are NOT among gate-assertion-floor.mjs's 11 frozen suites
+      // (ci.yml's gate step runs a DIFFERENT set of hand-written scripts);
+      // the floor does NOT pin their case counts. Excluding them from vitest
+      // removes NO assertion, and that guarantee does NOT come from the
+      // gate floor: it rests on the 14 .test.mjs files being byte-identical
+      // (sha256 unchanged), their static assert/case counts unchanged, and
+      // all `node` / run-all runs still passing. `exclude` only narrows
+      // vitest's glob: it edits NO test file, and every case still runs
+      // under `node` with its assertions intact.
+      // Directory-scoped patterns, as above: a new runner dropped into any of
+      // these directories stays excluded. Listed per-directory rather than
+      // one broad `server/ai/**/tests/**/*.test.mjs` on purpose — it pins the
+      // blast radius to the KNOWN node-runner directories and cannot silently
+      // swallow a future real vitest `.test.mjs` suite; the `.mjs` suffix
+      // never touches `src/**/*.test.ts` (the 22 real vitest suites).
+      "server/ai/commercial/tests/**/*.test.mjs",
+      "server/ai/phase-b/tests/**/*.test.mjs",
+      "server/ai/provider-gateway/tests/**/*.test.mjs",
+      "server/ai/real-backends/tests/**/*.test.mjs",
+      "server/ai/supervisor/tests/**/*.test.mjs",
     ],
   },
 });

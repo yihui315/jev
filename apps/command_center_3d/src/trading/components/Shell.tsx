@@ -7,7 +7,7 @@ import { StatusPill, SourceFooter } from "./common";
 import { IconShield, IconBolt, IconBook, IconCommand, IconChart, IconGlobe, IconFlask, IconWallet, IconTeam, type IconComp } from "./icons";
 import type { Label } from "../api/client";
 
-export type PageId = "command" | "workbench" | "universe" | "strategy" | "account" | "team";
+export type PageId = "command" | "workbench" | "universe" | "strategy" | "account" | "team" | "cockpit";
 
 export const NAV: { id: PageId; num: number; label: string; icon: IconComp }[] = [
   { id: "command", num: 1, label: "AI 交易指挥中心", icon: IconCommand },
@@ -16,6 +16,9 @@ export const NAV: { id: PageId; num: number; label: string; icon: IconComp }[] =
   { id: "strategy", num: 4, label: "策略竞赛实验室", icon: IconFlask },
   { id: "account", num: 5, label: "模拟交易账户", icon: IconWallet },
   { id: "team", num: 6, label: "AI 专家团队", icon: IconTeam },
+  // V2 Cockpit is appended as the 7th page; the six original routes/nums are
+  // left byte-for-byte intact so no existing functionality is lost.
+  { id: "cockpit", num: 7, label: "交易驾驶舱 · Cockpit", icon: IconCommand },
 ];
 
 export function Sidebar({ page, onSelect }: { page: PageId; onSelect: (p: PageId) => void }) {

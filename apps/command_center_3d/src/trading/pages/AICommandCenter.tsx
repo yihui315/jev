@@ -4,7 +4,7 @@
 import { useJevQuery } from "../api/useJev";
 import { Panel, Metric, Banner, StatusPill, SourceFooter, StateView } from "../components/common";
 import { TopBar } from "../components/Shell";
-import { deriveStatusLabel } from "../../views/trading/components/PageContainer";
+import { deriveStatusLabel } from "../provenance";
 
 export function AICommandCenter({ topbar }: { topbar: React.ReactNode }) {
   const sys = useJevQuery<any>("system/status");
