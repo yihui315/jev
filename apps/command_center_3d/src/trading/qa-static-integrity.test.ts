@@ -11,7 +11,7 @@
 // ALLOWED; what is forbidden is (1) importing it from the C-legacy
 // src/views/trading tree, (2) the mock identifiers USE_MOCK / mockData /
 // MARKET_DATA_SOURCE, and (3) losing any fail-closed branch in provenance.ts.
-// The exact changed-file set is cross-checked against `git status`.
+// The exact changed-file set is cross-checked against git (worktree + committed diff).
 //
 // Comments are stripped with a real state machine (strings/templates/regex are
 // protected) BEFORE the legacy words are looked for. MarketPanel.tsx and
@@ -41,9 +41,9 @@ const SIX_IDS = ["command", "workbench", "universe", "strategy", "account", "tea
 // Four pages rewritten by the P1 provenance fix; the other two stay untouched.
 const P1_FOUR = ["AICommandCenter", "TradingWorkbench", "MarketUniverse3D", "PaperAccount"];
 
-// Exact set of product-code files added/modified by this upgrade (from
-// `git status --short`), excluding QA *.test.ts files added by qa-verify.
-// Cross-checked against the live git working tree in a dedicated test below.
+// Exact set of product-code files added/modified by this upgrade, excluding
+// QA *.test.ts files added by qa-verify. Cross-checked against the live git
+// tree (uncommitted status + committed diff vs DELIVERY_BASE) in a test below.
 // The last five entries are the P1 (task #7) provenance fix — adding them
 // EXPANDS the L226 "ZERO legacy words" scan surface to 18 files.
 const CHANGED_FILES = [
@@ -118,12 +118,38 @@ function stripComments(src: string): string {
 }
 
 interface Changed { status: string; path: string }
+// 本批升级起点（升级前 HEAD）。白名单校验必须同时在「未提交」与「已提交」
+// 两种状态下成立：改动一旦 commit，git status 对这些路径就变空，只看 status
+// 会产生假红（2026-11-15 实测 2 failed / 1 failed suite）。`--relative` 让
+// committed 路径与 CHANGED_FILES 同前缀。这不是放宽：判定集合只会变大。
+const DELIVERY_BASE = "23e482f";
+
 function gitChangedPaths(): Changed[] {
-  const out = git("status --short -- src/trading server/trading_api.mjs vite.config.ts");
-  return out.split(/\r?\n/).filter((l) => l.trim().length > 0).map((l) => ({
-    status: l.slice(0, 2).trim(),
-    path: l.slice(3).trim().replace(/\\/g, "/").replace(/\/$/, ""),
-  }));
+  const SCOPE = "src/trading server/trading_api.mjs vite.config.ts";
+  const worktree = git(`status --short -- ${SCOPE}`)
+    .split(/\r?\n/).filter((l) => l.trim().length > 0).map((l) => ({
+      status: l.slice(0, 2).trim(),
+      path: l.slice(3).trim().replace(/\\/g, "/").replace(/\/$/, ""),
+    }));
+
+  let committed: Changed[] = [];
+  try {
+    committed = git(`diff --relative --name-only ${DELIVERY_BASE} HEAD -- ${SCOPE}`)
+      .split(/\r?\n/).filter((l) => l.trim().length > 0).map((p) => ({
+        status: "M",
+        path: p.trim().replace(/\\/g, "/").replace(/\/$/, ""),
+      }));
+  } catch {
+    // 基线对象不可达（浅克隆等）时不静默放行：缺文件会让下面的断言如实报红。
+    committed = [];
+  }
+
+  const seen = new Set<string>();
+  return [...worktree, ...committed].filter((c) => {
+    if (seen.has(c.path)) return false;
+    seen.add(c.path);
+    return true;
+  });
 }
 
 describe("QA harness sanity (so a green result is meaningful)", () => {
