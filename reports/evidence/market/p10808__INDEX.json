@@ -1,0 +1,317 @@
+{
+  "probe_schema": "jev-v15-market-index/1.0",
+  "index_scope": "api.binance.us via local sandbox proxy 10808 ONLY (separate network context)",
+  "generated_ts_utc": "2026-11-09T04:36:20.659+00:00",
+  "finished_ts_utc": "2026-11-09T04:36:27.175+00:00",
+  "network_context": "local_sandbox_proxy_10808",
+  "proxy": "http://127.0.0.1:10808",
+  "environment": {
+    "python": "3.13.14",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_used": false,
+    "remote_writes": false
+  },
+  "total_requests": 17,
+  "ok_count": 9,
+  "api_error_count": 8,
+  "transport_failure_count": 0,
+  "rows": [
+    {
+      "evidence_file": "binance_us_p10808__1000SATSUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__1000SATSUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__1000SATSUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__1000SATSUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "1000SATSUSDT",
+      "endpoint": "trades",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__BTCUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "BTCUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "a6fe5d2932581e62",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "75036.00000000",
+        "askPrice": "75036.01000000"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__BTCUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "BTCUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "53b02394e91180b9",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "BTC",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__BTCUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "BTCUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "7807d567cc20cf87",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "75020.35000000"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__BTCUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "BTCUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "4555cd6224f369af",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "75020.35000000",
+        "last_trade_time_ms": 1794198957487
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ETHUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ETHUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "98d471b1bd98fb0e",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "bidPrice": "2144.30000000",
+        "askPrice": "2144.40000000"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ETHUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ETHUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "d356e21ef867e03e",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "status": "TRADING",
+        "baseAsset": "ETH",
+        "quoteAsset": "USDT"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ETHUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ETHUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "5a19c6f8b855bc5c",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "price": "2143.87000000"
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ETHUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ETHUSDT",
+      "endpoint": "trades",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "37c83e2fb023da1b",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "last_trade_price": "2143.87000000",
+        "last_trade_time_ms": 1794198975297
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ORDIUSDT__bookTicker.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ORDIUSDT",
+      "endpoint": "bookTicker",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ORDIUSDT__exchangeInfo.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ORDIUSDT",
+      "endpoint": "exchangeInfo",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ORDIUSDT__ticker_price.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ORDIUSDT",
+      "endpoint": "ticker_price",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__ORDIUSDT__trades.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "ORDIUSDT",
+      "endpoint": "trades",
+      "http_status": 400,
+      "server": "nginx",
+      "body_sha256_short16": "882fbec4a8b18dbb",
+      "classification": "API_ERROR",
+      "api_error_code": -1121,
+      "key_fields": {
+        "api_error_msg": "Invalid symbol."
+      }
+    },
+    {
+      "evidence_file": "binance_us_p10808__SERVER__time.json",
+      "exchange": "Binance.US",
+      "market": "spot",
+      "network_context": "local_sandbox_proxy_10808",
+      "proxy": "http://127.0.0.1:10808",
+      "symbol": "SERVER",
+      "endpoint": "time",
+      "http_status": 200,
+      "server": "nginx",
+      "body_sha256_short16": "85429aab19e2df6d",
+      "classification": "OK",
+      "api_error_code": null,
+      "key_fields": {
+        "serverTime": 1794198983397
+      }
+    }
+  ]
+}

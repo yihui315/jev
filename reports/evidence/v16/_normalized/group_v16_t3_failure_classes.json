@@ -1,0 +1,222 @@
+{
+  "checks": [
+    {
+      "detail": {
+        "count": 3
+      },
+      "name": "three_unknown_rows_written",
+      "pass": true
+    },
+    {
+      "detail": {
+        "errorCode": "MARKET_TypeError",
+        "got": "TRANSPORT"
+      },
+      "name": "QA_T3_1_transport_failure_class_structured",
+      "pass": true
+    },
+    {
+      "detail": {
+        "errorCode": "MARKET_HTTP_503",
+        "got": "HTTP_ERROR"
+      },
+      "name": "QA_T3_1_http_error_failure_class_structured",
+      "pass": true
+    },
+    {
+      "detail": {
+        "errorCode": "MISSING_OR_UNLISTED_SYMBOL",
+        "got": "VENUE_BUSINESS"
+      },
+      "name": "QA_T3_1_venue_business_failure_class_structured",
+      "pass": true
+    },
+    {
+      "detail": [
+        {
+          "c": "c_throw",
+          "dq": "UNKNOWN"
+        },
+        {
+          "c": "c_503",
+          "dq": "UNKNOWN"
+        },
+        {
+          "c": "c_missing",
+          "dq": "UNKNOWN"
+        }
+      ],
+      "name": "unknown_rows_still_write_provenance",
+      "pass": true
+    },
+    {
+      "detail": [
+        {
+          "c": "c_throw",
+          "eq": 0,
+          "marks": "{}"
+        },
+        {
+          "c": "c_503",
+          "eq": 0,
+          "marks": "{}"
+        },
+        {
+          "c": "c_missing",
+          "eq": 0,
+          "marks": "{}"
+        }
+      ],
+      "name": "unknown_rows_no_fabricated_price",
+      "pass": true
+    },
+    {
+      "detail": {
+        "http503": "MARKET_HTTP_503",
+        "missing": "MISSING_OR_UNLISTED_SYMBOL",
+        "throw": "MARKET_TypeError"
+      },
+      "name": "honest_market_layer_error_codes_preserved",
+      "pass": true
+    },
+    {
+      "detail": {
+        "code": "MARKET_SOURCE_NOT_VERIFIED",
+        "host": "api.binance.com"
+      },
+      "name": "QA_T3_5_global_host_injection_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "firstFail": "MARKET_IDENTITY_INVALID",
+        "ok": false,
+        "sourceHostCheck": {
+          "code": "MARKET_SOURCE_NOT_VERIFIED",
+          "failureClass": "UNKNOWN",
+          "name": "source_host",
+          "pass": false
+        }
+      },
+      "name": "QA_T3_5_cycle_source_host_check_fails_closed",
+      "pass": true
+    },
+    {
+      "detail": {
+        "ctxCheck": {
+          "code": "MARKET_CONTEXT_UNRESOLVED",
+          "failureClass": "UNKNOWN",
+          "name": "network_context",
+          "pass": false
+        },
+        "firstFail": "MARKET_CONTEXT_UNRESOLVED",
+        "ok": false
+      },
+      "name": "QA2_D1_unknown_network_context_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "firstFail": "MARKET_CONTEXT_UNRESOLVED"
+      },
+      "name": "QA2_D1_missing_network_context_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "ctxCheck": {
+          "code": null,
+          "failureClass": "NONE",
+          "name": "network_context",
+          "pass": true
+        }
+      },
+      "name": "QA2_D1_resolved_network_context_passes_rule8",
+      "pass": true
+    },
+    {
+      "detail": {
+        "dq": "UNKNOWN",
+        "errorCode": "MARKET_TypeError",
+        "fc": "TRANSPORT",
+        "prov": 1,
+        "status": 200
+      },
+      "name": "FAULT_transport_injected_outage_is_unknown_transport_row",
+      "pass": true
+    },
+    {
+      "detail": {
+        "errorCode": "MARKET_HTTP_503",
+        "fc": "HTTP_ERROR",
+        "status": 200
+      },
+      "name": "FAULT_http503_injected_is_unknown_http_error_row",
+      "pass": true
+    },
+    {
+      "detail": {
+        "dq": "UNKNOWN",
+        "errorCode": "MARKET_SOURCE_NOT_VERIFIED",
+        "markContracts": "{}",
+        "status": 200
+      },
+      "name": "FAULT_global_host_rejected_as_unverified_market",
+      "pass": true
+    },
+    {
+      "detail": {
+        "note": "V45_TEST_TRIGGER !== 'true' must short-circuit before fault is read",
+        "status": 403
+      },
+      "name": "FAULT_trigger_false_returns_403_before_fault_handling",
+      "pass": true
+    },
+    {
+      "detail": {
+        "dq": "VERIFIED",
+        "fc": "NONE",
+        "status": 200
+      },
+      "name": "FAULT_no_fault_path_matches_v15_verified_behavior",
+      "pass": true
+    },
+    {
+      "detail": [
+        "{}",
+        "{}",
+        "{}"
+      ],
+      "name": "FAULT_unknown_rows_mark_contracts_json_is_object_not_array",
+      "pass": true
+    },
+    {
+      "detail": {
+        "scheduledHasFault": false,
+        "triggerGuardPresent": true
+      },
+      "name": "FAULT_scheduled_never_reads_fault_static",
+      "pass": true
+    },
+    {
+      "detail": {
+        "note": "src top-level uses the identity label, never a Global host literal (H4/T7)"
+      },
+      "name": "FAULT_src_uses_identity_label_no_forbidden_global_host",
+      "pass": true
+    }
+  ],
+  "extra": {
+    "faults": [
+      "transport",
+      "http503",
+      "global_host"
+    ],
+    "rows": 3
+  },
+  "meta": {
+    "coverage": "QA-T3-1 + QA-T3-5"
+  },
+  "testId": "v16_t3_failure_classes",
+  "verdict": "PASS"
+}

@@ -1,0 +1,31 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "V1.4 designated source; US-regulated market, DISTINCT from Binance Global",
+  "symbol": "BTCUSDT",
+  "endpoint": "bookTicker",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+    "path": "/api/v3/ticker/bookTicker?symbol=BTCUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:22.312+00:00",
+    "probe_ts_epoch_ms": 1794198262312,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "transport_error": {
+      "type": "URLError",
+      "msg": "<urlopen error Tunnel connection failed: 502 Bad Gateway>"
+    }
+  },
+  "derived": {
+    "ok": false,
+    "classification": "TRANSPORT_FAILURE",
+    "latency_s": 10.043,
+    "note": "No HTTP response obtained; upstream/proxy CONNECT failure. NOT evidence of listing status on the exchange."
+  }
+}

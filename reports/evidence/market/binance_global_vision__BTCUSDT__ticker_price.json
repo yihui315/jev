@@ -1,0 +1,51 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "BTCUSDT",
+  "endpoint": "ticker_price",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+    "path": "/api/v3/ticker/price?symbol=BTCUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:43.338+00:00",
+    "probe_ts_epoch_ms": 1794198283338,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:44 GMT",
+      "x_mbx_uuid": "ad49e58f-61d6-476e-a9ff-8adcb18d325e",
+      "x_mbx_used_weight": "32",
+      "x_mbx_used_weight_1m": "32",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 45,
+    "body_sha256": "c9fd9e01f74e85df6cee2abc473c359cbc74051fe011b94752c6bc73cfecbb56",
+    "body_sha256_short16": "c9fd9e01f74e85df",
+    "body_excerpt_500": "{\"symbol\":\"BTCUSDT\",\"price\":\"74936.01000000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "BTCUSDT",
+      "price": "74936.01000000",
+      "price_unit": "quote_asset per 1 base_asset (see exchangeInfo.quoteAsset)"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.328,
+    "is_cloudflare_html_block": false
+  }
+}

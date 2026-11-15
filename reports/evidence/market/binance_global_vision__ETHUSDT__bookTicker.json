@@ -1,0 +1,53 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "ETHUSDT",
+  "endpoint": "bookTicker",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/ticker/bookTicker?symbol=ETHUSDT",
+    "path": "/api/v3/ticker/bookTicker?symbol=ETHUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:45.133+00:00",
+    "probe_ts_epoch_ms": 1794198285133,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:46 GMT",
+      "x_mbx_uuid": "86f64d0e-f81a-4501-9db2-fd10250d7576",
+      "x_mbx_used_weight": "83",
+      "x_mbx_used_weight_1m": "83",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 121,
+    "body_sha256": "cbe72895ef738994bfb74d8cf1f32fc5ba71dd77ec43ecf67c7d0fe90f3c4977",
+    "body_sha256_short16": "cbe72895ef738994",
+    "body_excerpt_500": "{\"symbol\":\"ETHUSDT\",\"bidPrice\":\"2141.72000000\",\"bidQty\":\"106.39410000\",\"askPrice\":\"2141.73000000\",\"askQty\":\"17.47450000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "ETHUSDT",
+      "bidPrice": "2141.72000000",
+      "bidQty": "106.39410000",
+      "askPrice": "2141.73000000",
+      "askQty": "17.47450000"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.356,
+    "is_cloudflare_html_block": false
+  }
+}

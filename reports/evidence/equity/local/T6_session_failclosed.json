@@ -1,0 +1,267 @@
+{
+  "id": "T6",
+  "file": "t6_session_failclosed.mjs",
+  "label": "session_failclosed",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T6_session_failclosed\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:03.106Z\",\"finishedAt\":\"2026-11-09T04:44:03.170Z\",\"meta\":{\"cases\":[\"empty_db\",\"session_only_no_account\",\"expired_session\",\"revoked_session\",\"forged_session_id(ghost_account)\",\"real_trading_true_red_line\",\"valid_control\"]},\"checks\":[{\"name\":\"all_fail_closed_cases_zero_snapshot_writes\",\"pass\":true,\"detail\":[{\"name\":\"empty_db\",\"snap\":0,\"prov\":0},{\"name\":\"session_only_no_account\",\"snap\":0,\"prov\":0},{\"name\":\"expired_session\",\"snap\":0,\"prov\":0},{\"name\":\"revoked_session\",\"snap\":0,\"prov\":0},{\"name\":\"forged_session_id\",\"snap\":0,\"prov\":0}]},{\"name\":\"fail_closed_cases_report_zero_sessions\",\"pass\":true,\"detail\":[{\"name\":\"empty_db\",\"sessions\":0,\"written\":0},{\"name\":\"session_only_no_account\",\"sessions\":0,\"written\":0},{\"name\":\"expired_session\",\"sessions\":0,\"written\":0},{\"name\":\"revoked_session\",\"sessions\":0,\"written\":0},{\"name\":\"forged_session_id\",\"sessions\":0,\"written\":0}]},{\"name\":\"fail_closed_cases_never_call_market\",\"pass\":true,\"detail\":[{\"name\":\"empty_db\",\"calls\":0},{\"name\":\"session_only_no_account\",\"calls\":0},{\"name\":\"expired_session\",\"calls\":0},{\"name\":\"revoked_session\",\"calls\":0},{\"name\":\"forged_session_id\",\"calls\":0}]},{\"name\":\"fail_closed_cases_do_not_throw\",\"pass\":true,\"detail\":[{\"name\":\"empty_db\",\"threw\":null},{\"name\":\"session_only_no_account\",\"threw\":null},{\"name\":\"expired_session\",\"threw\":null},{\"name\":\"revoked_session\",\"threw\":null},{\"name\":\"forged_session_id\",\"threw\":null}]},{\"name\":\"real_trading_true_red_line_aborts\",\"pass\":true,\"detail\":{\"threw\":\"ENABLE_REAL_TRADING_MUST_BE_FALSE\",\"snap\":0,\"prov\":0}},{\"name\":\"real_trading_true_does_not_call_market\",\"pass\":true,\"detail\":{\"calls\":0}},{\"name\":\"valid_control_writes_one_verified\",\"pass\":true,\"detail\":{\"snap\":1,\"prov\":1,\"written\":1,\"verified\":1}},{\"name\":\"no_fabricated_price_in_any_fail_closed_case\",\"pass\":true,\"detail\":[{\"name\":\"empty_db\",\"snap\":0},{\"name\":\"session_only_no_account\",\"snap\":0},{\"name\":\"expired_session\",\"snap\":0},{\"name\":\"revoked_session\",\"snap\":0},{\"name\":\"forged_session_id\",\"snap\":0}]}],\"extra\":{\"cases\":[{\"name\":\"empty_db\",\"threw\":null,\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":0,\"written\":0},{\"name\":\"session_only_no_account\",\"threw\":null,\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":0,\"written\":0},{\"name\":\"expired_session\",\"threw\":null,\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":0,\"written\":0},{\"name\":\"revoked_session\",\"threw\":null,\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":0,\"written\":0},{\"name\":\"forged_session_id\",\"threw\":null,\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":0,\"written\":0},{\"name\":\"real_trading_true\",\"threw\":\"ENABLE_REAL_TRADING_MUST_BE_FALSE\",\"snap\":0,\"prov\":0,\"fetcherCalls\":0,\"sessions\":null,\"written\":null},{\"name\":\"valid_control\",\"threw\":null,\"snap\":1,\"prov\":1,\"fetcherCalls\":2,\"sessions\":1,\"written\":1}],\"verdict_labels\":{\"session_fail_closed\":\"VERIFIED\",\"real_trading_red_line\":\"VERIFIED\"}}}\n",
+  "stderr": "(node:16104) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "T6_session_failclosed",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:03.106Z",
+    "finishedAt": "2026-11-09T04:44:03.170Z",
+    "meta": {
+      "cases": [
+        "empty_db",
+        "session_only_no_account",
+        "expired_session",
+        "revoked_session",
+        "forged_session_id(ghost_account)",
+        "real_trading_true_red_line",
+        "valid_control"
+      ]
+    },
+    "checks": [
+      {
+        "name": "all_fail_closed_cases_zero_snapshot_writes",
+        "pass": true,
+        "detail": [
+          {
+            "name": "empty_db",
+            "snap": 0,
+            "prov": 0
+          },
+          {
+            "name": "session_only_no_account",
+            "snap": 0,
+            "prov": 0
+          },
+          {
+            "name": "expired_session",
+            "snap": 0,
+            "prov": 0
+          },
+          {
+            "name": "revoked_session",
+            "snap": 0,
+            "prov": 0
+          },
+          {
+            "name": "forged_session_id",
+            "snap": 0,
+            "prov": 0
+          }
+        ]
+      },
+      {
+        "name": "fail_closed_cases_report_zero_sessions",
+        "pass": true,
+        "detail": [
+          {
+            "name": "empty_db",
+            "sessions": 0,
+            "written": 0
+          },
+          {
+            "name": "session_only_no_account",
+            "sessions": 0,
+            "written": 0
+          },
+          {
+            "name": "expired_session",
+            "sessions": 0,
+            "written": 0
+          },
+          {
+            "name": "revoked_session",
+            "sessions": 0,
+            "written": 0
+          },
+          {
+            "name": "forged_session_id",
+            "sessions": 0,
+            "written": 0
+          }
+        ]
+      },
+      {
+        "name": "fail_closed_cases_never_call_market",
+        "pass": true,
+        "detail": [
+          {
+            "name": "empty_db",
+            "calls": 0
+          },
+          {
+            "name": "session_only_no_account",
+            "calls": 0
+          },
+          {
+            "name": "expired_session",
+            "calls": 0
+          },
+          {
+            "name": "revoked_session",
+            "calls": 0
+          },
+          {
+            "name": "forged_session_id",
+            "calls": 0
+          }
+        ]
+      },
+      {
+        "name": "fail_closed_cases_do_not_throw",
+        "pass": true,
+        "detail": [
+          {
+            "name": "empty_db",
+            "threw": null
+          },
+          {
+            "name": "session_only_no_account",
+            "threw": null
+          },
+          {
+            "name": "expired_session",
+            "threw": null
+          },
+          {
+            "name": "revoked_session",
+            "threw": null
+          },
+          {
+            "name": "forged_session_id",
+            "threw": null
+          }
+        ]
+      },
+      {
+        "name": "real_trading_true_red_line_aborts",
+        "pass": true,
+        "detail": {
+          "threw": "ENABLE_REAL_TRADING_MUST_BE_FALSE",
+          "snap": 0,
+          "prov": 0
+        }
+      },
+      {
+        "name": "real_trading_true_does_not_call_market",
+        "pass": true,
+        "detail": {
+          "calls": 0
+        }
+      },
+      {
+        "name": "valid_control_writes_one_verified",
+        "pass": true,
+        "detail": {
+          "snap": 1,
+          "prov": 1,
+          "written": 1,
+          "verified": 1
+        }
+      },
+      {
+        "name": "no_fabricated_price_in_any_fail_closed_case",
+        "pass": true,
+        "detail": [
+          {
+            "name": "empty_db",
+            "snap": 0
+          },
+          {
+            "name": "session_only_no_account",
+            "snap": 0
+          },
+          {
+            "name": "expired_session",
+            "snap": 0
+          },
+          {
+            "name": "revoked_session",
+            "snap": 0
+          },
+          {
+            "name": "forged_session_id",
+            "snap": 0
+          }
+        ]
+      }
+    ],
+    "extra": {
+      "cases": [
+        {
+          "name": "empty_db",
+          "threw": null,
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": 0,
+          "written": 0
+        },
+        {
+          "name": "session_only_no_account",
+          "threw": null,
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": 0,
+          "written": 0
+        },
+        {
+          "name": "expired_session",
+          "threw": null,
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": 0,
+          "written": 0
+        },
+        {
+          "name": "revoked_session",
+          "threw": null,
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": 0,
+          "written": 0
+        },
+        {
+          "name": "forged_session_id",
+          "threw": null,
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": 0,
+          "written": 0
+        },
+        {
+          "name": "real_trading_true",
+          "threw": "ENABLE_REAL_TRADING_MUST_BE_FALSE",
+          "snap": 0,
+          "prov": 0,
+          "fetcherCalls": 0,
+          "sessions": null,
+          "written": null
+        },
+        {
+          "name": "valid_control",
+          "threw": null,
+          "snap": 1,
+          "prov": 1,
+          "fetcherCalls": 2,
+          "sessions": 1,
+          "written": 1
+        }
+      ],
+      "verdict_labels": {
+        "session_fail_closed": "VERIFIED",
+        "real_trading_red_line": "VERIFIED"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:03.180Z",
+  "node": "v22.22.2"
+}

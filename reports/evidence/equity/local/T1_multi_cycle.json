@@ -1,0 +1,406 @@
+{
+  "id": "T1",
+  "file": "t1_multi_cycle.mjs",
+  "label": "multi_cycle",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T1_multi_cycle\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:01.166Z\",\"finishedAt\":\"2026-11-09T04:44:01.226Z\",\"meta\":{\"price_source\":\"REAL api.binance.us base quote (74951.77) + CONTROLLED deterministic cycle variation\",\"note\":\"controlled variation is a test fixture, not a live-feed claim\"},\"checks\":[{\"name\":\"four_snapshots_written\",\"pass\":true,\"detail\":{\"count\":4}},{\"name\":\"all_cycles_verified\",\"pass\":true,\"detail\":[{\"cycle\":0,\"written\":1,\"verified\":1},{\"cycle\":1,\"written\":1,\"verified\":1},{\"cycle\":2,\"written\":1,\"verified\":1},{\"cycle\":3,\"written\":1,\"verified\":1}]},{\"name\":\"no_failures\",\"pass\":true,\"detail\":[[],[],[],[]]},{\"name\":\"equity_matches_recompute\",\"pass\":true,\"detail\":{\"expected\":[24990354000000,25739871700000,23491318600000,21992283200000],\"actual\":[24990354000000,25739871700000,23491318600000,21992283200000]}},{\"name\":\"equity_varies_with_market\",\"pass\":true,\"detail\":[24990354000000,25739871700000,23491318600000,21992283200000]},{\"name\":\"equity_peak_matches_recompute\",\"pass\":true,\"detail\":{\"expected\":[24990354000000,25739871700000,25739871700000,25739871700000],\"actual\":[24990354000000,25739871700000,25739871700000,25739871700000]}},{\"name\":\"drawdown_matches_recompute\",\"pass\":true,\"detail\":{\"expected\":[0,0,8735681,14559468],\"actual\":[0,0,8735681,14559468]}},{\"name\":\"drawdown_appears_and_grows_on_decline\",\"pass\":true,\"detail\":[0,0,8735681,14559468]},{\"name\":\"replay_all_rows_match\",\"pass\":true,\"detail\":{\"seed\":10000000000000,\"count\":4,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_eda6c9d19ab206e01931fe4c18a1e18e123c32418f0b4c074023db663d7d6934\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":24990354000000,\"stored_peak\":24990354000000,\"recomputed_peak\":24990354000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_d89cea5c27564e0887e82438efdd1d2ae04ac108bc9a8483ef3d595e25182c10\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":25739871700000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_5804fc906f583c20312bb9c05f23a0031c2b17fb018c6282c7d9692444994575\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":23491318600000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":8735681,\"recomputed_dd\":8735681,\"match\":true},{\"snapshot_id\":\"v45eq_387064cc6b82bd7ad8adcd2ed076dd43c67ebdbb4c220a06ffc9f97b4161cecf\",\"created_at\":\"2026-02-02T02:43:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":21992283200000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":14559468,\"recomputed_dd\":14559468,\"match\":true}]}},{\"name\":\"replay_peak_nonzero_for_verified\",\"pass\":true,\"detail\":[24990354000000,25739871700000,25739871700000,25739871700000]},{\"name\":\"provenance_row_count\",\"pass\":true,\"detail\":{\"count\":4}},{\"name\":\"provenance_complete_fields\",\"pass\":true,\"detail\":[{\"cycle\":\"t1-c0\",\"dq\":\"VERIFIED\",\"fresh\":\"FRESH\",\"http\":200,\"sha\":true},{\"cycle\":\"t1-c1\",\"dq\":\"VERIFIED\",\"fresh\":\"FRESH\",\"http\":200,\"sha\":true},{\"cycle\":\"t1-c2\",\"dq\":\"VERIFIED\",\"fresh\":\"FRESH\",\"http\":200,\"sha\":true},{\"cycle\":\"t1-c3\",\"dq\":\"VERIFIED\",\"fresh\":\"FRESH\",\"http\":200,\"sha\":true}]},{\"name\":\"state_hash_anchored\",\"pass\":true,\"detail\":{\"expectedHash\":\"21f39ebcec44f9bc64e6810473a44129fae4b7031f5d4a75ddc1f3792d651e66\"}},{\"name\":\"marks_json_records_real_price\",\"pass\":true,\"detail\":[\"{\\\"BTCUSDT\\\":\\\"74951.77000000\\\"}\",\"{\\\"BTCUSDT\\\":\\\"78699.35850000\\\"}\",\"{\\\"BTCUSDT\\\":\\\"67456.59300000\\\"}\",\"{\\\"BTCUSDT\\\":\\\"59961.41600000\\\"}\"]}],\"extra\":{\"initial_cash_fp\":10000000000000,\"qty\":2,\"avg_price\":70000,\"cycles\":[{\"cycle_key\":\"t1-c0\",\"now_iso\":\"2026-02-02T02:40:00.000Z\",\"controlled_price\":\"74951.77000000\",\"factor\":1},{\"cycle_key\":\"t1-c1\",\"now_iso\":\"2026-02-02T02:41:00.000Z\",\"controlled_price\":\"78699.35850000\",\"factor\":1.05},{\"cycle_key\":\"t1-c2\",\"now_iso\":\"2026-02-02T02:42:00.000Z\",\"controlled_price\":\"67456.59300000\",\"factor\":0.9},{\"cycle_key\":\"t1-c3\",\"now_iso\":\"2026-02-02T02:43:00.000Z\",\"controlled_price\":\"59961.41600000\",\"factor\":0.8}],\"expected\":[{\"price\":\"74951.77000000\",\"equity\":24990354000000,\"peak\":24990354000000,\"drawdown\":0},{\"price\":\"78699.35850000\",\"equity\":25739871700000,\"peak\":25739871700000,\"drawdown\":0},{\"price\":\"67456.59300000\",\"equity\":23491318600000,\"peak\":25739871700000,\"drawdown\":8735681},{\"price\":\"59961.41600000\",\"equity\":21992283200000,\"peak\":25739871700000,\"drawdown\":14559468}],\"actual\":[{\"equity\":24990354000000,\"peak\":24990354000000,\"drawdown\":0},{\"equity\":25739871700000,\"peak\":25739871700000,\"drawdown\":0},{\"equity\":23491318600000,\"peak\":25739871700000,\"drawdown\":8735681},{\"equity\":21992283200000,\"peak\":25739871700000,\"drawdown\":14559468}],\"replay\":{\"seed\":10000000000000,\"count\":4,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_eda6c9d19ab206e01931fe4c18a1e18e123c32418f0b4c074023db663d7d6934\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":24990354000000,\"stored_peak\":24990354000000,\"recomputed_peak\":24990354000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_d89cea5c27564e0887e82438efdd1d2ae04ac108bc9a8483ef3d595e25182c10\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":25739871700000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_5804fc906f583c20312bb9c05f23a0031c2b17fb018c6282c7d9692444994575\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":23491318600000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":8735681,\"recomputed_dd\":8735681,\"match\":true},{\"snapshot_id\":\"v45eq_387064cc6b82bd7ad8adcd2ed076dd43c67ebdbb4c220a06ffc9f97b4161cecf\",\"created_at\":\"2026-02-02T02:43:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":21992283200000,\"stored_peak\":25739871700000,\"recomputed_peak\":25739871700000,\"stored_dd\":14559468,\"recomputed_dd\":14559468,\"match\":true}]},\"snapshot_hash\":\"2483d9e59fa40b661c2f579c769306b8284c2a961a0d0414c116824a8a54f90d\",\"verdict_labels\":{\"multi_cycle_arithmetic\":\"VERIFIED (controlled real-shaped prices)\",\"live_market_fetch_from_this_process\":\"UNVERIFIED / BLOCKED (local proxy cannot reach api.binance.us)\"}}}\n",
+  "stderr": "(node:12576) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "T1_multi_cycle",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:01.166Z",
+    "finishedAt": "2026-11-09T04:44:01.226Z",
+    "meta": {
+      "price_source": "REAL api.binance.us base quote (74951.77) + CONTROLLED deterministic cycle variation",
+      "note": "controlled variation is a test fixture, not a live-feed claim"
+    },
+    "checks": [
+      {
+        "name": "four_snapshots_written",
+        "pass": true,
+        "detail": {
+          "count": 4
+        }
+      },
+      {
+        "name": "all_cycles_verified",
+        "pass": true,
+        "detail": [
+          {
+            "cycle": 0,
+            "written": 1,
+            "verified": 1
+          },
+          {
+            "cycle": 1,
+            "written": 1,
+            "verified": 1
+          },
+          {
+            "cycle": 2,
+            "written": 1,
+            "verified": 1
+          },
+          {
+            "cycle": 3,
+            "written": 1,
+            "verified": 1
+          }
+        ]
+      },
+      {
+        "name": "no_failures",
+        "pass": true,
+        "detail": [
+          [],
+          [],
+          [],
+          []
+        ]
+      },
+      {
+        "name": "equity_matches_recompute",
+        "pass": true,
+        "detail": {
+          "expected": [
+            24990354000000,
+            25739871700000,
+            23491318600000,
+            21992283200000
+          ],
+          "actual": [
+            24990354000000,
+            25739871700000,
+            23491318600000,
+            21992283200000
+          ]
+        }
+      },
+      {
+        "name": "equity_varies_with_market",
+        "pass": true,
+        "detail": [
+          24990354000000,
+          25739871700000,
+          23491318600000,
+          21992283200000
+        ]
+      },
+      {
+        "name": "equity_peak_matches_recompute",
+        "pass": true,
+        "detail": {
+          "expected": [
+            24990354000000,
+            25739871700000,
+            25739871700000,
+            25739871700000
+          ],
+          "actual": [
+            24990354000000,
+            25739871700000,
+            25739871700000,
+            25739871700000
+          ]
+        }
+      },
+      {
+        "name": "drawdown_matches_recompute",
+        "pass": true,
+        "detail": {
+          "expected": [
+            0,
+            0,
+            8735681,
+            14559468
+          ],
+          "actual": [
+            0,
+            0,
+            8735681,
+            14559468
+          ]
+        }
+      },
+      {
+        "name": "drawdown_appears_and_grows_on_decline",
+        "pass": true,
+        "detail": [
+          0,
+          0,
+          8735681,
+          14559468
+        ]
+      },
+      {
+        "name": "replay_all_rows_match",
+        "pass": true,
+        "detail": {
+          "seed": 10000000000000,
+          "count": 4,
+          "allMatch": true,
+          "rows": [
+            {
+              "snapshot_id": "v45eq_eda6c9d19ab206e01931fe4c18a1e18e123c32418f0b4c074023db663d7d6934",
+              "created_at": "2026-02-02T02:40:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 24990354000000,
+              "stored_peak": 24990354000000,
+              "recomputed_peak": 24990354000000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_d89cea5c27564e0887e82438efdd1d2ae04ac108bc9a8483ef3d595e25182c10",
+              "created_at": "2026-02-02T02:41:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 25739871700000,
+              "stored_peak": 25739871700000,
+              "recomputed_peak": 25739871700000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_5804fc906f583c20312bb9c05f23a0031c2b17fb018c6282c7d9692444994575",
+              "created_at": "2026-02-02T02:42:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 23491318600000,
+              "stored_peak": 25739871700000,
+              "recomputed_peak": 25739871700000,
+              "stored_dd": 8735681,
+              "recomputed_dd": 8735681,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_387064cc6b82bd7ad8adcd2ed076dd43c67ebdbb4c220a06ffc9f97b4161cecf",
+              "created_at": "2026-02-02T02:43:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 21992283200000,
+              "stored_peak": 25739871700000,
+              "recomputed_peak": 25739871700000,
+              "stored_dd": 14559468,
+              "recomputed_dd": 14559468,
+              "match": true
+            }
+          ]
+        }
+      },
+      {
+        "name": "replay_peak_nonzero_for_verified",
+        "pass": true,
+        "detail": [
+          24990354000000,
+          25739871700000,
+          25739871700000,
+          25739871700000
+        ]
+      },
+      {
+        "name": "provenance_row_count",
+        "pass": true,
+        "detail": {
+          "count": 4
+        }
+      },
+      {
+        "name": "provenance_complete_fields",
+        "pass": true,
+        "detail": [
+          {
+            "cycle": "t1-c0",
+            "dq": "VERIFIED",
+            "fresh": "FRESH",
+            "http": 200,
+            "sha": true
+          },
+          {
+            "cycle": "t1-c1",
+            "dq": "VERIFIED",
+            "fresh": "FRESH",
+            "http": 200,
+            "sha": true
+          },
+          {
+            "cycle": "t1-c2",
+            "dq": "VERIFIED",
+            "fresh": "FRESH",
+            "http": 200,
+            "sha": true
+          },
+          {
+            "cycle": "t1-c3",
+            "dq": "VERIFIED",
+            "fresh": "FRESH",
+            "http": 200,
+            "sha": true
+          }
+        ]
+      },
+      {
+        "name": "state_hash_anchored",
+        "pass": true,
+        "detail": {
+          "expectedHash": "21f39ebcec44f9bc64e6810473a44129fae4b7031f5d4a75ddc1f3792d651e66"
+        }
+      },
+      {
+        "name": "marks_json_records_real_price",
+        "pass": true,
+        "detail": [
+          "{\"BTCUSDT\":\"74951.77000000\"}",
+          "{\"BTCUSDT\":\"78699.35850000\"}",
+          "{\"BTCUSDT\":\"67456.59300000\"}",
+          "{\"BTCUSDT\":\"59961.41600000\"}"
+        ]
+      }
+    ],
+    "extra": {
+      "initial_cash_fp": 10000000000000,
+      "qty": 2,
+      "avg_price": 70000,
+      "cycles": [
+        {
+          "cycle_key": "t1-c0",
+          "now_iso": "2026-02-02T02:40:00.000Z",
+          "controlled_price": "74951.77000000",
+          "factor": 1
+        },
+        {
+          "cycle_key": "t1-c1",
+          "now_iso": "2026-02-02T02:41:00.000Z",
+          "controlled_price": "78699.35850000",
+          "factor": 1.05
+        },
+        {
+          "cycle_key": "t1-c2",
+          "now_iso": "2026-02-02T02:42:00.000Z",
+          "controlled_price": "67456.59300000",
+          "factor": 0.9
+        },
+        {
+          "cycle_key": "t1-c3",
+          "now_iso": "2026-02-02T02:43:00.000Z",
+          "controlled_price": "59961.41600000",
+          "factor": 0.8
+        }
+      ],
+      "expected": [
+        {
+          "price": "74951.77000000",
+          "equity": 24990354000000,
+          "peak": 24990354000000,
+          "drawdown": 0
+        },
+        {
+          "price": "78699.35850000",
+          "equity": 25739871700000,
+          "peak": 25739871700000,
+          "drawdown": 0
+        },
+        {
+          "price": "67456.59300000",
+          "equity": 23491318600000,
+          "peak": 25739871700000,
+          "drawdown": 8735681
+        },
+        {
+          "price": "59961.41600000",
+          "equity": 21992283200000,
+          "peak": 25739871700000,
+          "drawdown": 14559468
+        }
+      ],
+      "actual": [
+        {
+          "equity": 24990354000000,
+          "peak": 24990354000000,
+          "drawdown": 0
+        },
+        {
+          "equity": 25739871700000,
+          "peak": 25739871700000,
+          "drawdown": 0
+        },
+        {
+          "equity": 23491318600000,
+          "peak": 25739871700000,
+          "drawdown": 8735681
+        },
+        {
+          "equity": 21992283200000,
+          "peak": 25739871700000,
+          "drawdown": 14559468
+        }
+      ],
+      "replay": {
+        "seed": 10000000000000,
+        "count": 4,
+        "allMatch": true,
+        "rows": [
+          {
+            "snapshot_id": "v45eq_eda6c9d19ab206e01931fe4c18a1e18e123c32418f0b4c074023db663d7d6934",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 24990354000000,
+            "stored_peak": 24990354000000,
+            "recomputed_peak": 24990354000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_d89cea5c27564e0887e82438efdd1d2ae04ac108bc9a8483ef3d595e25182c10",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 25739871700000,
+            "stored_peak": 25739871700000,
+            "recomputed_peak": 25739871700000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_5804fc906f583c20312bb9c05f23a0031c2b17fb018c6282c7d9692444994575",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 23491318600000,
+            "stored_peak": 25739871700000,
+            "recomputed_peak": 25739871700000,
+            "stored_dd": 8735681,
+            "recomputed_dd": 8735681,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_387064cc6b82bd7ad8adcd2ed076dd43c67ebdbb4c220a06ffc9f97b4161cecf",
+            "created_at": "2026-02-02T02:43:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 21992283200000,
+            "stored_peak": 25739871700000,
+            "recomputed_peak": 25739871700000,
+            "stored_dd": 14559468,
+            "recomputed_dd": 14559468,
+            "match": true
+          }
+        ]
+      },
+      "snapshot_hash": "2483d9e59fa40b661c2f579c769306b8284c2a961a0d0414c116824a8a54f90d",
+      "verdict_labels": {
+        "multi_cycle_arithmetic": "VERIFIED (controlled real-shaped prices)",
+        "live_market_fetch_from_this_process": "UNVERIFIED / BLOCKED (local proxy cannot reach api.binance.us)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:01.235Z",
+  "node": "v22.22.2"
+}

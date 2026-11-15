@@ -1,0 +1,1007 @@
+{
+  "captured_at_utc": "2026-11-09T04:24:18.594542+00:00",
+  "base": "https://jev-cloud-staging.pages.dev",
+  "/api/jev/market/status": {
+    "http": 200,
+    "body": {
+      "schema": "jcc.jev.trading_api/v1",
+      "ok": true,
+      "data": {
+        "generated_utc": "2026-11-09T04:24:20.974Z",
+        "policy": "Derived from real Worker-edge HTTP probes at request time. No cache, no constant LIVE claim. >=60s clock skew => STALE; non-2xx/timeout => UNAVAILABLE.",
+        "stale_threshold_ms": 60000,
+        "live": {
+          "source_host": "api.binance.us",
+          "endpoint": "/api/v3/time",
+          "url": "https://api.binance.us/api/v3/time",
+          "ok": true,
+          "http_status": 200,
+          "fetched_at_utc": "2026-11-09T04:24:20.589Z",
+          "latency_ms": 384,
+          "bytes": 28,
+          "sha256": "63ea381f9f35483cc9ea449c0e382130c1abb06d5868084cf6cadf676518b9ec",
+          "content_type": "application/json;charset=UTF-8",
+          "server_header": "cloudflare",
+          "cf_ray": "a57a0c18bd92b9ec-SEA",
+          "server_time_ms": 1794198260935,
+          "clock_skew_ms": 38,
+          "freshness": "FRESH",
+          "verdict": "VERIFIED",
+          "body_excerpt": "{\"serverTime\":1794198260935}"
+        },
+        "original": {
+          "source_host": "data-api.binance.vision",
+          "endpoint": "/api/v3/ticker/price?symbol=BTCUSDT",
+          "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+          "ok": false,
+          "http_status": 403,
+          "fetched_at_utc": "2026-11-09T04:24:20.589Z",
+          "latency_ms": 385,
+          "bytes": 118,
+          "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+          "content_type": "text/html",
+          "server_header": "cloudflare",
+          "cf_ray": "a57a0c18bd91b9ec-SEA",
+          "server_time_ms": null,
+          "clock_skew_ms": null,
+          "freshness": "UNAVAILABLE",
+          "verdict": "UNAVAILABLE",
+          "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n"
+        }
+      },
+      "meta": {
+        "generated_utc": "2026-11-09T04:24:20.974Z",
+        "source": "live Worker-edge probe",
+        "label": "VERIFIED"
+      }
+    }
+  },
+  "/api/jev/market/probe": {
+    "http": 200,
+    "body": {
+      "schema": "jcc.jev.trading_api/v1",
+      "ok": true,
+      "data": {
+        "probed_at_utc": "2026-11-09T04:24:22.688Z",
+        "runtime": "cloudflare-worker-edge",
+        "note": "Real outbound HTTP from the Worker edge. No synthetic data. Hardcoded targets only.",
+        "counts": {
+          "reachable": 8,
+          "binance_v3_reachable": 1,
+          "third_party_reachable": 2
+        },
+        "results": [
+          {
+            "id": "binance_main",
+            "kind": "binance_v3",
+            "url": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 451,
+            "ok": false,
+            "latency_ms": 35,
+            "content_type": "application/json",
+            "body_excerpt": "{\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you be",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": 0,
+              "msg": "Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+            },
+            "verdict": "HTTP_451"
+          },
+          {
+            "id": "binance_vision",
+            "kind": "binance_v3",
+            "url": "https://api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 530,
+            "ok": false,
+            "latency_ms": 180,
+            "content_type": "text/plain; charset=UTF-8",
+            "body_excerpt": "error code: 1016\n",
+            "json_keys": null,
+            "parsed_summary": null,
+            "verdict": "HTTP_530"
+          },
+          {
+            "id": "binance_data",
+            "kind": "binance_v3",
+            "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 390,
+            "content_type": "text/html",
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "json_keys": null,
+            "parsed_summary": null,
+            "verdict": "HTTP_403"
+          },
+          {
+            "id": "binance_api1",
+            "kind": "binance_v3",
+            "url": "https://api1.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 451,
+            "ok": false,
+            "latency_ms": 388,
+            "content_type": "application/json",
+            "body_excerpt": "{\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you be",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": 0,
+              "msg": "Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+            },
+            "verdict": "HTTP_451"
+          },
+          {
+            "id": "binance_api2",
+            "kind": "binance_v3",
+            "url": "https://api2.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 451,
+            "ok": false,
+            "latency_ms": 390,
+            "content_type": "application/json",
+            "body_excerpt": "{\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you be",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": 0,
+              "msg": "Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+            },
+            "verdict": "HTTP_451"
+          },
+          {
+            "id": "binance_api3",
+            "kind": "binance_v3",
+            "url": "https://api3.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 451,
+            "ok": false,
+            "latency_ms": 432,
+            "content_type": "application/json",
+            "body_excerpt": "{\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you be",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": 0,
+              "msg": "Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+            },
+            "verdict": "HTTP_451"
+          },
+          {
+            "id": "binance_api4",
+            "kind": "binance_v3",
+            "url": "https://api4.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 451,
+            "ok": false,
+            "latency_ms": 458,
+            "content_type": "application/json",
+            "body_excerpt": "{\n  \"code\": 0,\n  \"msg\": \"Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you be",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": 0,
+              "msg": "Service unavailable from a restricted location according to 'b. Eligibility' in https://www.binance.com/en/terms. Please contact customer service if you believe you received this message in error."
+            },
+            "verdict": "HTTP_451"
+          },
+          {
+            "id": "binance_us",
+            "kind": "binance_v3",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 466,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+            "json_keys": [
+              "symbol",
+              "price"
+            ],
+            "parsed_summary": "BTCUSDT:74937.11000000",
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "binance_data_com",
+            "kind": "binance_v3",
+            "url": "https://data.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 841,
+            "content_type": "text/html",
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "json_keys": null,
+            "parsed_summary": null,
+            "verdict": "HTTP_403"
+          },
+          {
+            "id": "coinbase_exchange",
+            "kind": "third_party",
+            "url": "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 401,
+            "content_type": "application/json; charset=utf-8",
+            "body_excerpt": "{\"ask\":\"74846.15\",\"bid\":\"74846.14\",\"volume\":\"4687.86383721\",\"trade_id\":1117365078,\"price\":\"74846.15\",\"size\":\"0.00081834\",\"time\":\"2026-11-09T04:24:20.912645413Z\",\"rfq_volume\":\"87.62",
+            "json_keys": [
+              "ask",
+              "bid",
+              "volume",
+              "trade_id",
+              "price",
+              "size",
+              "time",
+              "rfq_volume"
+            ],
+            "parsed_summary": null,
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "kraken",
+            "kind": "third_party",
+            "url": "https://api.kraken.com/0/public/Ticker?pair=XBTUSD",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 413,
+            "content_type": "application/json",
+            "body_excerpt": "{\"error\":[],\"result\":{\"XXBTZUSD\":{\"a\":[\"74865.70000\",\"3\",\"3.000\"],\"b\":[\"74865.60000\",\"1\",\"1.000\"],\"c\":[\"74872.60000\",\"0.00010000\"],\"v\":[\"880.43069730\",\"2363.81969311\"],\"p\":[\"75003.",
+            "json_keys": [
+              "error",
+              "result"
+            ],
+            "parsed_summary": null,
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "coingecko",
+            "kind": "third_party",
+            "url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+            "http_status": 429,
+            "ok": false,
+            "latency_ms": 407,
+            "content_type": "application/json",
+            "body_excerpt": "{\"status\":{\"error_code\":429,\"error_message\":\"You've exceeded the Rate Limit. Please visit https://www.coingecko.com/en/api/pricing to subscribe to our API plans for higher rate lim",
+            "json_keys": [
+              "status"
+            ],
+            "parsed_summary": null,
+            "verdict": "HTTP_429"
+          },
+          {
+            "id": "us_ticker_multi",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+            "http_status": 400,
+            "ok": false,
+            "latency_ms": 678,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": -1121,
+              "msg": "Invalid symbol."
+            },
+            "verdict": "HTTP_400"
+          },
+          {
+            "id": "us_ticker_btc",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 691,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+            "json_keys": [
+              "symbol",
+              "price"
+            ],
+            "parsed_summary": "BTCUSDT:74937.11000000",
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "us_ticker_eth",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=ETHUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 693,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"symbol\":\"ETHUSDT\",\"price\":\"2142.08000000\"}",
+            "json_keys": [
+              "symbol",
+              "price"
+            ],
+            "parsed_summary": "ETHUSDT:2142.08000000",
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "us_ticker_ordi",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT",
+            "http_status": 400,
+            "ok": false,
+            "latency_ms": 736,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": -1121,
+              "msg": "Invalid symbol."
+            },
+            "verdict": "HTTP_400"
+          },
+          {
+            "id": "us_ticker_sats",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=1000SATSUSDT",
+            "http_status": 400,
+            "ok": false,
+            "latency_ms": 727,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+            "json_keys": [
+              "code",
+              "msg"
+            ],
+            "parsed_summary": {
+              "code": -1121,
+              "msg": "Invalid symbol."
+            },
+            "verdict": "HTTP_400"
+          },
+          {
+            "id": "us_depth_btc",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=1000",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 773,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"lastUpdateId\":3410350805,\"bids\":[[\"74953.26000000\",\"0.00019000\"],[\"74948.00000000\",\"0.00198000\"],[\"74947.78000000\",\"0.00197000\"],[\"74947.77000000\",\"0.00197000\"],[\"74947.52000000\"",
+            "json_keys": [
+              "lastUpdateId",
+              "bids",
+              "asks"
+            ],
+            "parsed_summary": {
+              "lastUpdateId": 3410350805,
+              "bids": 491,
+              "asks": 1000
+            },
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "us_exchange_btc",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 782,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"timezone\":\"UTC\",\"serverTime\":1794198262595,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":",
+            "json_keys": [
+              "timezone",
+              "serverTime",
+              "rateLimits",
+              "exchangeFilters",
+              "symbols"
+            ],
+            "parsed_summary": [
+              {
+                "symbol": "BTCUSDT",
+                "status": "TRADING",
+                "filters": [
+                  "PRICE_FILTER",
+                  "PERCENT_PRICE",
+                  "LOT_SIZE",
+                  "MIN_NOTIONAL",
+                  "ICEBERG_PARTS",
+                  "MARKET_LOT_SIZE",
+                  "TRAILING_DELTA",
+                  "PERCENT_PRICE_BY_SIDE",
+                  "MAX_NUM_ORDERS",
+                  "MAX_NUM_ORDER_LISTS",
+                  "MAX_NUM_ALGO_ORDERS",
+                  "MAX_NUM_ORDER_AMENDS"
+                ]
+              }
+            ],
+            "verdict": "REACHABLE"
+          },
+          {
+            "id": "us_exchange_eth",
+            "kind": "engine_exact",
+            "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=ETHUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 782,
+            "content_type": "application/json;charset=UTF-8",
+            "body_excerpt": "{\"timezone\":\"UTC\",\"serverTime\":1794198262594,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":",
+            "json_keys": [
+              "timezone",
+              "serverTime",
+              "rateLimits",
+              "exchangeFilters",
+              "symbols"
+            ],
+            "parsed_summary": [
+              {
+                "symbol": "ETHUSDT",
+                "status": "TRADING",
+                "filters": [
+                  "PRICE_FILTER",
+                  "PERCENT_PRICE",
+                  "LOT_SIZE",
+                  "MIN_NOTIONAL",
+                  "ICEBERG_PARTS",
+                  "MARKET_LOT_SIZE",
+                  "TRAILING_DELTA",
+                  "PERCENT_PRICE_BY_SIDE",
+                  "MAX_NUM_ORDERS",
+                  "MAX_NUM_ORDER_LISTS",
+                  "MAX_NUM_ALGO_ORDERS",
+                  "MAX_NUM_ORDER_AMENDS"
+                ]
+              }
+            ],
+            "verdict": "REACHABLE"
+          }
+        ]
+      },
+      "meta": {
+        "generated_utc": "2026-11-09T04:24:22.688Z",
+        "source": "worker-egress-probe",
+        "channel": "REST_POLLING",
+        "label": "VERIFIED"
+      }
+    }
+  },
+  "/api/jev/market/diagnose": {
+    "http": 200,
+    "body": {
+      "schema": "jcc.jev.trading_api/v1",
+      "ok": true,
+      "data": {
+        "diagnosed_at_utc": "2026-11-09T04:24:24.695Z",
+        "runtime": "cloudflare-worker-edge",
+        "matrix_shape": {
+          "hosts": 2,
+          "endpoints": 4,
+          "ua_variants": 3,
+          "total_requests": 24
+        },
+        "ua_note": "Cloudflare Workers inject a default User-Agent; 'empty_ua' sends an explicit empty UA. Recorded verbatim.",
+        "derived": {
+          "ua_changes_http_outcome": false,
+          "interpretation": "All UA variants produced identical HTTP outcomes on each host => adding/changing a User-Agent is NOT a valid fix for the 403.",
+          "by_host": {
+            "data-api.binance.vision": {
+              "note": "frozen engine's hardcoded host",
+              "requests": 12,
+              "http_statuses": [
+                403
+              ],
+              "ok_count": 0,
+              "by_ua": [
+                {
+                  "ua": "gateway_custom",
+                  "statuses": [
+                    403
+                  ]
+                },
+                {
+                  "ua": "empty_ua",
+                  "statuses": [
+                    403
+                  ]
+                },
+                {
+                  "ua": "browser",
+                  "statuses": [
+                    403
+                  ]
+                }
+              ]
+            },
+            "api.binance.us": {
+              "note": "gateway transport target",
+              "requests": 12,
+              "http_statuses": [
+                200
+              ],
+              "ok_count": 12,
+              "by_ua": [
+                {
+                  "ua": "gateway_custom",
+                  "statuses": [
+                    200
+                  ]
+                },
+                {
+                  "ua": "empty_ua",
+                  "statuses": [
+                    200
+                  ]
+                },
+                {
+                  "ua": "browser",
+                  "statuses": [
+                    200
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "rows": [
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "time",
+            "ua_id": "gateway_custom",
+            "url": "https://data-api.binance.vision/api/v3/time",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 396,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9a723ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "time",
+            "ua_id": "empty_ua",
+            "url": "https://data-api.binance.vision/api/v3/time",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 398,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9a623ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "time",
+            "ua_id": "browser",
+            "url": "https://data-api.binance.vision/api/v3/time",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 395,
+            "bytes": 520,
+            "sha256": "8b73b6ccd7091d6d9d23adaab2baae3c4abf6de06df8efdd03215ee9376fa035",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9aa23ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n<!-- a padding to disa",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "ticker_price",
+            "ua_id": "gateway_custom",
+            "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 398,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9a923ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "ticker_price",
+            "ua_id": "empty_ua",
+            "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 396,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9ac23ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "ticker_price",
+            "ua_id": "browser",
+            "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 399,
+            "bytes": 520,
+            "sha256": "8b73b6ccd7091d6d9d23adaab2baae3c4abf6de06df8efdd03215ee9376fa035",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2bd9ab23ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n<!-- a padding to disa",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "depth",
+            "ua_id": "gateway_custom",
+            "url": "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 490,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e4d8123ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "depth",
+            "ua_id": "empty_ua",
+            "url": "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 490,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e4d8323ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "depth",
+            "ua_id": "browser",
+            "url": "https://data-api.binance.vision/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 492,
+            "bytes": 520,
+            "sha256": "8b73b6ccd7091d6d9d23adaab2baae3c4abf6de06df8efdd03215ee9376fa035",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e4d8423ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n<!-- a padding to disa",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "klines",
+            "ua_id": "gateway_custom",
+            "url": "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 492,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e5d9023ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "klines",
+            "ua_id": "empty_ua",
+            "url": "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 765,
+            "bytes": 118,
+            "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e5d9323ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "data-api.binance.vision",
+            "endpoint_id": "klines",
+            "ua_id": "browser",
+            "url": "https://data-api.binance.vision/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 403,
+            "ok": false,
+            "latency_ms": 495,
+            "bytes": 520,
+            "sha256": "8b73b6ccd7091d6d9d23adaab2baae3c4abf6de06df8efdd03215ee9376fa035",
+            "content_type": "text/html",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2e5d9423ef-SEA",
+            "parsed_summary": null,
+            "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n<!-- a padding to disa",
+            "exception_class": "HTTP_403"
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "time",
+            "ua_id": "gateway_custom",
+            "url": "https://api.binance.us/api/v3/time",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 772,
+            "bytes": 28,
+            "sha256": "4d99acaec5b6d0fd9b3e6ca7656373a4d25e1648e4ab771e763c77e3a236fd52",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2eee8d23ef-SEA",
+            "parsed_summary": {
+              "serverTime": 1794198264380
+            },
+            "body_excerpt": "{\"serverTime\":1794198264380}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "time",
+            "ua_id": "empty_ua",
+            "url": "https://api.binance.us/api/v3/time",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 598,
+            "bytes": 28,
+            "sha256": "9138506488e96981d0aabc0927960cc5736eb51e2df7d5bdfd1aaa370880ff13",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2eee8e23ef-SEA",
+            "parsed_summary": {
+              "serverTime": 1794198264203
+            },
+            "body_excerpt": "{\"serverTime\":1794198264203}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "time",
+            "ua_id": "browser",
+            "url": "https://api.binance.us/api/v3/time",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 771,
+            "bytes": 28,
+            "sha256": "2e246feaf900e5091742de335e5a9aba64c5d0a990caf9a17a605b8f430e4073",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2eee9523ef-SEA",
+            "parsed_summary": {
+              "serverTime": 1794198264376
+            },
+            "body_excerpt": "{\"serverTime\":1794198264376}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "ticker_price",
+            "ua_id": "gateway_custom",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 765,
+            "bytes": 45,
+            "sha256": "c6b6582bcf9ff9fa285a2a9334d8cbc2fd19c11749983064418746626f129a7b",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2eee9923ef-SEA",
+            "parsed_summary": {
+              "symbol": "BTCUSDT",
+              "price": "74937.11000000"
+            },
+            "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "ticker_price",
+            "ua_id": "empty_ua",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 773,
+            "bytes": 45,
+            "sha256": "c6b6582bcf9ff9fa285a2a9334d8cbc2fd19c11749983064418746626f129a7b",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2eee9e23ef-SEA",
+            "parsed_summary": {
+              "symbol": "BTCUSDT",
+              "price": "74937.11000000"
+            },
+            "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "ticker_price",
+            "ua_id": "browser",
+            "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 870,
+            "bytes": 45,
+            "sha256": "c6b6582bcf9ff9fa285a2a9334d8cbc2fd19c11749983064418746626f129a7b",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c2f9f9a23ef-SEA",
+            "parsed_summary": {
+              "symbol": "BTCUSDT",
+              "price": "74937.11000000"
+            },
+            "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "depth",
+            "ua_id": "gateway_custom",
+            "url": "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 1026,
+            "bytes": 365,
+            "sha256": "5d0d3cb2c57a9a101ab6e34a680f31cf34af6744fec5db1ca1a03fdd33132c6c",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c30996123ef-SEA",
+            "parsed_summary": {
+              "lastUpdateId": 3410350807,
+              "bids": 5,
+              "asks": 5
+            },
+            "body_excerpt": "{\"lastUpdateId\":3410350807,\"bids\":[[\"74953.26000000\",\"0.00019000\"],[\"74948.00000000\",\"0.00198000\"],[\"74947.78000000\",\"0.00197000\"],[\"74947.7",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "depth",
+            "ua_id": "empty_ua",
+            "url": "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 1022,
+            "bytes": 365,
+            "sha256": "5d0d3cb2c57a9a101ab6e34a680f31cf34af6744fec5db1ca1a03fdd33132c6c",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c30996423ef-SEA",
+            "parsed_summary": {
+              "lastUpdateId": 3410350807,
+              "bids": 5,
+              "asks": 5
+            },
+            "body_excerpt": "{\"lastUpdateId\":3410350807,\"bids\":[[\"74953.26000000\",\"0.00019000\"],[\"74948.00000000\",\"0.00198000\"],[\"74947.78000000\",\"0.00197000\"],[\"74947.7",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "depth",
+            "ua_id": "browser",
+            "url": "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=5",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 863,
+            "bytes": 365,
+            "sha256": "5d0d3cb2c57a9a101ab6e34a680f31cf34af6744fec5db1ca1a03fdd33132c6c",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c30a97923ef-SEA",
+            "parsed_summary": {
+              "lastUpdateId": 3410350807,
+              "bids": 5,
+              "asks": 5
+            },
+            "body_excerpt": "{\"lastUpdateId\":3410350807,\"bids\":[[\"74953.26000000\",\"0.00019000\"],[\"74948.00000000\",\"0.00198000\"],[\"74947.78000000\",\"0.00197000\"],[\"74947.7",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "klines",
+            "ua_id": "gateway_custom",
+            "url": "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 1052,
+            "bytes": 1589,
+            "sha256": "5c0167b8346cb695209c62a133e0334e77120d86f654ea5088c37b503f99bf04",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c30a97c23ef-SEA",
+            "parsed_summary": {
+              "bars": 10,
+              "firstOpenTime": 1794197700000,
+              "lastOpenTime": 1794198240000
+            },
+            "body_excerpt": "[[1794197700000,\"75009.57000000\",\"75024.79000000\",\"75003.48000000\",\"75024.56000000\",\"0.00907000\",1794197759999,\"680.42703310\",10,\"0.00039000",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "klines",
+            "ua_id": "empty_ua",
+            "url": "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 1039,
+            "bytes": 1589,
+            "sha256": "5c0167b8346cb695209c62a133e0334e77120d86f654ea5088c37b503f99bf04",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c30a98223ef-SEA",
+            "parsed_summary": {
+              "bars": 10,
+              "firstOpenTime": 1794197700000,
+              "lastOpenTime": 1794198240000
+            },
+            "body_excerpt": "[[1794197700000,\"75009.57000000\",\"75024.79000000\",\"75003.48000000\",\"75024.56000000\",\"0.00907000\",1794197759999,\"680.42703310\",10,\"0.00039000",
+            "exception_class": null
+          },
+          {
+            "host_id": "api.binance.us",
+            "endpoint_id": "klines",
+            "ua_id": "browser",
+            "url": "https://api.binance.us/api/v3/klines?symbol=BTCUSDT&interval=1m&limit=10",
+            "http_status": 200,
+            "ok": true,
+            "latency_ms": 962,
+            "bytes": 1589,
+            "sha256": "5c0167b8346cb695209c62a133e0334e77120d86f654ea5088c37b503f99bf04",
+            "content_type": "application/json;charset=UTF-8",
+            "server_header": "cloudflare",
+            "cf_ray": "a57a0c313a5123ef-SEA",
+            "parsed_summary": {
+              "bars": 10,
+              "firstOpenTime": 1794197700000,
+              "lastOpenTime": 1794198240000
+            },
+            "body_excerpt": "[[1794197700000,\"75009.57000000\",\"75024.79000000\",\"75003.48000000\",\"75024.56000000\",\"0.00907000\",1794197759999,\"680.42703310\",10,\"0.00039000",
+            "exception_class": null
+          }
+        ]
+      },
+      "meta": {
+        "generated_utc": "2026-11-09T04:24:24.695Z",
+        "source": "worker-edge controlled matrix",
+        "label": "VERIFIED"
+      }
+    }
+  }
+}

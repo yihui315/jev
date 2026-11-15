@@ -1,0 +1,512 @@
+{
+  "assertions": {
+    "failed": 0,
+    "passed": 104,
+    "total": 104
+  },
+  "counts": {
+    "fail": 0,
+    "pass": 8,
+    "total": 8
+  },
+  "node": "v22.22.2",
+  "overall": "PASS",
+  "results": [
+    {
+      "checks": [
+        {
+          "name": "three_verified_rows",
+          "pass": true
+        },
+        {
+          "name": "all_8_new_columns_non_empty",
+          "pass": true
+        },
+        {
+          "name": "exchange_in_domain_and_is_us",
+          "pass": true
+        },
+        {
+          "name": "market_in_domain_and_is_spot",
+          "pass": true
+        },
+        {
+          "name": "price_ts_source_in_domain_and_verified",
+          "pass": true
+        },
+        {
+          "name": "network_context_non_unknown_nonempty",
+          "pass": true
+        },
+        {
+          "name": "failure_class_none_for_verified",
+          "pass": true
+        },
+        {
+          "name": "venue_nonempty_carries_market_venue",
+          "pass": true
+        },
+        {
+          "name": "market_partition_key_self_consistent",
+          "pass": true
+        },
+        {
+          "name": "source_url_host_matches_exchange",
+          "pass": true
+        },
+        {
+          "name": "mark_contracts_json_is_symbol_keyed_object_not_array",
+          "pass": true
+        },
+        {
+          "name": "mark_contracts_json_complete_per_symbol",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_T1_field_contract.json",
+      "exitCode": 0,
+      "file": "v16_t1_field_contract.mjs",
+      "id": "V16_T1",
+      "label": "field_contract",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "first_run_writes_one",
+          "pass": true
+        },
+        {
+          "name": "repeats_write_zero",
+          "pass": true
+        },
+        {
+          "name": "provenance_row_count_stays_one",
+          "pass": true
+        },
+        {
+          "name": "full_provenance_row_hash_identical_across_3_runs",
+          "pass": true
+        },
+        {
+          "name": "full_snapshot_row_hash_identical_across_3_runs",
+          "pass": true
+        },
+        {
+          "name": "new_columns_contribute_to_row_hash",
+          "pass": true
+        },
+        {
+          "name": "network_context_constant_across_3_runs",
+          "pass": true
+        },
+        {
+          "name": "mark_contracts_json_constant_across_3_runs",
+          "pass": true
+        },
+        {
+          "name": "different_price_same_cycle_does_not_rewrite",
+          "pass": true
+        },
+        {
+          "name": "no_price_backfill_into_stored_row",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_T2_idempotency_fields.json",
+      "exitCode": 0,
+      "file": "v16_t2_idempotency_fields.mjs",
+      "id": "V16_T2",
+      "label": "idempotency_fields",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "three_unknown_rows_written",
+          "pass": true
+        },
+        {
+          "name": "QA_T3_1_transport_failure_class_structured",
+          "pass": true
+        },
+        {
+          "name": "QA_T3_1_http_error_failure_class_structured",
+          "pass": true
+        },
+        {
+          "name": "QA_T3_1_venue_business_failure_class_structured",
+          "pass": true
+        },
+        {
+          "name": "unknown_rows_still_write_provenance",
+          "pass": true
+        },
+        {
+          "name": "unknown_rows_no_fabricated_price",
+          "pass": true
+        },
+        {
+          "name": "honest_market_layer_error_codes_preserved",
+          "pass": true
+        },
+        {
+          "name": "QA_T3_5_global_host_injection_rejected",
+          "pass": true
+        },
+        {
+          "name": "QA_T3_5_cycle_source_host_check_fails_closed",
+          "pass": true
+        },
+        {
+          "name": "QA2_D1_unknown_network_context_rejected",
+          "pass": true
+        },
+        {
+          "name": "QA2_D1_missing_network_context_rejected",
+          "pass": true
+        },
+        {
+          "name": "QA2_D1_resolved_network_context_passes_rule8",
+          "pass": true
+        },
+        {
+          "name": "FAULT_transport_injected_outage_is_unknown_transport_row",
+          "pass": true
+        },
+        {
+          "name": "FAULT_http503_injected_is_unknown_http_error_row",
+          "pass": true
+        },
+        {
+          "name": "FAULT_global_host_rejected_as_unverified_market",
+          "pass": true
+        },
+        {
+          "name": "FAULT_trigger_false_returns_403_before_fault_handling",
+          "pass": true
+        },
+        {
+          "name": "FAULT_no_fault_path_matches_v15_verified_behavior",
+          "pass": true
+        },
+        {
+          "name": "FAULT_unknown_rows_mark_contracts_json_is_object_not_array",
+          "pass": true
+        },
+        {
+          "name": "FAULT_scheduled_never_reads_fault_static",
+          "pass": true
+        },
+        {
+          "name": "FAULT_src_uses_identity_label_no_forbidden_global_host",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_T3_failure_classes.json",
+      "exitCode": 0,
+      "file": "v16_t3_failure_classes.mjs",
+      "id": "V16_T3",
+      "label": "failure_classes",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "schema_column_set_equals_field_contract",
+          "pass": true
+        },
+        {
+          "name": "check_present_exchange",
+          "pass": true
+        },
+        {
+          "name": "check_present_market",
+          "pass": true
+        },
+        {
+          "name": "check_present_price_ts_source",
+          "pass": true
+        },
+        {
+          "name": "check_present_network_context",
+          "pass": true
+        },
+        {
+          "name": "check_present_venue",
+          "pass": true
+        },
+        {
+          "name": "check_present_failure_class",
+          "pass": true
+        },
+        {
+          "name": "check_present_mark_contracts_json",
+          "pass": true
+        },
+        {
+          "name": "check_present_market_partition_key",
+          "pass": true
+        },
+        {
+          "name": "snapshots_ddl_byte_identical_to_0001",
+          "pass": true
+        },
+        {
+          "name": "0001_is_verbatim_baseline_blob",
+          "pass": true
+        },
+        {
+          "name": "0002_defines_all_8_new_columns",
+          "pass": true
+        },
+        {
+          "name": "0002_backfills_unknown_and_history_unproven",
+          "pass": true
+        },
+        {
+          "name": "0002_renames_v1_to_legacy_never_drops",
+          "pass": true
+        },
+        {
+          "name": "0002_rebuilds_partition_index",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_T7_schema_contract.json",
+      "exitCode": 0,
+      "file": "v16_t7_schema_contract.mjs",
+      "id": "V16_T7",
+      "label": "schema_contract",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "M1_partition_key_self_consistent",
+          "pass": true
+        },
+        {
+          "name": "M2_global_sentinel_exceeds_us_peak_so_leak_is_visible",
+          "pass": true
+        },
+        {
+          "name": "M2_peak_restricted_to_same_partition",
+          "pass": true
+        },
+        {
+          "name": "M6_no_cross_market_aggregation_global_isolated",
+          "pass": true
+        },
+        {
+          "name": "M3_auto_fallback_fails_closed",
+          "pass": true
+        },
+        {
+          "name": "M3_last_good_price_fails_closed",
+          "pass": true
+        },
+        {
+          "name": "M5_mark_series_constant_across_rerun",
+          "pass": true
+        },
+        {
+          "name": "M4_snapshot_id_stable_across_rerun",
+          "pass": true
+        },
+        {
+          "name": "M7_unproven_rows_excluded_from_peak",
+          "pass": true
+        },
+        {
+          "name": "M7_sentinels_exceed_us_peak_so_leak_is_visible",
+          "pass": true
+        },
+        {
+          "name": "M7_history_provenance_guard_code",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_M_m1_m7_mixing.json",
+      "exitCode": 0,
+      "file": "v16_m1_m7_mixing.mjs",
+      "id": "V16_M",
+      "label": "m1_m7_mixing",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "U1_1000sats_unit_multiplier_equals_1000",
+          "pass": true
+        },
+        {
+          "name": "U1_1000sats_base_asset_is_1000SATS",
+          "pass": true
+        },
+        {
+          "name": "U1_1000sats_quote_asset_is_USDT",
+          "pass": true
+        },
+        {
+          "name": "U1_1000sats_price_unit_explicit",
+          "pass": true
+        },
+        {
+          "name": "U1_1000sats_global_identification_only",
+          "pass": true
+        },
+        {
+          "name": "U5_1000sats_status_blocked",
+          "pass": true
+        },
+        {
+          "name": "U5_ordi_blocked_not_listed_on_us",
+          "pass": true
+        },
+        {
+          "name": "U2_inverse_round_trip_restores_quote",
+          "pass": true
+        },
+        {
+          "name": "U2_1000x_sentinel",
+          "pass": true
+        },
+        {
+          "name": "U3_sats_series_conflict_detected",
+          "pass": true
+        },
+        {
+          "name": "U3_parallel_sats_rejected",
+          "pass": true
+        },
+        {
+          "name": "U4_wrong_unit_multiplier_rejected",
+          "pass": true
+        },
+        {
+          "name": "U5_blocked_symbol_in_series_rejected",
+          "pass": true
+        },
+        {
+          "name": "U1_buildMarkContracts_carries_unit_1000",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_U_u1_u5_units.json",
+      "exitCode": 0,
+      "file": "v16_u1_u5_units.mjs",
+      "id": "V16_U",
+      "label": "u1_u5_units",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "legacy_table_preserved",
+          "pass": true
+        },
+        {
+          "name": "legacy_row_preserved_verbatim",
+          "pass": true
+        },
+        {
+          "name": "history_new_columns_all_unknown",
+          "pass": true
+        },
+        {
+          "name": "history_failure_class_history_unproven",
+          "pass": true
+        },
+        {
+          "name": "history_mark_contracts_json_empty",
+          "pass": true
+        },
+        {
+          "name": "history_partition_key_self_consistent",
+          "pass": true
+        },
+        {
+          "name": "history_data_quality_preserved_verified",
+          "pass": true
+        },
+        {
+          "name": "three_indexes_rebuilt_after_migration",
+          "pass": true
+        },
+        {
+          "name": "history_row_excluded_from_peak",
+          "pass": true
+        },
+        {
+          "name": "history_provenance_guard_rejects",
+          "pass": true
+        },
+        {
+          "name": "0001_is_verbatim_baseline_blob",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_MIG_migration.json",
+      "exitCode": 0,
+      "file": "v16_migration.mjs",
+      "id": "V16_MIG",
+      "label": "migration",
+      "verdict": "PASS"
+    },
+    {
+      "checks": [
+        {
+          "name": "NEG1_us_plus_global_quotes_rejected",
+          "pass": true
+        },
+        {
+          "name": "NEG1_failure_class_market_mixing",
+          "pass": true
+        },
+        {
+          "name": "NEG1_still_writes_unknown_provenance",
+          "pass": true
+        },
+        {
+          "name": "NEG1_no_fabricated_price",
+          "pass": true
+        },
+        {
+          "name": "NEG1_original_two_market_evidence_preserved",
+          "pass": true
+        },
+        {
+          "name": "NEG2_us_cycle_rejected_by_prior_global_market",
+          "pass": true
+        },
+        {
+          "name": "NEG2_rejected_cycle_writes_unknown_provenance",
+          "pass": true
+        },
+        {
+          "name": "NEG2_us_snapshot_peak_not_polluted_by_global",
+          "pass": true
+        },
+        {
+          "name": "NEG2_global_sentinel_exceeds_normal_us_equity_scale",
+          "pass": true
+        },
+        {
+          "name": "NEG2_selectHistoryPeak_US_excludes_global_row",
+          "pass": true
+        },
+        {
+          "name": "NEG2_global_row_isolated_in_its_own_partition",
+          "pass": true
+        }
+      ],
+      "evidence": "V16_NEG_negative_mixed_cycle.json",
+      "exitCode": 0,
+      "file": "v16_negative_mixed_cycle.mjs",
+      "id": "V16_NEG",
+      "label": "negative_mixed_cycle",
+      "verdict": "PASS"
+    }
+  ]
+}

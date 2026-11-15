@@ -1,0 +1,472 @@
+{
+  "generatedAt": "2026-11-09T04:44:03.504Z",
+  "node": "v22.22.2",
+  "overall": "PASS",
+  "counts": {
+    "total": 8,
+    "pass": 8,
+    "fail": 0
+  },
+  "results": [
+    {
+      "id": "T0",
+      "file": "t0_market_probe.mjs",
+      "label": "market_probe",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T0_market_probe.json",
+      "checks": [
+        {
+          "name": "proxy_is_alive",
+          "pass": true
+        },
+        {
+          "name": "primary_source_probes_recorded",
+          "pass": true
+        },
+        {
+          "name": "primary_source_unreachable_from_local_proxy",
+          "pass": true
+        },
+        {
+          "name": "data_host_reachable_locally",
+          "pass": true
+        },
+        {
+          "name": "data_host_wrongly_lists_unlisted_symbols",
+          "pass": true
+        },
+        {
+          "name": "data_host_time_reachable",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T1",
+      "file": "t1_multi_cycle.mjs",
+      "label": "multi_cycle",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T1_multi_cycle.json",
+      "checks": [
+        {
+          "name": "four_snapshots_written",
+          "pass": true
+        },
+        {
+          "name": "all_cycles_verified",
+          "pass": true
+        },
+        {
+          "name": "no_failures",
+          "pass": true
+        },
+        {
+          "name": "equity_matches_recompute",
+          "pass": true
+        },
+        {
+          "name": "equity_varies_with_market",
+          "pass": true
+        },
+        {
+          "name": "equity_peak_matches_recompute",
+          "pass": true
+        },
+        {
+          "name": "drawdown_matches_recompute",
+          "pass": true
+        },
+        {
+          "name": "drawdown_appears_and_grows_on_decline",
+          "pass": true
+        },
+        {
+          "name": "replay_all_rows_match",
+          "pass": true
+        },
+        {
+          "name": "replay_peak_nonzero_for_verified",
+          "pass": true
+        },
+        {
+          "name": "provenance_row_count",
+          "pass": true
+        },
+        {
+          "name": "provenance_complete_fields",
+          "pass": true
+        },
+        {
+          "name": "state_hash_anchored",
+          "pass": true
+        },
+        {
+          "name": "marks_json_records_real_price",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T2",
+      "file": "t2_idempotency.mjs",
+      "label": "idempotency",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T2_idempotency.json",
+      "checks": [
+        {
+          "name": "first_run_writes_one",
+          "pass": true
+        },
+        {
+          "name": "repeats_write_zero",
+          "pass": true
+        },
+        {
+          "name": "snapshot_row_count_stays_one",
+          "pass": true
+        },
+        {
+          "name": "provenance_row_count_stays_one",
+          "pass": true
+        },
+        {
+          "name": "all_fields_identical_across_3_runs",
+          "pass": true
+        },
+        {
+          "name": "deterministic_snapshot_id_stable",
+          "pass": true
+        },
+        {
+          "name": "different_price_same_cycle_does_not_rewrite",
+          "pass": true
+        },
+        {
+          "name": "no_price_backfill_into_stored_row",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T3",
+      "file": "t3_outage_recovery.mjs",
+      "label": "outage_recovery",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T3_outage_recovery.json",
+      "checks": [
+        {
+          "name": "s1_has_6_snapshots",
+          "pass": true
+        },
+        {
+          "name": "ok_and_recover_are_verified",
+          "pass": true
+        },
+        {
+          "name": "four_outage_cycles_are_unknown",
+          "pass": true
+        },
+        {
+          "name": "outage_rows_have_no_fabricated_price",
+          "pass": true
+        },
+        {
+          "name": "outage_rows_are_audit_only_peak_zero",
+          "pass": true
+        },
+        {
+          "name": "honest_error_codes",
+          "pass": true
+        },
+        {
+          "name": "recover_is_fresh_verified",
+          "pass": true
+        },
+        {
+          "name": "recover_peak_uses_verified_only",
+          "pass": true
+        },
+        {
+          "name": "unlisted_symbols_always_unknown",
+          "pass": true
+        },
+        {
+          "name": "unlisted_symbols_no_venue_quotable",
+          "pass": true
+        },
+        {
+          "name": "replay_all_rows_match_with_unknown",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T4",
+      "file": "t4_account_isolation.mjs",
+      "label": "account_isolation",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T4_account_isolation.json",
+      "checks": [
+        {
+          "name": "two_accounts_three_cycles_each",
+          "pass": true
+        },
+        {
+          "name": "all_verified",
+          "pass": true
+        },
+        {
+          "name": "loss_equity_recompute",
+          "pass": true
+        },
+        {
+          "name": "profit_equity_recompute",
+          "pass": true
+        },
+        {
+          "name": "loss_has_drawdown_that_grows",
+          "pass": true
+        },
+        {
+          "name": "profit_has_zero_drawdown",
+          "pass": true
+        },
+        {
+          "name": "profit_equity_strictly_rising",
+          "pass": true
+        },
+        {
+          "name": "profit_account_is_larger_than_loss_peak",
+          "pass": true
+        },
+        {
+          "name": "loss_peak_not_inflated_by_other_account",
+          "pass": true
+        },
+        {
+          "name": "profit_peak_independent_and_rising",
+          "pass": true
+        },
+        {
+          "name": "deterministic_ids_are_session_scoped",
+          "pass": true
+        },
+        {
+          "name": "one_snapshot_per_account_per_cycle",
+          "pass": true
+        },
+        {
+          "name": "replay_loss_account_matches",
+          "pass": true
+        },
+        {
+          "name": "replay_profit_account_matches",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T5",
+      "file": "t5_replay_readonly.mjs",
+      "label": "replay_readonly",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T5_replay_readonly.json",
+      "checks": [
+        {
+          "name": "frozen_unchanged_server/engine/_lib/decimal.mjs",
+          "pass": true
+        },
+        {
+          "name": "frozen_unchanged_server/engine/_lib/equity-snapshot.mjs",
+          "pass": true
+        },
+        {
+          "name": "frozen_unchanged_server/engine/_lib/paper-server.mjs",
+          "pass": true
+        },
+        {
+          "name": "frozen_unchanged_server/engine/migrations/0005_equity_snapshots.sql",
+          "pass": true
+        },
+        {
+          "name": "vendor_decimal_byte_identical",
+          "pass": true
+        },
+        {
+          "name": "vendor_equity_byte_identical",
+          "pass": true
+        },
+        {
+          "name": "accounts_fully_unchanged",
+          "pass": true
+        },
+        {
+          "name": "zero_writes_to_frozen_ledger_tables",
+          "pass": true
+        },
+        {
+          "name": "only_allowed_tables_written",
+          "pass": true
+        },
+        {
+          "name": "no_order_state_mutation",
+          "pass": true
+        },
+        {
+          "name": "replay_count_3",
+          "pass": true
+        },
+        {
+          "name": "replay_all_rows_match",
+          "pass": true
+        },
+        {
+          "name": "replay_unknown_rows_do_not_touch_peak",
+          "pass": true
+        },
+        {
+          "name": "engine_sha256_recorded_and_matches",
+          "pass": true
+        },
+        {
+          "name": "collector_version_and_formula_recorded",
+          "pass": true
+        },
+        {
+          "name": "input_basis_recorded",
+          "pass": true
+        },
+        {
+          "name": "scheduled_entrypoint_runs_one_cycle",
+          "pass": true
+        },
+        {
+          "name": "fetch_trigger_disabled_by_default_403",
+          "pass": true
+        },
+        {
+          "name": "fetch_trigger_enabled_works",
+          "pass": true
+        },
+        {
+          "name": "fetch_unknown_path_404",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T6",
+      "file": "t6_session_failclosed.mjs",
+      "label": "session_failclosed",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T6_session_failclosed.json",
+      "checks": [
+        {
+          "name": "all_fail_closed_cases_zero_snapshot_writes",
+          "pass": true
+        },
+        {
+          "name": "fail_closed_cases_report_zero_sessions",
+          "pass": true
+        },
+        {
+          "name": "fail_closed_cases_never_call_market",
+          "pass": true
+        },
+        {
+          "name": "fail_closed_cases_do_not_throw",
+          "pass": true
+        },
+        {
+          "name": "real_trading_true_red_line_aborts",
+          "pass": true
+        },
+        {
+          "name": "real_trading_true_does_not_call_market",
+          "pass": true
+        },
+        {
+          "name": "valid_control_writes_one_verified",
+          "pass": true
+        },
+        {
+          "name": "no_fabricated_price_in_any_fail_closed_case",
+          "pass": true
+        }
+      ]
+    },
+    {
+      "id": "T7",
+      "file": "t7_static_audit.mjs",
+      "label": "static_audit",
+      "exitCode": 0,
+      "verdict": "PASS",
+      "evidence": "T7_static_audit.json",
+      "checks": [
+        {
+          "name": "no_forbidden_host_in_own_src",
+          "pass": true
+        },
+        {
+          "name": "primary_host_is_binance_us",
+          "pass": true
+        },
+        {
+          "name": "no_fetchMarks_call",
+          "pass": true
+        },
+        {
+          "name": "no_collectEquitySnapshots_call",
+          "pass": true
+        },
+        {
+          "name": "no_buildEquityRiskBasis_call",
+          "pass": true
+        },
+        {
+          "name": "no_write_to_paper_accounts",
+          "pass": true
+        },
+        {
+          "name": "no_write_to_server_events_or_orders",
+          "pass": true
+        },
+        {
+          "name": "all_writes_are_insert_or_ignore",
+          "pass": true
+        },
+        {
+          "name": "deterministic_id_uses_only_5_stable_fields",
+          "pass": true
+        },
+        {
+          "name": "real_trading_red_line_enforced",
+          "pass": true
+        },
+        {
+          "name": "no_console_logging_in_src",
+          "pass": true
+        },
+        {
+          "name": "no_credential_references_in_src",
+          "pass": true
+        },
+        {
+          "name": "wrangler_binding_is_EQ_DB",
+          "pass": true
+        },
+        {
+          "name": "wrangler_marks_isolated_db",
+          "pass": true
+        }
+      ]
+    }
+  ]
+}

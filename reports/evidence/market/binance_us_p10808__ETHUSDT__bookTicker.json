@@ -1,0 +1,53 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "ETHUSDT",
+  "endpoint": "bookTicker",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/ticker/bookTicker?symbol=ETHUSDT",
+    "path": "/api/v3/ticker/bookTicker?symbol=ETHUSDT",
+    "probe_ts_utc": "2026-11-09T04:36:22.808+00:00",
+    "probe_ts_epoch_ms": 1794198982808,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:25 GMT",
+      "x_mbx_uuid": "245be51b-58aa-4107-8d53-ba881e740a11",
+      "x_mbx_used_weight": "76",
+      "x_mbx_used_weight_1m": "76",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 ba27ce03782dde4e1a9edba0c10f6262.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 118,
+    "body_sha256": "98d471b1bd98fb0e79bba41ab6a3144802ea20d3cf088c9e4ad74b8d3d960834",
+    "body_sha256_short16": "98d471b1bd98fb0e",
+    "body_excerpt_500": "{\"symbol\":\"ETHUSDT\",\"bidPrice\":\"2144.30000000\",\"bidQty\":\"0.93370000\",\"askPrice\":\"2144.40000000\",\"askQty\":\"0.05970000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "ETHUSDT",
+      "bidPrice": "2144.30000000",
+      "bidQty": "0.93370000",
+      "askPrice": "2144.40000000",
+      "askQty": "0.05970000"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 2.057,
+    "is_cloudflare_html_block": false
+  }
+}

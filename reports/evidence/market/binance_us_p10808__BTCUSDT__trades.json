@@ -1,0 +1,55 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "BTCUSDT",
+  "endpoint": "trades",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/trades?symbol=BTCUSDT&limit=1",
+    "path": "/api/v3/trades?symbol=BTCUSDT&limit=1",
+    "probe_ts_utc": "2026-11-09T04:36:20.666+00:00",
+    "probe_ts_epoch_ms": 1794198980666,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:23 GMT",
+      "x_mbx_uuid": "3e565f58-fd34-4f0b-9251-332b34a02019",
+      "x_mbx_used_weight": "45",
+      "x_mbx_used_weight_1m": "45",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 243a031946d1296c7d5f1ede8a3977c0.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 148,
+    "body_sha256": "4555cd6224f369af0d987d227f42946863184fa010778c34de0612a7eaa09b7a",
+    "body_sha256_short16": "4555cd6224f369af",
+    "body_excerpt_500": "[{\"id\":32144085,\"price\":\"75020.35000000\",\"qty\":\"0.00198000\",\"quoteQty\":\"148.54029300\",\"time\":1794198957487,\"isBuyerMaker\":false,\"isBestMatch\":true}]",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "trade_count": 1,
+      "last_trade_id": 32144085,
+      "last_trade_price": "75020.35000000",
+      "last_trade_qty": "0.00198000",
+      "last_trade_time_ms": 1794198957487,
+      "last_trade_time_utc": "2026-11-09T04:35:57.487+00:00",
+      "isBuyerMaker": false
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 2.062,
+    "is_cloudflare_html_block": false
+  }
+}

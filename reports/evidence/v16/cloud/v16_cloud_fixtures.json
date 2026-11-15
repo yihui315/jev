@@ -1,0 +1,46 @@
+{
+  "schema": "jev-v16-cloud-fixtures/v1",
+  "at_utc": "2026-11-09T12:53:25.185781+00:00",
+  "db": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+  "label": "ISOLATED TEST FIXTURES — not real trading results",
+  "fixture_count": 4,
+  "sessions": 4,
+  "accounts": 4,
+  "fixtures": [
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "state_json_sha256": "21f39ebcec44f9bc64e6810473a44129fae4b7031f5d4a75ddc1f3792d651e66",
+      "session_write_ok": true,
+      "account_write_ok": true,
+      "positions": [
+        "BTCUSDT"
+      ]
+    },
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "state_json_sha256": "11dd051dfb648bdb35f302c69580d45ba1194c922f3f64cea1331855f933439d",
+      "session_write_ok": true,
+      "account_write_ok": true,
+      "positions": [
+        "ETHUSDT"
+      ]
+    },
+    {
+      "session_id": "v16-FIXTURE-ordi",
+      "state_json_sha256": "38e83cc23f36698c9b875a860740ffffa842983329245f567ad7cb471fa1a8de",
+      "session_write_ok": true,
+      "account_write_ok": true,
+      "positions": [
+        "ORDIUSDT"
+      ]
+    },
+    {
+      "session_id": "v16-FIXTURE-cash",
+      "state_json_sha256": "2006b6f45aa3a1e8e66a3ea535d1c8a1a21df719cf4e49ab949d407f1569f57a",
+      "session_write_ok": true,
+      "account_write_ok": true,
+      "positions": []
+    }
+  ],
+  "verdict": "PASS"
+}

@@ -1,0 +1,92 @@
+{
+  "probe_schema": "jev-v15-proxy-control/1.0",
+  "ts_utc": "2026-11-09T04:34:35.358+00:00",
+  "purpose": "Re-test api.binance.us via the second sandbox proxy (10808, per team-lead). Two proxies x three targets. Read-only GET, no credentials.",
+  "credentials_sent": false,
+  "rows": [
+    {
+      "proxy": "proxy_52498",
+      "proxy_url": "http://127.0.0.1:52498",
+      "target": "binance_us",
+      "url": "https://api.binance.us/api/v3/time",
+      "ok": false,
+      "error": "URLError: <urlopen error [SSL: UNEXPECTED_EOF_WHILE_READING] EOF occurred in violation of protocol (_ssl.c:1032)>",
+      "latency_s": 0.175
+    },
+    {
+      "proxy": "proxy_52498",
+      "proxy_url": "http://127.0.0.1:52498",
+      "target": "binance_global_vision",
+      "url": "https://data-api.binance.vision/api/v3/time",
+      "ok": true,
+      "http_status": 200,
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:34:36 GMT",
+      "body_sha256": "09be82b20a8b8ce408008a3828ce00660196df77c5c26ec2f7247a430ad24247",
+      "body_sha256_short16": "09be82b20a8b8ce4",
+      "body_excerpt_160": "{\"serverTime\":1794198876663}",
+      "latency_s": 0.342
+    },
+    {
+      "proxy": "proxy_52498",
+      "proxy_url": "http://127.0.0.1:52498",
+      "target": "example_com_control",
+      "url": "https://example.com",
+      "ok": true,
+      "http_status": 200,
+      "server": "cloudflare",
+      "content_type": "text/html; charset=utf-8",
+      "date": "Mon, 09 Nov 2026 04:34:37 GMT",
+      "body_sha256": "25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484",
+      "body_sha256_short16": "25ddf2c883e0d195",
+      "body_excerpt_160": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Exampl",
+      "latency_s": 1.694
+    },
+    {
+      "proxy": "proxy_10808",
+      "proxy_url": "http://127.0.0.1:10808",
+      "target": "binance_us",
+      "url": "https://api.binance.us/api/v3/time",
+      "ok": true,
+      "http_status": 200,
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:34:40 GMT",
+      "body_sha256": "2148bbda4985cc03442400f52ad26472663b1d35ebad0833eaba5aecd1f2be25",
+      "body_sha256_short16": "2148bbda4985cc03",
+      "body_excerpt_160": "{\"serverTime\":1794198880145}",
+      "latency_s": 1.943
+    },
+    {
+      "proxy": "proxy_10808",
+      "proxy_url": "http://127.0.0.1:10808",
+      "target": "binance_global_vision",
+      "url": "https://data-api.binance.vision/api/v3/time",
+      "ok": true,
+      "http_status": 200,
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:34:42 GMT",
+      "body_sha256": "86083829c4a7305a3dd1fb101e702627fbb095db719e43dc2e4215bd545a2e2e",
+      "body_sha256_short16": "86083829c4a7305a",
+      "body_excerpt_160": "{\"serverTime\":1794198882838}",
+      "latency_s": 2.67
+    },
+    {
+      "proxy": "proxy_10808",
+      "proxy_url": "http://127.0.0.1:10808",
+      "target": "example_com_control",
+      "url": "https://example.com",
+      "ok": true,
+      "http_status": 200,
+      "server": "cloudflare",
+      "content_type": "text/html; charset=utf-8",
+      "date": "Mon, 09 Nov 2026 04:34:44 GMT",
+      "body_sha256": "25ddf2c883e0d1958ea971d279a7e4f0fd446724ee3db7db19dadabd4a62e484",
+      "body_sha256_short16": "25ddf2c883e0d195",
+      "body_excerpt_160": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=device-width,initial-scale=1\"><title>Exampl",
+      "latency_s": 1.743
+    }
+  ]
+}

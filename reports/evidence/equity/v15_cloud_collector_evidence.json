@@ -1,0 +1,300 @@
+{
+  "captured_at_utc": "2026-11-09T04:39:16.734810+00:00",
+  "cycles": [
+    {
+      "cycle_key": "v45-cloud-C1",
+      "http": 200,
+      "written": 0,
+      "verified": 3,
+      "unknown": 1,
+      "failures": [],
+      "nowIso": "2026-11-09T04:39:19.353Z",
+      "snapshot_ids": [
+        "v45eq_e20aad8242455c7424ba54aba1b5f5e0de07705538581bf7d7d782493de696ec",
+        "v45eq_74e208793630985837b3de33e8abc1bcbe390fcd176626c22e0af78dd4d275de",
+        "v45eq_84c777318cd135608c6c5b8aecf448e3bb829ee29ad49b92d3375dc4fe7f94c7",
+        "v45eq_5291d32e0732e1db209b60568ba0d8db600acdb5f54c707252ab0104cdc513b0"
+      ],
+      "equity": {
+        "v45-FIXTURE-alpha": 1012597260000,
+        "v45-FIXTURE-beta": 757365200000,
+        "v45-FIXTURE-cash": 1000000000000,
+        "v45-FIXTURE-ordi": 0
+      },
+      "drawdown": {
+        "v45-FIXTURE-alpha": 0,
+        "v45-FIXTURE-beta": 24263480,
+        "v45-FIXTURE-cash": 0,
+        "v45-FIXTURE-ordi": 0
+      }
+    },
+    {
+      "cycle_key": "v45-cloud-C1",
+      "http": 200,
+      "written": 0,
+      "verified": 3,
+      "unknown": 1,
+      "failures": [],
+      "nowIso": "2026-11-09T04:39:25.389Z",
+      "snapshot_ids": [
+        "v45eq_e20aad8242455c7424ba54aba1b5f5e0de07705538581bf7d7d782493de696ec",
+        "v45eq_74e208793630985837b3de33e8abc1bcbe390fcd176626c22e0af78dd4d275de",
+        "v45eq_84c777318cd135608c6c5b8aecf448e3bb829ee29ad49b92d3375dc4fe7f94c7",
+        "v45eq_5291d32e0732e1db209b60568ba0d8db600acdb5f54c707252ab0104cdc513b0"
+      ],
+      "equity": {
+        "v45-FIXTURE-alpha": 1012597260000,
+        "v45-FIXTURE-beta": 757365200000,
+        "v45-FIXTURE-cash": 1000000000000,
+        "v45-FIXTURE-ordi": 0
+      },
+      "drawdown": {
+        "v45-FIXTURE-alpha": 0,
+        "v45-FIXTURE-beta": 24263480,
+        "v45-FIXTURE-cash": 0,
+        "v45-FIXTURE-ordi": 0
+      }
+    },
+    {
+      "cycle_key": "v45-cloud-C1",
+      "http": 200,
+      "written": 0,
+      "verified": 3,
+      "unknown": 1,
+      "failures": [],
+      "nowIso": "2026-11-09T04:39:31.277Z",
+      "snapshot_ids": [
+        "v45eq_e20aad8242455c7424ba54aba1b5f5e0de07705538581bf7d7d782493de696ec",
+        "v45eq_74e208793630985837b3de33e8abc1bcbe390fcd176626c22e0af78dd4d275de",
+        "v45eq_84c777318cd135608c6c5b8aecf448e3bb829ee29ad49b92d3375dc4fe7f94c7",
+        "v45eq_5291d32e0732e1db209b60568ba0d8db600acdb5f54c707252ab0104cdc513b0"
+      ],
+      "equity": {
+        "v45-FIXTURE-alpha": 1012597260000,
+        "v45-FIXTURE-beta": 757365200000,
+        "v45-FIXTURE-cash": 1000000000000,
+        "v45-FIXTURE-ordi": 0
+      },
+      "drawdown": {
+        "v45-FIXTURE-alpha": 0,
+        "v45-FIXTURE-beta": 24263480,
+        "v45-FIXTURE-cash": 0,
+        "v45-FIXTURE-ordi": 0
+      }
+    },
+    {
+      "cycle_key": "v45-cloud-C2",
+      "http": 200,
+      "written": 4,
+      "verified": 3,
+      "unknown": 1,
+      "failures": [],
+      "nowIso": "2026-11-09T04:39:37.268Z",
+      "snapshot_ids": [
+        "v45eq_06304cb0af99fc17562766d074263c14ea8bdb5c988bcc46cddcb3afe9d7d154",
+        "v45eq_f8299f91b2662aae9d3d2e7cbf1543a11faec90293125643f8b208334545e443",
+        "v45eq_03b7c6d30fb59a6c0ab3ba042332269fe091771ec01c30b5b89c3d751de55b2b",
+        "v45eq_3760508f682dbf8f0c7e0d898895f4e8286f951a413192833f829206df390ac9"
+      ],
+      "equity": {
+        "v45-FIXTURE-alpha": 1012597260000,
+        "v45-FIXTURE-beta": 757365200000,
+        "v45-FIXTURE-cash": 1000000000000,
+        "v45-FIXTURE-ordi": 0
+      },
+      "drawdown": {
+        "v45-FIXTURE-alpha": 0,
+        "v45-FIXTURE-beta": 24263480,
+        "v45-FIXTURE-cash": 0,
+        "v45-FIXTURE-ordi": 0
+      }
+    },
+    {
+      "cycle_key": "v45-cloud-C3",
+      "http": 200,
+      "written": 4,
+      "verified": 3,
+      "unknown": 1,
+      "failures": [],
+      "nowIso": "2026-11-09T04:39:42.794Z",
+      "snapshot_ids": [
+        "v45eq_3eb14b297596589b7a34c379fdc86bc4faf83529a3f0946a37e3e5ebc55d79e1",
+        "v45eq_f5a4468b5af435a4b4569890ae6dce8cdb9fc19f230342e6b7c59dfe6d78e050",
+        "v45eq_c0e29f341457755ff74c5ad8c6112872bf98782f4027998aa3b5f32115765c33",
+        "v45eq_2d8295fe61fdfeee280f594a8a262944b4745dab9b831a6790d45955d9299fb6"
+      ],
+      "equity": {
+        "v45-FIXTURE-alpha": 1012597260000,
+        "v45-FIXTURE-beta": 757365200000,
+        "v45-FIXTURE-cash": 1000000000000,
+        "v45-FIXTURE-ordi": 0
+      },
+      "drawdown": {
+        "v45-FIXTURE-alpha": 0,
+        "v45-FIXTURE-beta": 24263480,
+        "v45-FIXTURE-cash": 0,
+        "v45-FIXTURE-ordi": 0
+      }
+    }
+  ],
+  "d1": {
+    "snapshot_count": [
+      {
+        "n": 12
+      }
+    ],
+    "provenance_count": [
+      {
+        "n": 12
+      }
+    ],
+    "quality_split": [
+      {
+        "mark_quality": "unknown",
+        "n": 3
+      },
+      {
+        "mark_quality": "verified",
+        "n": 9
+      }
+    ],
+    "per_session": [
+      {
+        "session_id": "v45-FIXTURE-alpha",
+        "n": 3,
+        "ids": 3,
+        "peak": 1012597260000,
+        "max_dd": 0
+      },
+      {
+        "session_id": "v45-FIXTURE-beta",
+        "n": 3,
+        "ids": 3,
+        "peak": 1000000000000,
+        "max_dd": 24263480
+      },
+      {
+        "session_id": "v45-FIXTURE-cash",
+        "n": 3,
+        "ids": 3,
+        "peak": 1000000000000,
+        "max_dd": 0
+      },
+      {
+        "session_id": "v45-FIXTURE-ordi",
+        "n": 3,
+        "ids": 3,
+        "peak": 0,
+        "max_dd": 0
+      }
+    ],
+    "cycle_keys": [
+      {
+        "cycle_key": "v45-cloud-C1",
+        "n": 4
+      },
+      {
+        "cycle_key": "v45-cloud-C2",
+        "n": 4
+      },
+      {
+        "cycle_key": "v45-cloud-C3",
+        "n": 4
+      }
+    ],
+    "provenance_sample": [
+      {
+        "snapshot_id": "v45eq_03b7c6d30fb59a6c0ab3ba042332269fe091771ec01c30b5b89c3d751de55b2b",
+        "source_host": "api.binance.us",
+        "endpoint": "/api/v3/ticker/price",
+        "http_status": null,
+        "payload_sha256": null,
+        "price_ts": "2026-11-09T04:39:39.302Z",
+        "fetched_at": "2026-11-09T04:39:37.268Z",
+        "freshness_ms": 2034,
+        "freshness_verdict": "FRESH",
+        "clock_skew_ms": 2034,
+        "data_quality": "VERIFIED",
+        "mark_quality": "verified",
+        "error_code": null,
+        "collector_version": "v45-equity-collector/1.0.0",
+        "engine_sha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+        "formula_version": "v45-equity-fp/1"
+      },
+      {
+        "snapshot_id": "v45eq_06304cb0af99fc17562766d074263c14ea8bdb5c988bcc46cddcb3afe9d7d154",
+        "source_host": "api.binance.us",
+        "endpoint": "/api/v3/ticker/price",
+        "http_status": 200,
+        "payload_sha256": "9135549106033cd12413d8b9aab726a8d9f98657d3ab63e17de2fe9fa4f49f42",
+        "price_ts": "2026-11-09T04:39:37.694Z",
+        "fetched_at": "2026-11-09T04:39:37.268Z",
+        "freshness_ms": 426,
+        "freshness_verdict": "FRESH",
+        "clock_skew_ms": 426,
+        "data_quality": "VERIFIED",
+        "mark_quality": "verified",
+        "error_code": null,
+        "collector_version": "v45-equity-collector/1.0.0",
+        "engine_sha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+        "formula_version": "v45-equity-fp/1"
+      },
+      {
+        "snapshot_id": "v45eq_2d8295fe61fdfeee280f594a8a262944b4745dab9b831a6790d45955d9299fb6",
+        "source_host": "api.binance.us",
+        "endpoint": "/api/v3/ticker/price",
+        "http_status": null,
+        "payload_sha256": null,
+        "price_ts": "2026-11-09T04:39:45.925Z",
+        "fetched_at": "2026-11-09T04:39:42.794Z",
+        "freshness_ms": 3131,
+        "freshness_verdict": "UNKNOWN",
+        "clock_skew_ms": 3131,
+        "data_quality": "UNKNOWN",
+        "mark_quality": "unknown",
+        "error_code": "NO_VENUE_QUOTABLE_SYMBOLS",
+        "collector_version": "v45-equity-collector/1.0.0",
+        "engine_sha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+        "formula_version": "v45-equity-fp/1"
+      },
+      {
+        "snapshot_id": "v45eq_3760508f682dbf8f0c7e0d898895f4e8286f951a413192833f829206df390ac9",
+        "source_host": "api.binance.us",
+        "endpoint": "/api/v3/ticker/price",
+        "http_status": null,
+        "payload_sha256": null,
+        "price_ts": "2026-11-09T04:39:40.023Z",
+        "fetched_at": "2026-11-09T04:39:37.268Z",
+        "freshness_ms": 2755,
+        "freshness_verdict": "UNKNOWN",
+        "clock_skew_ms": 2755,
+        "data_quality": "UNKNOWN",
+        "mark_quality": "unknown",
+        "error_code": "NO_VENUE_QUOTABLE_SYMBOLS",
+        "collector_version": "v45-equity-collector/1.0.0",
+        "engine_sha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+        "formula_version": "v45-equity-fp/1"
+      }
+    ],
+    "accounts_unchanged": [
+      {
+        "n": 4
+      }
+    ],
+    "events_unchanged": [
+      {
+        "n": 0
+      }
+    ],
+    "orders_unchanged": [
+      {
+        "n": 0
+      }
+    ]
+  },
+  "staging_d1_equity_rows": [
+    {
+      "n": 0
+    }
+  ]
+}

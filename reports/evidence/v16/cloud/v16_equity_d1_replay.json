@@ -1,0 +1,120 @@
+{
+  "schema": "jev-v16-d1-replay/v1",
+  "at_utc": "2026-11-09T12:56:28.432368+00:00",
+  "rows": 10,
+  "peak_matches": 10,
+  "drawdown_matches": 10,
+  "verdict": "PASS",
+  "details": [
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "snapshot_id": "v45eq_3436ee7c5b45e69fcf88a12d9099e5b532de2227f670185e74d8b1fad7d8bf80",
+      "equity": 11063385000000,
+      "stored_peak": 11063385000000,
+      "recomputed_peak": 11063385000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "snapshot_id": "v45eq_7d3f18aba6cf21a0cd511e9de06706b4b9b3cefad22bed44a8d4d3fbf0069c8b",
+      "equity": 11063420000000,
+      "stored_peak": 11063420000000,
+      "recomputed_peak": 11063420000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "snapshot_id": "v45eq_4ee4adcfe70647bc8cede77ae5abb6ed0973cce788adc661aba0d43d6206e4ba",
+      "equity": 11063420000000,
+      "stored_peak": 11063420000000,
+      "recomputed_peak": 11063420000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "snapshot_id": "v45eq_65cd2060b62b550c00dcd7339ce1117ac57b08b9315a879c44c4f8f654050738",
+      "equity": 11062855000000,
+      "stored_peak": 11063420000000,
+      "recomputed_peak": 11063420000000,
+      "stored_drawdown": 5107,
+      "recomputed_drawdown": 5107,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-eth",
+      "snapshot_id": "v45eq_f03dfb08286bb4d41305ebe12be82aebe80a95052111d0c93ec796243163f6eb",
+      "equity": 11062855000000,
+      "stored_peak": 11063420000000,
+      "recomputed_peak": 11063420000000,
+      "stored_drawdown": 5107,
+      "recomputed_drawdown": 5107,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "snapshot_id": "v45eq_8d1c077e4416e6fc5a4f4fffb59271fbfceca9b848173aa326987dcfd2ad4a29",
+      "equity": 24989122000000,
+      "stored_peak": 24989122000000,
+      "recomputed_peak": 24989122000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "snapshot_id": "v45eq_644bf4c447b3c2bfe1b4792388b93837704f44f2c21b11d4409bbddfb211fb74",
+      "equity": 24989122000000,
+      "stored_peak": 24989122000000,
+      "recomputed_peak": 24989122000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "snapshot_id": "v45eq_131deb7d393130b4bda1bce65bf552b79a0dbb502d7cfe353f3b402028d845d4",
+      "equity": 24989122000000,
+      "stored_peak": 24989122000000,
+      "recomputed_peak": 24989122000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "snapshot_id": "v45eq_c4dd051ecdc13d60615ad9cb0b2933df5e17ff338cbc9ff81d92c6e0edac9359",
+      "equity": 24989122000000,
+      "stored_peak": 24989122000000,
+      "recomputed_peak": 24989122000000,
+      "stored_drawdown": 0,
+      "recomputed_drawdown": 0,
+      "peak_match": true,
+      "drawdown_match": true
+    },
+    {
+      "session_id": "v16-FIXTURE-btc",
+      "snapshot_id": "v45eq_c162cf8d55daa312dcc5a94882928dfd071f0f13d4628ebad849042391984a7c",
+      "equity": 24981894000000,
+      "stored_peak": 24989122000000,
+      "recomputed_peak": 24989122000000,
+      "stored_drawdown": 28925,
+      "recomputed_drawdown": 28925,
+      "peak_match": true,
+      "drawdown_match": true
+    }
+  ]
+}

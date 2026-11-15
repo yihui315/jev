@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import { configDefaults } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
 // Dev server binds 127.0.0.1:4781 only (v1.2 dev UI port). The final v1.2 UI
@@ -80,5 +81,64 @@ export default defineConfig({
     // files serially keeps the cache single-writer and the run clean; the suite
     // is small, so the time cost is negligible.
     fileParallelism: false,
+    // NOT vitest suites: these two are hand-written `node <path>` assertion
+    // scripts (node:assert + process.exit, no describe/it). They matched the
+    // default `**/*.test.mjs` glob and made every `vitest run` fail with
+    // "No test suite found in file" — a red unit-test job for a test-runner
+    // mismatch, not for a real defect. Their correct entry point is `node`,
+    // which the CI gap-closure gate below uses. `configDefaults` is spread in
+    // on purpose: setting `exclude` replaces vitest's defaults wholesale, and
+    // a bare array would silently stop excluding node_modules/dist.
+    exclude: [
+      ...configDefaults.exclude,
+      "scripts/supervisor/supervisor.test.mjs",
+      "server/ai/evidence/tests/inference-evidence.test.mjs",
+      // P0-B: these two directories are EXCLUSIVELY hand-written
+      // `node <path>` assertion runners owned by the CI gap-closure gate
+      // (ci.yml runs them with `node ... | tee`, before `npm ci`). They are
+      // not vitest suites and must never be collected by `vitest run`.
+      // Directory-scoped patterns, not a hand-maintained file list: a new
+      // runner added under either directory (e.g. the P0-A
+      // HUMAN_PUBLISH_GATE reverse tests, or Relay's provider-interface
+      // tests) would otherwise silently turn `vitest run` red with
+      // "No test suite found in file" — which is exactly the regression
+      // measured on 2026-11-12 (2 failed files, VITEST_EXIT=1).
+      // The gate's own case-count floor (gate-assertion-floor.mjs) is what
+      // keeps these scripts honest; excluding them from vitest removes NO
+      // assertion from CI.
+      "scripts/tests/**/*.test.mjs",
+      "server/ai/tests/**/*.test.mjs",
+      // P0-B follow-up (2026-11-14): the same class of hand-written
+      // assertion runners also lives in these FIVE server/ai feature
+      // directories, never vitest globals. The default `**/*.test.mjs` glob
+      // collected all 14 of them and failed each with "No test suite found
+      // in file" (the 14 failed files of the baseline run). Their correct
+      // entry point is `node`, not vitest — but in TWO distinct shapes:
+      //   7 self-running node:test scripts -> `node <path>`;
+      //   7 provider-gateway `t-c-*` files export `async function run()`
+      //     and do NOT self-execute -> their real entry point is
+      //     `node server/ai/provider-gateway/tests/run-all.mjs`, which
+      //     aggregates them (34 cases, `RESULT PASS=34 FAIL=0`).
+      // These 14 are NOT among gate-assertion-floor.mjs's 11 frozen suites
+      // (ci.yml's gate step runs a DIFFERENT set of hand-written scripts);
+      // the floor does NOT pin their case counts. Excluding them from vitest
+      // removes NO assertion, and that guarantee does NOT come from the
+      // gate floor: it rests on the 14 .test.mjs files being byte-identical
+      // (sha256 unchanged), their static assert/case counts unchanged, and
+      // all `node` / run-all runs still passing. `exclude` only narrows
+      // vitest's glob: it edits NO test file, and every case still runs
+      // under `node` with its assertions intact.
+      // Directory-scoped patterns, as above: a new runner dropped into any of
+      // these directories stays excluded. Listed per-directory rather than
+      // one broad `server/ai/**/tests/**/*.test.mjs` on purpose — it pins the
+      // blast radius to the KNOWN node-runner directories and cannot silently
+      // swallow a future real vitest `.test.mjs` suite; the `.mjs` suffix
+      // never touches `src/**/*.test.ts` (the 22 real vitest suites).
+      "server/ai/commercial/tests/**/*.test.mjs",
+      "server/ai/phase-b/tests/**/*.test.mjs",
+      "server/ai/provider-gateway/tests/**/*.test.mjs",
+      "server/ai/real-backends/tests/**/*.test.mjs",
+      "server/ai/supervisor/tests/**/*.test.mjs",
+    ],
   },
 });

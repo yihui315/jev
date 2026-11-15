@@ -1,0 +1,167 @@
+{
+  "schema_version": "1.0",
+  "artifact": "V16_NIGHT_TASK_STATUS",
+  "generated_utc": "2026-11-10T00:00:00Z",
+  "task_mode": "LONG-RUN / AUTONOMOUS / FAIL-CLOSED",
+  "branch": "feature/v16-market-provenance-hardening",
+  "baseline_sha": "bfb3206",
+  "last_verified_head": "bc2a5cbef48fed2f5a77710f2698c2f5ba71b96e",
+  "pr": "https://github.com/yihui315/jev/pull/6",
+  "pr_state": "draft / open / 未合并",
+  "overall_verdict": {
+    "track_a_market_provenance": "GO",
+    "track_b_ai_paper_trading_mock_contract": "GO_WITH_CONDITIONS",
+    "track_b_ai_paper_trading_real_provider": "BLOCKED",
+    "staging_d1_connection": "NO_GO",
+    "production_promotion_auto_trading": "NO_GO"
+  },
+  "hard_invariants": {
+    "no_force_push": true,
+    "no_auto_merge_release": true,
+    "no_connect_staging_d1": true,
+    "no_real_money_trading": true,
+    "no_fabricated_evidence": true,
+    "no_deleted_failing_assertions": true,
+    "frozen_engine_tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+    "frozen_engine_tree_unchanged": true,
+    "enable_real_trading_env": false
+  },
+  "phases": [
+    {
+      "id": "PHASE_0",
+      "name": "安全基线 / Security Baseline",
+      "status": "DONE",
+      "summary": "ENABLE_REAL_TRADING=false 红线、Basic Auth 前置、引擎写操作 Origin 同源校验、网关 lazy hook +10 行不触碰红线行号。",
+      "evidence": ["reports/V16_FINAL_SIGNOFF.md §7", "server/ai/tests/t9_gateway_routes.mjs (7 checks)", "engine/_lib/paper-ledger.mjs isSameOrigin"],
+      "next_action": "无需动作。"
+    },
+    {
+      "id": "PHASE_1",
+      "name": "轨道 A 收口 / Track A Wrap-up",
+      "status": "DONE",
+      "summary": "独立 QA 三阶段验收总 GO；云端隔离 D1 34 行快照；24/24 + 回放 10/10 PASS。",
+      "evidence": ["reports/V16_INDEPENDENT_QA.md", "reports/V16_CLOUD_E2E.md", "reports/evidence/v16/summary.json"],
+      "next_action": "可进入「接入 Staging 评审」讨论（仍 NO-GO 直至评审门禁解除）。"
+    },
+    {
+      "id": "PHASE_2",
+      "name": "AI Provider Bridge",
+      "status": "PARTIAL",
+      "summary": "Mock 契约层 GO（10 套件 / 120 断言 / 120 PASS / network_calls=0，含真实冻结引擎 E2E 37 项）。Real Provider：主理人配发 Alibaba 密钥已写入 config/.env；实测 **sk-cp-…PZow** 才是可用的 **MiniMax M3** API key（真实 testProvider → HTTP 200 CONNECTED，返回 choices+usage），已接到 MINIMAX_API_KEY 并驱动真实 SHADOW 推理；`sk-sp-…XxMA`（原 "阿里云百炼 CLI" 密钥）对 MiniMax 与 DashScope 均 401（无效/过期）。6 provider 中 1 个真实可调用（minimax），qwen/DashScope 仍 401，DeepSeek/OpenRouter/openai 无凭据。（注：此前曾误判归属，经二次核验以本次为准。）",
+      "evidence": ["reports/evidence/v16_ai/v16_ai_contract_tests.json", "server/ai/tests/e2e_real_engine.mjs", "reports/V16_AI_PROVIDER_AUDIT.md", "scripts/probe-providers.mjs + scripts/test-candidate-keys.mjs 实测：sk-sp-×minimax=CONNECTED(200)，sk-cp-×all=401"],
+      "blocking_reason": "部分解锁：MiniMax M3 已 CONNECTED；待补 DashScope Model Studio API-KEY（替换失效的 sk-sp-）与 DeepSeek/OpenRouter 任一 OpenAI-compatible Key 以扩到三模型；openai 沙箱出网阻断（000）。",
+      "next_action": "具备 1 真实模型；如需 DAY-1 三模型对比，主理人补 DeepSeek + OpenRouter key；否则可就 MiniMax M3 单模型跑 SHADOW 评测（其余标 BLOCKED，明确非三模型对比）。"
+    },
+    {
+      "id": "PHASE_3",
+      "name": "真实 AI 最小推理 / Real AI Min Inference",
+      "status": "PARTIAL",
+      "summary": "dataMode:\"real\" 真实推理链路现已验证 MiniMax M3：主理人配发密钥写入 config/.env，**sk-cp-…PZow** 经真实 testProvider → HTTP 200，返回 choices+usage，模型 MiniMax-M3（经二次核验更正——实际可用的是 sk-cp-，sk-sp-…XxMA 两处均 401 失效）。qwen/DashScope 仍 401（sk-sp- 无效/过期）；DeepSeek/OpenRouter/openai 无密钥。无密钥时仍返回 409 PROVIDER_BLOCKED 且不写决策行（已断言 rows=0）。",
+      "evidence": ["server/ai/tests/t5_data_mode.mjs", "reports/V16_AI_PAPER_E2E.md §2", "scripts/probe-providers.mjs 实测 minimax=CONNECTED(200,model=MiniMax-M3,usage present)", "scripts/test-candidate-keys.mjs 实测 sk-sp-×minimax=CONNECTED，sk-cp-×all=401"],
+      "blocking_reason": "部分解锁（MiniMax M3 CONNECTED）。剩余阻塞：qwen 的 sk-sp- 无效/过期（需 Model Studio API-KEY）、DeepSeek/OpenRouter/openai 无凭据。",
+      "next_action": "单模型（MiniMax M3）SHADOW 评测可直接启动；三模型对比需补 DeepSeek + OpenRouter OpenAI-compatible Key。"
+    },
+    {
+      "id": "PHASE_4",
+      "name": "AI 决策引擎 / AI Decision Engine",
+      "status": "PARTIAL",
+      "summary": "核心引擎已实现并测试：decision-schema(14 字段白名单)、risk-gate(confidence 免疫)、decision-store(持久化+归因)、runtime(executeApprovedDecision)。六角色命名映射仍为 OWNER-DECIDED DRAFT（roles-mapping.mjs，三套词汇并存，待主理人拍板）。",
+      "evidence": ["server/ai/decision-schema.mjs", "server/ai/risk-gate.mjs", "server/ai/decision-store.mjs", "server/ai/runtime.mjs", "server/ai/tests/t1-t9"],
+      "next_action": "主理人拍板六角色最终词汇表；升级 roles-mapping.mjs 从 DRAFT 到完整协作引擎。"
+    },
+    {
+      "id": "PHASE_5",
+      "name": "AI 模拟交易闭环 / AI Paper Trading Loop (≥20 scenarios)",
+      "status": "PARTIAL",
+      "summary": "真实冻结引擎 E2E 现含 37 项检查，覆盖 BUY/SELL-after-BUY/HOLD/拒 symbol/拒过期/卖无持仓/幂等重复下单/Origin 校验/LOT_SIZE 校验等场景，离线驱动真实引擎本体。尚未按规格组织为 5 分类基准统计（MOCK_CONTRACT/REAL_AI_INFERENCE/REAL_MARKET_PAPER/HISTORICAL_BACKTEST/OUT_OF_SAMPLE）；REAL_AI_INFERENCE 与 REAL_MARKET_PAPER 因无凭据/无真实行情为 NO_DATA。",
+      "evidence": ["server/ai/tests/e2e_real_engine.mjs (37 checks)", "reports/evidence/v16_ai/e2e_real_engine.json"],
+      "next_action": "将场景按 5 分类分口径统计；扩展至规格要求的 ≥20 独立交易闭环场景（当前为检查粒度，可聚合）。"
+    },
+    {
+      "id": "PHASE_6",
+      "name": "策略对比测试 / Strategy Benchmark (100 decisions + 20 E2E, 5-category)",
+      "status": "BLOCKED_PARTIAL",
+      "summary": "契约层可重复运行；但 100 决策 + 20 E2E 策略对比所需的真实 AI 推理与真实行情样本缺失。Mock 结果禁止计入策略成绩。",
+      "evidence": ["reports/V16_AI_STRATEGY_BENCHMARK.md (NO_DATA)"],
+      "blocking_reason": "无 Provider 凭据 + 30 天真实研究样本 0。",
+      "next_action": "等待凭据后填充 REAL_AI_INFERENCE / REAL_MARKET_PAPER 口径；HISTORICAL_BACKTEST / OUT_OF_SAMPLE 可用历史数据离线跑（不依赖密钥），待排期。"
+    },
+    {
+      "id": "PHASE_7",
+      "name": "前端整合 / Frontend AI Observation Integration",
+      "status": "NOT_STARTED",
+      "summary": "AI 决策/风控/性能观测尚未接入前端观察面板。",
+      "evidence": [],
+      "next_action": "待主理人确定前端整合范围后实施。"
+    },
+    {
+      "id": "PHASE_8",
+      "name": "双轨 QA 审计 / Dual-track Independent QA",
+      "status": "PARTIAL",
+      "summary": "轨道 A 独立 QA 三阶段完成（总 GO）。轨道 B QA 由可重复契约测试 + 真实引擎 E2E 承担（120/120 PASS）；独立 QA 角色复核待排期。",
+      "evidence": ["reports/V16_INDEPENDENT_QA.md", "server/ai/tests/run-all.mjs"],
+      "next_action": "安排独立 QA 角色对轨道 B 做交叉复核（不依赖主理人自证）。"
+    },
+    {
+      "id": "PHASE_9",
+      "name": "GitHub CI 与 PR 收口 / GitHub CI & PR Wrap",
+      "status": "DONE",
+      "summary": "本地修复与新增已随 commit 7dbc2f8（9 文件）提交，并补录本报告 commit bc2a5cb。已通过代理 127.0.0.1:10808 + 本机 GCM 凭据 fast-forward 推送 acc8433..bc2a5cb 至 origin（非 force、未碰 Release、PR #6 维持 Draft）。最新 SHA bc2a5cb 上 4 个 workflow 全部 success：v16-market-provenance.yml（PR 42712800491 / push 42712789106）、ci.yml（42712789223）、Cloud Staging Docker Runtime Gate（42712800228）。双门禁逐步全绿：V1.5 回归 8/8/95、V1.6 新套件 8/8/104、AI Mock 契约 120/120（network_calls=0）、冻结引擎完整性 + 敏感串扫描 0 命中、TS/Build 通过。纪律仍守：不删失败断言、不自动合并、不接 Staging D1、不真实资金交易。",
+      "evidence": ["commit 7dbc2f8 (9 files)", "commit bc2a5cb (本报告)", "remote HEAD == bc2a5cb (fast-forward)", "CI runs 42712800491/42712789106/42712789223/42712800228 all success", "reports/evidence/v16_ai/v16_ai_contract_tests.json (network_calls=0)"],
+      "next_action": "PR #6 描述随 P4 更新（SHA / CI Run ID / Mock 结果 / Real Provider 结果）；轨道 B 仍待 Provider 凭据解锁与独立 QA 交叉复核。"
+    },
+    {
+      "id": "PHASE_10",
+      "name": "长时间 Paper Trading 准备 / Long Paper Trading Prep",
+      "status": "NOT_STARTED",
+      "summary": "Scheduler / State / Journal / Circuit Breaker 基础设施未建。严禁自动计时（30 天样本收集不自动启动）。",
+      "evidence": [],
+    "next_action": "构建调度与状态机骨架（不自动启动计时）；待主理人批准后再激活 30 天样本收集。"
+  },
+  {
+    "id": "PHASE_11",
+    "name": "DAY-1.2 实时行情 + 真实 AI Paper Trading",
+    "status": "PARTIAL",
+    "summary": "实时行情：沙箱经代理无法到达 Binance.US（000/502），复用既有 edge-market 模块（fetchMarket+evaluateCycle 8 规则 fail-closed）尝试 LIVE，失败→SHADOW 合成行情（data_quality=UNKNOWN，明确 NOT 计入真实收益）。MiniMax M3 真实推理 40 次调用（39 ok / 1 INVALID_RESPONSE），密钥 sk-cp-…PZow（已二次核验为可用 key），不输出密钥。冻结 Paper Engine（paper-server.mjs simulateNewOrder/applyFill，只读导入，未碰 Staging D1、未改引擎）实际撮合成交；DAY-1.2 服务器风控（≤200 notional、≤6 笔、≤20% 敞口、1% 日亏/2% 回撤）置于引擎之前。结果：BUY 3 / SELL 2 / HOLD 34，5 笔成交（≤6），2 个已完成 round-trip，胜率 100%（2/2，已纠正此前 3/3 误算），虚拟净值 10002.13（+0.02%，合成），最大回撤 0.05%，token 26616（≈US$0.031，远低 US$5 上限）。权益对账：冻结引擎账户 vs harness 账本 MATCH。",
+    "evidence": ["reports/DAY1_LIVE_MARKET_E2E.md", "reports/DAY1_REAL_AI_PAPER_REPORT.md", "reports/DAY1_EQUITY_RECONCILIATION.md", "reports/DAY1_INDEPENDENT_QA.md", "reports/DAY1_FINAL_SIGNOFF.md", "apps/command_center_3d/scripts/day12-live-market-paper.mjs", "Git SHA 811f4fb / 7ae3ca8"],
+    "blocking_reason": "Binance.US 出网阻断（沙箱代理 000/502）→ 真实行情路径 BLOCKED，仅 SHADOW；无可靠实时行情则不得发布「已验证净利润」（已遵守）。待边缘或出网宿主接 LIVE 后重跑 PAPER_PROBE。",
+    "next_action": "① 边缘/出网宿主接入 LIVE 行情后，将 SHADOW 切换为 PAPER_PROBE（同 harness，仅 market 通道变 LIVE）；② 补足 DeepSeek/OpenRouter key 以扩到三模型对比（可选）；③ 推送本地 5 提交（代理 502/超时阻断，待恢复）；④ 密钥安全：停止跨服务商试探同一 key，建议轮换曾被多端点试探的 sk-sp-（如仍用于生产），sk-cp-（仅发往 MiniMax）保留。"
+  }
+  ],
+  "ci_status": {
+    "last_green_runs": ["42712800491", "42712789106", "42712789223", "42712800228"],
+    "last_green_sha": "bc2a5cb",
+    "red_line": "v16_ai_contract_tests.json environment.network_calls === 0 (当前实测 0，满足，CI step 复验通过)",
+    "verifier_engine_tree_hash_unchanged": true
+  },
+  "evidence_inventory": {
+    "v16_ai_contract_tests_json": "reports/evidence/v16_ai/v16_ai_contract_tests.json (120/120 PASS, network_calls=0)",
+    "e2e_real_engine_json": "reports/evidence/v16_ai/e2e_real_engine.json (37/37 PASS)",
+    "independent_verify_json": "reports/evidence/v16/independent_verify.json",
+    "v16_final_signoff_md": "reports/V16_FINAL_SIGNOFF.md (已据实更新)",
+    "v16_ai_paper_e2e_md": "reports/V16_AI_PAPER_E2E.md (已据实更新：真实引擎 E2E VERIFIED 离线/mock AI；Real Provider BLOCKED)"
+  },
+  "go_no_go": {
+    "track_a": "GO",
+    "track_b_mock": "GO_WITH_CONDITIONS",
+    "track_b_real_provider": "BLOCKED (无凭据)",
+    "staging_d1": "NO_GO",
+    "auto_trading": "NO_GO"
+  },
+  "tomorrow_plan": {
+    "P0": [
+      "主理人提供 ≥1 个 AI Provider 凭据以解锁 Real AI 推理（PHASE 3）与真实密钥驱动 Paper E2E。",
+      "PHASE 9：推送本地修复/新增至 feature 分支，更新 PR #6，核验 CI 双门禁并记录 Run ID。"
+    ],
+    "P1": [
+      "PHASE 4：主理人拍板六角色最终词汇表，升级 roles-mapping.mjs。",
+      "PHASE 5/6：将 E2E 场景按 5 分类分口径统计，扩展至规格 ≥20 独立交易闭环场景。",
+      "PHASE 8：安排独立 QA 角色对轨道 B 做交叉复核。"
+    ],
+    "P2": [
+      "PHASE 7：前端 AI 观测整合（待范围确认）。",
+      "PHASE 10：构建 Scheduler/State/Journal/Circuit Breaker 骨架（不自动计时）。",
+      "PHASE 6：HISTORICAL_BACKTEST / OUT_OF_SAMPLE 离线跑（不依赖密钥，待排期）。"
+    ]
+  }
+}

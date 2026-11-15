@@ -1,0 +1,54 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "1000SATSUSDT",
+  "endpoint": "exchangeInfo",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/exchangeInfo?symbol=1000SATSUSDT",
+    "path": "/api/v3/exchangeInfo?symbol=1000SATSUSDT",
+    "probe_ts_utc": "2026-11-09T04:24:47.299+00:00",
+    "probe_ts_epoch_ms": 1794198287299,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:48 GMT",
+      "x_mbx_uuid": "41064577-be85-41ec-b03c-a64569700462",
+      "x_mbx_used_weight": "177",
+      "x_mbx_used_weight_1m": "177",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 5289,
+    "body_sha256": "c37361c85ff7ea5c85773774ef43d72a749d8f78378a987b1c775300d4cc47b8",
+    "body_sha256_short16": "c37361c85ff7ea5c",
+    "body_excerpt_500": "{\"timezone\":\"UTC\",\"serverTime\":1794198288421,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":\"SECOND\",\"intervalNum\":10,\"limit\":100},{\"rateLimitType\":\"ORDERS\",\"interval\":\"DAY\",\"intervalNum\":1,\"limit\":200000},{\"rateLimitType\":\"RAW_REQUESTS\",\"interval\":\"MINUTE\",\"intervalNum\":5,\"limit\":300000}],\"exchangeFilters\":[],\"symbols\":[{\"symbol\":\"1000SATSUSDT\",\"status\":\"TRADING\",\"baseAsset\":\"1000SATS\",\"baseAssetPrecision\":2",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "1000SATSUSDT",
+      "status": "TRADING",
+      "baseAsset": "1000SATS",
+      "quoteAsset": "USDT",
+      "isSpotTradingAllowed": true,
+      "permissions": []
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.413,
+    "is_cloudflare_html_block": false
+  }
+}

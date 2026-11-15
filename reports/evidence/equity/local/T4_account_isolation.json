@@ -1,0 +1,408 @@
+{
+  "id": "T4",
+  "file": "t4_account_isolation.mjs",
+  "label": "account_isolation",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T4_account_isolation\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:02.330Z\",\"finishedAt\":\"2026-11-09T04:44:02.386Z\",\"meta\":{\"accounts\":{\"s_loss\":\"BTCUSDT qty=1 (declining)\",\"s_profit\":\"ETHUSDT qty=100 (rising, much larger equity)\"}},\"checks\":[{\"name\":\"two_accounts_three_cycles_each\",\"pass\":true,\"detail\":{\"loss\":3,\"profit\":3,\"total\":6}},{\"name\":\"all_verified\",\"pass\":true,\"detail\":[\"verified\",\"verified\",\"verified\",\"verified\",\"verified\",\"verified\"]},{\"name\":\"loss_equity_recompute\",\"pass\":true,\"detail\":{\"expected\":[17495177000000,15996141600000,14497106200000],\"actual\":[17495177000000,15996141600000,14497106200000]}},{\"name\":\"profit_equity_recompute\",\"pass\":true,\"detail\":{\"expected\":[31433500000000,35720200000000,42150250000000],\"actual\":[31433500000000,35720200000000,42150250000000]}},{\"name\":\"loss_has_drawdown_that_grows\",\"pass\":true,\"detail\":[0,8568278,17136556]},{\"name\":\"profit_has_zero_drawdown\",\"pass\":true,\"detail\":[0,0,0]},{\"name\":\"profit_equity_strictly_rising\",\"pass\":true,\"detail\":[31433500000000,35720200000000,42150250000000]},{\"name\":\"profit_account_is_larger_than_loss_peak\",\"pass\":true,\"detail\":{\"max_profit_equity\":42150250000000,\"loss_peak\":17495177000000}},{\"name\":\"loss_peak_not_inflated_by_other_account\",\"pass\":true,\"detail\":{\"loss_peaks\":[17495177000000,17495177000000,17495177000000],\"loss_peak_expected\":17495177000000,\"max_profit_equity\":42150250000000}},{\"name\":\"profit_peak_independent_and_rising\",\"pass\":true,\"detail\":[{\"eq\":31433500000000,\"peak\":31433500000000},{\"eq\":35720200000000,\"peak\":35720200000000},{\"eq\":42150250000000,\"peak\":42150250000000}]},{\"name\":\"deterministic_ids_are_session_scoped\",\"pass\":true,\"detail\":{\"unique_ids\":6}},{\"name\":\"one_snapshot_per_account_per_cycle\",\"pass\":true,\"detail\":[{\"key\":\"iso-c0\",\"written\":2,\"sessions\":2},{\"key\":\"iso-c1\",\"written\":2,\"sessions\":2},{\"key\":\"iso-c2\",\"written\":2,\"sessions\":2}]},{\"name\":\"replay_loss_account_matches\",\"pass\":true,\"detail\":[{\"snapshot_id\":\"v45eq_67931aa3a2d431c745d2121410c98f5686f134fa1f2760bf7854abc6305c77c0\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17495177000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_1f851860c883bade025c9b1adf0c38121b228ba6c5e189e556a21935c90afdd4\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":15996141600000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":8568278,\"recomputed_dd\":8568278,\"match\":true},{\"snapshot_id\":\"v45eq_7980a56fb63fb0f8fe50097ba91ef3ff16c6f81f0e566467853851d50b7f05a3\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":14497106200000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":17136556,\"recomputed_dd\":17136556,\"match\":true}]},{\"name\":\"replay_profit_account_matches\",\"pass\":true,\"detail\":[{\"snapshot_id\":\"v45eq_825ee2caea8df7162f2722e42678446fe0b30277c09bf14c01f1eb95bbc9ee6b\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":31433500000000,\"stored_peak\":31433500000000,\"recomputed_peak\":31433500000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_677cd94da3757e6018d7e94d30534dca6647056470dfb3c9d680be8a8ae4e4dd\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":35720200000000,\"stored_peak\":35720200000000,\"recomputed_peak\":35720200000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_4402def630f84276e77bbb519c1d2ce7d96265d9ac932521b3ef8ead393210fa\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":42150250000000,\"stored_peak\":42150250000000,\"recomputed_peak\":42150250000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true}]}],\"extra\":{\"cycles\":[{\"key\":\"iso-c0\",\"btc\":\"74951.77000000\",\"eth\":\"2143.35000000\",\"written\":2},{\"key\":\"iso-c1\",\"btc\":\"59961.41600000\",\"eth\":\"2572.02000000\",\"written\":2},{\"key\":\"iso-c2\",\"btc\":\"44971.06200000\",\"eth\":\"3215.02500000\",\"written\":2}],\"loss\":[{\"equity\":17495177000000,\"peak\":17495177000000,\"dd\":0},{\"equity\":15996141600000,\"peak\":17495177000000,\"dd\":8568278},{\"equity\":14497106200000,\"peak\":17495177000000,\"dd\":17136556}],\"profit\":[{\"equity\":31433500000000,\"peak\":31433500000000,\"dd\":0},{\"equity\":35720200000000,\"peak\":35720200000000,\"dd\":0},{\"equity\":42150250000000,\"peak\":42150250000000,\"dd\":0}],\"isolation_proof\":{\"loss_peak\":17495177000000,\"max_profit_equity\":42150250000000,\"profit_larger\":true},\"replay\":{\"loss\":{\"seed\":10000000000000,\"count\":3,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_67931aa3a2d431c745d2121410c98f5686f134fa1f2760bf7854abc6305c77c0\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17495177000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_1f851860c883bade025c9b1adf0c38121b228ba6c5e189e556a21935c90afdd4\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":15996141600000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":8568278,\"recomputed_dd\":8568278,\"match\":true},{\"snapshot_id\":\"v45eq_7980a56fb63fb0f8fe50097ba91ef3ff16c6f81f0e566467853851d50b7f05a3\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":14497106200000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":17136556,\"recomputed_dd\":17136556,\"match\":true}]},\"profit\":{\"seed\":10000000000000,\"count\":3,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_825ee2caea8df7162f2722e42678446fe0b30277c09bf14c01f1eb95bbc9ee6b\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":31433500000000,\"stored_peak\":31433500000000,\"recomputed_peak\":31433500000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_677cd94da3757e6018d7e94d30534dca6647056470dfb3c9d680be8a8ae4e4dd\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":35720200000000,\"stored_peak\":35720200000000,\"recomputed_peak\":35720200000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_4402def630f84276e77bbb519c1d2ce7d96265d9ac932521b3ef8ead393210fa\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":42150250000000,\"stored_peak\":42150250000000,\"recomputed_peak\":42150250000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true}]}},\"verdict_labels\":{\"account_isolation\":\"VERIFIED (controlled real-shaped prices)\"}}}\n",
+  "stderr": "(node:11324) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "T4_account_isolation",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:02.330Z",
+    "finishedAt": "2026-11-09T04:44:02.386Z",
+    "meta": {
+      "accounts": {
+        "s_loss": "BTCUSDT qty=1 (declining)",
+        "s_profit": "ETHUSDT qty=100 (rising, much larger equity)"
+      }
+    },
+    "checks": [
+      {
+        "name": "two_accounts_three_cycles_each",
+        "pass": true,
+        "detail": {
+          "loss": 3,
+          "profit": 3,
+          "total": 6
+        }
+      },
+      {
+        "name": "all_verified",
+        "pass": true,
+        "detail": [
+          "verified",
+          "verified",
+          "verified",
+          "verified",
+          "verified",
+          "verified"
+        ]
+      },
+      {
+        "name": "loss_equity_recompute",
+        "pass": true,
+        "detail": {
+          "expected": [
+            17495177000000,
+            15996141600000,
+            14497106200000
+          ],
+          "actual": [
+            17495177000000,
+            15996141600000,
+            14497106200000
+          ]
+        }
+      },
+      {
+        "name": "profit_equity_recompute",
+        "pass": true,
+        "detail": {
+          "expected": [
+            31433500000000,
+            35720200000000,
+            42150250000000
+          ],
+          "actual": [
+            31433500000000,
+            35720200000000,
+            42150250000000
+          ]
+        }
+      },
+      {
+        "name": "loss_has_drawdown_that_grows",
+        "pass": true,
+        "detail": [
+          0,
+          8568278,
+          17136556
+        ]
+      },
+      {
+        "name": "profit_has_zero_drawdown",
+        "pass": true,
+        "detail": [
+          0,
+          0,
+          0
+        ]
+      },
+      {
+        "name": "profit_equity_strictly_rising",
+        "pass": true,
+        "detail": [
+          31433500000000,
+          35720200000000,
+          42150250000000
+        ]
+      },
+      {
+        "name": "profit_account_is_larger_than_loss_peak",
+        "pass": true,
+        "detail": {
+          "max_profit_equity": 42150250000000,
+          "loss_peak": 17495177000000
+        }
+      },
+      {
+        "name": "loss_peak_not_inflated_by_other_account",
+        "pass": true,
+        "detail": {
+          "loss_peaks": [
+            17495177000000,
+            17495177000000,
+            17495177000000
+          ],
+          "loss_peak_expected": 17495177000000,
+          "max_profit_equity": 42150250000000
+        }
+      },
+      {
+        "name": "profit_peak_independent_and_rising",
+        "pass": true,
+        "detail": [
+          {
+            "eq": 31433500000000,
+            "peak": 31433500000000
+          },
+          {
+            "eq": 35720200000000,
+            "peak": 35720200000000
+          },
+          {
+            "eq": 42150250000000,
+            "peak": 42150250000000
+          }
+        ]
+      },
+      {
+        "name": "deterministic_ids_are_session_scoped",
+        "pass": true,
+        "detail": {
+          "unique_ids": 6
+        }
+      },
+      {
+        "name": "one_snapshot_per_account_per_cycle",
+        "pass": true,
+        "detail": [
+          {
+            "key": "iso-c0",
+            "written": 2,
+            "sessions": 2
+          },
+          {
+            "key": "iso-c1",
+            "written": 2,
+            "sessions": 2
+          },
+          {
+            "key": "iso-c2",
+            "written": 2,
+            "sessions": 2
+          }
+        ]
+      },
+      {
+        "name": "replay_loss_account_matches",
+        "pass": true,
+        "detail": [
+          {
+            "snapshot_id": "v45eq_67931aa3a2d431c745d2121410c98f5686f134fa1f2760bf7854abc6305c77c0",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 17495177000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_1f851860c883bade025c9b1adf0c38121b228ba6c5e189e556a21935c90afdd4",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 15996141600000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 8568278,
+            "recomputed_dd": 8568278,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_7980a56fb63fb0f8fe50097ba91ef3ff16c6f81f0e566467853851d50b7f05a3",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 14497106200000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 17136556,
+            "recomputed_dd": 17136556,
+            "match": true
+          }
+        ]
+      },
+      {
+        "name": "replay_profit_account_matches",
+        "pass": true,
+        "detail": [
+          {
+            "snapshot_id": "v45eq_825ee2caea8df7162f2722e42678446fe0b30277c09bf14c01f1eb95bbc9ee6b",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 31433500000000,
+            "stored_peak": 31433500000000,
+            "recomputed_peak": 31433500000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_677cd94da3757e6018d7e94d30534dca6647056470dfb3c9d680be8a8ae4e4dd",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 35720200000000,
+            "stored_peak": 35720200000000,
+            "recomputed_peak": 35720200000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_4402def630f84276e77bbb519c1d2ce7d96265d9ac932521b3ef8ead393210fa",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 42150250000000,
+            "stored_peak": 42150250000000,
+            "recomputed_peak": 42150250000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          }
+        ]
+      }
+    ],
+    "extra": {
+      "cycles": [
+        {
+          "key": "iso-c0",
+          "btc": "74951.77000000",
+          "eth": "2143.35000000",
+          "written": 2
+        },
+        {
+          "key": "iso-c1",
+          "btc": "59961.41600000",
+          "eth": "2572.02000000",
+          "written": 2
+        },
+        {
+          "key": "iso-c2",
+          "btc": "44971.06200000",
+          "eth": "3215.02500000",
+          "written": 2
+        }
+      ],
+      "loss": [
+        {
+          "equity": 17495177000000,
+          "peak": 17495177000000,
+          "dd": 0
+        },
+        {
+          "equity": 15996141600000,
+          "peak": 17495177000000,
+          "dd": 8568278
+        },
+        {
+          "equity": 14497106200000,
+          "peak": 17495177000000,
+          "dd": 17136556
+        }
+      ],
+      "profit": [
+        {
+          "equity": 31433500000000,
+          "peak": 31433500000000,
+          "dd": 0
+        },
+        {
+          "equity": 35720200000000,
+          "peak": 35720200000000,
+          "dd": 0
+        },
+        {
+          "equity": 42150250000000,
+          "peak": 42150250000000,
+          "dd": 0
+        }
+      ],
+      "isolation_proof": {
+        "loss_peak": 17495177000000,
+        "max_profit_equity": 42150250000000,
+        "profit_larger": true
+      },
+      "replay": {
+        "loss": {
+          "seed": 10000000000000,
+          "count": 3,
+          "allMatch": true,
+          "rows": [
+            {
+              "snapshot_id": "v45eq_67931aa3a2d431c745d2121410c98f5686f134fa1f2760bf7854abc6305c77c0",
+              "created_at": "2026-02-02T02:40:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 17495177000000,
+              "stored_peak": 17495177000000,
+              "recomputed_peak": 17495177000000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_1f851860c883bade025c9b1adf0c38121b228ba6c5e189e556a21935c90afdd4",
+              "created_at": "2026-02-02T02:41:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 15996141600000,
+              "stored_peak": 17495177000000,
+              "recomputed_peak": 17495177000000,
+              "stored_dd": 8568278,
+              "recomputed_dd": 8568278,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_7980a56fb63fb0f8fe50097ba91ef3ff16c6f81f0e566467853851d50b7f05a3",
+              "created_at": "2026-02-02T02:42:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 14497106200000,
+              "stored_peak": 17495177000000,
+              "recomputed_peak": 17495177000000,
+              "stored_dd": 17136556,
+              "recomputed_dd": 17136556,
+              "match": true
+            }
+          ]
+        },
+        "profit": {
+          "seed": 10000000000000,
+          "count": 3,
+          "allMatch": true,
+          "rows": [
+            {
+              "snapshot_id": "v45eq_825ee2caea8df7162f2722e42678446fe0b30277c09bf14c01f1eb95bbc9ee6b",
+              "created_at": "2026-02-02T02:40:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 31433500000000,
+              "stored_peak": 31433500000000,
+              "recomputed_peak": 31433500000000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_677cd94da3757e6018d7e94d30534dca6647056470dfb3c9d680be8a8ae4e4dd",
+              "created_at": "2026-02-02T02:41:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 35720200000000,
+              "stored_peak": 35720200000000,
+              "recomputed_peak": 35720200000000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            },
+            {
+              "snapshot_id": "v45eq_4402def630f84276e77bbb519c1d2ce7d96265d9ac932521b3ef8ead393210fa",
+              "created_at": "2026-02-02T02:42:00.000Z",
+              "cycle_key": null,
+              "mark_quality": "verified",
+              "equity": 42150250000000,
+              "stored_peak": 42150250000000,
+              "recomputed_peak": 42150250000000,
+              "stored_dd": 0,
+              "recomputed_dd": 0,
+              "match": true
+            }
+          ]
+        }
+      },
+      "verdict_labels": {
+        "account_isolation": "VERIFIED (controlled real-shaped prices)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:02.396Z",
+  "node": "v22.22.2"
+}

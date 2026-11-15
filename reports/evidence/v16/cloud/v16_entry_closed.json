@@ -1,0 +1,25 @@
+{
+  "schema": "jev-v16-entry-closed/v1",
+  "at_utc": "2026-11-09T13:22:23.129222+00:00",
+  "worker": "jev-v45-equity-collector-v16",
+  "trigger": "V45_TEST_TRIGGER redeployed to false after official E2E",
+  "probes": [
+    {
+      "path": "/__v45/collect?cycle_key=POST-CLOSE-PROBE",
+      "http": 403,
+      "error": "TEST_TRIGGER_DISABLED"
+    },
+    {
+      "path": "/__v45/collect?cycle_key=POST-CLOSE-PROBE2&fault=transport",
+      "http": 403,
+      "error": "TEST_TRIGGER_DISABLED"
+    },
+    {
+      "path": "/__v45/collect?cycle_key=POST-D1FIX-PROBE",
+      "http": 403,
+      "error": "TEST_TRIGGER_DISABLED",
+      "note": "after QA2-D1 guard rule 8 fix redeploy"
+    }
+  ],
+  "verdict": "PASS — entry closed both before and after the D1 fix redeploy; deployed source == final repo source"
+}

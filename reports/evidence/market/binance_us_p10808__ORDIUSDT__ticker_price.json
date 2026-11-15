@@ -1,0 +1,50 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "ORDIUSDT",
+  "endpoint": "ticker_price",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT",
+    "path": "/api/v3/ticker/price?symbol=ORDIUSDT",
+    "probe_ts_utc": "2026-11-09T04:36:22.834+00:00",
+    "probe_ts_epoch_ms": 1794198982834,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 400,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:25 GMT",
+      "x_mbx_uuid": "3e565f58-fd34-4f0b-9251-332b34a02019",
+      "x_mbx_used_weight": "74",
+      "x_mbx_used_weight_1m": "74",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 f9390503c7a4b12a3096ea9cb549012e.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 38,
+    "body_sha256": "882fbec4a8b18dbba2b41cf9b2c93512b35d0a28c3a4961892d2419946857b9b",
+    "body_sha256_short16": "882fbec4a8b18dbb",
+    "body_excerpt_500": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "api_error_code": -1121,
+      "api_error_msg": "Invalid symbol."
+    },
+    "ok": false,
+    "classification": "API_ERROR",
+    "latency_s": 2.002,
+    "is_cloudflare_html_block": false
+  }
+}

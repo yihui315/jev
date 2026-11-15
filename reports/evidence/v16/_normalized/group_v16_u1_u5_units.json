@@ -1,0 +1,139 @@
+{
+  "checks": [
+    {
+      "detail": {
+        "unit_multiplier": 1000
+      },
+      "name": "U1_1000sats_unit_multiplier_equals_1000",
+      "pass": true
+    },
+    {
+      "detail": {
+        "base_asset": "1000SATS"
+      },
+      "name": "U1_1000sats_base_asset_is_1000SATS",
+      "pass": true
+    },
+    {
+      "detail": {
+        "quote_asset": "USDT"
+      },
+      "name": "U1_1000sats_quote_asset_is_USDT",
+      "pass": true
+    },
+    {
+      "detail": {
+        "price_unit": "USDT per 1 (1000SATS) unit = 1000 SATS"
+      },
+      "name": "U1_1000sats_price_unit_explicit",
+      "pass": true
+    },
+    {
+      "detail": {
+        "exchange": "Binance Global spot"
+      },
+      "name": "U1_1000sats_global_identification_only",
+      "pass": true
+    },
+    {
+      "detail": {
+        "reason": "GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED",
+        "status": "BLOCKED"
+      },
+      "name": "U5_1000sats_status_blocked",
+      "pass": true
+    },
+    {
+      "detail": {
+        "reason": "NOT_LISTED_ON_BINANCE_US",
+        "status": "BLOCKED"
+      },
+      "name": "U5_ordi_blocked_not_listed_on_us",
+      "pass": true
+    },
+    {
+      "detail": {
+        "back": 0.000008,
+        "perSats": 7.999999999999999e-9,
+        "quote": 0.000008
+      },
+      "name": "U2_inverse_round_trip_restores_quote",
+      "pass": true
+    },
+    {
+      "detail": {
+        "perSats": 7.999999999999999e-9,
+        "quote": 0.000008,
+        "times1000": 0.000008
+      },
+      "name": "U2_1000x_sentinel",
+      "pass": true
+    },
+    {
+      "detail": {
+        "conflict": true,
+        "identicalMultiplier": false
+      },
+      "name": "U3_sats_series_conflict_detected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "code": "UNIT_CONTRACT_MISMATCH"
+      },
+      "name": "U3_parallel_sats_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "code": "UNIT_CONTRACT_MISMATCH"
+      },
+      "name": "U4_wrong_unit_multiplier_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "code": "UNIT_CONTRACT_MISMATCH"
+      },
+      "name": "U5_blocked_symbol_in_series_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "1000SATSUSDT": {
+          "base_asset": "1000SATS",
+          "data_quality": "UNKNOWN",
+          "exchange": "Binance Global spot",
+          "fetched_at": "t",
+          "freshness_ms": 0,
+          "freshness_verdict": "FRESH",
+          "market": "spot",
+          "network_context": "local_test_shim",
+          "payload_sha256": "p",
+          "price_ts": "t",
+          "price_ts_source": "exchange_serverTime",
+          "price_unit": "USDT per 1 (1000SATS) unit = 1000 SATS",
+          "quote_asset": "USDT",
+          "reason": "GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED",
+          "source_host": "api.binance.us",
+          "source_url": "https://api.binance.us/x",
+          "status": "BLOCKED",
+          "symbol": "1000SATSUSDT",
+          "unit_multiplier": 1000
+        }
+      },
+      "name": "U1_buildMarkContracts_carries_unit_1000",
+      "pass": true
+    }
+  ],
+  "extra": {
+    "back": 0.000008,
+    "perSats": 7.999999999999999e-9,
+    "quote": 0.000008
+  },
+  "meta": {
+    "coverage": "QA-U1..U5"
+  },
+  "testId": "v16_u1_u5_units",
+  "verdict": "PASS"
+}

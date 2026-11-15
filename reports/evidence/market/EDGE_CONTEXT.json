@@ -1,0 +1,337 @@
+{
+  "probe_schema": "jev-v15-edge-context/1.0",
+  "provenance": {
+    "provided_by": "team-lead",
+    "source_file": "D:/cf-deploy/tmp/v15_edge_market_probe.json",
+    "captured_at_utc": "2026-11-09T04:24:18.594542+00:00",
+    "edge_endpoint": "https://jev-cloud-staging.pages.dev/api/jev/market/status",
+    "edge_probe_endpoint": "/api/jev/market/probe",
+    "gateway": "paper-server.mjs injects env.__fetch pointing to api.binance.us",
+    "network_context": "cloudflare_pages_edge_runtime_staging",
+    "auth": "Basic preview authentication (NOT accessed, NOT read, NOT touched by market-auditor)",
+    "independent_reproduction_by_market_auditor": false,
+    "reproducibility_label": "PROVIDED / UNVERIFIED by this session",
+    "note": "VERDICT / FRESHNESS / UNAVAILABLE values below are produced by the edge runtime probe itself. market-auditor did NOT independently reproduce the edge runtime in this session; the local sandbox (proxy 52498 / 10808) is a DIFFERENT network context."
+  },
+  "v14_conclusion_preserved": "Production/Staging edge runtime uses api.binance.us as the VERIFIED primary source; data-api.binance.vision returns 403 in that context. This conclusion is NOT overturned.",
+  "judgement_rules": {
+    "freshness_threshold_ms": 60000,
+    "clock_skew_stale_threshold_ms": 60000,
+    "non_2xx_or_timeout_verdict": "UNAVAILABLE",
+    "note": "freshness compares fetched_at vs upstream data time; skew >= 60s -> STALE; any non-2xx/timeout -> UNAVAILABLE"
+  },
+  "market_status": {
+    "live_binance_us": {
+      "source_host": "api.binance.us",
+      "endpoint": "/api/v3/time",
+      "url": "https://api.binance.us/api/v3/time",
+      "ok": true,
+      "http_status": 200,
+      "fetched_at_utc": "2026-11-09T04:24:20.589Z",
+      "latency_ms": 384,
+      "bytes": 28,
+      "sha256": "63ea381f9f35483cc9ea449c0e382130c1abb06d5868084cf6cadf676518b9ec",
+      "content_type": "application/json;charset=UTF-8",
+      "server_header": "cloudflare",
+      "cf_ray": "a57a0c18bd92b9ec-SEA",
+      "server_time_ms": 1794198260935,
+      "clock_skew_ms": 38,
+      "freshness": "FRESH",
+      "verdict": "VERIFIED",
+      "body_excerpt": "{\"serverTime\":1794198260935}"
+    },
+    "original_binance_global_spot": {
+      "source_host": "data-api.binance.vision",
+      "endpoint": "/api/v3/ticker/price?symbol=BTCUSDT",
+      "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+      "ok": false,
+      "http_status": 403,
+      "fetched_at_utc": "2026-11-09T04:24:20.589Z",
+      "latency_ms": 385,
+      "bytes": 118,
+      "sha256": "58bf2215b395dcac74c009aa98701854e43cbe54a1cd3a95fee6a647ca9910d4",
+      "content_type": "text/html",
+      "server_header": "cloudflare",
+      "cf_ray": "a57a0c18bd91b9ec-SEA",
+      "server_time_ms": null,
+      "clock_skew_ms": null,
+      "freshness": "UNAVAILABLE",
+      "verdict": "UNAVAILABLE",
+      "body_excerpt": "<html>\r\n<head><title>403 Forbidden</title></head>\r\n<body>\r\n<center><h1>403 Forbidden</h1></center>\r\n</body>\r\n</html>\r\n"
+    }
+  },
+  "engine_exact_probe_binance_us": [
+    {
+      "id": "us_ticker_multi",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%2C%22ETHUSDT%22%2C%22ORDIUSDT%22%2C%221000SATSUSDT%22%5D",
+      "http_status": 400,
+      "ok": false,
+      "latency_ms": 678,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+      "json_keys": [
+        "code",
+        "msg"
+      ],
+      "parsed_summary": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      },
+      "verdict": "HTTP_400"
+    },
+    {
+      "id": "us_ticker_btc",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 200,
+      "ok": true,
+      "latency_ms": 691,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"symbol\":\"BTCUSDT\",\"price\":\"74937.11000000\"}",
+      "json_keys": [
+        "symbol",
+        "price"
+      ],
+      "parsed_summary": "BTCUSDT:74937.11000000",
+      "verdict": "REACHABLE"
+    },
+    {
+      "id": "us_ticker_eth",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbol=ETHUSDT",
+      "http_status": 200,
+      "ok": true,
+      "latency_ms": 693,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"symbol\":\"ETHUSDT\",\"price\":\"2142.08000000\"}",
+      "json_keys": [
+        "symbol",
+        "price"
+      ],
+      "parsed_summary": "ETHUSDT:2142.08000000",
+      "verdict": "REACHABLE"
+    },
+    {
+      "id": "us_ticker_ordi",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbol=ORDIUSDT",
+      "http_status": 400,
+      "ok": false,
+      "latency_ms": 736,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+      "json_keys": [
+        "code",
+        "msg"
+      ],
+      "parsed_summary": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      },
+      "verdict": "HTTP_400"
+    },
+    {
+      "id": "us_ticker_sats",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbol=1000SATSUSDT",
+      "http_status": 400,
+      "ok": false,
+      "latency_ms": 727,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"code\":-1121,\"msg\":\"Invalid symbol.\"}",
+      "json_keys": [
+        "code",
+        "msg"
+      ],
+      "parsed_summary": {
+        "code": -1121,
+        "msg": "Invalid symbol."
+      },
+      "verdict": "HTTP_400"
+    },
+    {
+      "id": "us_depth_btc",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/depth?symbol=BTCUSDT&limit=1000",
+      "http_status": 200,
+      "ok": true,
+      "latency_ms": 773,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"lastUpdateId\":3410350805,\"bids\":[[\"74953.26000000\",\"0.00019000\"],[\"74948.00000000\",\"0.00198000\"],[\"74947.78000000\",\"0.00197000\"],[\"74947.77000000\",\"0.00197000\"],[\"74947.52000000\"",
+      "json_keys": [
+        "lastUpdateId",
+        "bids",
+        "asks"
+      ],
+      "parsed_summary": {
+        "lastUpdateId": 3410350805,
+        "bids": 491,
+        "asks": 1000
+      },
+      "verdict": "REACHABLE"
+    },
+    {
+      "id": "us_exchange_btc",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=BTCUSDT",
+      "http_status": 200,
+      "ok": true,
+      "latency_ms": 782,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"timezone\":\"UTC\",\"serverTime\":1794198262595,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":",
+      "json_keys": [
+        "timezone",
+        "serverTime",
+        "rateLimits",
+        "exchangeFilters",
+        "symbols"
+      ],
+      "parsed_summary": [
+        {
+          "symbol": "BTCUSDT",
+          "status": "TRADING",
+          "filters": [
+            "PRICE_FILTER",
+            "PERCENT_PRICE",
+            "LOT_SIZE",
+            "MIN_NOTIONAL",
+            "ICEBERG_PARTS",
+            "MARKET_LOT_SIZE",
+            "TRAILING_DELTA",
+            "PERCENT_PRICE_BY_SIDE",
+            "MAX_NUM_ORDERS",
+            "MAX_NUM_ORDER_LISTS",
+            "MAX_NUM_ALGO_ORDERS",
+            "MAX_NUM_ORDER_AMENDS"
+          ]
+        }
+      ],
+      "verdict": "REACHABLE"
+    },
+    {
+      "id": "us_exchange_eth",
+      "kind": "engine_exact",
+      "url": "https://api.binance.us/api/v3/exchangeInfo?symbol=ETHUSDT",
+      "http_status": 200,
+      "ok": true,
+      "latency_ms": 782,
+      "content_type": "application/json;charset=UTF-8",
+      "body_excerpt": "{\"timezone\":\"UTC\",\"serverTime\":1794198262594,\"rateLimits\":[{\"rateLimitType\":\"REQUEST_WEIGHT\",\"interval\":\"MINUTE\",\"intervalNum\":1,\"limit\":6000},{\"rateLimitType\":\"ORDERS\",\"interval\":",
+      "json_keys": [
+        "timezone",
+        "serverTime",
+        "rateLimits",
+        "exchangeFilters",
+        "symbols"
+      ],
+      "parsed_summary": [
+        {
+          "symbol": "ETHUSDT",
+          "status": "TRADING",
+          "filters": [
+            "PRICE_FILTER",
+            "PERCENT_PRICE",
+            "LOT_SIZE",
+            "MIN_NOTIONAL",
+            "ICEBERG_PARTS",
+            "MARKET_LOT_SIZE",
+            "TRAILING_DELTA",
+            "PERCENT_PRICE_BY_SIDE",
+            "MAX_NUM_ORDERS",
+            "MAX_NUM_ORDER_LISTS",
+            "MAX_NUM_ALGO_ORDERS",
+            "MAX_NUM_ORDER_AMENDS"
+          ]
+        }
+      ],
+      "verdict": "REACHABLE"
+    }
+  ],
+  "other_sources_probe_summary": [
+    {
+      "id": "binance_main",
+      "url": "https://api.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 451,
+      "verdict": "HTTP_451",
+      "content_type": "application/json"
+    },
+    {
+      "id": "binance_vision",
+      "url": "https://api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 530,
+      "verdict": "HTTP_530",
+      "content_type": "text/plain; charset=UTF-8"
+    },
+    {
+      "id": "binance_data",
+      "url": "https://data-api.binance.vision/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 403,
+      "verdict": "HTTP_403",
+      "content_type": "text/html"
+    },
+    {
+      "id": "binance_api1",
+      "url": "https://api1.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 451,
+      "verdict": "HTTP_451",
+      "content_type": "application/json"
+    },
+    {
+      "id": "binance_api2",
+      "url": "https://api2.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 451,
+      "verdict": "HTTP_451",
+      "content_type": "application/json"
+    },
+    {
+      "id": "binance_api3",
+      "url": "https://api3.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 451,
+      "verdict": "HTTP_451",
+      "content_type": "application/json"
+    },
+    {
+      "id": "binance_api4",
+      "url": "https://api4.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 451,
+      "verdict": "HTTP_451",
+      "content_type": "application/json"
+    },
+    {
+      "id": "binance_us",
+      "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 200,
+      "verdict": "REACHABLE",
+      "content_type": "application/json;charset=UTF-8"
+    },
+    {
+      "id": "binance_data_com",
+      "url": "https://data.binance.com/api/v3/ticker/price?symbol=BTCUSDT",
+      "http_status": 403,
+      "verdict": "HTTP_403",
+      "content_type": "text/html"
+    },
+    {
+      "id": "coinbase_exchange",
+      "url": "https://api.exchange.coinbase.com/products/BTC-USD/ticker",
+      "http_status": 200,
+      "verdict": "REACHABLE",
+      "content_type": "application/json; charset=utf-8"
+    },
+    {
+      "id": "kraken",
+      "url": "https://api.kraken.com/0/public/Ticker?pair=XBTUSD",
+      "http_status": 200,
+      "verdict": "REACHABLE",
+      "content_type": "application/json"
+    },
+    {
+      "id": "coingecko",
+      "url": "https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=usd",
+      "http_status": 429,
+      "verdict": "HTTP_429",
+      "content_type": "application/json"
+    }
+  ]
+}

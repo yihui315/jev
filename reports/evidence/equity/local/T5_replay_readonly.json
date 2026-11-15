@@ -1,0 +1,402 @@
+{
+  "id": "T5",
+  "file": "t5_replay_readonly.mjs",
+  "label": "replay_readonly",
+  "exitCode": 0,
+  "verdict": "PASS",
+  "stdout": "RESULT_JSON:{\"testId\":\"T5_replay_readonly\",\"verdict\":\"PASS\",\"startedAt\":\"2026-11-09T04:44:02.711Z\",\"finishedAt\":\"2026-11-09T04:44:02.794Z\",\"meta\":{\"proves\":[\"pure replay\",\"zero writes to frozen ledger tables\",\"engine sha256 anchor\",\"scheduled/fetch entrypoints\"]},\"checks\":[{\"name\":\"frozen_unchanged_server/engine/_lib/decimal.mjs\",\"pass\":true,\"detail\":{\"file\":\"server/engine/_lib/decimal.mjs\",\"expected\":\"5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d\",\"actual\":\"5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d\"}},{\"name\":\"frozen_unchanged_server/engine/_lib/equity-snapshot.mjs\",\"pass\":true,\"detail\":{\"file\":\"server/engine/_lib/equity-snapshot.mjs\",\"expected\":\"d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74\",\"actual\":\"d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74\"}},{\"name\":\"frozen_unchanged_server/engine/_lib/paper-server.mjs\",\"pass\":true,\"detail\":{\"file\":\"server/engine/_lib/paper-server.mjs\",\"expected\":\"f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74\",\"actual\":\"f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74\"}},{\"name\":\"frozen_unchanged_server/engine/migrations/0005_equity_snapshots.sql\",\"pass\":true,\"detail\":{\"file\":\"server/engine/migrations/0005_equity_snapshots.sql\",\"expected\":\"7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa\",\"actual\":\"7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa\"}},{\"name\":\"vendor_decimal_byte_identical\",\"pass\":true,\"detail\":null},{\"name\":\"vendor_equity_byte_identical\",\"pass\":true,\"detail\":null},{\"name\":\"accounts_fully_unchanged\",\"pass\":true,\"detail\":{\"beforeHash\":\"cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e\",\"afterHash\":\"cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e\"}},{\"name\":\"zero_writes_to_frozen_ledger_tables\",\"pass\":true,\"detail\":{\"forbidden\":[],\"total_writes\":6}},{\"name\":\"only_allowed_tables_written\",\"pass\":true,\"detail\":{\"tables\":[\"paper_equity_snapshots\",\"v45_snapshot_provenance\"],\"count\":6}},{\"name\":\"no_order_state_mutation\",\"pass\":true,\"detail\":null},{\"name\":\"replay_count_3\",\"pass\":true,\"detail\":{\"count\":3}},{\"name\":\"replay_all_rows_match\",\"pass\":true,\"detail\":[{\"snapshot_id\":\"v45eq_44b39a4b014984c8bb66f664e2040f8c87e476b0c87728107ca9281b39326538\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17495177000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_0f0996bc4fe48275dfc3e6073be45af6845b3545a126c19e04ab99fd216b9ae3\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_bd7509cfa64f511984a8a82985d61c1fe67cf9d2db71f1bb07069fdba4fcf33c\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17200000000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":1687191,\"recomputed_dd\":1687191,\"match\":true}]},{\"name\":\"replay_unknown_rows_do_not_touch_peak\",\"pass\":true,\"detail\":[{\"q\":\"verified\",\"peak\":17495177000000,\"dd\":0},{\"q\":\"unknown\",\"peak\":0,\"dd\":0},{\"q\":\"verified\",\"peak\":17495177000000,\"dd\":1687191}]},{\"name\":\"engine_sha256_recorded_and_matches\",\"pass\":true,\"detail\":{\"engineSha\":\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\",\"recorded\":[\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\",\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\",\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\"]}},{\"name\":\"collector_version_and_formula_recorded\",\"pass\":true,\"detail\":{\"versions\":[\"v45-equity-collector/1.0.0\"],\"formulas\":[\"v45-equity-fp/1\"]}},{\"name\":\"input_basis_recorded\",\"pass\":true,\"detail\":[{\"state\":\"23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404\",\"marks\":\"{\\\"BTCUSDT\\\":\\\"74951.77000000\\\"}\",\"icf\":10000000000000},{\"state\":\"23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404\",\"marks\":\"{}\",\"icf\":10000000000000},{\"state\":\"23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404\",\"marks\":\"{\\\"BTCUSDT\\\":\\\"72000.00000000\\\"}\",\"icf\":10000000000000}]},{\"name\":\"scheduled_entrypoint_runs_one_cycle\",\"pass\":true,\"detail\":{\"written\":1,\"verified\":1,\"cycleKey\":\"cron:2026-02-02T02:40:00.000Z\"}},{\"name\":\"fetch_trigger_disabled_by_default_403\",\"pass\":true,\"detail\":{\"status\":403}},{\"name\":\"fetch_trigger_enabled_works\",\"pass\":true,\"detail\":{\"status\":200,\"written\":1}},{\"name\":\"fetch_unknown_path_404\",\"pass\":true,\"detail\":{\"status\":404}}],\"extra\":{\"engine_anchors\":[{\"file\":\"server/engine/_lib/decimal.mjs\",\"expected\":\"5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d\",\"actual\":\"5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d\",\"match\":true},{\"file\":\"server/engine/_lib/equity-snapshot.mjs\",\"expected\":\"d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74\",\"actual\":\"d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74\",\"match\":true},{\"file\":\"server/engine/_lib/paper-server.mjs\",\"expected\":\"f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74\",\"actual\":\"f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74\",\"match\":true},{\"file\":\"server/engine/migrations/0005_equity_snapshots.sql\",\"expected\":\"7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa\",\"actual\":\"7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa\",\"match\":true}],\"engine_sha256\":\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\",\"accounts_before_hash\":\"cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e\",\"accounts_after_hash\":\"cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e\",\"write_log\":[{\"phase\":\"collector\",\"table\":\"paper_equity_snapshots\"},{\"phase\":\"collector\",\"table\":\"v45_snapshot_provenance\"},{\"phase\":\"collector\",\"table\":\"paper_equity_snapshots\"},{\"phase\":\"collector\",\"table\":\"v45_snapshot_provenance\"},{\"phase\":\"collector\",\"table\":\"paper_equity_snapshots\"},{\"phase\":\"collector\",\"table\":\"v45_snapshot_provenance\"}],\"replay\":{\"seed\":10000000000000,\"count\":3,\"allMatch\":true,\"rows\":[{\"snapshot_id\":\"v45eq_44b39a4b014984c8bb66f664e2040f8c87e476b0c87728107ca9281b39326538\",\"created_at\":\"2026-02-02T02:40:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17495177000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_0f0996bc4fe48275dfc3e6073be45af6845b3545a126c19e04ab99fd216b9ae3\",\"created_at\":\"2026-02-02T02:41:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"unknown\",\"equity\":0,\"stored_peak\":0,\"recomputed_peak\":0,\"stored_dd\":0,\"recomputed_dd\":0,\"match\":true},{\"snapshot_id\":\"v45eq_bd7509cfa64f511984a8a82985d61c1fe67cf9d2db71f1bb07069fdba4fcf33c\",\"created_at\":\"2026-02-02T02:42:00.000Z\",\"cycle_key\":null,\"mark_quality\":\"verified\",\"equity\":17200000000000,\"stored_peak\":17495177000000,\"recomputed_peak\":17495177000000,\"stored_dd\":1687191,\"recomputed_dd\":1687191,\"match\":true}]},\"scheduled\":{\"ok\":true,\"collectorVersion\":\"v45-equity-collector/1.0.0\",\"cycleKey\":\"cron:2026-02-02T02:40:00.000Z\",\"nowIso\":\"2026-02-02T02:40:00.000Z\",\"engineSha256\":\"8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f\",\"sessions\":1,\"written\":1,\"verified\":1,\"unknown\":0,\"failures\":[],\"snapshots\":[{\"snapshotId\":\"v45eq_aec0b72b8ca11d3435b82422f5f1ce3a4425ae68ed4413d479bacd036dc9e852\",\"sessionId\":\"s1\",\"generation\":1,\"cycleKey\":\"cron:2026-02-02T02:40:00.000Z\",\"accountVersion\":1,\"stateHash\":\"23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404\",\"equity\":17495177000000,\"cash\":10000000000000,\"marketValue\":7495177000000,\"unrealizedPnl\":495177000000,\"realizedPnl\":0,\"equityPeak\":17495177000000,\"drawdown\":0,\"markQuality\":\"verified\",\"dataQuality\":\"VERIFIED\",\"freshnessVerdict\":\"FRESH\",\"freshnessMs\":0,\"clockSkewMs\":0,\"errorCode\":null,\"httpStatus\":200,\"missingMarks\":[],\"createdAt\":\"2026-02-02T02:40:00.000Z\"}]},\"fetch_entrypoint\":{\"disabled_status\":403,\"enabled_status\":200,\"enabled_written\":1,\"unknown_path_status\":404},\"verdict_labels\":{\"replay_arithmetic\":\"VERIFIED\",\"frozen_engine_zero_write\":\"VERIFIED (local spy + unchanged account hash)\",\"engine_sha256_anchor\":\"VERIFIED (re-read from disk)\",\"worker_entrypoints\":\"VERIFIED (local shim)\",\"cloud_d1_deploy\":\"UNVERIFIED (owner action)\"}}}\n",
+  "stderr": "(node:13340) ExperimentalWarning: SQLite is an experimental feature and might change at any time\n(Use `node --trace-warnings ...` to show where the warning was created)\n",
+  "result": {
+    "testId": "T5_replay_readonly",
+    "verdict": "PASS",
+    "startedAt": "2026-11-09T04:44:02.711Z",
+    "finishedAt": "2026-11-09T04:44:02.794Z",
+    "meta": {
+      "proves": [
+        "pure replay",
+        "zero writes to frozen ledger tables",
+        "engine sha256 anchor",
+        "scheduled/fetch entrypoints"
+      ]
+    },
+    "checks": [
+      {
+        "name": "frozen_unchanged_server/engine/_lib/decimal.mjs",
+        "pass": true,
+        "detail": {
+          "file": "server/engine/_lib/decimal.mjs",
+          "expected": "5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d",
+          "actual": "5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d"
+        }
+      },
+      {
+        "name": "frozen_unchanged_server/engine/_lib/equity-snapshot.mjs",
+        "pass": true,
+        "detail": {
+          "file": "server/engine/_lib/equity-snapshot.mjs",
+          "expected": "d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74",
+          "actual": "d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74"
+        }
+      },
+      {
+        "name": "frozen_unchanged_server/engine/_lib/paper-server.mjs",
+        "pass": true,
+        "detail": {
+          "file": "server/engine/_lib/paper-server.mjs",
+          "expected": "f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74",
+          "actual": "f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74"
+        }
+      },
+      {
+        "name": "frozen_unchanged_server/engine/migrations/0005_equity_snapshots.sql",
+        "pass": true,
+        "detail": {
+          "file": "server/engine/migrations/0005_equity_snapshots.sql",
+          "expected": "7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa",
+          "actual": "7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa"
+        }
+      },
+      {
+        "name": "vendor_decimal_byte_identical",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "vendor_equity_byte_identical",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "accounts_fully_unchanged",
+        "pass": true,
+        "detail": {
+          "beforeHash": "cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e",
+          "afterHash": "cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e"
+        }
+      },
+      {
+        "name": "zero_writes_to_frozen_ledger_tables",
+        "pass": true,
+        "detail": {
+          "forbidden": [],
+          "total_writes": 6
+        }
+      },
+      {
+        "name": "only_allowed_tables_written",
+        "pass": true,
+        "detail": {
+          "tables": [
+            "paper_equity_snapshots",
+            "v45_snapshot_provenance"
+          ],
+          "count": 6
+        }
+      },
+      {
+        "name": "no_order_state_mutation",
+        "pass": true,
+        "detail": null
+      },
+      {
+        "name": "replay_count_3",
+        "pass": true,
+        "detail": {
+          "count": 3
+        }
+      },
+      {
+        "name": "replay_all_rows_match",
+        "pass": true,
+        "detail": [
+          {
+            "snapshot_id": "v45eq_44b39a4b014984c8bb66f664e2040f8c87e476b0c87728107ca9281b39326538",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 17495177000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_0f0996bc4fe48275dfc3e6073be45af6845b3545a126c19e04ab99fd216b9ae3",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_bd7509cfa64f511984a8a82985d61c1fe67cf9d2db71f1bb07069fdba4fcf33c",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 17200000000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 1687191,
+            "recomputed_dd": 1687191,
+            "match": true
+          }
+        ]
+      },
+      {
+        "name": "replay_unknown_rows_do_not_touch_peak",
+        "pass": true,
+        "detail": [
+          {
+            "q": "verified",
+            "peak": 17495177000000,
+            "dd": 0
+          },
+          {
+            "q": "unknown",
+            "peak": 0,
+            "dd": 0
+          },
+          {
+            "q": "verified",
+            "peak": 17495177000000,
+            "dd": 1687191
+          }
+        ]
+      },
+      {
+        "name": "engine_sha256_recorded_and_matches",
+        "pass": true,
+        "detail": {
+          "engineSha": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+          "recorded": [
+            "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+            "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+            "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f"
+          ]
+        }
+      },
+      {
+        "name": "collector_version_and_formula_recorded",
+        "pass": true,
+        "detail": {
+          "versions": [
+            "v45-equity-collector/1.0.0"
+          ],
+          "formulas": [
+            "v45-equity-fp/1"
+          ]
+        }
+      },
+      {
+        "name": "input_basis_recorded",
+        "pass": true,
+        "detail": [
+          {
+            "state": "23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404",
+            "marks": "{\"BTCUSDT\":\"74951.77000000\"}",
+            "icf": 10000000000000
+          },
+          {
+            "state": "23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404",
+            "marks": "{}",
+            "icf": 10000000000000
+          },
+          {
+            "state": "23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404",
+            "marks": "{\"BTCUSDT\":\"72000.00000000\"}",
+            "icf": 10000000000000
+          }
+        ]
+      },
+      {
+        "name": "scheduled_entrypoint_runs_one_cycle",
+        "pass": true,
+        "detail": {
+          "written": 1,
+          "verified": 1,
+          "cycleKey": "cron:2026-02-02T02:40:00.000Z"
+        }
+      },
+      {
+        "name": "fetch_trigger_disabled_by_default_403",
+        "pass": true,
+        "detail": {
+          "status": 403
+        }
+      },
+      {
+        "name": "fetch_trigger_enabled_works",
+        "pass": true,
+        "detail": {
+          "status": 200,
+          "written": 1
+        }
+      },
+      {
+        "name": "fetch_unknown_path_404",
+        "pass": true,
+        "detail": {
+          "status": 404
+        }
+      }
+    ],
+    "extra": {
+      "engine_anchors": [
+        {
+          "file": "server/engine/_lib/decimal.mjs",
+          "expected": "5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d",
+          "actual": "5b32d4bd9e03ed57f7cd2cf04f645ef53b9d44baa05d23f2e5a5a42ad8ae6e4d",
+          "match": true
+        },
+        {
+          "file": "server/engine/_lib/equity-snapshot.mjs",
+          "expected": "d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74",
+          "actual": "d1c784f8e1508db7ffb9f75f0ed87064f9072ce30e4a2e35d5dcc6698b513e74",
+          "match": true
+        },
+        {
+          "file": "server/engine/_lib/paper-server.mjs",
+          "expected": "f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74",
+          "actual": "f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74",
+          "match": true
+        },
+        {
+          "file": "server/engine/migrations/0005_equity_snapshots.sql",
+          "expected": "7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa",
+          "actual": "7d3f5f48b9e9c7c06817e5b329865388df48eec394ae1be2e4a95c816c95bbaa",
+          "match": true
+        }
+      ],
+      "engine_sha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+      "accounts_before_hash": "cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e",
+      "accounts_after_hash": "cf3db672ac1d35fbf045fc6c513aad4751e849cf980b8bfe2963a9ebabb62a8e",
+      "write_log": [
+        {
+          "phase": "collector",
+          "table": "paper_equity_snapshots"
+        },
+        {
+          "phase": "collector",
+          "table": "v45_snapshot_provenance"
+        },
+        {
+          "phase": "collector",
+          "table": "paper_equity_snapshots"
+        },
+        {
+          "phase": "collector",
+          "table": "v45_snapshot_provenance"
+        },
+        {
+          "phase": "collector",
+          "table": "paper_equity_snapshots"
+        },
+        {
+          "phase": "collector",
+          "table": "v45_snapshot_provenance"
+        }
+      ],
+      "replay": {
+        "seed": 10000000000000,
+        "count": 3,
+        "allMatch": true,
+        "rows": [
+          {
+            "snapshot_id": "v45eq_44b39a4b014984c8bb66f664e2040f8c87e476b0c87728107ca9281b39326538",
+            "created_at": "2026-02-02T02:40:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 17495177000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_0f0996bc4fe48275dfc3e6073be45af6845b3545a126c19e04ab99fd216b9ae3",
+            "created_at": "2026-02-02T02:41:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "unknown",
+            "equity": 0,
+            "stored_peak": 0,
+            "recomputed_peak": 0,
+            "stored_dd": 0,
+            "recomputed_dd": 0,
+            "match": true
+          },
+          {
+            "snapshot_id": "v45eq_bd7509cfa64f511984a8a82985d61c1fe67cf9d2db71f1bb07069fdba4fcf33c",
+            "created_at": "2026-02-02T02:42:00.000Z",
+            "cycle_key": null,
+            "mark_quality": "verified",
+            "equity": 17200000000000,
+            "stored_peak": 17495177000000,
+            "recomputed_peak": 17495177000000,
+            "stored_dd": 1687191,
+            "recomputed_dd": 1687191,
+            "match": true
+          }
+        ]
+      },
+      "scheduled": {
+        "ok": true,
+        "collectorVersion": "v45-equity-collector/1.0.0",
+        "cycleKey": "cron:2026-02-02T02:40:00.000Z",
+        "nowIso": "2026-02-02T02:40:00.000Z",
+        "engineSha256": "8c1f93f84f6ba4e48a01e6ec9d1be7bba7e050f5d6a265851d5ad2d9f15e267f",
+        "sessions": 1,
+        "written": 1,
+        "verified": 1,
+        "unknown": 0,
+        "failures": [],
+        "snapshots": [
+          {
+            "snapshotId": "v45eq_aec0b72b8ca11d3435b82422f5f1ce3a4425ae68ed4413d479bacd036dc9e852",
+            "sessionId": "s1",
+            "generation": 1,
+            "cycleKey": "cron:2026-02-02T02:40:00.000Z",
+            "accountVersion": 1,
+            "stateHash": "23fe595cbc018ab420e63e6d511c4a20c6f445e4f3140218ff6d1b86254a8404",
+            "equity": 17495177000000,
+            "cash": 10000000000000,
+            "marketValue": 7495177000000,
+            "unrealizedPnl": 495177000000,
+            "realizedPnl": 0,
+            "equityPeak": 17495177000000,
+            "drawdown": 0,
+            "markQuality": "verified",
+            "dataQuality": "VERIFIED",
+            "freshnessVerdict": "FRESH",
+            "freshnessMs": 0,
+            "clockSkewMs": 0,
+            "errorCode": null,
+            "httpStatus": 200,
+            "missingMarks": [],
+            "createdAt": "2026-02-02T02:40:00.000Z"
+          }
+        ]
+      },
+      "fetch_entrypoint": {
+        "disabled_status": 403,
+        "enabled_status": 200,
+        "enabled_written": 1,
+        "unknown_path_status": 404
+      },
+      "verdict_labels": {
+        "replay_arithmetic": "VERIFIED",
+        "frozen_engine_zero_write": "VERIFIED (local spy + unchanged account hash)",
+        "engine_sha256_anchor": "VERIFIED (re-read from disk)",
+        "worker_entrypoints": "VERIFIED (local shim)",
+        "cloud_d1_deploy": "UNVERIFIED (owner action)"
+      }
+    }
+  },
+  "capturedAt": "2026-11-09T04:44:02.804Z",
+  "node": "v22.22.2"
+}

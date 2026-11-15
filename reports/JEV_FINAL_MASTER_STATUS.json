@@ -1,0 +1,1116 @@
+{
+  "schema": "JEV_FINAL_MASTER_STATUS/v2",
+  "generatedAt": "2026-11-11T06:20:00Z",
+  "generatedBy": "team-lead (主理人)",
+  "purpose": "提交时点唯一冻结快照。本文件之后的任何改动都必须新开文件追加，不得回改本文件回填旧结论。",
+  "authorityRule": "唯一稳定锚点 = 章节号 + 逐字证据内容。commitSha / sha256 / 行数 / 字节数 / 裸行号一律降级为版本快照，不得单独作为引用锚点。",
+  "snapshotPoint": {
+    "state": "POST_PUSH_REMOTE_CI_VERIFIED",
+    "commitSha": "f5fea0943d10a98e8e4629683c320e418a9d0136",
+    "commitShortSha": "f5fea09",
+    "treeSha": "2f268a064f5580337f71b388dc20572d779ec101",
+    "parentSha": "ebc3fccbf4186b9651bbde2371ef884633d527f0",
+    "branch": "feature/jev-v2-ops-integration",
+    "filesChanged": 70,
+    "insertions": 9664,
+    "deletions": 257,
+    "pushed": true,
+    "pushEvidence": "git ls-remote origin refs/heads/feature/jev-v2-ops-integration -> f5fea0943d10a98e8e4629683c320e418a9d0136 (== local HEAD)",
+    "pullRequest": {
+      "number": 7,
+      "url": "https://github.com/yihui315/jev/pull/7",
+      "state": "open",
+      "draft": true,
+      "base": "feature/v16-market-provenance-hardening",
+      "head": "feature/jev-v2-ops-integration"
+    },
+    "mainOrReleaseTouched": false,
+    "commitChain": [
+      "5834c3745843baa33b82e04a746fa8691684b2f6",
+      "c0cad254a3f4f3c07d8dd3149cd1f9c7f8d57000",
+      "fa7740f2ab8be973b8407ed68d5e3514e034a2e3",
+      "f5fea0943d10a98e8e4629683c320e418a9d0136"
+    ],
+    "cumulativeDiffVsBaseline": "106 files changed, 18344 insertions(+), 280 deletions(-) (ebc3fcc..f5fea09, git diff --shortstat measured)",
+    "cumulativeDiffCorrection": "初版误写 121 files/+17148/-334（将 4 次提交增量直接相加）。同一文件被二次修改时累计 diff 只计净变化，实测值为 106/+18344/-280。"
+  },
+  "environment": {
+    "os": "Windows (Git Bash)",
+    "nodeVersion": "v22.22.2",
+    "runners": {
+      "localNode": "AVAILABLE",
+      "gitHubActionsRunner": "UNAVAILABLE",
+      "yamlParser": "UNAVAILABLE",
+      "note": "pyyaml / ruby-yaml / yq / js-yaml 均不可用；CI 类结论只能标 CONFIG-CHANGE / UNVERIFIED"
+    },
+    "nodeModules": {
+      "state": "ABSENT",
+      "consequence": "npx tsc --noEmit 与 npx vitest run 从未在本轮执行；TYPECHECK = UNVERIFIED"
+    }
+  },
+  "hardDeclarations": {
+    "productionGo": false,
+    "realMoneyGo": false,
+    "ciPass": true,
+    "ciRunId": 42969534182,
+    "ciStatus": "VERIFIED — build-and-test success @ f5fea09",
+    "typecheckStatus": "VERIFIED_IN_CI",
+    "typecheckReason": "CI Run 42969534182 步骤 Typecheck（npx tsc --noEmit）success，无报错输出。本机仍无 node_modules，本地直跑不可复现。",
+    "allowBuySell": false,
+    "enableRealTrading": false,
+    "realOrdersPlaced": 0,
+    "realAccountsCreated": 0,
+    "realFundsInjected": 0,
+    "realApiCostUsd": null,
+    "realApiCostStatus": "NOT_MEASURED",
+    "realInferenceCalls": 0,
+    "realMarketSamplesUsed": 0,
+    "allResultsProvenance": "SYNTHETIC_FIXTURE",
+    "note": "以上 false / 0 / null 均为实测事实，非占位符。null 表示 NOT_MEASURED，不得读作 0。",
+    "ciPassScope": "仅 .github/workflows/ci.yml 的 build-and-test job。v16-market-provenance.yml 未在本分支触发（F-22）。",
+    "v16ProvenanceGateRanInThisBranch": false,
+    "buildStatus": "VERIFIED_IN_CI (built in 4.67s)",
+    "vitestStatus": "VERIFIED_IN_CI (total=220 passed=217 failed=0 skipped=3)",
+    "realMarketNetworkRequestsInCi": 4,
+    "realMarketNetworkRequestsInCiEvidence": "CI 日志: LIVE(real Binance): total=4 passed=4 failed=0 skipped=0",
+    "realMarketSamplesUsedNote": "0 = 未持久化任何可用于研究的行情样本。CI 的 4 次真实 Binance 请求是探针，不是数据集。二者不可混为一谈。"
+  },
+  "verification": {
+    "performedBy": "team-lead 一手复跑（不采信任何成员自评）",
+    "when": "提交前最后一次全量",
+    "totals": {
+      "suites": 7,
+      "assertionsPass": 94,
+      "assertionsFail": 0,
+      "allExitZero": true
+    },
+    "suites": [
+      {
+        "id": 1,
+        "path": "apps/command_center_3d/server/ai/tests/day14-p0-contracts.mjs",
+        "result": "7 pass, 0 fail",
+        "exitCode": 0
+      },
+      {
+        "id": 2,
+        "path": "apps/command_center_3d/server/ai/tests/day14-p0-runner.mjs",
+        "result": "24 pass, 0 fail",
+        "exitCode": 0,
+        "note": "含 B1 基线证伪 + M3 变异证明（关掉链校验的 MUTANT 使篡改漏检，证明 T3 断言有牙）"
+      },
+      {
+        "id": 3,
+        "path": "apps/equity_collector_v45/tests/market-data.test.mjs",
+        "result": "PASS=10 FAIL=0",
+        "exitCode": 0
+      },
+      {
+        "id": 4,
+        "path": "apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs",
+        "result": "PASS=17 FAIL=0",
+        "exitCode": 0
+      },
+      {
+        "id": 5,
+        "path": "apps/command_center_3d/scripts/day14-research/p3-contracts.mjs",
+        "result": "PASS=12 FAIL=0 TOTAL=12",
+        "exitCode": 0
+      },
+      {
+        "id": 6,
+        "path": "apps/command_center_3d/scripts/supervisor/supervisor.test.mjs",
+        "result": "PASS=14 FAIL=0",
+        "exitCode": 0,
+        "note": "变异测试：篡改 DAEMON_BINDING 为 MUTANT_WIRED_FAKE 后 PASS=13 FAIL=1，证明套件有牙"
+      },
+      {
+        "id": 7,
+        "path": "apps/command_center_3d/scripts/check-no-fake-live.mjs",
+        "result": "CORE_ASSERTIONS=7 EXTRA_ASSERTIONS=3 TOTAL=10 exit=0",
+        "exitCode": 0,
+        "note": "纯文本结构自检，非 YAML 解析器运行"
+      }
+    ]
+  },
+  "frozenAnchors": {
+    "policy": "R-1：day14-runner.mjs 绝对冻结，P1–P7 不得修改、不得新增导出、不得复制内部代码。以下五项在提交前终检，全部与基线逐字符一致。",
+    "verifiedUnchanged": true,
+    "anchors": [
+      {
+        "name": "day14-runner.mjs",
+        "path": "apps/command_center_3d/scripts/day14-runner.mjs",
+        "sha256": "002653fed0d48e3cd20c95a397400d93830192ca87f60a8361a88b3aa3726d4a",
+        "lines": 829,
+        "role": "P0 冻结核心"
+      },
+      {
+        "name": "risk-gate.mjs",
+        "path": "apps/command_center_3d/server/ai/risk-gate.mjs",
+        "sha256": "5797ba8cd6308e11c75c53121f151402e872ec1f1551780eb6953d60c992278f",
+        "role": "正式风控唯一权威门"
+      },
+      {
+        "name": "decision-schema.mjs",
+        "path": "apps/command_center_3d/server/ai/decision-schema.mjs",
+        "sha256": "328b7a9b140069d354e9b06a08d85dca79ed47f3394acb8fd43c031be3184ba1",
+        "role": "14 字段白名单"
+      },
+      {
+        "name": "paper-server.mjs",
+        "path": "apps/command_center_3d/server/engine/_lib/paper-server.mjs",
+        "sha256": "f9ac6e142446ef2aa8deb928f2b129eb2d42f4227d1bc22469191087312e4d74",
+        "role": "冻结引擎"
+      },
+      {
+        "name": "config.freeze.json",
+        "path": "reports/day14-artifacts/config.freeze.json",
+        "sha256": "d4edce64c48bf15ab6803ce9ea08a164404d84642c61065d74550d7983208658",
+        "role": "旧配置冻结快照（未改）"
+      }
+    ]
+  },
+  "gateReports": {
+    "note": "三份 gate 报告一律不再改动。新锚点只追加在新文件里，不回头改旧报告。",
+    "reports": [
+      {
+        "role": "independent-qa",
+        "path": "reports/JEV_INDEPENDENT_QA.md",
+        "sha256": "cc0ab7d8394e0d686211886e8321e5c7361e2f40d27f52468e0d2d6bbc6c70fa",
+        "lines": 397,
+        "decision": "GO WITH CONDITIONS（仅限 QA 范围；C1 已关闭，剩余 C2 / C3）",
+        "decisionChangeLog": "GO WITH CONDITIONS → GO（无条件）→ GO WITH CONDITIONS；以磁盘 397 行版本为准（更保守，与 Security 及 §4.5 一致）",
+        "history": "首轮曾 24 PASS / 1 FAIL（F1），记录保留未删、未改断言变绿"
+      },
+      {
+        "role": "security-auditor",
+        "path": "reports/JEV_REAL_TRADING_SECURITY.md",
+        "sha256": "259bc65f6febc0adf22facfb15b602bf965666b7f772c5c6ddd684a0344940e4",
+        "lines": 595,
+        "decision": "GO WITH CONDITIONS（仅限 Security 范围）",
+        "conditionsSatisfied": [
+          "C1",
+          "C7"
+        ],
+        "conditionsOutstanding": [
+          "C2",
+          "C3",
+          "C4",
+          "C5",
+          "C6",
+          "C8（边界）"
+        ],
+        "r6": "UNVERIFIED（静态结论保持）"
+      },
+      {
+        "role": "trading-engineer",
+        "path": "（实现方自评，不作验收依据）",
+        "decision": "GO WITH CONDITIONS",
+        "note": "实现方自评不构成验收；验收以上述两方 + 主理人一手复跑为准"
+      }
+    ],
+    "leadAdjudication": {
+      "p0": "CLOSED WITH CONDITIONS",
+      "threeWayConsensus": "三方均 GO WITH CONDITIONS；无 NO-GO；P0 语境内无 blocker",
+      "explicitlyNotDeclared": [
+        "V1.6 生产 GO",
+        "真实资金 GO",
+        "CI PASS"
+      ]
+    }
+  },
+  "phases": [
+    {
+      "id": "P0",
+      "name": "六项缺陷清零 + 独立 QA",
+      "status": "CLOSED_WITH_CONDITIONS",
+      "evidence": "reports/JEV_GAP_CLOSURE.md §4.5 + §4.8.1；三方 gate 整合 + 主理人 7 套件复跑",
+      "defectsClosed": [
+        "P0-A 依赖注入",
+        "P0-B fail-closed（provider 超时/解析失败必须记 NO_ACTION + PROVIDER_FAILED_FAILCLOSED，不得改写成模型主动 HOLD — F1 硬门禁）",
+        "P0-C 链校验与恢复",
+        "P0-D 真实对账",
+        "P0-E runId 与不可变配置",
+        "P0-F 独立 QA"
+      ],
+      "residual": [
+        "C2",
+        "C3（QA 范围）",
+        "C2–C6 + C8（Security 范围）",
+        "R6 UNVERIFIED"
+      ]
+    },
+    {
+      "id": "P1",
+      "name": "正式数据层",
+      "status": "IMPLEMENTED_LOCAL_PASS",
+      "files": [
+        {
+          "path": "apps/equity_collector_v45/src/market-data/append-only-log.mjs",
+          "sha256": "87e53a47d9493dc78366f8627958dd731f7fe682cb0851d8e45b253048823d8d",
+          "lines": 134
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/snapshot-store.mjs",
+          "sha256": "777cfa80ae0a7894a914703c36851aa53e3fefb869e61b8d03dcda8d84b84748",
+          "lines": 113
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/bar-store.mjs",
+          "sha256": "4879f3884f37859c2aa4c5b2317fdbb23fcc2afa69042241512f77fdcaebbf0e",
+          "lines": 167
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/orderbook-journal.mjs",
+          "sha256": "7010f040eab3f0009058bf285da1b95873d6a83d0ec53b7870fd5403c83edfbe",
+          "lines": 209
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/quality-monitor.mjs",
+          "sha256": "1625ad9b7e7d52ad80e203450e3b362cb06a061b3b31a596e558c99cf3318e64",
+          "lines": 201
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/replay-dataset.mjs",
+          "sha256": "96588bb499e8c0f041f7f0e763eba9dfbef30b6e65f1da53e9334f371933ee76",
+          "lines": 139
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/provenance-guard.mjs",
+          "sha256": "8df677bca66a83624e32209fd071e98019ee749d7c743898fac7dbadfc93719d",
+          "lines": 389
+        },
+        {
+          "path": "apps/equity_collector_v45/src/market-data/index.mjs",
+          "sha256": "7b4f5b3c9f8c8e4239d211f3f6ee8fee16ace7834047720a8161dfa5ffd2c963",
+          "lines": 20
+        },
+        {
+          "path": "apps/equity_collector_v45/tests/market-data.test.mjs",
+          "sha256": "5ecaa001c0e21455a89c68092b2ccf1efe6cd14e432adf29cc35efd185991bea",
+          "lines": 573
+        }
+      ],
+      "contracts": {
+        "hashScopes": [
+          "raw_upstream_bytes",
+          "response_payload_sha256",
+          "input_snapshot_sha256",
+          "normalized_input",
+          "derived_metric"
+        ],
+        "allowedHashScopeDefault": "raw_upstream_bytes",
+        "allowedHashScopeOnly": true,
+        "forbiddenAliases": [
+          "response_payload_sha256",
+          "input_snapshot_sha256"
+        ],
+        "storeKind": "file",
+        "dbPersisted": false,
+        "aiMarketContextsBinding": "DECLARED_NOT_WIRED"
+      },
+      "boundaries": [
+        "记录全部落文件、未落数据库",
+        "ai_market_contexts D1 表只声明未建",
+        "真实行情未接入，全部为 fixture"
+      ]
+    },
+    {
+      "id": "P2",
+      "name": "AI 多模型决策系统",
+      "status": "IMPLEMENTED_LOCAL_PASS",
+      "files": [
+        {
+          "path": "apps/command_center_3d/server/ai/evidence/inference-evidence.mjs",
+          "sha256": "f092e6286192220e9b5b6ba123ef29fb6b14849224e254d42cedd7dfdac35a24",
+          "lines": 424
+        },
+        {
+          "path": "apps/command_center_3d/server/ai/evidence/multi-model-provider.mjs",
+          "sha256": "e26223d131a1d8f70947deec10029e2f4d55ff6eb85136c8556f4e6c9d318d21",
+          "lines": 219
+        },
+        {
+          "path": "apps/command_center_3d/server/ai/evidence/index.mjs",
+          "sha256": "238a4b3985b39d8d38faa8e69b79e1e0115aaa74c063c8dc050a19a1b54fd9b7",
+          "lines": 21
+        },
+        {
+          "path": "apps/command_center_3d/server/ai/evidence/tests/inference-evidence.test.mjs",
+          "sha256": "6fc18164e31f07d4c57009f8fdad86e75b8925c2ffd4335243999989d3e287b4",
+          "lines": 517
+        }
+      ],
+      "contracts": {
+        "recordFieldCount": 19,
+        "recordFieldCountInvariant": "改名后仍为 19，未扩字段",
+        "providerId": "mock（恒定）",
+        "decisionClassEnum": [
+          "APPROVED",
+          "NO_ACTION"
+        ],
+        "structurallyNoHold": true,
+        "honestEmptyNote": "UNKNOWN, never 0. No real inference has been executed.",
+        "isReal": false,
+        "dataMode": "fixture"
+      },
+      "boundaries": [
+        "零真实推理",
+        "零真实 API 费用（actualInferenceCost 为 NOT_MEASURED）",
+        "MODEL_ID_AUTHORITY 只声明未接线",
+        "真实 Provider 调用仍禁止（R-2）"
+      ]
+    },
+    {
+      "id": "P3",
+      "name": "策略研究（4 组对照 / 回测 / Walk-forward / OOS）",
+      "status": "SKELETON_ONLY_INSUFFICIENT_DATA",
+      "files": [
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/cost-models.mjs",
+          "sha256": "b32d10e41d9cef71534580252e48acbbc29ab583bc77f43238155aaafa8e5c2c",
+          "lines": 137
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/fee-wrap.mjs",
+          "sha256": "be291e16d83634e7434ec1c8a24ed9f6c16dcf87c68fcf28e02c879647463adf",
+          "lines": 91
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/market-timeline.mjs",
+          "sha256": "3ab6a69e0251a82625ee8015c946c6311b5ac8833c40ceaf00e5fdf76946367c",
+          "lines": 107
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/metrics.mjs",
+          "sha256": "c5b844ab6eb3900999c17be5be0843c21f93086ac0ee06ab8b0338c4aa91fa4c",
+          "lines": 147
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/walk-forward.mjs",
+          "sha256": "d42954ccc00e1b90a6c5424489eec1e45f719d59188feb36080b8fe2b24cb60f",
+          "lines": 73
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/index.mjs",
+          "sha256": "4b1b9b79851a166c8fbbfba85d50fa0a50421a616b4d087922cba5b965dc087b",
+          "lines": 74
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/p3-contracts.mjs",
+          "sha256": "7945ee764e46c77294f6f14924de1050740a148f6f91b3d0fa6cfb9d92a27737",
+          "lines": 320
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/arms/_kit.mjs",
+          "sha256": "2565676370547b8cb65ac90ce28b1f9583eef81b5a7cab1c6da95875b7c2cdf3",
+          "lines": 138
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/arms/hold-cash.mjs",
+          "sha256": "34f97e1e609b2c89a391174df5109975595d960b89d74775c0744697024f8e89",
+          "lines": 20
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/arms/buy-and-hold.mjs",
+          "sha256": "6958800d57146bc69195eb0a1c6e645334f69c00584a896a8a553f1ddb6de54d",
+          "lines": 32
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/arms/trend.mjs",
+          "sha256": "ebfc5dfa99bd8d7f5c7adc3c18366df55379ce119573ff592686810f5ef29c47",
+          "lines": 57
+        },
+        {
+          "path": "apps/command_center_3d/scripts/day14-research/arms/ai-decisions.mjs",
+          "sha256": "e89c8a7fdc8a55936e565920ec1888600ad4ecfec0d6a63724fb0b22a7912ac3",
+          "lines": 65
+        }
+      ],
+      "researchResult": {
+        "overallVerdict": "INSUFFICIENT_DATA",
+        "ranking": null,
+        "rankingStatus": "NOT_PRODUCED",
+        "dArmStatus": "NO_DATA",
+        "dArmReason": "仓库中不存在 isReal:true 的 decisions.jsonl",
+        "walkForward": {
+          "requiredFolds": 3,
+          "label": "SYNTHETIC_OOS_DRILL",
+          "oosPass": 0,
+          "verified": 0
+        }
+      },
+      "gatingPrerequisites": [
+        {
+          "id": "F-14",
+          "severity": "blocker-for-P3",
+          "finding": "LEGACY_FREEZE_EXPECTED（L66-70 的 200/6/0.2/1/2）仅被 verifyConfigFreeze() 使用，实际生效的是 DEFAULT_RISK_LIMITS.maxNotionalUsd:1000；s.riskBreach 恒为 false",
+          "fixed": false
+        },
+        {
+          "id": "F-15",
+          "severity": "blocker-for-P3",
+          "finding": "riskCheckImpl 注入面需锁定",
+          "fixed": false
+        }
+      ],
+      "boundaries": [
+        "所有回测为 SYNTHETIC_FIXTURE",
+        "不得声称 OOS 已验证"
+      ]
+    },
+    {
+      "id": "P4",
+      "name": "成本风险收益统一核算",
+      "status": "IMPLEMENTED_LOCAL_PASS",
+      "dualCostModels": {
+        "merged": false,
+        "models": [
+          {
+            "id": "engine_conservative",
+            "feeRate": 0.001,
+            "slippagePct": 0.015,
+            "provenance": "COMMUNITY-VERIFIED"
+          },
+          {
+            "id": "venue_verified",
+            "feeRate": null,
+            "slippagePct": null,
+            "status": "NOT_MEASURED",
+            "provenance": "UNVERIFIED"
+          }
+        ]
+      },
+      "feeContractStatus": {
+        "statusToken": "FEE_CONTRACT_MATCHES_FROZEN_ENGINE",
+        "provenance": "SYNTHETIC_FIXTURE",
+        "note": "该 status 表达与冻结引擎的算术一致性，不代表任何数据真实性验证",
+        "measured": {
+          "qty": 0.001,
+          "price": 101,
+          "fillFee": "0.00010100",
+          "computedFee": "0.00010100",
+          "delta": 0
+        }
+      },
+      "slippageFindings": {
+        "note": "滑点是双口径差主因，不是费率",
+        "exampleNotionalUsd": 200,
+        "feesRoundTrip": 0.4,
+        "slippageRoundTrip": 6,
+        "totalDifference": 6.4,
+        "feeRateOnlyDifference": 0.32,
+        "ratio": "约 19 倍偏差由滑点贡献"
+      }
+    },
+    {
+      "id": "P5",
+      "name": "7 天 Shadow + 30 天 Paper + 100 笔 / 30 笔 OOS",
+      "status": "BLOCKED",
+      "blockReason": "真实时间窗口，本轮物理上不可完成",
+      "fabricated": false
+    },
+    {
+      "id": "P6",
+      "name": "24/7 Supervisor",
+      "status": "IMPLEMENTED_LOCAL_PASS",
+      "files": [
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/core.mjs",
+          "sha256": "c13edf057cf925d1fe29eed6c8894a03d02973cc378af552238762259692e321",
+          "lines": 183
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/cost-monitor.mjs",
+          "sha256": "88f4aa9f2dab4c93573b235a7b2885378f7273196edb98fb80097cea9081cfbb",
+          "lines": 140
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/idempotency.mjs",
+          "sha256": "7d1f6f510d288f8955bd425d8558f4764a07df0dbd9b1ab3b1c8e77db100c186",
+          "lines": 35
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/index.mjs",
+          "sha256": "10fa6c5bd731102f75d10d6fca6607d5b493a105e5cb2db305002a9e236c123a",
+          "lines": 13
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/kill-switch.mjs",
+          "sha256": "e375d1764aee7e579aa6eaa4525f304b8fdc45b10e3ec0b7fe6bdbc8329358d2",
+          "lines": 37
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/leader-election.mjs",
+          "sha256": "fa3d5ca3963ece59d2a3f9e2e676ea7d1c7710301ec6fb4656a18849fcac7632",
+          "lines": 64
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/resume.mjs",
+          "sha256": "5a0986d202efe83d66af7d4856703efa1382a90856f3a1ae8fd2f3ee7197ac89",
+          "lines": 31
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/supervisor.mjs",
+          "sha256": "35be294b8c1ee5e6e735f25a5615bab960fd9a94ece1354ae10ab561e82675cf",
+          "lines": 103
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/watchdog.mjs",
+          "sha256": "afc572cb812708e27aab2de8d4af2fc024fac43729625a8892907b7666837e5a",
+          "lines": 32
+        },
+        {
+          "path": "apps/command_center_3d/scripts/supervisor/supervisor.test.mjs",
+          "sha256": "573bc1b4c7cce7feaf71dc85323bb0a897ac5dc072361e0d0a4523e639e4c9ae",
+          "lines": 313
+        }
+      ],
+      "daemonBinding": "DECLARED_NOT_WIRED",
+      "orchestrationOrder": [
+        "killSwitch",
+        "lease",
+        "idempotency",
+        "resume",
+        "cycleImpl",
+        "record",
+        "heartbeat"
+      ],
+      "boundaries": [
+        "无守护进程",
+        "无 scheduler",
+        "不得自动开启真实资金"
+      ]
+    },
+    {
+      "id": "P7",
+      "name": "前端驾驶舱",
+      "status": "IMPLEMENTED_LOCAL_PASS",
+      "files": [
+        {
+          "path": "apps/command_center_3d/src/components/ProvenanceBadge.tsx",
+          "sha256": "fd797f499bd9a310c5c2f54ff3858be13443fd0f9e2379085286da6ff79025b0",
+          "lines": 151,
+          "change": "新建"
+        },
+        {
+          "path": "apps/command_center_3d/src/components/TradingDesk.tsx",
+          "sha256": "8213dc42653f7a02039d771f8c8b3409625b2a0042d5b020e540575bf676faf2",
+          "lines": 171,
+          "change": "新建"
+        },
+        {
+          "path": "apps/command_center_3d/src/views/trading/components/PageContainer.tsx",
+          "sha256": "43e96022f63adec6063a2dd9a572a0b36afb307ffe2189ae2af3bc89267310a0",
+          "lines": 88,
+          "change": "新增 deriveStatusLabel()"
+        },
+        {
+          "path": "apps/command_center_3d/src/trading/pages/PaperAccount.tsx",
+          "sha256": "e4a49efe7934c5282db2c59ea3eb75d6b7a0535595b754255f99bc58d2c50d25",
+          "lines": 141,
+          "change": "8 处 label=\"LIVE\" 清零"
+        },
+        {
+          "path": "apps/command_center_3d/src/trading/pages/TradingWorkbench.tsx",
+          "sha256": "3c5f64a6a4e049cb447905285782e4ae5a9432b34c9918e64c074d96da12a862",
+          "lines": 324,
+          "change": "6 处清零"
+        },
+        {
+          "path": "apps/command_center_3d/src/trading/pages/AICommandCenter.tsx",
+          "sha256": "bbf25bbd919ef23df3f84099d5e23092f7e971abf40b972137cbb92a17bb9222",
+          "lines": 103,
+          "change": "1 处清零（:71）"
+        },
+        {
+          "path": "apps/command_center_3d/src/trading/pages/MarketUniverse3D.tsx",
+          "sha256": "de566859817a971d586a4bf42c8e3712548160fc8c1977f923312e962e0745af",
+          "lines": 133,
+          "change": "1 处清零（:101 三元）"
+        },
+        {
+          "path": "apps/command_center_3d/scripts/check-no-fake-live.mjs",
+          "sha256": "9442109c6e100b59bca6f5982b8f1ac08b6e8084a3bf60cf8c68cb60d9719d6b",
+          "lines": 234,
+          "change": "新建，10 条静态断言，扫描 111 个非 test src 文件"
+        }
+      ],
+      "hardcodedLiveCleared": {
+        "total": 16,
+        "breakdown": {
+          "PaperAccount.tsx": 8,
+          "TradingWorkbench.tsx": 6,
+          "AICommandCenter.tsx": 1,
+          "MarketUniverse3D.tsx": 1
+        }
+      },
+      "provenanceStates": {
+        "enum": [
+          "REAL",
+          "FIXTURE",
+          "NOT_MEASURED"
+        ],
+        "resolver": "resolveProvenanceState()",
+        "failClosed": true,
+        "rule": "仅完整正证据才 REAL"
+      },
+      "providerFieldDistinction": {
+        "providerVerdict": [
+          "BLOCKED",
+          "UNVERIFIED"
+        ],
+        "providerStatus": [
+          "NOT_CONFIGURED",
+          "CONFIGURED",
+          "CONFIGURED_LOCAL_ONLY",
+          "NOT_CONNECTED"
+        ],
+        "testProviderStatus": [
+          "CONNECTED",
+          "BLOCKED",
+          "FAILED"
+        ],
+        "connectedRule": "CONNECTED 仅由 POST /providers/test 真实 200 且有 content 产生；不是全局禁词"
+      },
+      "tradingDeskMount": "DECLARED_NOT_WIRED",
+      "boundaries": [
+        "TYPECHECK UNVERIFIED（node_modules 缺失）",
+        "未渲染验证，无浏览器 E2E"
+      ]
+    },
+    {
+      "id": "P8",
+      "name": "策略晋级评审",
+      "status": "BLOCKED",
+      "blockReason": "需市场观察样本自然形成，不得提前签字",
+      "signed": false
+    },
+    {
+      "id": "P9",
+      "name": "实盘准备（仅设计与验证）",
+      "status": "DESIGN_ONLY",
+      "prohibitions": [
+        "不创建实盘账户",
+        "不注入资金",
+        "不执行真实买卖"
+      ],
+      "implemented": false
+    }
+  ],
+  "ciChanges": {
+    "status": "CONFIG-CHANGE / UNVERIFIED",
+    "runId": null,
+    "files": [
+      {
+        "path": ".github/workflows/ci.yml",
+        "sha256": "39ce5d0d7961df209deb8e043a1dc307225f6fc62d6bedcc72304bf26d36a7fc",
+        "lines": 148,
+        "changeA": "新增 gap-closure gate step：5 条 test -f 严格失败 + 5 条 node 调用 + set -e，无 continue-on-error",
+        "changeB": "build-and-test 的 checkout 加 fetch-depth: 0（裁定 C）",
+        "preserved": [
+          "npx tsc --noEmit",
+          "npx vitest run",
+          "real-data-probe continue-on-error: true"
+        ],
+        "fetchDepthReason": "day14-p0-lib.mjs:322-327 的 runnerSourceAt() 在 git show 失败时抛错；B1 硬引用 ebc3fcc；默认 fetch-depth:1 缺该对象 → 稳定假红",
+        "fetchDepthScopedTo": "build-and-test job only；real-data-probe 未加"
+      },
+      {
+        "path": ".github/workflows/v16-market-provenance.yml",
+        "sha256": "c059e73ee18fcfae33716e2888b462487a65206585bde5804e86a2be86ed2eae",
+        "lines": 119,
+        "change": "on.push.branches 仅追加 feature/v16-p0-gap-closure 与 feature/v16-**，原条目与既有 steps 一字未动",
+        "hadFetchDepthZeroAlready": true
+      }
+    ],
+    "unverifiedBecause": "无本地 Actions runner；改动效果须在真实 runner 上验证"
+  },
+  "adjudicationsClosed": [
+    {
+      "id": "A",
+      "topic": "rawResponseBytes 语义歧义",
+      "decision": "输出侧字段改名 rawResponseBase64；输入侧 providerResult.rawResponseBytes 保持原名；不新增字段",
+      "rationale": "该字段存 base64 原始字节而非字节数整数，旧名会诱发 `if (x > 0)` 误用；模块尚未提交，此刻改名零成本",
+      "contractCardinalityChange": false,
+      "verified": true
+    },
+    {
+      "id": "B",
+      "topic": "assertEngineFeeContract 返回 VERIFIED_AGAINST_FROZEN_ENGINE",
+      "decision": "改为 FEE_CONTRACT_MATCHES_FROZEN_ENGINE，并新增结构化 provenance:\"SYNTHETIC_FIXTURE\"",
+      "rationale": "本仓 VERIFIED 是保留的 provenance 词（walk-forward 用 verified:0 表示零样本通过）；契约自测状态不得借用，否则 grep 式审计撞车",
+      "feeArithmeticChanged": false,
+      "verified": true,
+      "residualNote": "p3-contracts.mjs:67 仍含 provenance:\"VERIFIED\"，那是反例 fixture，保留正确"
+    },
+    {
+      "id": "C",
+      "topic": "ci.yml 浅克隆",
+      "decision": "必须加 fetch-depth: 0，且仅加在 build-and-test job",
+      "rationale": "不加则 B1 稳定假红（runnerSourceAt 抛错，不静默跳过）",
+      "treated": "必要修复，非扩大授权",
+      "verified": true,
+      "verificationBoundary": "缩进经字符级核对（TAB=0、层级 6/8/10 与既有 setup-node 同构），未经 YAML 解析器验证"
+    }
+  ],
+  "defects": {
+    "closedThisRound": [
+      {
+        "id": "P0-A",
+        "topic": "依赖注入"
+      },
+      {
+        "id": "P0-B",
+        "topic": "fail-closed（F1 硬门禁）"
+      },
+      {
+        "id": "P0-C",
+        "topic": "链校验与恢复"
+      },
+      {
+        "id": "P0-D",
+        "topic": "真实对账"
+      },
+      {
+        "id": "P0-E",
+        "topic": "runId 与不可变配置"
+      },
+      {
+        "id": "P0-F",
+        "topic": "独立 QA"
+      },
+      {
+        "id": "BLOCK-1",
+        "topic": "vitest 确定性变红（两个 node 断言脚本被默认 glob 收走）",
+        "fix": "vite.config.ts test.exclude，展开 configDefaults.exclude 再追加",
+        "evidence": "本地 22 文件 / 217 passed；远端 UNIT total=220 passed=217 failed=0 skipped=3；修复前 Run 42968141252 unit=failure"
+      },
+      {
+        "id": "BLOCK-2",
+        "topic": "CI gate 只覆盖 5/7 套件（24 条断言从未进 CI）",
+        "fix": "gate 补齐 supervisor + check-no-fake-live，现为 7 条 test -f + 7 条 node",
+        "evidence": "远端日志逐套件合计 94 条"
+      }
+    ],
+    "registeredNotFixed": [
+      {
+        "id": "F-16",
+        "severity": "medium",
+        "topic": "reports/evidence/v16/*.json 跨次运行不可复现",
+        "finding": "17 个文件相对 ebc3fcc 的差异不止时间戳（24 处），还含 stderr 内嵌的 node 进程 PID（10 处）；归一化时间戳+PID 后 +/- 完全对称，含 verdict/pass/detail/checks 的变更行为 0，即语义零变化但字节不可复现",
+        "consequence": "任何重跑都会弄脏工作树，使 tree-clean 类门禁失效",
+        "fixed": false,
+        "outOfScopeReason": "需改 v16 证据 harness 的 stderr 采集方式，不在 P0–P7 范围"
+      },
+      {
+        "id": "F-17",
+        "severity": "low",
+        "topic": "day14-p0-runner.mjs B1 硬编码基准提交 ebc3fcc",
+        "finding": "fetch-depth: 0 只消除浅克隆缺对象这一个失败模式；若 rebase/squash/换 base 使 ebc3fcc 不可达，B1 仍抛错",
+        "suggestion": "改用 HEAD~N 或把基准版本落成 fixture 文件",
+        "fixed": false,
+        "outOfScopeReason": "day14-p0-lib.mjs 属 QA 独占文件，改动需 QA 书面同意"
+      },
+      {
+        "id": "F-14",
+        "severity": "blocker-for-P3",
+        "topic": "风控口径双源（LEGACY_FREEZE_EXPECTED 死配置 vs maxNotionalUsd:1000；s.riskBreach 恒 false）",
+        "fixed": false
+      },
+      {
+        "id": "F-15",
+        "severity": "blocker-for-P3",
+        "topic": "riskCheckImpl 注入面未锁定",
+        "fixed": false
+      },
+      {
+        "id": "F-05",
+        "severity": "high",
+        "topic": "独立凭据域缺失",
+        "fixed": false
+      },
+      {
+        "id": "F-07",
+        "severity": "medium",
+        "topic": "能力面未收敛",
+        "fixed": false
+      },
+      {
+        "id": "F-09",
+        "severity": "low",
+        "topic": "残留代码",
+        "fixed": false
+      },
+      {
+        "id": "R6",
+        "severity": "medium",
+        "topic": "静态安全结论保持 UNVERIFIED",
+        "fixed": false
+      },
+      {
+        "id": "CRED-MINIMAX",
+        "severity": "medium",
+        "topic": "历史 MiniMax 凭据位置 UNVERIFIED",
+        "fixed": false
+      },
+      {
+        "id": "F-18",
+        "severity": "medium",
+        "topic": "证据跨批次不可复现（行哈希覆盖 latency_ms 墙钟值）",
+        "impact": "按哈希跨环境比对证据会假阳性；同批次内可比，跨批次不可比",
+        "mitigation": "reports/evidence/v16/_normalized/ 归一化视图（verdict 自检 PASS，8 组配对全 IDENTICAL）",
+        "fixed": false
+      },
+      {
+        "id": "F-19",
+        "severity": "medium",
+        "topic": "日志链锚只写不读（chainHeadSha256 在恢复路径从未被读取）",
+        "impact": "「日志链可检测篡改」在严格意义上不成立；当前只有链内自洽性，无对外不可否认性",
+        "fixed": false
+      },
+      {
+        "id": "F-21",
+        "severity": "medium",
+        "topic": "CI gate 步骤排在 typecheck/build/unit 之后，上游一挂即 skipped",
+        "impact": "不造假绿，但最关键的门禁在最需要它的时候缺席",
+        "evidence": "Run 42968141252 step 10 = skipped",
+        "fixed": false
+      },
+      {
+        "id": "F-22-C",
+        "severity": "low",
+        "topic": "v16-market-provenance.yml 触发分支不含 feature/jev-*",
+        "impact": "V1.5 baseline 8 组 + V1.6 套件（104 断言）未在本分支运行",
+        "fixed": false,
+        "idNote": "C = coverage。旧 CI 评估报告里的 F-22 指另一件事（配置与工作树指纹一致性，记为 F-22-G），两者不是同一缺陷。"
+      },
+      {
+        "id": "F-23",
+        "severity": "low",
+        "topic": "check-no-fake-live.mjs 的 Y2 文案仍写 5 gate scripts，实际为 7",
+        "impact": "读者会误判覆盖范围；检查逻辑本身 10/10 通过",
+        "fixed": false
+      }
+    ],
+    "processDeviations": [
+      {
+        "id": "DEV-05",
+        "severity": "medium",
+        "owner": "主理人自身",
+        "topic": "引用过时快照导致 QA DECISION 口径混乱（359 行 GO 无条件 vs 397 行 GO WITH CONDITIONS）",
+        "resolution": "以磁盘 397 行版本为准（更保守）"
+      },
+      {
+        "id": "DEV-06",
+        "severity": "low",
+        "owner": "主理人自身",
+        "topic": "引用锚点漂移（§4.3 由 L153-156 移到 L160-163）",
+        "resolution": "唯一稳定锚点 = 章节号 + 逐字证据内容；sha256/行数/裸行号降级为版本快照"
+      },
+      {
+        "id": "DEV-07",
+        "severity": "medium",
+        "owner": "多个 research 成员",
+        "topic": "跨成员直接传话，绕过主理人中转",
+        "resolution": "主理人下发权威覆盖，作废成员直发的宽松建议；此后只接受经主理人中转的规格"
+      },
+      {
+        "id": "DEV-08",
+        "severity": "medium",
+        "owner": "主理人自身",
+        "topic": "误将 ReferenceInput.url 当作 JEV 安全底线下发（本仓 0 命中）",
+        "resolution": "撤回并删除该条，安全索引页改回两条可证底线"
+      },
+      {
+        "id": "DEV-09",
+        "severity": "low",
+        "owner": "主理人自身",
+        "topic": "报告写 5834c3c，git 中无此对象（合法短 SHA 为 5834c37）",
+        "evidence": "git cat-file -t 5834c3c -> fatal: Not a valid object name"
+      },
+      {
+        "id": "DEV-10",
+        "severity": "medium",
+        "owner": "主理人自身",
+        "topic": "集成分支建在 fa7740f，第 4 提交落在另一分支，首次推送只推 3 个提交，远端一度停在会红的 SHA",
+        "resolution": "git branch -f 前移并重推，远端现为 f5fea09"
+      },
+      {
+        "id": "DEV-11",
+        "severity": "low",
+        "owner": "主理人自身",
+        "topic": "集成签收文档与台账初版误写累计 diff（121/+17148/-334），实测为 106/+18344/-280",
+        "resolution": "按 git diff --shortstat 实测值更正",
+        "evidence": "git diff --shortstat ebc3fcc..HEAD"
+      },
+      {
+        "id": "DEV-12",
+        "severity": "low",
+        "owner": "主理人自身",
+        "topic": "QA 独占的 JEV_V2_CI_VERIFICATION.md 正文仍写无 Run ID/UNVERIFIED，与推送后现实矛盾；QA 未回传更新",
+        "resolution": "主理人最小介入：仅追加取代声明并指向 JEV_V2_INTEGRATION_SIGNOFF.md §5，正文一字未改"
+      }
+    ]
+  },
+  "notCommittedOnPurpose": {
+    "reason": "本地运行 scratch，刻意保持 untracked 而非写进 .gitignore——让它可见，而不是被藏起来",
+    "paths": [
+      {
+        "path": "reports/day14-artifacts/_verify/",
+        "approxSize": "1.5 MB",
+        "files": 401
+      },
+      {
+        "path": "reports/day14-artifacts/runs/",
+        "approxSize": "84 KB"
+      },
+      {
+        "path": "reports/day14-artifacts/active-run.json"
+      },
+      {
+        "path": "apps/equity_collector_v45/evidence/",
+        "approxSize": "9 files",
+        "reason": "每次 run-all 覆写，入库会造成提交噪声"
+      }
+    ],
+    "totalUntrackedFilesInScratch": 402
+  },
+  "deliverables": {
+    "generated": [
+      "reports/JEV_GAP_CLOSURE.md",
+      "reports/JEV_INDEPENDENT_QA.md",
+      "reports/JEV_REAL_TRADING_SECURITY.md",
+      "reports/JEV_FINAL_MASTER_STATUS.json",
+      "docs/JEV_FINAL_ARCHITECTURE.md",
+      "docs/JEV_PRODUCTION_READINESS.md",
+      "docs/JEV_OPERATIONS_RUNBOOK.md",
+      "docs/JEV_REAL_TRADING_SECURITY.md",
+      "reports/JEV_V2_CI_VERIFICATION.md",
+      "reports/JEV_V2_PAPER_READINESS.md",
+      "reports/JEV_V2_BUILD_ENVIRONMENT.md",
+      "reports/JEV_V2_SECURITY_SIGNOFF.md",
+      "reports/JEV_V2_INTEGRATION_SIGNOFF.md",
+      "reports/JEV_V2_FINAL_GAP_REGISTER.md",
+      "apps/command_center_3d/scripts/normalize-evidence.mjs",
+      "reports/evidence/v16/_normalized/MANIFEST.json"
+    ],
+    "stillMissing": [],
+    "note": "§13 四份 docs 与 T06 五份 V2 报告全部落盘。docs/ 下采用「索引+摘要+指向权威源」形态，不复制 reports/ 正文。"
+  },
+  "nextActions": [
+    "F-19 修复：恢复路径必须读取 chainHeadSha256 并比对，锚应落在链外",
+    "F-21 修复：gate 步骤前移至 job 首位",
+    "F-22 修复：v16-market-provenance.yml 触发分支补 feature/jev-*",
+    "F-14 / F-15 修复：P3 解锁硬前置",
+    "F-05 独立凭据域",
+    "F-18 修复：行哈希排除墙钟派生值，或显式分离 hash_scope",
+    "建立隔离的 Shadow 环境（禁止自动开启持续付费任务，需单独授权）"
+  ],
+  "disciplineConfirmation": {
+    "noFakePass": true,
+    "noAssertionDeletedOrWeakened": true,
+    "noFrozenFileModified": true,
+    "noGitAddAll": true,
+    "bannedCommandsUnused": [
+      "git add -A",
+      "git add .",
+      "git checkout",
+      "git stash"
+    ],
+    "noPush": false,
+    "noMainOrReleaseTouch": true,
+    "noRealMoneyMovement": true,
+    "credentialsListedAsKeyNamesOnly": true,
+    "pushScope": "仅 feature/jev-v2-ops-integration；未强推；未碰 master / release/jcc-v1.3-final；PR #6 保持 Draft"
+  },
+  "supersedes": "v1 @ 5834c37。v1 仍保留在提交 c0cad25 中，不回改；本 v2 记录其后的 T01–T06 收口事实。",
+  "remoteVerification": {
+    "performedBy": "team-lead via GitHub API + Actions 运行日志直读（不采信成员转述）",
+    "runs": [
+      {
+        "runId": 42968141252,
+        "event": "push",
+        "headSha": "fa7740f2ab8be973b8407ed68d5e3514e034a2e3",
+        "conclusion": "failure",
+        "note": "修复前基线。Typecheck success / Build success / Unit tests failure / gap-closure gate skipped。"
+      },
+      {
+        "runId": 42969534182,
+        "event": "push",
+        "headSha": "f5fea0943d10a98e8e4629683c320e418a9d0136",
+        "conclusion": "success",
+        "note": "当前 head。步骤 5/6/7/10 全 success，gate 非 skipped。"
+      },
+      {
+        "runId": 42969557367,
+        "event": "pull_request",
+        "workflow": "Cloud Staging Docker Runtime Gate",
+        "headSha": "f5fea0943d10a98e8e4629683c320e418a9d0136",
+        "conclusion": "success"
+      }
+    ],
+    "assertionParity": {
+      "local": 94,
+      "remote": 94,
+      "verified": true,
+      "detail": {
+        "day14-p0-contracts": 7,
+        "day14-p0-runner": 24,
+        "market-data": 10,
+        "inference-evidence": 17,
+        "p3-contracts": 12,
+        "supervisor": 14,
+        "check-no-fake-live": 10
+      },
+      "evidenceType": "主理人从 Actions 运行日志中逐条 grep 得到，非成员转述；独立 QA 因 API 权限未取得日志，其未能直读不构成反驳。"
+    },
+    "fetchDepthProof": "gate 日志含 B1 apparatus 一行，明确旧基线 ebc3fcc WITH broken gate DOES warn+continue + approve via simplified fallback；该用例必须 git show ebc3fcc 才能跑，跑到即证明 fetch-depth:0 生效。",
+    "fetchDepthSideFinding": "同一行日志同时构成『旧基线确实用简化风控放行』的前后对比证据。",
+    "nonBlockingProbeNotCountedAsPass": true,
+    "noGreenBySkipping": "修复前 fa7740f 的 gate 为 skipped 且整体 failure，说明跳过不会被误判为绿。",
+    "finalVerifiedSha": "0d1d6c587b1f2881c9949b7cb3fae5c9ffb75685",
+    "finalVerifiedRun": 42970318111,
+    "stagingGateRun": 42970326463,
+    "stagingGateNotCiEvidence": "ci.yml 的 on.pull_request.branches 仅 [main, master]，本 PR base 为 feature/v16-market-provenance-hardening，PR 事件不触发 ci.yml。故 42969557367 / 42970326463 只证明 staging 容器冒烟，不作 CI 证据。",
+    "branchTipIsMovingTarget": "本快照不锚定分支尖端。权威证据是运行清单 + ci.yml blob 468238f4…。台账里的 finalVerifiedSha 会随下一次文档提交过期，这是结构性的。",
+    "ciConfigBlobStable": {
+      ".github/workflows/ci.yml": "468238f423db829337f04fe3d7890c801d3865b1",
+      "appliesTo": [
+        "f5fea09",
+        "0d1d6c5",
+        "2b6be4a"
+      ]
+    }
+  },
+  "sevenAdjudications": {
+    "engineeringIntegration": {
+      "verdict": "GO_WITH_CONDITIONS",
+      "reason": "4 提交已推送，远端 SHA 与本地逐字一致；94 断言本地/远端逐套件对齐；5 锚点零漂移；tracked clean"
+    },
+    "ci": {
+      "verdict": "GO_WITH_CONDITIONS",
+      "reason": "ci.yml push 运行 42969534182 (@f5fea09) 与 42970318111 (@0d1d6c5) 均 success；三个 SHA 的 ci.yml blob 同为 468238f4…，被测配置一致。Cloud Staging 运行 42969557367/42970326463 不计入 CI 证据。条件：F-21 gate 位置、F-22-C 触发覆盖。"
+    },
+    "security": {
+      "verdict": "GO_WITH_CONDITIONS",
+      "reason": "见 JEV_V2_SECURITY_SIGNOFF.md；C2–C6 + C8 开放，R6 保持 UNVERIFIED"
+    },
+    "liveMarketShadow": {
+      "verdict": "NO_GO",
+      "reason": "无 7 天连续真实行情/决策/风控/证据窗口；当前真实行情仅 4 次 CI 探针"
+    },
+    "paperTrading": {
+      "verdict": "NO_GO",
+      "reason": "无 30 天 / 100 笔有效交易；P3 INSUFFICIENT_DATA，oos_pass=0，verified=0"
+    },
+    "thirtyDayResearch": {
+      "verdict": "NO_GO",
+      "reason": "属阶段 3 工作，所需样本不存在"
+    },
+    "realMoneyTrading": {
+      "verdict": "NO_GO",
+      "reason": "未获单独授权；allowBuySell=false 与 ENABLE_REAL_TRADING=false 均未解除"
+    },
+    "note": "工程成功 ≠ 策略盈利成功。以上任何 GO 都不构成对盈利能力的判断。"
+  }
+}

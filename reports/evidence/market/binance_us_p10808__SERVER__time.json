@@ -1,0 +1,51 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "SERVER",
+  "endpoint": "time",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/time",
+    "path": "/api/v3/time",
+    "probe_ts_utc": "2026-11-09T04:36:20.664+00:00",
+    "probe_ts_epoch_ms": 1794198980664,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:23 GMT",
+      "x_mbx_uuid": "3e565f58-fd34-4f0b-9251-332b34a02019",
+      "x_mbx_used_weight": "68",
+      "x_mbx_used_weight_1m": "68",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 0c5f65d93ba06443e68fc0621e9d74a8.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 28,
+    "body_sha256": "85429aab19e2df6d6e0bdfa3f5f8f596b95d68fec71bc2dc9ff951000f5326ff",
+    "body_sha256_short16": "85429aab19e2df6d",
+    "body_excerpt_500": "{\"serverTime\":1794198983397}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "serverTime": 1794198983397,
+      "serverTime_utc": "2026-11-09T04:36:23.397+00:00"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 2.106,
+    "is_cloudflare_html_block": false,
+    "clock_skew_ms": 2733
+  }
+}

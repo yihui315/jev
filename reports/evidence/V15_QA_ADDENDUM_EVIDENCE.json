@@ -1,0 +1,112 @@
+{
+  "schema": "jev-v15-qa-addendum/v1",
+  "note": "Redacted evidence. No token/secret plaintext is stored in this repository.",
+  "amendment_id": "A1",
+  "trigger": "Independent QA checklist MARKET_MIXING_GUARD_CHECKLIST.md landed AFTER final signoff was committed and pushed; it was absent from the original PR #5 evidence chain.",
+  "timeline_local_utc_plus_08": {
+    "signoff_file_written": "2026-11-09T12:50:40+08:00",
+    "signoff_commit": "2026-11-09T12:51:00+08:00",
+    "signoff_commit_sha": "887ac545dbbe6ffb4470d5ab0b5080a505bc3cf6",
+    "qa_checklist_generated": "2026-11-09T12:54:48+08:00",
+    "delay_after_commit_seconds": 228,
+    "pr5_head_sha_before_amendment": "887ac545dbbe6ffb4470d5ab0b5080a505bc3cf6"
+  },
+  "qa_checklist": {
+    "owner": "market-auditor",
+    "nature": "read-only independent QA review; no writes to v15-dev, no test execution there, no cloud writes, no credential access",
+    "source_path": "D:/jev-v15-wt/v15-market/MARKET_MIXING_GUARD_CHECKLIST.md",
+    "repo_path": "reports/V15_QA_MIXING_GUARD_CHECKLIST.md",
+    "byte_identical_copy": true,
+    "sha256": "236589723c6d83fe6dbc713138d8288c16cb0ee72ab0467566860b3527d6ca57",
+    "lines": 341,
+    "bytes": 33119
+  },
+  "baseline_evidence": {
+    "local_suite": {
+      "generated_at": "2026-11-09T04:44:03.504Z",
+      "node": "v22.22.2",
+      "overall": "PASS",
+      "groups_total": 8,
+      "groups_pass": 8,
+      "groups_fail": 0,
+      "assertions": 95
+    },
+    "cloud_isolated_d1": {
+      "uuid": "cf5cf033-3796-4de1-b295-93f35a8ce82e",
+      "snapshots": 12,
+      "provenance_rows": 12,
+      "verified": 9,
+      "unknown": 3,
+      "idempotent_reruns_written": 0,
+      "replay_peak_matches": 12,
+      "replay_drawdown_matches": 12
+    },
+    "frozen_engine_files": 15,
+    "frozen_engine_tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad"
+  },
+  "field_gaps": {
+    "verdict": "BLOCKED / PENDING_FIELDS",
+    "not_a_failure": true,
+    "not_satisfied": true,
+    "named_7": ["exchange", "market", "base_asset", "quote_asset", "price_unit", "network_context", "book_ts"],
+    "same_root_additional_6": ["symbol", "ts_source", "book_ts_source", "failure_class", "unit_multiplier", "venue"],
+    "already_present_not_missing": ["source_host", "endpoint", "source_url", "price_ts", "fetched_at", "freshness_ms", "freshness_verdict", "clock_skew_ms", "data_quality", "http_status", "payload_sha256", "mark_quality", "error_code", "engine_sha256", "cycle_key"],
+    "owner_section": "V15_FINAL_SIGNOFF.md section 8 item 2"
+  },
+  "mixing_guard_rule": {
+    "rule": "Quotes from different trading markets must never be mixed into one equity curve without explicit market identity.",
+    "qa_verdict": "GAP",
+    "adjudicated_verdict": "UNVERIFIED / NO-GO",
+    "reason": "v45_snapshot_provenance lacks an (exchange, market) composite key; SQL-layer cross-market aggregation cannot be prohibited; provenance_complete_fields does not assert market identity fields.",
+    "consequence": "8/8 PASS and 95 assertions do NOT prove compliance with the rule.",
+    "registered_as": "section 8 item 10",
+    "is_derived_from": "section 8 item 2",
+    "is_independent_new_defect": false
+  },
+  "blocked_count": {
+    "before": 9,
+    "after": 10,
+    "delta_reason": "Derived gate item #10 registered for decidability; no new independent defect, no new PASS items."
+  },
+  "decisions": {
+    "v15_hardening": "GO (unchanged)",
+    "p0_token_governance": "GO (unchanged)",
+    "p1_branch_integration": "GO (unchanged)",
+    "p2_isolated_collector": "GO WITH CONDITIONS (unchanged, extra condition: mixing decidability must be re-verified by independent QA)",
+    "p2_attach_to_jev_paper_staging": "NO-GO / EVALUATION ONLY (unchanged)",
+    "p3_market_coverage_investigation": "GO (unchanged)",
+    "p3_mixing_compliance": "UNVERIFIED / NO-GO (new precision split)",
+    "p3_new_global_source": "NO-GO / CONDITIONAL (unchanged)",
+    "production_promotion": "NO-GO (unchanged, blockers 1-10)",
+    "pass_count": 24,
+    "fail_count": 0
+  },
+  "scope_not_performed": {
+    "schema_or_collector_changed": false,
+    "frozen_engine_changed": false,
+    "frozen_table_changed": false,
+    "tests_deleted_or_relaxed": false,
+    "tests_rerun": false,
+    "isolated_d1_mutated": false,
+    "global_source_attached": false,
+    "staging_or_real_funds_attached": false,
+    "signoff_sections_1_to_9_rewritten": false,
+    "commit_amended_or_force_pushed": false,
+    "new_ci_run_triggered": false,
+    "reason": "Docs/evidence-only amendment; adding columns requires synchronized new assertions, an independent dev+QA cycle, and must not be self-certified green."
+  },
+  "m1_prerequisite_gate": {
+    "scope": "V1.6 or staging-attachment review, NOT V1.5 signed scope",
+    "columns": ["exchange", "market", "price_ts_source", "network_context"],
+    "payload_convention": ["base_asset", "quote_asset", "price_unit", "unit_multiplier"],
+    "required_assertion_updates": ["QA-T1-1", "QA-T2-1", "QA-T3-1", "QA-T3-5", "QA-T7-2"],
+    "decision_owner": "principal"
+  },
+  "ci": {
+    "latest_run_id": 42563795444,
+    "latest_run_conclusion": "success",
+    "new_run_for_amendment": null,
+    "commit_marker": "[skip ci]"
+  },
+  "secret_plaintext_present": false
+}

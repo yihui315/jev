@@ -1,0 +1,51 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_global_vision",
+  "exchange": "Binance Global (data-api.binance.vision)",
+  "market": "spot",
+  "exchange_note": "Binance official public market-data host for the GLOBAL spot market",
+  "symbol": "SERVER",
+  "endpoint": "time",
+  "request": {
+    "method": "GET",
+    "url": "https://data-api.binance.vision/api/v3/time",
+    "path": "/api/v3/time",
+    "probe_ts_utc": "2026-11-09T04:24:42.518+00:00",
+    "probe_ts_epoch_ms": 1794198282518,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:52498",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:24:43 GMT",
+      "x_mbx_uuid": "b9c8cf02-6eeb-44be-ae69-1cc9a7947ee7",
+      "x_mbx_used_weight": "10",
+      "x_mbx_used_weight_1m": "10",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": null
+    },
+    "body_len_bytes": 28,
+    "body_sha256": "2dd83440c7aaa4ecf8ab602ffc2be81800366be4f5133130c0a52d68b0fb499c",
+    "body_sha256_short16": "2dd83440c7aaa4ec",
+    "body_excerpt_500": "{\"serverTime\":1794198283687}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "serverTime": 1794198283687,
+      "serverTime_utc": "2026-11-09T04:24:43.687+00:00"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 0.407,
+    "is_cloudflare_html_block": false,
+    "clock_skew_ms": 1169
+  }
+}

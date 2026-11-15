@@ -1,0 +1,56 @@
+{
+  "schema": "jev-v16-hard-gates/v1",
+  "note": "Read-only verification. No token/secret plaintext.",
+  "verified_at_local": "2026-11-09T13:5x+08:00",
+  "baseline_commit": "bfb320603367b2e8ec7b01f96864312f63ad2e6a",
+  "pr5": {
+    "number": 5,
+    "state": "open",
+    "draft": true,
+    "merged": false,
+    "head": "bfb3206",
+    "modified_this_round": false
+  },
+  "frozen_engine": {
+    "files": 15,
+    "tree_sha256": "aec5d1b7cc26db50736d355e7ef14e066fae3f2c2a376d94637c9a977008a9ad",
+    "verified_on_branch": "feature/v16-market-provenance-hardening"
+  },
+  "staging": {
+    "pages_project": "jev-cloud-staging",
+    "production_d1_binding": { "PAPER_DB": "55b690ec-732f-4f34-8b42-084dd15ee164" },
+    "preview_d1_binding": null,
+    "paper_equity_snapshots_rows": 0,
+    "v16_d1_bound": false
+  },
+  "night_researcher": {
+    "pages_project": "night-researcher-dash",
+    "production_d1_binding": null,
+    "preview_d1_binding": null,
+    "touched": false
+  },
+  "isolated_databases": {
+    "v15": {
+      "uuid": "cf5cf033-3796-4de1-b295-93f35a8ce82e",
+      "snapshots": 12,
+      "provenance": 12,
+      "quality_split": { "verified": 9, "unknown": 3 },
+      "modified_this_round": false
+    },
+    "v16": {
+      "uuid": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2",
+      "name": "jev-v45-equity-v16-isolated-test",
+      "initial_user_tables": 0,
+      "write_probe": "CREATE/INSERT/SELECT 3/3 http 200"
+    }
+  },
+  "workers": {
+    "v15": "jev-v45-equity-collector-isolated (untouched)",
+    "v16": "jev-v45-equity-collector-v16 (new, isolated)"
+  },
+  "enable_real_trading": "false",
+  "real_exchange_orders": false,
+  "force_push": false,
+  "release_merged": false,
+  "verdict": "HARD_GATES_PASS"
+}

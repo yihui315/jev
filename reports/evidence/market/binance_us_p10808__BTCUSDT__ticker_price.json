@@ -1,0 +1,51 @@
+{
+  "probe_schema": "jev-v15-market-evidence/1.0",
+  "source_key": "binance_us_p10808",
+  "exchange": "Binance.US",
+  "market": "spot",
+  "exchange_note": "Binance.US spot reached via LOCAL SANDBOX proxy 10808 (2nd proxy). Distinct network context from proxy 52498 and from Cloudflare Pages edge runtime.",
+  "symbol": "BTCUSDT",
+  "endpoint": "ticker_price",
+  "request": {
+    "method": "GET",
+    "url": "https://api.binance.us/api/v3/ticker/price?symbol=BTCUSDT",
+    "path": "/api/v3/ticker/price?symbol=BTCUSDT",
+    "probe_ts_utc": "2026-11-09T04:36:20.665+00:00",
+    "probe_ts_epoch_ms": 1794198980665,
+    "user_agent": "jev-v15-market-auditor/1.5 (read-only public data probe)",
+    "proxy": "http://127.0.0.1:10808",
+    "credentials_sent": false
+  },
+  "response": {
+    "http_status": 200,
+    "headers": {
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "date": "Mon, 09 Nov 2026 04:36:23 GMT",
+      "x_mbx_uuid": "245be51b-58aa-4107-8d53-ba881e740a11",
+      "x_mbx_used_weight": "67",
+      "x_mbx_used_weight_1m": "67",
+      "cf_ray": null,
+      "cf_mitigated": null,
+      "retry_after": null,
+      "cache_control": "no-cache, no-store, must-revalidate",
+      "via": "1.1 dbbc913781ee46c76f9ea1583b081a84.cloudfront.net (CloudFront)"
+    },
+    "body_len_bytes": 45,
+    "body_sha256": "7807d567cc20cf87a75447aff8e0eba1d09f0b1ac27af6c4f956e7302407c197",
+    "body_sha256_short16": "7807d567cc20cf87",
+    "body_excerpt_500": "{\"symbol\":\"BTCUSDT\",\"price\":\"75020.35000000\"}",
+    "is_json": true
+  },
+  "derived": {
+    "parsed_summary": {
+      "symbol": "BTCUSDT",
+      "price": "75020.35000000",
+      "price_unit": "quote_asset per 1 base_asset (see exchangeInfo.quoteAsset)"
+    },
+    "ok": true,
+    "classification": "OK",
+    "latency_s": 2.099,
+    "is_cloudflare_html_block": false
+  }
+}

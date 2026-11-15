@@ -1,0 +1,59 @@
+{
+  "probe_schema": "jev-v15-network-control/1.0",
+  "ts_utc": "2026-11-09T04:24:52.614+00:00",
+  "proxy_env": "http://127.0.0.1:52498",
+  "controls": [
+    {
+      "url": "https://example.com",
+      "via_proxy": false,
+      "http_status": 200,
+      "server": "cloudflare",
+      "content_type": "text/html; charset=utf-8",
+      "body_sha256_short16": "25ddf2c883e0d195",
+      "body_excerpt_120": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=dev",
+      "latency_s": 0.85
+    },
+    {
+      "url": "https://example.com",
+      "via_proxy": true,
+      "http_status": 200,
+      "server": "cloudflare",
+      "content_type": "text/html; charset=utf-8",
+      "body_sha256_short16": "25ddf2c883e0d195",
+      "body_excerpt_120": "<!doctype html><html lang=en><head><meta charset=utf-8><link rel=icon href=data:,><meta name=viewport content=\"width=dev",
+      "latency_s": 0.997
+    },
+    {
+      "url": "https://api.binance.us/api/v3/time",
+      "via_proxy": false,
+      "error": "URLError: <urlopen error [WinError 10051] 向一个无法连接的网络尝试了一个套接字操作。>",
+      "latency_s": 8.007
+    },
+    {
+      "url": "https://api.binance.us/api/v3/time",
+      "via_proxy": true,
+      "error": "URLError: <urlopen error timed out>",
+      "latency_s": 8.021
+    },
+    {
+      "url": "https://data-api.binance.vision/api/v3/time",
+      "via_proxy": false,
+      "http_status": 200,
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "body_sha256_short16": "3d4b078d26d4123c",
+      "body_excerpt_120": "{\"serverTime\":1794198311618}",
+      "latency_s": 0.361
+    },
+    {
+      "url": "https://data-api.binance.vision/api/v3/time",
+      "via_proxy": true,
+      "http_status": 200,
+      "server": "nginx",
+      "content_type": "application/json;charset=UTF-8",
+      "body_sha256_short16": "e1661fc013329385",
+      "body_excerpt_120": "{\"serverTime\":1794198311976}",
+      "latency_s": 0.344
+    }
+  ]
+}
