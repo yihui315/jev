@@ -454,17 +454,17 @@ describe("mobile navigation and min-content regression", () => {
   it("collapses the fixed sidebar into a horizontally scrollable top rail on phones", () => {
     const s = read("src/trading/styles.css");
     expect(s).toContain("@media (max-width: 640px)");
-    expect(s).toMatch(/\\.jev-app\\s*\\{[^}]*grid-template-columns:\\s*minmax\\(0,\\s*1fr\\)/s);
-    expect(s).toMatch(/\\.jev-nav\\s*\\{[^}]*flex-direction:\\s*row/s);
-    expect(s).toMatch(/\\.jev-nav\\s*\\{[^}]*overflow-x:\\s*auto/s);
-    expect(s).toMatch(/\\.jev-side-foot\\s*\\{\\s*display:\\s*none/s);
+    expect(s).toMatch(/\.jev-app\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.jev-nav\s*\{[^}]*flex-direction:\s*row/s);
+    expect(s).toMatch(/\.jev-nav\s*\{[^}]*overflow-x:\s*auto/s);
+    expect(s).toMatch(/\.jev-side-foot\s*\{\s*display:\s*none/s);
   });
 
   it("removes min-content expansion from the mobile Cockpit workspace and bottom grid", () => {
     const s = read("src/trading/styles.css");
-    expect(s).toMatch(/\\.cockpit-workspace\\s*\\{[^}]*grid-template-columns:\\s*minmax\\(0,\\s*1fr\\)/s);
-    expect(s).toMatch(/\\.cockpit-bottom\\s*\\{[^}]*grid-template-columns:\\s*minmax\\(0,\\s*1fr\\)/s);
-    expect(s).toMatch(/\\.cockpit-hsplit\\s*\\{\\s*flex-direction:\\s*column/s);
+    expect(s).toMatch(/\.cockpit-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.cockpit-bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.cockpit-hsplit\s*\{\s*flex-direction:\s*column/s);
     expect(s).toContain("Mobile layout correction — 390px viewport");
   });
 });
