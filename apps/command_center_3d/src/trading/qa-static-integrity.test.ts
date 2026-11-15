@@ -397,3 +397,54 @@ describe("compliance red lines", () => {
     expect(s).toContain("WebSocket");
   });
 });
+
+
+describe("professional terminal polish — regression contracts", () => {
+  it("shows source provenance and a fail-closed real-order gate", () => {
+    const s = read("src/trading/pages/TradingCockpit.tsx");
+    expect(s).toContain('className="ck-terminal-ribbon"');
+    expect(s).toContain("MARKET DATA");
+    expect(s).toContain("PAPER ACCOUNT");
+    expect(s).toContain("AI PROVIDERS");
+    expect(s).toContain("SYSTEM HEALTH");
+    expect(s).toContain("REAL-ORDER GATE");
+    expect(s).toContain('h.real_money === false && h.real_exchange_orders === false');
+    expect(s).toContain('h.real_money === true || h.real_exchange_orders === true');
+    expect(s).toContain("安全字段不完整");
+    expect(s).toContain("安全 Gate 未通过");
+  });
+
+  it("renders seven headline KPIs from the unified metrics contract", () => {
+    const s = read("src/trading/components/cockpit/MetricStrip.tsx");
+    for (const label of [
+      "账户权益 · EQUITY",
+      "可用现金 · CASH",
+      "净收益 · NET P&L",
+      "投资回报率 · ROI",
+      "策略胜率 · WIN RATE",
+      "订单成交率 · FILL RATE",
+      "最大回撤 · MAX DD",
+    ]) expect(s).toContain(label);
+    for (const field of [
+      "s.equity.display",
+      "s.cash.display",
+      "s.metrics.netPnl",
+      "s.metrics.roi.display",
+      "s.metrics.winRate.display",
+      "s.metrics.fillRate.display",
+      "s.metrics.maxDrawdown.display",
+    ]) expect(s).toContain(field);
+    expect(s).toContain('aria-label="核心绩效指标"');
+    expect(s).toContain('data-domain={props.domain}');
+  });
+
+  it("keeps the terminal ribbon and KPI grid responsive at desktop, tablet and mobile widths", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toContain(".ck-terminal-ribbon");
+    expect(s).toContain(".ck-status-grid");
+    expect(s).toContain(".ck-kpi-strip");
+    expect(s).toContain("@media (max-width: 1600px)");
+    expect(s).toContain("@media (max-width: 1180px)");
+    expect(s).toContain("@media (max-width: 640px)");
+  });
+});
