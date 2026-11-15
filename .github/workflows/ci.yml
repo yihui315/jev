@@ -169,11 +169,18 @@ jobs:
           // Phase A / P0: an exit code alone cannot certify the unit suite.
           // A missing/invalid report or ANY failed test is a hard red here,
           // even though this step runs under `if: always()`.
+          // numFailedTestSuites guards the T04 trap: a suite that FAILS TO LOAD
+          // (e.g. a missing fixture path on Linux) increments numFailedTestSuites
+          // but leaves numFailedTests === 0. Without this check the unit step is
+          // red but this summary step stays green — a silent false pass. See the
+          // 2026-11-15 contracts.honesty.test.ts D:/tmp ENOENT regression.
           if (!Number.isInteger(j.numTotalTests) || j.numTotalTests <= 0 ||
-              !Number.isInteger(j.numPassedTests) || j.numFailedTests !== 0) {
+              !Number.isInteger(j.numPassedTests) ||
+              j.numFailedTests !== 0 || j.numFailedTestSuites !== 0) {
             console.error('UNIT_REPORT_INVALID ' + JSON.stringify({
               total: j.numTotalTests, passed: j.numPassedTests,
-              failed: j.numFailedTests, skipped: j.numPendingTests }));
+              failed: j.numFailedTests, failedSuites: j.numFailedTestSuites,
+              skipped: j.numPendingTests }));
             process.exit(1);
           }
           const s = 'UNIT(mock/offline): total=' + j.numTotalTests +

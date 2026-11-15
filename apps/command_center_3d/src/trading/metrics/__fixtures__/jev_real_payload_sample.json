@@ -1,0 +1,805 @@
+{
+  "_cookie_present": true,
+  "_captured_utc": "2026-11-14T14:34:09.279Z",
+  "/system/status": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.285Z",
+      "source": "V4.6 runtime evidence (local JSON)",
+      "channel": "LOCAL_EVIDENCE",
+      "label": "VERIFIED",
+      "no_synthetic_data": true
+    },
+    "data": {
+      "verdict": "FAILED",
+      "gate": {
+        "independent_audit": {
+          "verdict": "FAILED",
+          "verified_checks": 147,
+          "failed_checks": 6
+        },
+        "paper_gate_runs": 7,
+        "server_engine": "VERIFIED"
+      },
+      "day": {
+        "day": 8,
+        "of": 30,
+        "remaining": 22,
+        "elapsed_real_hours": 174.969,
+        "clock_rule": "floor(elapsed_real_hours/24)+1; UTC midnight does not add a day",
+        "simulated_time": false,
+        "backfill_counted_as_days": false
+      },
+      "work_lines": [
+        {
+          "id": "W1",
+          "title": "行情系统完整化",
+          "status": "IN_PROGRESS",
+          "gate_verdict": "VERIFIED",
+          "evidence": [
+            "runtime/v46_market_quality_latest.json",
+            "reports/v46_daily/quality_2026-11-07.md",
+            "runtime/v46_audit_result.json"
+          ],
+          "verified": "REST 真实行情；4 symbol 连续性 0 缺口 / 0 异常 / 0 陈旧；REALTIME 与 BACKFILL 分账；小时与日级质量报告；V4.5 两条哈希链独立重算通过",
+          "blocked": [
+            "WEBSOCKET_DUAL_CHANNEL: data-api.binance.vision /ws -> 404; stream.binance.com:9443 -> timeout (verbatim probe preserved)",
+            "BNBUSDT / SOLUSDT 未进入冻结引擎白名单，未擅自改引擎"
+          ]
+        },
+        {
+          "id": "W2",
+          "title": "真实 Provider 与六角色",
+          "status": "BLOCKED",
+          "gate_verdict": "BLOCKED",
+          "evidence": [
+            "D:/jev/artifacts/v45/PROVIDER_E2E_REPORT.md"
+          ],
+          "verified": "无凭据条件下仅完成契约 / 模型配置 / 错误分类自动测试（V4.5）",
+          "blocked": [
+            "0 credentials in the existing DPAPI SecretStore; 0 real inference records. No real six-role E2E is claimed."
+          ]
+        },
+        {
+          "id": "W3",
+          "title": "服务端 Paper Trading 闭环",
+          "status": "IN_PROGRESS",
+          "gate_verdict": "VERIFIED",
+          "evidence": [
+            "runtime/v46_paper_e2e.json",
+            "runtime/v46_gate_latest.json",
+            "runtime/gate_runs/*/gate_result.json",
+            "runtime/v46_audit_result.json"
+          ],
+          "verified": "真实公开行情 -> 服务端订单校验 -> 确定性逐档撮合（多档 / 部分成交）-> 限价 / 市价 / 撤单 / 幂等 / 并发乐观锁 / 断线重连 / 事件回放；两次独立运行均 VERIFIED",
+          "blocked": [
+            "六角色 AI 决策驱动闭环：0 credentials，ai_decisions_used=0，订单来自确定性验收 driver，不是 AI 研究",
+            "BNBUSDT / SOLUSDT：冻结引擎 ALLOWED_SYMBOLS 不含，未修改上游"
+          ]
+        },
+        {
+          "id": "W4",
+          "title": "策略 OOS / Monte Carlo / 自动暂停",
+          "status": "BLOCKED",
+          "gate_verdict": "BLOCKED",
+          "evidence": [],
+          "verified": "无",
+          "blocked": [
+            "无真实 OOS 样本；禁止训练集冒充 OOS；禁止输出无依据绩效数字；禁止自动晋级"
+          ]
+        },
+        {
+          "id": "W5",
+          "title": "Supervisor 真正持久化",
+          "status": "IN_PROGRESS",
+          "gate_verdict": "IN_PROGRESS",
+          "evidence": [
+            "v46_tasks.json",
+            "runtime/v46_supervisor_state.json",
+            "runtime/v46_actions.jsonl"
+          ],
+          "verified": "持久化任务队列 / 状态恢复 / 单实例锁 / 心跳 / 失败分类重试 / 动作日志",
+          "blocked": [
+            "系统级 Task Scheduler 0x80070005：权限不足，保留 BLOCKED，不绕过 Windows 安全限制",
+            "bare boot / logoff NOT TESTED：未获授权擅自重启电脑或注销用户"
+          ]
+        },
+        {
+          "id": "W6",
+          "title": "30 天持续 Paper Trading 与每日综合报告",
+          "status": "IN_PROGRESS",
+          "gate_verdict": "IN_PROGRESS",
+          "evidence": [
+            "reports/v46_daily/",
+            "runtime/v46_daily_status.json"
+          ],
+          "verified": "Day 1/30 真实日历；锚点 2026-11-06T22:51:48Z 不重置；每日覆盖 / 缺口 / AI 决策 / 成交 / 账本 / 独立报告",
+          "blocked": [
+            "30 天真实日历不可加速；不得用重复历史数据冒充连续运行天数"
+          ]
+        },
+        {
+          "id": "W7",
+          "title": "JEV 六页面原生集成",
+          "status": "UNVERIFIED",
+          "gate_verdict": "UNVERIFIED",
+          "evidence": [],
+          "verified": "无",
+          "blocked": [
+            "按用户要求，服务端 Paper API 契约稳定后才集成；当前不提前投入资源"
+          ]
+        },
+        {
+          "id": "W8",
+          "title": "独立审计 / Gate 报告 / BLOCKED 与人工清单",
+          "status": "VERIFIED",
+          "gate_verdict": "VERIFIED",
+          "evidence": [
+            "runtime/v46_audit_result.json",
+            "V46_GATE_REPORT.md",
+            "V46_HUMAN_TODO.md"
+          ],
+          "verified": "45/45 独立检查通过（跨语言状态哈希链、逐字节行情 SHA256、成交价溯源、Python sqlite3 计数、上游 14 文件 SHA256 冻结、Git HEAD、无密钥字面量）",
+          "blocked": []
+        }
+      ],
+      "supervisor": {
+        "ticks": 6681,
+        "last_heartbeat_utc": "2026-11-14T14:33:23.686797Z",
+        "actions_total": 46767,
+        "blocked_observed": [
+          "V46-W2-PROVIDER-E2E",
+          "V46-W4-STRATEGY-OOS",
+          "V46-W7-FRONTEND"
+        ]
+      },
+      "engine": {
+        "file": "functions/_lib/paper-server.mjs",
+        "sha256": "01267efded2b590db7016c7f69b998e02d889cf4ec24d21646207b225270e5e1",
+        "allowed_symbols": [
+          "BTCUSDT",
+          "ETHUSDT",
+          "ORDIUSDT",
+          "1000SATSUSDT"
+        ],
+        "collector_only_symbols": [
+          "BNBUSDT",
+          "SOLUSDT"
+        ],
+        "note": "BNB/SOL have collector data but are NOT tradable in the frozen engine whitelist"
+      },
+      "limits": {
+        "websocket": "BLOCKED",
+        "ai_six_roles": "BLOCKED",
+        "strategy_oos": "NO_DATA",
+        "thirty_day": "Day 8/30",
+        "gate_fills": "14 server fills came from the deterministic acceptance driver, NOT six-role AI decisions"
+      },
+      "red_lines": {
+        "real_money": false,
+        "real_exchange_orders": false,
+        "production_deploy": false,
+        "auto_strategy_promotion": false
+      }
+    }
+  },
+  "/strategies/status": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.290Z",
+      "source": "V4.6 runtime evidence (local JSON)",
+      "channel": "LOCAL_EVIDENCE",
+      "label": "NO_DATA",
+      "no_synthetic_data": true
+    },
+    "data": {
+      "verdict": "NO_DATA",
+      "code": "NO_REAL_OOS_SAMPLES",
+      "strategies": [],
+      "ranking": [],
+      "backtest_runs": 0,
+      "oos_samples": 0,
+      "monte_carlo_runs": 0,
+      "performance": {
+        "net_return": null,
+        "max_drawdown": null,
+        "win_rate": null,
+        "profit_factor": null,
+        "sharpe": null,
+        "total_trades": null
+      },
+      "sample_foundation": {
+        "bars_total": 466,
+        "bars_realtime": 130,
+        "bars_backfill": 336,
+        "gaps": 0,
+        "note": "Real bar counts are sample foundation, NOT strategy performance. BACKFILL bars are excluded from live increments."
+      },
+      "rules": [
+        "没有真实 OOS 样本不生成排名",
+        "未通过 OOS 永不晋级",
+        "训练集不得冒充 OOS",
+        "不输出无依据的收益/胜率/回撤"
+      ],
+      "work_line": {
+        "id": "W4",
+        "status": "BLOCKED",
+        "blocked": [
+          "无真实 OOS 样本；禁止训练集冒充 OOS；禁止输出无依据绩效数字；禁止自动晋级"
+        ]
+      }
+    }
+  },
+  "/providers/status": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.293Z",
+      "source": "V4.6 runtime evidence (local JSON)",
+      "channel": "LOCAL_EVIDENCE",
+      "label": "BLOCKED",
+      "no_synthetic_data": true
+    },
+    "data": {
+      "verdict": "BLOCKED",
+      "code": "PROVIDER_NOT_CONFIGURED",
+      "credentials": 0,
+      "real_inference_records": 0,
+      "providers": [
+        {
+          "id": "MiniMax",
+          "configured": false,
+          "status": "NOT_CONFIGURED",
+          "last4": null
+        },
+        {
+          "id": "Qwen",
+          "configured": false,
+          "status": "NOT_CONFIGURED",
+          "last4": null
+        },
+        {
+          "id": "DeepSeek",
+          "configured": false,
+          "status": "NOT_CONFIGURED",
+          "last4": null
+        },
+        {
+          "id": "CustomOpenAI",
+          "configured": false,
+          "status": "NOT_CONFIGURED",
+          "last4": null
+        },
+        {
+          "id": "Jev-System-One",
+          "configured": false,
+          "status": "NOT_CONFIGURED",
+          "last4": null
+        }
+      ],
+      "secret_store": {
+        "path": "packages/jcc_core/secret_store.py (existing DPAPI SecretStore)",
+        "note": "No second credential system. No key is ever sent to the browser or written to a log."
+      },
+      "report_verdict_present": true,
+      "report_excerpt": "# Provider E2E Report (V4.5 P2)\r\n\r\nGenerated (UTC): `2026-11-14T00:00:27+00:00`\r\n\r\n## Verdict: BLOCKED — PROVIDER_NOT_CONFIGURED\r\n\r\nNo real Provider API credential exists in this environment. Per the ORDER: **no fake API key, no fabricated inference result**. No six-role real inference was executed and none is reported as VERIFIED.\r\n\r",
+      "work_line": {
+        "id": "W2",
+        "status": "BLOCKED",
+        "blocked": [
+          "0 credentials in the existing DPAPI SecretStore; 0 real inference records. No real six-role E2E is claimed."
+        ]
+      },
+      "naming_discrepancy": {
+        "order_roles": [
+          "SPOTTER",
+          "ANALYST",
+          "STRATEGIST",
+          "RISK",
+          "EXECUTOR",
+          "CLOSER"
+        ],
+        "code_roles": [
+          "SPOTTER",
+          "PRIOR",
+          "EDGE",
+          "KELLY",
+          "TAKER",
+          "CLOSER"
+        ],
+        "exact_match": false,
+        "mapping": "UNVERIFIED - human decision required"
+      }
+    }
+  },
+  "/agents/status": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.296Z",
+      "source": "V4.6 runtime evidence (local JSON)",
+      "channel": "LOCAL_EVIDENCE",
+      "label": "BLOCKED",
+      "no_synthetic_data": true
+    },
+    "data": {
+      "verdict": "BLOCKED",
+      "code": "PROVIDER_NOT_CONFIGURED",
+      "workflow": [
+        {
+          "order": 1,
+          "role": "SPOTTER",
+          "code_role": "SPOTTER",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        },
+        {
+          "order": 2,
+          "role": "ANALYST",
+          "code_role": "PRIOR",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        },
+        {
+          "order": 3,
+          "role": "STRATEGIST",
+          "code_role": "EDGE",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        },
+        {
+          "order": 4,
+          "role": "RISK",
+          "code_role": "KELLY",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        },
+        {
+          "order": 5,
+          "role": "EXECUTOR",
+          "code_role": "TAKER",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        },
+        {
+          "order": 6,
+          "role": "CLOSER",
+          "code_role": "CLOSER",
+          "status": "BLOCKED",
+          "state": "NOT_CONFIGURED",
+          "provider": null,
+          "model": null,
+          "request_id": null,
+          "input_tokens": null,
+          "output_tokens": null,
+          "finish_reason": null,
+          "latency_ms": null,
+          "decision": null,
+          "risk_rejection": null,
+          "note": "UNKNOWN, never 0. No real inference has been executed."
+        }
+      ],
+      "inference_records": [],
+      "disagreements": [],
+      "risk_rejections": [],
+      "final_decisions": [],
+      "audit_log": [
+        {
+          "at_utc": "2026-11-07T05:44:58Z",
+          "event": "PROVIDER_NOT_CONFIGURED",
+          "evidence": "D:/jev/artifacts/v45/PROVIDER_E2E_REPORT.md",
+          "verdict": "BLOCKED"
+        }
+      ],
+      "naming_discrepancy": {
+        "order_roles": [
+          "SPOTTER",
+          "ANALYST",
+          "STRATEGIST",
+          "RISK",
+          "EXECUTOR",
+          "CLOSER"
+        ],
+        "code_roles": [
+          "SPOTTER",
+          "PRIOR",
+          "EDGE",
+          "KELLY",
+          "TAKER",
+          "CLOSER"
+        ],
+        "exact_match": false,
+        "mapping": "UNVERIFIED - human decision required"
+      }
+    }
+  },
+  "/market/quality": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.298Z",
+      "source": "V4.6 runtime evidence (local JSON)",
+      "channel": "LOCAL_EVIDENCE",
+      "label": "BACKFILL",
+      "no_synthetic_data": true
+    },
+    "data": {
+      "schema": "jcc.v46.market_quality/v1",
+      "generated_utc": "2026-11-14T13:54:21.698393Z",
+      "verdict": "FAILED",
+      "problems": [
+        "LEDGER_CHAIN_BREAK seq=463",
+        "LEDGER_SEQ_GAP seq=463",
+        "LEDGER_CHAIN_BREAK seq=242",
+        "LEDGER_SEQ_GAP seq=242",
+        "LEDGER_CHAIN_BREAK seq=245",
+        "LEDGER_CHAIN_BREAK seq=245",
+        "LEDGER_SEQ_GAP seq=245",
+        "LEDGER_CHAIN_BREAK seq=247",
+        "LEDGER_SEQ_GAP seq=247",
+        "DUPLICATE_BARS count=2",
+        "ABNORMAL_BARS count=2",
+        "STALE_MARKET_DATA latest_bar_older_than_2h"
+      ],
+      "source": {
+        "bars_ledger": "D:\\jev\\artifacts\\v45\\runtime\\market_bars_ledger.jsonl",
+        "snapshots_ledger": "D:\\jev\\artifacts\\v45\\runtime\\market_snapshots_ledger.jsonl",
+        "verified_host": "data-api.binance.vision",
+        "note": "READ-ONLY. No V4.5 ledger is written. No second market-data system."
+      },
+      "classification_rule": {
+        "REALTIME": "fetched_at_utc <= bar close_time + 2h",
+        "BACKFILL": "fetched_at_utc >  bar close_time + 2h (history repair / bootstrap)",
+        "hard_rule": "BACKFILL bars are NEVER counted as live increments or as extra 30-day days"
+      },
+      "bars": {
+        "total": 466,
+        "realtime": 130,
+        "backfill": 336,
+        "incomplete": 0,
+        "distinct_utc_days": 6,
+        "latest_close_time_ms": 1794333599999,
+        "latest_close_utc": "2026-11-10T17:59:59.999000Z",
+        "age_hours": 91.906,
+        "stale": true,
+        "hash_chain_verified": false,
+        "last_hash": "a97473cf87e9e761f35eb8e3eebe895dc23f4104121186bc848a975b186389bd"
+      },
+      "by_symbol": {
+        "BNBUSDT": {
+          "total": 117,
+          "realtime": 33,
+          "backfill": 84,
+          "first_open_time_ms": 1793916000000,
+          "last_open_time_ms": 1794330000000
+        },
+        "BTCUSDT": {
+          "total": 116,
+          "realtime": 32,
+          "backfill": 84,
+          "first_open_time_ms": 1793916000000,
+          "last_open_time_ms": 1794330000000
+        },
+        "ETHUSDT": {
+          "total": 116,
+          "realtime": 32,
+          "backfill": 84,
+          "first_open_time_ms": 1793916000000,
+          "last_open_time_ms": 1794330000000
+        },
+        "SOLUSDT": {
+          "total": 117,
+          "realtime": 33,
+          "backfill": 84,
+          "first_open_time_ms": 1793916000000,
+          "last_open_time_ms": 1794330000000
+        }
+      },
+      "gaps": [],
+      "duplicates": [
+        {
+          "symbol": "BNBUSDT",
+          "open_time_ms": 1794330000000,
+          "seq": 463
+        },
+        {
+          "symbol": "SOLUSDT",
+          "open_time_ms": 1794330000000,
+          "seq": 464
+        }
+      ],
+      "anomalies": [
+        {
+          "symbol": "BNBUSDT",
+          "open_time_ms": 1794330000000,
+          "problem": "NON_MONOTONIC_TIME",
+          "seq": 463
+        },
+        {
+          "symbol": "SOLUSDT",
+          "open_time_ms": 1794330000000,
+          "problem": "NON_MONOTONIC_TIME",
+          "seq": 464
+        }
+      ],
+      "snapshots": {
+        "total": 256,
+        "hash_chain_verified": false,
+        "last_hash": "0651a38e8ab4a1b739c095d088751ec062195470d80f6a9b3d6767798ec5ef77",
+        "by_kind": {
+          "trades": {
+            "count": 84,
+            "symbols": [
+              "BNBUSDT",
+              "BTCUSDT",
+              "ETHUSDT",
+              "SOLUSDT"
+            ],
+            "last_fetched_utc": "2026-11-10T16:06:44.528+00:00"
+          },
+          "ticker24h": {
+            "count": 84,
+            "symbols": [
+              "BNBUSDT",
+              "BTCUSDT",
+              "ETHUSDT",
+              "SOLUSDT"
+            ],
+            "last_fetched_utc": "2026-11-10T16:06:56.045+00:00"
+          },
+          "depth": {
+            "count": 88,
+            "symbols": [
+              "BNBUSDT",
+              "BTCUSDT",
+              "ETHUSDT",
+              "SOLUSDT"
+            ],
+            "last_fetched_utc": "2026-11-10T16:08:51.001+00:00"
+          }
+        }
+      },
+      "blocked": [
+        {
+          "item": "WEBSOCKET_DUAL_CHANNEL",
+          "reason": "data-api.binance.vision /ws -> 404; stream.binance.com:9443 -> timeout. REST path is the only verified live channel. No synthetic WS feed is substituted."
+        },
+        {
+          "item": "BNBUSDT_SOLUSDT_SERVER_WHITELIST",
+          "reason": "Frozen authoritative engine ALLOWED_SYMBOLS excludes BNB/SOL. Collector covers them; the paper engine does NOT."
+        }
+      ]
+    }
+  },
+  "/paper/account": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.328Z",
+      "source": "server-authoritative paper engine (frozen upstream, imported in place)",
+      "channel": "SERVER_ENGINE",
+      "label": "LIVE",
+      "engine_modified": false,
+      "http_status": 200,
+      "route": "/api/jev/paper/account"
+    },
+    "data": {
+      "ok": true,
+      "mode": "server-authoritative-paper",
+      "account": {
+        "version": 1,
+        "generation": 1,
+        "initialCash": 10000,
+        "cash": 10000,
+        "reservedCash": 0,
+        "positions": {},
+        "orders": [],
+        "trades": [],
+        "lastBookSequence": {},
+        "realizedPnl": 0,
+        "equityPeak": 10000,
+        "dayKey": "2026-11-14",
+        "dayStartEquity": 10000,
+        "createdAt": "2026-11-14T14:34:09.301Z",
+        "updatedAt": "2026-11-14T14:34:09.301Z"
+      },
+      "marks": {},
+      "summary": {
+        "equity": 10000,
+        "cash": 10000,
+        "availableCash": 10000,
+        "reservedCash": 0,
+        "marketValue": 0,
+        "unrealizedPnl": 0,
+        "realizedPnl": 0,
+        "totalPnl": 0,
+        "dailyPnl": 0,
+        "drawdown": 0,
+        "exposurePct": 0,
+        "positions": [],
+        "dailyLossLocked": false,
+        "drawdownLocked": false
+      },
+      "markQuality": "verified",
+      "version": 1,
+      "stateHash": "b97a07e7c9a0e433ad1bbb07297354caad7c2981cddc911bf627750b630c80eb"
+    }
+  },
+  "/paper/orders": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.331Z",
+      "source": "server-authoritative account state (orders/trades projection)",
+      "channel": "SERVER_ENGINE",
+      "label": "LIVE",
+      "http_status": 200
+    },
+    "data": {
+      "orders": [],
+      "trades": [],
+      "version": 1,
+      "stateHash": "b97a07e7c9a0e433ad1bbb07297354caad7c2981cddc911bf627750b630c80eb"
+    }
+  },
+  "/paper/events?after=0&limit=50": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.334Z",
+      "source": "server-authoritative paper engine (frozen upstream, imported in place)",
+      "channel": "SERVER_ENGINE",
+      "label": "LIVE",
+      "engine_modified": false,
+      "http_status": 200,
+      "route": "/api/jev/paper/events"
+    },
+    "data": {
+      "ok": true,
+      "events": [
+        {
+          "seq": 27,
+          "eventId": "account-opened:paper.server.account.snapshot",
+          "commandId": "account-opened",
+          "eventType": "paper.server.account.snapshot",
+          "schemaVersion": 1,
+          "payload": {
+            "schemaVersion": 1,
+            "version": 1,
+            "previousStateHash": null,
+            "stateHash": "b97a07e7c9a0e433ad1bbb07297354caad7c2981cddc911bf627750b630c80eb",
+            "account": {
+              "version": 1,
+              "generation": 1,
+              "initialCash": "10000.00000000",
+              "cash": "10000.00000000",
+              "reservedCash": "0.00000000",
+              "positions": {},
+              "orders": [],
+              "trades": [],
+              "lastBookSequence": {},
+              "realizedPnl": "0.00000000",
+              "equityPeak": "10000.00000000",
+              "dayKey": "2026-11-14",
+              "dayStartEquity": "10000.00000000",
+              "createdAt": "2026-11-14T14:34:09.301Z",
+              "updatedAt": "2026-11-14T14:34:09.301Z"
+            },
+            "reason": "initial-account"
+          },
+          "createdAt": "2026-11-14T14:34:09.301Z"
+        }
+      ],
+      "nextAfter": 27
+    }
+  },
+  "/paper/equity": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.336Z",
+      "source": "paper_equity_snapshots (server-written, read-only)",
+      "channel": "SERVER_ENGINE",
+      "label": "NO_DATA"
+    },
+    "data": {
+      "snapshots": [],
+      "count": 0,
+      "table_present": false,
+      "session_scoped": true,
+      "equity_curve_synthesized": false
+    }
+  },
+  "/paper/replay": {
+    "status": 200,
+    "ok": true,
+    "meta": {
+      "generated_utc": "2026-11-14T14:34:09.338Z",
+      "source": "server-authoritative paper engine (frozen upstream, imported in place)",
+      "channel": "SERVER_ENGINE",
+      "label": "LIVE",
+      "engine_modified": false,
+      "http_status": 200,
+      "route": "/api/jev/paper/replay"
+    },
+    "data": {
+      "ok": true,
+      "verified": true,
+      "snapshots": 1,
+      "lastSequence": 27,
+      "account": {
+        "version": 1,
+        "generation": 1,
+        "initialCash": 10000,
+        "cash": 10000,
+        "reservedCash": 0,
+        "positions": {},
+        "orders": [],
+        "trades": [],
+        "lastBookSequence": {},
+        "realizedPnl": 0,
+        "equityPeak": 10000,
+        "dayKey": "2026-11-14",
+        "dayStartEquity": 10000,
+        "createdAt": "2026-11-14T14:34:09.301Z",
+        "updatedAt": "2026-11-14T14:34:09.301Z"
+      },
+      "materializedVersion": 1,
+      "replayedVersion": 1,
+      "stateHash": "b97a07e7c9a0e433ad1bbb07297354caad7c2981cddc911bf627750b630c80eb",
+      "error": null
+    }
+  }
+}

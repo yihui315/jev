@@ -2,23 +2,23 @@
 //
 // DATA PROVENANCE
 // ---------------
-// Every input below comes from the LIVE capture at
-//   D:/tmp/jev_real_payload_sample.json
+// Every input below comes from the LIVE capture committed at
+//   src/trading/metrics/__fixtures__/jev_real_payload_sample.json
 // (local facade 127.0.0.1:4791, captured 2026-11-14T14:34:09.279Z,
-//  10 real /api/jev/* endpoints, _cookie_present:true).
-// `realRaw()` wires each endpoint's `.data` into CockpitRaw EXACTLY as the
-// runtime does: TradingCockpit.tsx:76-83 assigns `useJevQuery(...).data`, and
-// client.ts:111 sets `data: parsed.data`, i.e. the envelope's `data` member.
-// No hand-written market data, no synthesized curves, no invented fills.
+//  10 real /api/jev/* endpoints, _cookie_present:true). The capture is a real
+//  HTTP-response snapshot from the running mock facade — NOT hand-written
+//  market data, NOT a synthesized curve, NOT an invented fill. It is committed
+//  (not read from a machine-local absolute path) so the assertion runs on
+//  every platform: the previous `D:/tmp/...` path passed only on the author's
+//  Windows box and made this suite fail to LOAD on Linux CI (ENOENT) — a red
+//  unit step with numFailedTests===0, exactly the trap T04 guarded against.
 //
-// NOTE ON THE NODE IMPORT
-// -----------------------
-// tsconfig has `types:["vite/client"]` and @types/node is NOT installed, but
-// `include:["src"]` means tsc --noEmit checks this file. A non-literal dynamic
-// import is not statically resolved by TypeScript (no missing-declaration
-// error); at runtime vitest executes in Node and the builtin resolves. This
-// affects ONLY how the module is loaded — every assertion below is unchanged.
-// There is deliberately NO `@ts-ignore`, NO `.skip`, and NO weakened assertion.
+// LOADING
+// -------
+// Imported as a JSON module (`resolveJsonModule` is on; Vite resolves it at
+// runtime, tsc --noEmit accepts it). The import itself guarantees the file
+// exists — no fs.existsSync, no absolute path, no platform dependency. There
+// is deliberately NO `@ts-ignore`, NO `.skip`, and NO weakened assertion.
 
 import { describe, it, expect } from "vitest";
 import {
@@ -28,14 +28,9 @@ import {
   type CockpitRaw,
   type MetricKey,
 } from "./contracts";
+import sampleCapture from "./__fixtures__/jev_real_payload_sample.json";
 
-const nodeFs = (await import(/* @vite-ignore */ ["node", "fs"].join(":"))) as {
-  readFileSync: (path: string, encoding: string) => string;
-  existsSync: (path: string) => boolean;
-};
-
-const SAMPLE = "D:/tmp/jev_real_payload_sample.json";
-const J = JSON.parse(nodeFs.readFileSync(SAMPLE, "utf8")) as Record<string, unknown>;
+const J = sampleCapture as Record<string, unknown>;
 
 type Json = Record<string, unknown>;
 const data = (p: string): unknown => (J[p] as { data?: unknown } | undefined)?.data;
@@ -61,8 +56,7 @@ const NA_KEYS: MetricKey[] = [
 ];
 
 describe("input provenance — the LIVE capture, not a fixture", () => {
-  it("sample exists and carries the real capture markers", () => {
-    expect(nodeFs.existsSync(SAMPLE)).toBe(true);
+  it("sample carries the real capture markers", () => {
     expect(J["_captured_utc"]).toBe("2026-11-14T14:34:09.279Z");
     expect(J["_cookie_present"]).toBe(true);
     expect((J["/paper/account"] as Json)["status"]).toBe(200);
