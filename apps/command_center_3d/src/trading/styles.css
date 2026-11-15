@@ -611,3 +611,137 @@ body {
   .ck-kpi-card { min-height: 92px; padding: 9px; }
   .ck-kpi-value { font-size: 17px; }
 }
+
+
+/* ==========================================================================
+ * Mobile layout correction — 390px viewport.
+ * The desktop shell reserved a fixed 232px sidebar, while the cockpit's
+ * 1fr grid tracks retained min-content width. On phones the navigation moves
+ * to a horizontally scrollable top rail and every content track can shrink.
+ * No data, trading, order-confirmation or safety logic is changed.
+ * ========================================================================== */
+@media (max-width: 1180px) {
+  .cockpit-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+  .cockpit-bottom {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  html,
+  body,
+  #trading-root {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Replace the fixed left rail with a compact top navigation rail. */
+  .jev-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+  .jev-sidebar {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .jev-brand {
+    padding: 8px 12px 6px;
+  }
+  .jev-brand h1 {
+    font-size: 14px;
+  }
+  .jev-brand .sub,
+  .jev-side-foot {
+    display: none;
+  }
+  .jev-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 8px 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .jev-nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    gap: 6px;
+    padding: 7px 9px;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+  .jev-nav-item .ic {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+  }
+
+  /* Allow the page and every Cockpit grid/flex track to shrink to the viewport. */
+  .jev-main,
+  .jev-content,
+  .jev-content.cockpit-content,
+  .cockpit,
+  .cockpit-workspace,
+  .cockpit-bottom,
+  .cockpit-hsplit,
+  .cockpit-hpane,
+  .cockpit-panel,
+  .cockpit-panel > .ck-body {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .jev-main,
+  .jev-content,
+  .jev-content.cockpit-content,
+  .cockpit,
+  .cockpit-workspace,
+  .cockpit-bottom,
+  .cockpit-hsplit,
+  .cockpit-hpane,
+  .cockpit-panel {
+    width: 100%;
+  }
+  .jev-content,
+  .jev-content.cockpit-content {
+    padding: 10px;
+  }
+  .cockpit-workspace,
+  .cockpit-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cockpit-hsplit {
+    flex-direction: column;
+  }
+  .cockpit-hpane.left,
+  .cockpit-hpane.right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .ck-toolbar {
+    min-width: 0;
+    max-width: 100%;
+    gap: 6px;
+  }
+  .ck-terminal-ribbon,
+  .ck-status-grid,
+  .ck-kpi-strip {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
