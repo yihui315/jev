@@ -91,7 +91,13 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   const accountStatus = toStatus(accountQ, hasObject);
   const ordersStatus = toStatus(ordersQ, hasObject);
   const systemStatus = toStatus(systemQ, hasObject);
+  const providersStatus = toStatus(providersQ, hasObject);
+  const healthStatus = toStatus(healthQ, hasObject);
   const sysBadge = statusBadge(systemStatus);
+  const marketBadge = statusBadge(klineStatus);
+  const paperBadge = statusBadge(accountStatus);
+  const providerBadge = statusBadge(providersStatus);
+  const healthBadge = statusBadge(healthStatus);
 
   const refreshLedger = () => {
     accountQ.refetch(); ordersQ.refetch(); eventsQ.refetch(); equityQ.refetch();
@@ -129,9 +135,23 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   if (lim.strategy_oos && String(lim.strategy_oos).includes("NO_DATA"))
     riskItems.push({ level: "warn", text: "策略 OOS：NO_DATA，无真实样本不生成排名" });
   const h = (healthQ.data ?? {}) as { real_money?: boolean; real_exchange_orders?: boolean };
-  if (healthQ.unreachable || healthQ.error) riskItems.push({ level: "crit", text: "health N/A（接口不可用）：红线状态不明，按不安全处理" });
-  else if (healthQ.data && h.real_money === false)
+  const safetyState = healthQ.unreachable || healthQ.error || !healthQ.data
+    ? { text: "UNKNOWN", cls: "unavailable", note: "health 未核验" }
+    : h.real_money === false && h.real_exchange_orders === false
+      ? { text: "LOCKED", cls: "paper", note: "真实资金 / 交易所下单均关闭" }
+      : h.real_money === true || h.real_exchange_orders === true
+        ? { text: "UNSAFE", cls: "blocked", note: "检测到真实交易权限开启" }
+        : { text: "UNKNOWN", cls: "unavailable", note: "安全字段不完整" };
+
+  if (healthQ.unreachable || healthQ.error || !healthQ.data) {
+    riskItems.push({ level: "crit", text: "health N/A（接口不可用）：真实资金与交易权限无法核验，按不安全处理" });
+  } else if (h.real_money === true || h.real_exchange_orders === true) {
+    riskItems.push({ level: "crit", text: "合规红线：检测到真实资金或真实交易所下单权限开启；停止所有交易动作并关闭权限" });
+  } else if (h.real_money === false && h.real_exchange_orders === false) {
     riskItems.push({ level: "info", text: "合规红线：real_money=false · real_exchange_orders=false（禁止真实资金/真实下单）" });
+  } else {
+    riskItems.push({ level: "crit", text: "合规红线：health 未同时明确返回 real_money=false 与 real_exchange_orders=false；安全 Gate 未通过" });
+  }
   if (systemQ.unreachable) riskItems.push({ level: "crit", text: "system/status N/A（接口不可用）：风险红线无法核验" });
 
   return (
@@ -166,6 +186,42 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
             <button className="ck-btn ghost" onClick={() => setHelpOpen(true)} title="快捷键帮助">? 快捷键</button>
             <button className="ck-btn ghost" onClick={reset} title="重置面板布局">重置布局</button>
           </div>
+
+          <section className="ck-terminal-ribbon" aria-label="交易终端运行状态">
+            <div className="ck-terminal-brand">
+              <span className="ck-eyebrow">JEV / QUANT OPERATIONS</span>
+              <strong>专业交易终端</strong>
+              <span className="ck-terminal-caption">PAPER-FIRST · SERVER-AUTHORITATIVE</span>
+              <small>服务端数据时间：{snapshot.generatedAtUtc ?? "N/A"}</small>
+            </div>
+            <div className="ck-status-grid">
+              <div className="ck-status-cell">
+                <span className="ck-status-label">MARKET DATA</span>
+                <span className={marketBadge.cls}>{marketBadge.text}</span>
+                <small>REST_POLLING · 非 WebSocket LIVE</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">PAPER ACCOUNT</span>
+                <span className={paperBadge.cls}>{paperBadge.text}</span>
+                <small>服务端权威模拟账本</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">AI PROVIDERS</span>
+                <span className={providerBadge.cls}>{providerBadge.text}</span>
+                <small>接口状态不代表策略胜率</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">SYSTEM HEALTH</span>
+                <span className={healthBadge.cls}>{healthBadge.text}</span>
+                <small>{healthQ.error ?? (healthQ.loading ? "正在检查" : "服务端健康状态")}</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">REAL-ORDER GATE</span>
+                <span className={"ck-badge " + safetyState.cls}>{safetyState.text}</span>
+                <small>{safetyState.note}</small>
+              </div>
+            </div>
+          </section>
 
           <div style={{ fontSize: 10.5, color: "var(--ck-muted)", lineHeight: 1.5 }}>
             真实公开 REST 行情（Binance.US spot，通道 <b>REST_POLLING</b>，非 WebSocket LIVE）· PAPER 模拟由<b>服务端权威引擎</b>撮合 ·
