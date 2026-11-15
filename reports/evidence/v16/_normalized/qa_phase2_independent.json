@@ -1,0 +1,357 @@
+{
+  "auditor": "v16-qa2（独立 QA，验收层，只读，未修改任何实现文件）",
+  "branch": "feature/v16-market-provenance-hardening",
+  "checklist": [
+    {
+      "evidence": {
+        "v15": {
+          "assertions": 95,
+          "command": "node apps/equity_collector_v45/tests/run-all.mjs",
+          "exit_code": 0,
+          "groups": "8/8 PASS",
+          "note": "时间戳晚于原证据，证明为本轮新跑，非复制旧证据",
+          "per_group": {
+            "T0": 6,
+            "T1": 14,
+            "T2": 8,
+            "T3": 11,
+            "T4": 14,
+            "T5": 20,
+            "T6": 8,
+            "T7": 14
+          },
+          "prior_run_generatedAt": "2026-11-09T12:46:56.814Z",
+          "summary_generatedAt": "2026-11-09T13:02:35.663Z"
+        },
+        "v16": {
+          "assertions": {
+            "failed": 0,
+            "passed": 101,
+            "total": 101
+          },
+          "command": "node apps/equity_collector_v45/tests/v16/run-all.mjs",
+          "exit_code": 0,
+          "groups": "8/8 PASS",
+          "per_group": {
+            "V16_M": 11,
+            "V16_MIG": 11,
+            "V16_NEG": 11,
+            "V16_T1": 12,
+            "V16_T2": 10,
+            "V16_T3": 17,
+            "V16_T7": 15,
+            "V16_U": 14
+          },
+          "per_group_exit_codes": "8 组 child 全部 exit=0 且 verdict=PASS（从 V16_*.json 的 exitCode 字段核对）",
+          "prior_run_generatedAt": "2026-11-09T12:47:00.665Z",
+          "summary_generatedAt": "2026-11-09T13:03:01.025Z"
+        }
+      },
+      "id": 1,
+      "item": "独立重跑两套套件",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "detail_realness": "抽查 T1 对象断言 detail 为整段 mark_contracts_json 字符串；NEG2 detail 含 peakUS=null / peakGlobal=99000000000000；T2 detail 为 3 个相同 sha256；均为真实测量值而非布尔占位",
+        "fault_assertions": [
+          "FAULT_transport_injected_outage_is_unknown_transport_row",
+          "FAULT_http503_injected_is_unknown_http_error_row",
+          "FAULT_global_host_rejected_as_unverified_market",
+          "FAULT_trigger_false_returns_403_before_fault_handling",
+          "FAULT_no_fault_path_matches_v15_verified_behavior",
+          "FAULT_unknown_rows_mark_contracts_json_is_object_not_array",
+          "FAULT_scheduled_never_reads_fault_static",
+          "FAULT_src_uses_identity_label_no_forbidden_global_host"
+        ],
+        "fault_assertions_count": 8,
+        "fault_driver": "v16_t3_failure_classes.mjs 通过真实 fetchEntrypoint(new Request(...), env) 驱动 fetch() 入口，独立 DB，非 runCycle 直调、非静态占位",
+        "object_form_assertions": [
+          "mark_contracts_json_is_symbol_keyed_object_not_array",
+          "mark_contracts_json_complete_per_symbol",
+          "FAULT_unknown_rows_mark_contracts_json_is_object_not_array"
+        ],
+        "total": 101
+      },
+      "id": 2,
+      "item": "101 断言逐组核对（含对象形态 + 8 条受控 fault 断言）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "codes": [
+          "MARKET_IDENTITY_INVALID",
+          "MARKET_MIXING_REJECTED",
+          "PRICE_TS_SOURCE_UNVERIFIED",
+          "UNIT_CONTRACT_MISMATCH",
+          "MARKET_STALE_OR_PAYLOAD_UNVERIFIED",
+          "MARKET_SOURCE_NOT_VERIFIED",
+          "HISTORY_PROVENANCE_UNPROVEN"
+        ],
+        "reachability_probe": {
+          "failure_class_mapping": {
+            "HISTORY_PROVENANCE_UNPROVEN": "HISTORY_UNPROVEN",
+            "MARKET_MIXING_REJECTED": "MARKET_MIXING",
+            "MARKET_STALE_OR_PAYLOAD_UNVERIFIED": "STALE 或 PAYLOAD_UNVERIFIED",
+            "UNIT_CONTRACT_MISMATCH": "UNIT_MISMATCH",
+            "其余": "UNKNOWN"
+          },
+          "method": "QA 自写 13 例 evaluateCycle 输入（/tmp 临时脚本，不落仓库）",
+          "result": "13/13 符合预期，7 个错误码全部命中；healthy 输入 ok=true 反证非恒 FAIL"
+        },
+        "runtime_call": "collector.mjs:115 真实调用 evaluateCycle；guard 失败走降级分支（collector.mjs:147-160）",
+        "source": "apps/equity_collector_v45/src/market-guard.mjs:11-19",
+        "string_match_with_contract": "7/7 逐字一致（含大小写与下划线）"
+      },
+      "id": 3,
+      "item": "7 类 fail-closed 错误码与契约 §3 逐字一致且真实可触发",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "cloud_neg2": "隔离 D1 中 v16-FIXTURE-mixed 会话：预置 Global 哨兵行后 US 周期：error_code=MARKET_MIXING_REJECTED、equity=0、marks_json={}（VERIFIED：我直接 SQL 查询）",
+        "cloud_scope_note": "云端只证明了反例②（prior Global 行阻断 US 周期）；反例①（同周期双市场）目前只有本地证据",
+        "local_neg1": "同周期注入 BTCUSDT(US) + 1000SATSUSDT(Global) → verified=0 / unknown=1 / error_code=MARKET_MIXING_REJECTED；mark_contracts_json 保留 2 个 market 的原始证据",
+        "local_neg2": "预置 Global VERIFIED equity=99000000000000 后跑 US 周期 → error_code=MARKET_MIXING_REJECTED；US peak=null；Global 分区 peak=99000000000000",
+        "mutation_check": "reports/evidence/v16/mutation_check.json：usPeak=18244694700000、去掉分区条件的变体返回 99000000000000 → 若实现退化断言必 FAIL（cited，非我跑，但与我读到的 SQL/断言一致）"
+      },
+      "id": 4,
+      "item": "反例确证（混市场拒绝 + 哨兵不污染 US 峰值）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "active_columns": 35,
+        "backfilled": {
+          "data_quality": "VERIFIED（原值保留）",
+          "exchange": "UNKNOWN",
+          "failure_class": "HISTORY_UNPROVEN",
+          "mark_contracts_json": "{}",
+          "market": "UNKNOWN",
+          "market_partition_key": "UNKNOWN|UNKNOWN",
+          "network_context": "UNKNOWN",
+          "price_ts_source": "UNKNOWN",
+          "venue": "UNKNOWN"
+        },
+        "indexes": [
+          "idx_v45_prov_session_cycle",
+          "idx_v45_prov_quality",
+          "idx_v45_prov_partition"
+        ],
+        "legacy_rows_after_migration": 1,
+        "legacy_table": "v45_snapshot_provenance_v1_legacy 存在，27 列，1 行原样保留",
+        "method": "QA 自建 python3 sqlite3 内存库：0001 → 插入 1 条 VERIFIED 历史行 → 0002，PRAGMA foreign_keys=ON",
+        "no_fabricated_backfill": "未见 Binance.US / spot / exchange_serverTime 回填",
+        "schema_sql_vs_0001": "paper_equity_snapshots DDL 逐字节一致（独立校验脚本检查 4 PASS，0001 全文 == bfb3206:schema.sql 全文 = True）"
+      },
+      "id": 5,
+      "item": "0002 迁移语义（回填 UNKNOWN / legacy 保留 / 35 列）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "drill": "同一历史行（mark_quality=verified, equity=500000000000）在迁移后被分区 SQL 排除，返回 null；旧式无分区 MAX 返回 500000000000 → 排除确有其效",
+        "exclusions": [
+          "p.failure_class = 'NONE'（排除 HISTORY_UNPROVEN）",
+          "p.price_ts_source IN ('exchange_serverTime','trade_time','http_date')（排除 received_at）",
+          "p.network_context <> 'UNKNOWN'"
+        ],
+        "old_query_replaced": "collector.mjs:165 调用 selectHistoryPeak；旧 SELECT MAX(equity) 仅存在于冻结 vendor 引擎（未被调用）",
+        "partition": "p.exchange = ? AND p.market = ?",
+        "source": "apps/equity_collector_v45/src/partition.mjs:15-23"
+      },
+      "id": 6,
+      "item": "peak 分区 SQL 语义",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "adversarial_fixture_row": "1 条手工预置：exchange=Binance Global spot、equity=999999999999999、network_context=v16_FIXTURE_ADVERSARIAL —— 不是 collector 产出，存在于 v16-FIXTURE-mixed 会话",
+        "breakdown": {
+          "adversarial_fixture_verified": 1,
+          "cycle_verified_us": 10,
+          "unknown": 23
+        },
+        "consistency_with_cloud_json": "v16_cloud_e2e_evidence.json 记 rows=34、verified=10、unknown=23（其 verified 明确排除 cycle_key 以 v16-FIXTURE 开头的行）；10+23+1=34，口径一致",
+        "db": "997aa8fd-e0c3-4b99-a0c2-b9022f6be5f2（v16 隔离库）",
+        "e2e_24_checks": "24/24 PASS（cited；我只复核了其中我亲自 SQL 查询可证的行级事实）",
+        "mixing_row": "cycle_key=v16-cloud-C8-mixed：error_code=MARKET_MIXING_REJECTED、failure_class=MARKET_MIXING、data_quality=UNKNOWN、equity=0、marks_json={}",
+        "partition_isolation": "US 分区 MAX=24989122000000；Global 分区 MAX=999999999999999；US peak 未被 Global 哨兵污染",
+        "partition_key_violations": 0,
+        "provenance": 34,
+        "schema": "活跃 provenance 35 列，legacy 表存在（0 行，全新库）",
+        "snapshots": 34,
+        "unknown_rows": "23 行 marks_json 全为 {}；其中 15 行 equity=0；8 行属 v16-FIXTURE-cash（无持仓），equity == cash、market_value=0，未使用任何价格",
+        "verified_us_rows": "10/10 exchange=Binance.US、market=spot、price_ts_source=exchange_serverTime、network_context=cloudflare_pages_edge_runtime_prod、failure_class=NONE、market_partition_key=Binance.US|spot"
+      },
+      "id": 7,
+      "item": "云端隔离 D1 只读核验（34 行口径）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "gate_order": "collector.mjs:257 的 403 门在解析 pathname 与 fault 之前，scheduled() 不读 fault",
+        "other_paths": "/health、/ 亦 403 同码（该 Worker 仅有 /__v45/collect 一个入口，未实现健康检查路由）",
+        "probe_1": "GET /__v45/collect?cycle_key=QA-PHASE2-PROBE → HTTP 403 {\"ok\":false,\"error\":\"TEST_TRIGGER_DISABLED\"}",
+        "probe_2": "GET /__v45/collect?cycle_key=QA-PHASE2-PROBE2&fault=transport → HTTP 403 同码（fault 不可达）"
+      },
+      "id": 8,
+      "item": "入口关闭（403）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "conclusion": "无 exchange/market_partition_key 列即证明未被 0002 迁移；行数/质量分布与本轮取证前一致",
+        "created_at_range": "2026-11-09T04:38:56.393Z ~ 2026-11-09T04:39:42.794Z",
+        "db": "cf5cf033-3796-4de1-b295-93f35a8ce82e（只读）",
+        "has_v16_columns": false,
+        "provenance": 12,
+        "provenance_columns": 27,
+        "quality_split": {
+          "unknown": 3,
+          "verified": 9
+        },
+        "snapshots": 12
+      },
+      "id": 9,
+      "item": "V1.5 库完整性",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "current_state": "该断言现在 PASS，阈值 50000000000000 与哨兵 99000000000000 均可从测试源码读到",
+        "documented_fail": "reports/V16_MIXING_GUARD_TESTS.md §4 记录 NEG2_global_sentinel_exceeds_normal_us_equity_scale 曾真实 FAIL（阈值误写 1e14 > 哨兵 9.9e13），当时 7/8 组、91/92 断言、exit 1",
+        "fix": "仅下调阈值至 5e13，仍高于正常 US 权益 ~1.8e13 的 2.7 倍，未删除断言、未改被测实现",
+        "runner_honesty": "runner 通过 spawnSync 取真实子进程 stdout/stderr/exitCode；无 RESULT_JSON 时判 PASS_NO_RESULT_JSON（不计入 PASS）"
+      },
+      "id": 10,
+      "item": "无自证绿（真实 FAIL 如实保留）",
+      "status": "PASS",
+      "verified": true
+    },
+    {
+      "evidence": {
+        "historical_run": "generatedAt=2026-11-09T06:40:53Z 时集合为 46 文件、0 命中、9/9 PASS；run_1 的 FAIL 由轨道 B 并行新文件引入，不是轨道 A 回归",
+        "restore": "两次运行后均把 independent_verify.json 恢复为原字节（sha256 2e5018c0cb16be38e5b642abe3a29137883f8467688c28e4d29094a65359134d）",
+        "run_1": {
+          "command": "python scripts/v16_independent_verify.py --mode full",
+          "exit_code": 1,
+          "fail_reason": "检查 6 全仓扫描 75 个新增/修改文件，命中 2 处，均在 apps/command_center_3d/server/ai/provider-adapter.mjs 第 205、235 行（轨道 B 文件），模式 api_key_assignment",
+          "failing": 6,
+          "hit_analysis": "两处均为局部变量的 camelCase 标识符赋值（apiKey 取自 options），非凭据字面量；属正则 \\bapi[_-]?key\\s*= 对标识符的误命中",
+          "summary": {
+            "FAIL": 1,
+            "PASS": 8,
+            "PENDING": 0
+          }
+        },
+        "run_1_at": "2026-11-09T13:07Z（轨道 B 修复前）",
+        "run_2": {
+          "check_6": "扫描 90 个 V1.6 新增/修改文件, 命中 0 处",
+          "exit_code": 0,
+          "run_copy_kept_at": "<USER_HOME>/AppData/Local/Temp/qa2_backup/independent_verify.run22.json",
+          "summary": {
+            "FAIL": 0,
+            "PASS": 9,
+            "PENDING": 0
+          }
+        },
+        "run_2_at": "2026-11-09T13:18:50Z（轨道 B 将其 apiKey 标识符改名为 credential 后）",
+        "track_a_scoped_scan": "仅对轨道 A 文件集（74 个文件）重扫：0 处凭据命中（唯一命中是 bfb3206 基线冻结文件 tests/t7_static_audit.mjs:87 自身的扫描模式名，非新增泄露）",
+        "track_a_untouched_check": "复跑前后 git status -- apps/equity_collector_v45 无新增变化；轨道 B 未改轨道 A 任何文件"
+      },
+      "id": 11,
+      "item": "独立校验脚本重跑（备份→运行→恢复）",
+      "status": "PASS（复跑）",
+      "verified": true
+    }
+  ],
+  "decision": {
+    "conditions": [
+      "C1（阻塞合并/开启 cron 前必须完成）：修复 QA2-D1 并补 1 条测试；或由主理人书面裁定接受该条件触发风险并写入签收",
+      "C2：修正 QA2-D2 的部署证据判定并重出 v16_worker_deploy.json（或在证据中注明 deploy_ok 字段不可信）",
+      "C3：裁定 CI 门禁模式（baseline / full）。检查 6 的误命中已消除，full 模式现为 9/9 exit 0，本条件不再阻塞",
+      "C4：在最终签收中注明隔离 D1 存在 1 条手工预置的 Global VERIFIED 行（adversarial fixture），V16 库的 11 条 verified ≠ 11 条真实 US 产出；建议验收后销毁该库"
+    ],
+    "track": "A（Market Provenance Hardening）",
+    "unverified_items": [
+      "云端 24 项 E2E 检查整体结果（采信主理人脚本输出；QA 只独立复核了行级事实）",
+      "mutation_check.json 的变异实验（采信工程师产出）",
+      "reports/V16_CLOUD_E2E.md 的叙述性结论（未逐条复核）"
+    ],
+    "verdict": "GO WITH CONDITIONS",
+    "verified_stats": {
+      "cloud_rows": "34（QA 亲查）",
+      "v15_rows": "12（QA 亲查，独立口径，不与 34 合并统计）",
+      "v15_suite": "8/8、95 断言、exit 0（QA 亲测）",
+      "v16_suite": "8/8、101 断言、exit 0（QA 亲测）"
+    }
+  },
+  "defects": [
+    {
+      "id": "QA2-D1",
+      "impact": "峰值被 SQL（network_context <> 'UNKNOWN'）兜住，故 peak/drawdown 不被污染；但该行对外标记为 VERIFIED，summary.verified 计数虚高，下游若按 data_quality 采信会拿到未经上下文证明的权益；且若生产漏配 env，系统会「静默全 VERIFIED + 峰值恒为 null」，失去 fail-closed 告警",
+      "not_observed_in_cloud": "隔离 D1 的 10 条 US VERIFIED 行 network_context 均为 cloudflare_pages_edge_runtime_prod，本缺陷在当前部署配置下未触发",
+      "qa_action": "只上报，未改代码",
+      "repro": "QA 自写探针：env 不含 MARKET_NETWORK_CONTEXT 且不注入 fetcher（模拟生产漏配），globalThis.fetch 返回正常 /time + ticker → resolveNetworkContext 返回 UNKNOWN，runCycle 仍写 mark_quality=verified / data_quality=VERIFIED / network_context=UNKNOWN / equity=17495177000000",
+      "root_cause": "market-guard.evaluateCycle 接收 input.networkContext 但 7 条规则均未使用；collector 也未在 guard 结果上追加 network_context 判定",
+      "severity": "中（fail-open，条件触发）",
+      "suggested_fix": "在 guard 增加第 8 条（或并入规则 1）：network_context 缺失/为 UNKNOWN → 拒绝；并补 1 条测试断言（现有 101 条无此覆盖）",
+      "title": "network_context='UNKNOWN' 仍可写出 data_quality='VERIFIED' 行，违反契约 §3.2「UNKNOWN → fail-closed」"
+    },
+    {
+      "id": "QA2-D2",
+      "impact": "若被自动化门禁读取，会把一次成功部署判为失败；实际部署生效（13/13 源文件 sha256 与工作区一致、入口 403 生效、E2E 成功）",
+      "root_cause": "脚本以 stdout 是否含 Uploaded/Deployed 关键字判定，wrangler 4.x 本次输出未命中该关键字，returncode 实为 0",
+      "severity": "低（证据自相矛盾，不影响运行事实）",
+      "suggested_fix": "改用 wrangler 返回码 + deployment 列表 API 判定，或写入 deploy_ok 时同时写判定依据",
+      "title": "v16_worker_deploy.json 的 deploy_ok=false 与同一文件的 wrangler_exit=0 / script_readback_http=200 及实测 403 行为矛盾"
+    },
+    {
+      "id": "QA2-D3",
+      "remaining": "仅剩「CI 用 --mode baseline 还是 full」的口径裁定（阶段 1 已提出，仍待裁定），不再阻塞门禁",
+      "severity": "低（部分已缓解）",
+      "status": "误命中已消除：轨道 B 于 13:18Z 前将 apiKey 标识符改名为 credential（未改轨道 A、未改脚本），我 13:18:50Z 复跑 full 模式 = 9/9、exit 0、90 文件 0 命中",
+      "suggested_fix": "① 正则加前缀边界（要求 key 前为行首或非标识符字符），或按目录限定扫描范围（可选，防复发）；② 明确 CI 使用 --mode baseline 还是 full",
+      "title": "CI 工作流仍以无参（full 模式）调用独立校验脚本；检查 6 的 api_key_assignment 正则会误命中 camelCase 标识符"
+    },
+    {
+      "id": "QA2-O1",
+      "note": "HISTORY_UNPROVEN 的实际排除完全依赖 partition SQL；单测覆盖了 guard 函数本身，但运行路径未接线。当前语义正确，建议在文档或代码注释中明确「运行期由 SQL 结构性保证」，或后续接线",
+      "severity": "观察项",
+      "title": "collector 以 historyProvenance: [] 调用 guard，规则 7 在运行期永不触发"
+    },
+    {
+      "id": "QA2-O2",
+      "note": "云端 8 条 v16-FIXTURE-cash 的 UNKNOWN 行 equity==cash（10000000000000）、market_value=0、marks_json={}。E2E 已用显式规则区分「有持仓必须 0 / 无持仓必须 market_value=0」。建议在契约中澄清措辞，避免后续误判",
+      "severity": "观察项",
+      "title": "契约 H8 字面「equity=0」与无持仓账户的合法 cash-only 估值不一致"
+    },
+    {
+      "id": "QA2-O3",
+      "note": "当前 8 组 exit=0 与 verdict=PASS 一致；建议改为 verdict==PASS 且 exitCode==0 才计 PASS",
+      "severity": "观察项",
+      "title": "runner 只采信子进程自报 verdict，未与 exitCode 交叉校验"
+    }
+  ],
+  "head": "bfb320603367b2e8ec7b01f96864312f63ad2e6a",
+  "localTime": "2026-11-09 21:13:44",
+  "method": {
+    "cited": "采信他人产出（主理人云端 E2E、工程师报告），本文件不据其为 PASS 依据",
+    "evidence_restore": "两套套件运行会覆写 evidence；运行前已备份、取证后已逐字节恢复（summary.json generatedAt 回到 12:47:00.665Z / 12:46:56.814Z，independent_verify.json 恢复到 sha256 2e5018c0cb16be38…）",
+    "forbidden_actions_observed": "未 git commit/push、未改 apps/equity_collector_v45/**、未写凭据明文、未 INSERT/UPDATE/DROP、未部署",
+    "verified": "本进程亲自执行/亲自查询，数字可复现"
+  },
+  "schema": "jev-v16-qa-phase2-independent/v1",
+  "scope": "轨道 A：apps/equity_collector_v45/** 及其证据；不含轨道 B（apps/command_center_3d/server/ai、docs、reports/V16_AI_*）",
+  "workspace": "<ABS_PATH>"
+}

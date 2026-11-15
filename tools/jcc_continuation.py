@@ -438,6 +438,7 @@ _LEASE: Dict[str, Any] = {
     "current_step": None,
     "run_id": None,
     "head_sha": None,
+    "run_started_at": None,
     "acquired_at": None,
 }
 _LEASE_LOCK = threading.Lock()
@@ -682,6 +683,80 @@ def _ok_judge(rec: Any) -> Tuple[bool, str]:
         return False, "ok=%r verdict=%r" % (ok, str(rec.get("verdict"))[:120])
     return True, str(rec.get("verdict") or rec.get("detail") or "ok=true")[:160]
 
+#: Steps that may be accepted with a NON-ZERO exit code. This is empty ON PURPOSE,
+#: and the check below keeps it empty. "The script failed but its artifact looks
+#: right" is exactly the reasoning that let a stale PASS file stand in for a run
+#: that never happened, so the first exemption would have to be argued for rather
+#: than slipped in.
+EXIT_CODE_ALLOWLIST: Tuple[str, ...] = ()
+
+if EXIT_CODE_ALLOWLIST:  # fail closed at import, not at the first step
+    raise RuntimeError("EXIT_CODE_ALLOWLIST must stay empty; got %r"
+                       % (EXIT_CODE_ALLOWLIST,))
+
+#: Steps that structurally CANNOT have an exit code, and are therefore judged on
+#: their artifact alone. EMPTY, and asserted empty at import.
+#:
+#: WHY THIS EXISTS AT ALL. The previous predicate tested `"exit_code" in record`
+#: and skipped GATE 1 when the key was missing. That made "the key happens to be
+#: absent" stand in for "this step does not need an exit code" -- DATA standing in
+#: for POLICY. The three paths that omit the key are launch-failed, timeout and
+#: an attached run: exactly the three where the exit code is unknown, i.e. exactly
+#: the three that must not be read as success. An exemption now has to be a NAME in
+#: this tuple, which means it has to be argued for in review and cannot be reached
+#: by not writing a field. `Expects no exit code` is a property of a step, not of a
+#: record.
+EXIT_CODE_EXEMPT: Tuple[str, ...] = ()
+
+if EXIT_CODE_EXEMPT:  # fail closed at import, not at the first step
+    raise RuntimeError("EXIT_CODE_EXEMPT must stay empty; got %r -- an exempt step "
+                       "is judged on its artifact alone, so each one needs its own "
+                       "argument in the acceptance report" % (EXIT_CODE_EXEMPT,))
+
+
+def _final10_judge(rec: Any) -> Tuple[bool, str]:
+    """FINAL-10 verdict: is this evidence about THIS run, or merely "successful"?
+
+    `_ok_judge` reads `ok` and nothing else, and `ok` is written by whoever
+    produced the file -- including a producer that ran weeks ago. So the question
+    here is not whether it succeeded but whether it is about this run. Three
+    fields carry that, and a stale copy cannot have them: the candidate SHA, the
+    platform, and when the check happened relative to this run's start.
+
+    TWO HALVES, and both are needed -- they block different things:
+      * _artifact_fresh (GATE 2, disk mtime vs started_at) blocks "the FILE is old".
+        A touch-ed old file passes it, which is why it is not enough on its own.
+      * the three self-declared fields here block "the file is new but belongs to
+        another run". A freshly written file with the wrong candidate SHA passes
+        mtime and must still be refused.
+    Dropping either half leaves a hole the other one does not cover.
+    """
+    if not isinstance(rec, dict):
+        return False, "result is not an object"
+    want = _LEASE.get("head_sha")
+    got = rec.get("release_sha")
+    if not want:
+        return False, "this run has no candidate SHA (state.release_sha is %r)" % (want,)
+    if got != want:
+        return False, "release_sha %r != candidate %r" % (got, want)
+    platform = rec.get("platform")
+    if not isinstance(platform, dict) or not platform.get("os"):
+        return False, "platform missing or without os: %r" % (platform,)
+    started = _LEASE.get("run_started_at")
+    try:
+        checked_dt = datetime.fromisoformat(str(rec.get("checked_at")))
+        started_dt = datetime.fromisoformat(str(started))
+    except (TypeError, ValueError):
+        return False, ("checked_at %r / run_started_at %r unparsable"
+                       % (rec.get("checked_at"), started))
+    if checked_dt.timestamp() < started_dt.timestamp() - 1.0:
+        return False, ("checked_at %s is BEFORE this run started at %s"
+                       % (checked_dt.isoformat(), started_dt.isoformat()))
+    ok = rec.get("ok")
+    if ok is not True:
+        return False, "ok=%r verdict=%r" % (ok, str(rec.get("verdict"))[:120])
+    return True, str(rec.get("verdict") or "ok=true")[:160]
+
 
 def _infra_judge(rec: Any) -> Tuple[bool, str]:
     """FINAL-01's verdict, read back from the artifact the suite wrote.
@@ -753,7 +828,7 @@ STEPS: List[Step] = [
          needs_service=True),
     Step("FINAL-10_REBOOT_SIM", "host-restart recovery simulation (stale pid/lock/marker)",
          "tools/continuation/reboot_recovery_sim.py", (),
-         "artifacts/acceptance/REBOOT_RECOVERY.json", _ok_judge, 1800),
+         "artifacts/acceptance/REBOOT_RECOVERY.json", _final10_judge, 1800),
     # FINAL-10B closes the make-or-break gap between "the pipeline produced
     # evidence" and "the final gate can be evaluated". The gate's P-01 reads
     # `git status` and FAILS on a dirty tree, and the steps above write TRACKED
@@ -899,18 +974,46 @@ def _new_run_id(step: "Step") -> str:
     return "%s-%s-%d" % (step.id, datetime.now(TZ).strftime("%Y%m%dT%H%M%S"), os.getpid())
 
 
-def _artifact_fresh(path: str, since_iso: Optional[str]) -> bool:
-    """Was the artifact written at or after `since_iso`? A stale artifact left by
-    an earlier attempt must never be read as this run's result."""
+def _freshness_verdict(path: str, since_iso: Optional[str]) -> Tuple[bool, str]:
+    """Was the artifact written at or after `since_iso`? Returns (ok, reason-tag).
+
+    A stale artifact left by an earlier attempt must never be read as this run's
+    result. "I cannot tell when this run started" is NOT the same as "the file is
+    fine": the two unknown-input branches below used to `return True`, which made
+    a missing/unparsable `since` a way to switch the gate off by not filling in a
+    field. They now fail closed and say which input was bad, so the reason is in
+    the record instead of in the reader's head.
+    """
     if not os.path.isfile(path):
-        return False
+        return False, "ARTIFACT_MISSING"
     if not since_iso:
-        return True
+        return False, "FRESHNESS_SINCE_MISSING"
     try:
         since = datetime.fromisoformat(str(since_iso)).timestamp()
-    except ValueError:
-        return True
-    return os.path.getmtime(path) >= since - 1.0
+    except (TypeError, ValueError):
+        return False, "FRESHNESS_SINCE_UNPARSABLE"
+    if os.path.getmtime(path) >= since - 1.0:
+        return True, "FRESH"
+    return False, "ARTIFACT_PREDATES_RUN"
+
+
+def _artifact_fresh(path: str, since_iso: Optional[str]) -> bool:
+    """Boolean view of `_freshness_verdict`, kept for the descriptor call sites."""
+    return _freshness_verdict(path, since_iso)[0]
+
+
+def _carry_detail(record: Dict[str, Any], new_detail: str) -> str:
+    """Carry the earlier reason forward instead of letting a verdict erase it.
+
+    A failing step usually already knows why it failed ("launch failed: ...",
+    "timeout after 1800 s"). Overwriting that with a judge's one-liner keeps the
+    information that the step RAN and loses the information that it BROKE, and the
+    survivor then reads as a conclusion. Both are kept, oldest first.
+    """
+    prior = record.get("detail")
+    if prior and prior not in new_detail:
+        return "%s | %s" % (prior, new_detail)
+    return new_detail
 
 
 def _judge_artifact(step: "Step", record: Dict[str, Any]) -> Dict[str, Any]:
@@ -927,9 +1030,69 @@ def _judge_artifact(step: "Step", record: Dict[str, Any]) -> Dict[str, Any]:
         record["status"] = "BLOCKED"
         record.setdefault("detail", "result artifact missing or unparsable: %s" % step.result)
         return record
+    # GATE 1 -- the exit code is a verdict, not a field. It used to be recorded and
+    # then ignored whenever the step declared a result artifact, so a script that
+    # crashed still passed as long as the previous run's file was on disk.
+    #
+    # `rc is None` is NOT "no opinion". run_step writes None when the child timed
+    # out, when the launch failed, and when it exited without one -- that is, in
+    # exactly the cases where the step did not finish its job. Measured on
+    # 0bb240b: {"exit_code": None, "detail": "launch failed: [WinError 2] ..."}
+    # came back PASS. The predicate is therefore "did it exit 0", not "does it
+    # have a number".
+    #
+    # AND AN ABSENT KEY IS NOT "not applicable" (aegis, P1). This used to read
+    # `rc_present = "exit_code" in record` and skip GATE 1 when it was missing --
+    # but the key is missing on exactly the three paths where the exit code is
+    # UNKNOWN (launch failed, timeout, an attached run this process never
+    # launched). A missing field looks like "this rule does not apply here" and
+    # is in fact "this rule did not run here", which is worse than a rule that
+    # was never written: it leaves no trace. So: unknown exit code -> FAIL. A step
+    # that genuinely cannot have one must be named in EXIT_CODE_EXEMPT (empty).
+    rc = record.get("exit_code")
+    rc_missing = "exit_code" not in record
+    if step.script and rc_missing and step.id not in EXIT_CODE_EXEMPT:
+        record["status"] = "FAIL"
+        record["detail"] = _carry_detail(record, (
+            "exit_code absent from the step record for %s -- EXIT_CODE_UNKNOWN "
+            "(launch failed, timeout, or a run this process attached to and never "
+            "launched); an unknown exit cannot be treated as success"
+            % (step.script or step.id)))
+        return record
+    if step.script and rc != 0 and step.id not in EXIT_CODE_ALLOWLIST:
+        record["status"] = "FAIL"
+        record["detail"] = _carry_detail(record, (
+            "exit code %r from %s; a non-zero exit (including None: timeout, launch "
+            "failure, or an exit without a status) is fatal and no artifact may "
+            "override it" % (rc, step.script or step.id)))
+        return record
+    # GATE 2 -- freshness. `_artifact_fresh` was written for exactly this sentence
+    # but was only ever wired to run descriptors, never to a step result. A PASS
+    # file from an earlier era is a true record of an earlier success and a false
+    # claim about this run.
+    #
+    # `since` is resolved by KEY PRESENCE, not by truthiness. `or` would fall back
+    # to the attach moment whenever the descriptor had no `started_at`, so the
+    # "we do not know when this run began" case silently became "measure against
+    # now" -- a different question than the one GATE 2 asks. An explicit None now
+    # reaches `_freshness_verdict` and fails closed there.
+    since = record["freshness_since"] if "freshness_since" in record else record.get("started_at")
+    fresh, why = _freshness_verdict(path, since)
+    if not fresh:
+        record["status"] = "FAIL"
+        record["detail"] = _carry_detail(record, (
+            "result artifact %s is not this run's result (%s, since=%r); a stale "
+            "PASS file is a true record of an earlier success and a false claim "
+            "about this run" % (step.result, why, since)))
+        return record
+
     ok, detail = step.judge(rec) if step.judge else (True, "present")
     record["status"] = "PASS" if ok else "BLOCKED"
-    record["detail"] = detail
+    # The verdict text must never erase a pre-existing reason. aegis measured the
+    # old behaviour: an input detail of "launch failed: ..." came back as
+    # "PASS: a simulated reboot ...", so the cause was gone and the surviving
+    # sentence pointed the reader at a conclusion.
+    record["detail"] = detail if ok else _carry_detail(record, detail)
     record["evidence"] = {
         "path": step.result,
         "sha256": sha256_file(path),
@@ -1017,6 +1180,9 @@ def run_step(step: Step) -> Dict[str, Any]:
     else:
         record["exit_code"] = None
 
+    #: What the freshness gate measures against. Explicit rather than inferred from
+    #: `started_at`, because `attach_to_run` observes a step that began earlier.
+    record["freshness_since"] = record.get("started_at")
     record["duration_s"] = round(time.time() - started, 3)
     return _judge_artifact(step, record)
 
@@ -1051,6 +1217,33 @@ def attach_to_run(step: Step) -> Dict[str, Any]:
         time.sleep(2)
     record["duration_s"] = round(time.time() - started, 3)
     record["attached_run"]["pid_alive_after_observe"] = pid_alive(desc.get("pid"))
+    #: The observed run began before this attach, so freshness is measured against
+    #: the descriptor's start. Using the attach moment would fail every legitimate
+    #: attach, which is why this key exists instead of a bare `started_at`.
+    record["freshness_since"] = desc.get("started_at")
+    # THE EXIT CODE OF A RUN THIS PROCESS DID NOT LAUNCH.
+    #
+    # The descriptor is the only place it can be known from, and it only carries it
+    # if the controller that launched the child lived long enough to write it (see
+    # the `d.update({"exit_code": rc, ...})` in run_step). When the original
+    # controller died mid-run -- which is the ONLY reason an attach happens -- the
+    # descriptor still says RUNNING and the exit code is genuinely unknown.
+    #
+    # That case used to be invisible: `_judge_artifact` skipped GATE 1 whenever the
+    # key was absent, and this record never had the key, so EVERY attach skipped
+    # GATE 1. Combined with a descriptor lacking `started_at` (which switched GATE 2
+    # off as well, because an empty `since` used to mean "fresh"), the two gates
+    # were simultaneously absent on this path -- for FINAL-10_REBOOT_SIM, whose 1800 s
+    # timeout makes it long_running, that meant the reboot evidence could be judged
+    # with no gate at all. Now: copy the code across when it exists, and when it does
+    # not, leave the key absent so `_judge_artifact` refuses it as EXIT_CODE_UNKNOWN.
+    # The refusal is the correct answer -- "we could not confirm how it ended" is not
+    # "it ended well".
+    if "exit_code" in desc:
+        record["exit_code"] = desc.get("exit_code")
+        record["exit_code_source"] = "run-descriptor"
+    else:
+        record["exit_code_source"] = "run-descriptor (absent: EXIT_CODE_UNKNOWN)"
     if result_path and _artifact_fresh(result_path, desc.get("started_at")):
         return _judge_artifact(step, record)
     if pid_alive(desc.get("pid")):
@@ -1063,8 +1256,15 @@ def attach_to_run(step: Step) -> Dict[str, Any]:
                            % (desc.get("run_id"), desc.get("pid")))
         return record
     record["status"] = "BLOCKED"
-    record["detail"] = ("the attached run pid %s ended without producing a fresh %s "
-                        "(RUN_LOST)" % (desc.get("pid"), step.result))
+    #: The reason travels with the refusal. "RUN_LOST" alone reads as "the file was
+    #: missing", which is only one of the ways a result can be inadmissible -- the
+    #: descriptor could also lack a `started_at`, in which case nobody can say
+    #: whether the file predates the run.
+    lost_why = ("ARTIFACT_MISSING" if not result_path
+                else _freshness_verdict(result_path, desc.get("started_at"))[1])
+    record["detail"] = ("the attached run pid %s produced no admissible result "
+                        "(%s) for %s (RUN_LOST)"
+                        % (desc.get("pid"), lost_why, step.result))
     return record
 
 
@@ -1098,6 +1298,7 @@ def run_pipeline(state: Dict[str, Any], only: Optional[str] = None,
     _LEASE["generation"] = int(state.get("controller_generation") or 0) + 1
     _LEASE["current_step"] = state["current_step"]
     _LEASE["head_sha"] = state["release_sha"]
+    _LEASE["run_started_at"] = state.get("started_at")
     state["controller_generation"] = _LEASE["generation"]
     refresh_controller_lock()
     start_heartbeat()

@@ -1,0 +1,852 @@
+{
+  "counts": {
+    "comparedPairs": 8,
+    "externalFiles": 0,
+    "jsonFiles": 21,
+    "normalizedOk": 21,
+    "pairsDifferent": 0,
+    "pairsIdentical": 8,
+    "parseFailed": 0,
+    "selfCheckFailures": 0,
+    "skippedDirectories": [
+      "_normalized",
+      "cloud"
+    ]
+  },
+  "files": [
+    {
+      "file": "V16_MIG_migration.json",
+      "normalizedBytes": 4308,
+      "normalizedFile": "V16_MIG_migration.json",
+      "normalizedSha256": "3e2b10003f83424a6cddc20e295335700e1e429b093ed337caad50cdbcd89cc6",
+      "notes": [],
+      "payloadSha256": "1cda1301b2fc58f8e52f28bc8b49dc24b71fd714f5ed667aff0fcf0ecab5008e",
+      "rawBytes": 4466,
+      "rawSha256": "f6d7e604be4baead7fa96a334876c9f93247c4ff072f64637c3f47a33f9d0891",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 5,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_M_m1_m7_mixing.json",
+      "normalizedBytes": 5148,
+      "normalizedFile": "V16_M_m1_m7_mixing.json",
+      "normalizedSha256": "92a86de0b25490f11f23dbe23ffa67b409bf3a3c37e640fc90ffc9fe22f16412",
+      "notes": [],
+      "payloadSha256": "9c74b00d79ef458d6c26b9da065564597767c79232df6a8506bd798ef49e27f9",
+      "rawBytes": 5306,
+      "rawSha256": "46260601fa44f51bad35b00ab632bb4aca2c035add5d4f7d8779c5baa978cd48",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "stderr#stderr-node-pid"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 6,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_NEG_negative_mixed_cycle.json",
+      "normalizedBytes": 8198,
+      "normalizedFile": "V16_NEG_negative_mixed_cycle.json",
+      "normalizedSha256": "c500b29f1dd40fc7af8a76d860d618253a547d3db299a2153a48fbda8fb492b5",
+      "notes": [],
+      "payloadSha256": "76406f917323f6310880358c0a07f509e9d2839b00e3dd3154fdb9ff3fe2b561",
+      "rawBytes": 8350,
+      "rawSha256": "875cd94f935e6211c7ab97325baa5671649a38ee98664433b5882337821f86f8",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "stderr#stderr-node-pid"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 6,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_T1_field_contract.json",
+      "normalizedBytes": 14590,
+      "normalizedFile": "V16_T1_field_contract.json",
+      "normalizedSha256": "cca2aa47a3396b0062127253522f62b740712439c804c05b9b9303d51dc47fd6",
+      "notes": [],
+      "payloadSha256": "3c412faac3959da2ea9a72936d732719821dcf45e26e7883c144814e30c2e62c",
+      "rawBytes": 14760,
+      "rawSha256": "3e8a6ac373d20437efb97c7bcd1981f34d15fe797348ddeb27d1f27cd5a23fa9",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "stderr#stderr-node-pid"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 6,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_T2_idempotency_fields.json",
+      "normalizedBytes": 9473,
+      "normalizedFile": "V16_T2_idempotency_fields.json",
+      "normalizedSha256": "ed8bb61e2534d1f11d6fa1abd0ff2aa66c9a67478f7d82fa03e7134360b9b89c",
+      "notes": [],
+      "payloadSha256": "0eea3b7ff59aea0f1e5734032c9dd0cc6a6be9e8f784f113107e1a5007526716",
+      "rawBytes": 9649,
+      "rawSha256": "58c8b377bd8cf75e01badff75165c0ab8944db31d0706a37f5284183b0248b33",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "stderr#stderr-node-pid"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 6,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_T3_failure_classes.json",
+      "normalizedBytes": 9641,
+      "normalizedFile": "V16_T3_failure_classes.json",
+      "normalizedSha256": "db0fd4815de486cac0dc7e17874c9f7ad2addc4771163942f5679ccf54bd5de6",
+      "notes": [],
+      "payloadSha256": "60fc62680df3c6e1404572fbaec115970beeaeb29ddc1103f838134190c454d4",
+      "rawBytes": 9727,
+      "rawSha256": "47145c86a77e8aa7d3f0a4ff30ae709813f42ec147989e2b0d53ea9c498b45bc",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "stderr#stderr-node-pid"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 6,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_T7_schema_contract.json",
+      "normalizedBytes": 7683,
+      "normalizedFile": "V16_T7_schema_contract.json",
+      "normalizedSha256": "0befb47f4154603926551846c728d952f435a76097ba0a5bbee4a72e41ba9f91",
+      "notes": [],
+      "payloadSha256": "1f3b2ebeaca0ae1bb4156f82cb14d0eb81dde9e9262944ce1758277ef78ce086",
+      "rawBytes": 7832,
+      "rawSha256": "1c86ab25ffd949e7321ada2010bfd6420d92b831d00e3914617f97b16df94046",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 5,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "V16_U_u1_u5_units.json",
+      "normalizedBytes": 6309,
+      "normalizedFile": "V16_U_u1_u5_units.json",
+      "normalizedSha256": "f01556889bde02c85578a98188a68e9662324d719dfa0c0bb5b2a33dbdf0ac0f",
+      "notes": [],
+      "payloadSha256": "2e5596e8bf8d8ccad07c528e3202a2a6769a74e664b18a5fd7bac10b81fbe767",
+      "rawBytes": 6439,
+      "rawSha256": "e5d4ff05a06972ece30aa541e2ab5d2b021a71797011f476262d4c6c01d38527",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "capturedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "result.startedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "stdout<RESULT_JSON>.startedAt"
+        }
+      ],
+      "strippedTotal": 5,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_m1_m7_mixing.json",
+      "normalizedBytes": 2566,
+      "normalizedFile": "group_v16_m1_m7_mixing.json",
+      "normalizedSha256": "9c74b00d79ef458d6c26b9da065564597767c79232df6a8506bd798ef49e27f9",
+      "notes": [],
+      "payloadSha256": "9c74b00d79ef458d6c26b9da065564597767c79232df6a8506bd798ef49e27f9",
+      "rawBytes": 2652,
+      "rawSha256": "c6f48497e3d25787fc5404cfcbcd9b79d0b797696579501f783db896d0cddfed",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_migration.json",
+      "normalizedBytes": 2220,
+      "normalizedFile": "group_v16_migration.json",
+      "normalizedSha256": "1cda1301b2fc58f8e52f28bc8b49dc24b71fd714f5ed667aff0fcf0ecab5008e",
+      "notes": [],
+      "payloadSha256": "1cda1301b2fc58f8e52f28bc8b49dc24b71fd714f5ed667aff0fcf0ecab5008e",
+      "rawBytes": 2306,
+      "rawSha256": "fa61789e1524758d75d5e84a505da3ced6d994c9241f517d77c5b81aca85d68d",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_negative_mixed_cycle.json",
+      "normalizedBytes": 3908,
+      "normalizedFile": "group_v16_negative_mixed_cycle.json",
+      "normalizedSha256": "76406f917323f6310880358c0a07f509e9d2839b00e3dd3154fdb9ff3fe2b561",
+      "notes": [],
+      "payloadSha256": "76406f917323f6310880358c0a07f509e9d2839b00e3dd3154fdb9ff3fe2b561",
+      "rawBytes": 3994,
+      "rawSha256": "0ca8dadbc6d7d2ebd77d7d7ce09fd42944b213ff4abbca2427471b18743950d0",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_t1_field_contract.json",
+      "normalizedBytes": 6895,
+      "normalizedFile": "group_v16_t1_field_contract.json",
+      "normalizedSha256": "3c412faac3959da2ea9a72936d732719821dcf45e26e7883c144814e30c2e62c",
+      "notes": [],
+      "payloadSha256": "3c412faac3959da2ea9a72936d732719821dcf45e26e7883c144814e30c2e62c",
+      "rawBytes": 6981,
+      "rawSha256": "6f71f3705ce179c22a8b427e95e100afb13339c9942aed62fe4e3b0988771c27",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_t2_idempotency_fields.json",
+      "normalizedBytes": 4476,
+      "normalizedFile": "group_v16_t2_idempotency_fields.json",
+      "normalizedSha256": "0eea3b7ff59aea0f1e5734032c9dd0cc6a6be9e8f784f113107e1a5007526716",
+      "notes": [],
+      "payloadSha256": "0eea3b7ff59aea0f1e5734032c9dd0cc6a6be9e8f784f113107e1a5007526716",
+      "rawBytes": 4562,
+      "rawSha256": "061ee2b6feec58f5b662fbd564ec84d4f014b12ac115c61417c68923f932e2e9",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_t3_failure_classes.json",
+      "normalizedBytes": 5022,
+      "normalizedFile": "group_v16_t3_failure_classes.json",
+      "normalizedSha256": "60fc62680df3c6e1404572fbaec115970beeaeb29ddc1103f838134190c454d4",
+      "notes": [],
+      "payloadSha256": "60fc62680df3c6e1404572fbaec115970beeaeb29ddc1103f838134190c454d4",
+      "rawBytes": 5108,
+      "rawSha256": "4154d77619c8f6088505e85affda0a4b78c428138d17045de31ce8431be7912d",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_t7_schema_contract.json",
+      "normalizedBytes": 4066,
+      "normalizedFile": "group_v16_t7_schema_contract.json",
+      "normalizedSha256": "1f3b2ebeaca0ae1bb4156f82cb14d0eb81dde9e9262944ce1758277ef78ce086",
+      "notes": [],
+      "payloadSha256": "1f3b2ebeaca0ae1bb4156f82cb14d0eb81dde9e9262944ce1758277ef78ce086",
+      "rawBytes": 4152,
+      "rawSha256": "54bf229116738b063409bb0619da4a5b1e830c8a3e80458da7b1a5c49541df20",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "group_v16_u1_u5_units.json",
+      "normalizedBytes": 3274,
+      "normalizedFile": "group_v16_u1_u5_units.json",
+      "normalizedSha256": "2e5596e8bf8d8ccad07c528e3202a2a6769a74e664b18a5fd7bac10b81fbe767",
+      "notes": [],
+      "payloadSha256": "2e5596e8bf8d8ccad07c528e3202a2a6769a74e664b18a5fd7bac10b81fbe767",
+      "rawBytes": 3360,
+      "rawSha256": "6a3611350c1bddd63b2bc247bd4a253d18e743c66b3ae685c56c83dd17d0973d",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "finishedAt"
+        },
+        {
+          "count": 1,
+          "path": "startedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    },
+    {
+      "file": "independent_verify.json",
+      "normalizedBytes": 31528,
+      "normalizedFile": "independent_verify.json",
+      "normalizedSha256": "94c24c2dd93d7039609d73b4a4410b0634700b27f6998c7160d63345f52b0cf7",
+      "notes": [],
+      "payloadSha256": null,
+      "rawBytes": 32291,
+      "rawSha256": "41968933e5bb369e407c703254ef775c41ec7be3e37fa477cd731c0acbdec892",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "root#abs-user-home-win"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "generatedAt"
+        }
+      ],
+      "strippedTotal": 2,
+      "verdictConsistent": true,
+      "verdictNormalized": null,
+      "verdictRaw": null
+    },
+    {
+      "file": "mutation_check.json",
+      "normalizedBytes": 425,
+      "normalizedFile": "mutation_check.json",
+      "normalizedSha256": "a3e9b1bc112bc75f6b13d13153ba24046ff5d587f76a932b4c89083fa406147b",
+      "notes": [],
+      "payloadSha256": null,
+      "rawBytes": 424,
+      "rawSha256": "387c19e24c8eb11ada20088ced34c6325139e87e4595713893c0c05f0924dd5a",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [],
+      "strippedTotal": 0,
+      "verdictConsistent": true,
+      "verdictNormalized": null,
+      "verdictRaw": null
+    },
+    {
+      "file": "qa_d1fix_verification.json",
+      "normalizedBytes": 13335,
+      "normalizedFile": "qa_d1fix_verification.json",
+      "normalizedSha256": "2857aeac2e947f187df1b53d132ba4af1f21080d59606767b4b5b30fc6138469",
+      "notes": [],
+      "payloadSha256": null,
+      "rawBytes": 13470,
+      "rawSha256": "44466116f323238b11a2509f465cba0f915fb6898d1fc8c16a0a3bd8a99779eb",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "checks[2].command#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "checks[3].command#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "checks[4].command#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "checks[6].command#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "checks[8].command#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "evidence_handling#abs-drive-path"
+        },
+        {
+          "count": 2,
+          "path": "limitations_and_observations[3]#abs-drive-path"
+        },
+        {
+          "count": 1,
+          "path": "workspace#abs-drive-path"
+        }
+      ],
+      "strippedTimeFields": [],
+      "strippedTotal": 9,
+      "verdictConsistent": true,
+      "verdictNormalized": null,
+      "verdictRaw": null
+    },
+    {
+      "file": "qa_phase2_independent.json",
+      "normalizedBytes": 20257,
+      "normalizedFile": "qa_phase2_independent.json",
+      "normalizedSha256": "69854070d040dbd48b46e084e3c60af1892a820d846962a699be75ef2a18ae1d",
+      "notes": [],
+      "payloadSha256": null,
+      "rawBytes": 19414,
+      "rawSha256": "7f08be2e3736ddb3f42ccc31c89fc2afc117a8eb1bde1e19c2e1927efa5d5909",
+      "status": "OK",
+      "strippedStringPatterns": [
+        {
+          "count": 1,
+          "path": "checklist[10].evidence.run_2.run_copy_kept_at#abs-user-home-win"
+        },
+        {
+          "count": 1,
+          "path": "workspace#abs-drive-path"
+        }
+      ],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "generatedAt"
+        }
+      ],
+      "strippedTotal": 3,
+      "verdictConsistent": true,
+      "verdictNormalized": null,
+      "verdictRaw": null
+    },
+    {
+      "file": "summary.json",
+      "normalizedBytes": 12650,
+      "normalizedFile": "summary.json",
+      "normalizedSha256": "f3f4b6b5afdf005748e9e3576bfe5bf92e711a92bd3d38b2ec7b18f3c6c431a0",
+      "notes": [],
+      "payloadSha256": null,
+      "rawBytes": 12694,
+      "rawSha256": "67c0963549d15010408caf8d4e072d6b90002f8b19236109381e326e96da0ae9",
+      "status": "OK",
+      "strippedStringPatterns": [],
+      "strippedTimeFields": [
+        {
+          "count": 1,
+          "path": "generatedAt"
+        }
+      ],
+      "strippedTotal": 1,
+      "verdictConsistent": true,
+      "verdictNormalized": "PASS",
+      "verdictRaw": "PASS"
+    }
+  ],
+  "outputDir": "reports/evidence/v16/_normalized",
+  "purpose": "保留原始证据（原文件一字未改），同时生成去除非确定性字段的标准化比较视图。剥离范围是白名单式的、逐条计数的；verdict/checks/pass/detail/所有哈希值一律保留。",
+  "residualDiff": {
+    "comparisonUnit": "payload (.result if present, else whole document)",
+    "note": "同一 testId 的两次真实运行在归一化后是否仍然不同。不同不代表归一化失败，而是说明差异不是时间戳/PID/路径造成的，属于真实残留差异（例如随执行上下文变化的哈希）。比较单位是「结果载荷」：个体证据文件取其 .result，group 证据文件取本体，避免外壳结构与载荷结构的伪差异。",
+    "pairs": [
+      {
+        "a": "V16_M_m1_m7_mixing.json",
+        "aPayloadSha256": "9c74b00d79ef458d6c26b9da065564597767c79232df6a8506bd798ef49e27f9",
+        "b": "group_v16_m1_m7_mixing.json",
+        "bPayloadSha256": "9c74b00d79ef458d6c26b9da065564597767c79232df6a8506bd798ef49e27f9",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_m1_m7_mixing"
+      },
+      {
+        "a": "V16_MIG_migration.json",
+        "aPayloadSha256": "1cda1301b2fc58f8e52f28bc8b49dc24b71fd714f5ed667aff0fcf0ecab5008e",
+        "b": "group_v16_migration.json",
+        "bPayloadSha256": "1cda1301b2fc58f8e52f28bc8b49dc24b71fd714f5ed667aff0fcf0ecab5008e",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_migration"
+      },
+      {
+        "a": "V16_NEG_negative_mixed_cycle.json",
+        "aPayloadSha256": "76406f917323f6310880358c0a07f509e9d2839b00e3dd3154fdb9ff3fe2b561",
+        "b": "group_v16_negative_mixed_cycle.json",
+        "bPayloadSha256": "76406f917323f6310880358c0a07f509e9d2839b00e3dd3154fdb9ff3fe2b561",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_negative_mixed_cycle"
+      },
+      {
+        "a": "V16_T1_field_contract.json",
+        "aPayloadSha256": "3c412faac3959da2ea9a72936d732719821dcf45e26e7883c144814e30c2e62c",
+        "b": "group_v16_t1_field_contract.json",
+        "bPayloadSha256": "3c412faac3959da2ea9a72936d732719821dcf45e26e7883c144814e30c2e62c",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_t1_field_contract"
+      },
+      {
+        "a": "V16_T2_idempotency_fields.json",
+        "aPayloadSha256": "0eea3b7ff59aea0f1e5734032c9dd0cc6a6be9e8f784f113107e1a5007526716",
+        "b": "group_v16_t2_idempotency_fields.json",
+        "bPayloadSha256": "0eea3b7ff59aea0f1e5734032c9dd0cc6a6be9e8f784f113107e1a5007526716",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_t2_idempotency_fields"
+      },
+      {
+        "a": "V16_T3_failure_classes.json",
+        "aPayloadSha256": "60fc62680df3c6e1404572fbaec115970beeaeb29ddc1103f838134190c454d4",
+        "b": "group_v16_t3_failure_classes.json",
+        "bPayloadSha256": "60fc62680df3c6e1404572fbaec115970beeaeb29ddc1103f838134190c454d4",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_t3_failure_classes"
+      },
+      {
+        "a": "V16_T7_schema_contract.json",
+        "aPayloadSha256": "1f3b2ebeaca0ae1bb4156f82cb14d0eb81dde9e9262944ce1758277ef78ce086",
+        "b": "group_v16_t7_schema_contract.json",
+        "bPayloadSha256": "1f3b2ebeaca0ae1bb4156f82cb14d0eb81dde9e9262944ce1758277ef78ce086",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_t7_schema_contract"
+      },
+      {
+        "a": "V16_U_u1_u5_units.json",
+        "aPayloadSha256": "2e5596e8bf8d8ccad07c528e3202a2a6769a74e664b18a5fd7bac10b81fbe767",
+        "b": "group_v16_u1_u5_units.json",
+        "bPayloadSha256": "2e5596e8bf8d8ccad07c528e3202a2a6769a74e664b18a5fd7bac10b81fbe767",
+        "diffCount": 0,
+        "diffTruncated": false,
+        "diffs": [],
+        "identicalAfterNormalization": true,
+        "testId": "v16_u1_u5_units"
+      }
+    ]
+  },
+  "rules": {
+    "explicitlyPreserved": [
+      "verdict / overall / pass / detail / checks / exitCode",
+      "所有 sha256 / fullHash / strippedHash / payload_sha256 值",
+      "领域时间戳 price_ts / fetched_at / freshness_ms（哈希载荷的一部分，剥掉即销毁证据）",
+      "stdout 正文与 stderr 正文（仅替换 PID 与绝对路径）"
+    ],
+    "serialization": "对象键名升序 + 2 空格缩进 + 末尾换行（stableStringify）",
+    "strippedStringPatterns": [
+      {
+        "id": "stderr-node-pid",
+        "pattern": "/\\(node:\\d+\\)/g",
+        "replacement": "(node:<PID>)"
+      },
+      {
+        "id": "abs-user-home-win",
+        "pattern": "/[A-Za-z]:[\\\\/]Users[\\\\/][^\\\\/\\s\"',)]+/g",
+        "replacement": "<USER_HOME>"
+      },
+      {
+        "id": "abs-user-home-posix",
+        "pattern": "/\\/(?:home|Users)\\/[^/\\s\"',)]+/g",
+        "replacement": "<USER_HOME>"
+      },
+      {
+        "id": "abs-unc",
+        "pattern": "/\\\\\\\\[^\\s\"',)]+/g",
+        "replacement": "<ABS_PATH>"
+      },
+      {
+        "id": "abs-drive-path",
+        "pattern": "/\\b[A-Za-z]:[\\\\/](?:[^\\\\/\\s\"',):]+[\\\\/])*[^\\\\/\\s\"',):]*/g",
+        "replacement": "<ABS_PATH>"
+      }
+    ],
+    "strippedTimeKeys": [
+      "capturedAt",
+      "completedAt",
+      "createdAt",
+      "finishedAt",
+      "generatedAt",
+      "startedAt",
+      "updatedAt"
+    ]
+  },
+  "scannedAtIsStripped": true,
+  "schemaVersion": "1",
+  "selfCheck": {
+    "failures": [],
+    "pass": true,
+    "rule": "归一化前后 extractVerdict() 必须完全一致（确保没有因为剥离而改变结论）"
+  },
+  "sourceDir": "reports/evidence/v16",
+  "tool": "apps/command_center_3d/scripts/normalize-evidence.mjs"
+}

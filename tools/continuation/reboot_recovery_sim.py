@@ -270,6 +270,13 @@ def run() -> int:
         "cases": cases,
         "problems": ["%s: %s" % (i, p) for i, p in problems],
     }
+    # DELETE BEFORE WRITING. The same rule the v16 jobs enforce with `rm -f`:
+    # a tracked PASS file records a past success, and if this script never runs
+    # that file is still there to be read as this run's result. Removing it first
+    # makes "no file" an observable outcome instead of a silent reuse.
+    if os.path.exists(OUT):
+        os.remove(OUT)
+
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with io.open(OUT, "w", encoding="utf-8", newline="\n") as fh:
         json.dump(payload, fh, indent=2, ensure_ascii=False, sort_keys=True)

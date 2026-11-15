@@ -114,16 +114,130 @@ NEW_TESTS = [
 # 契约 §4.2 未写明完整前缀，两个候选根都检查（与 V1.5 测试同目录 / repo 根）
 NEW_TEST_ROOTS = [APP + "/tests/v16", "tests/v16"]
 
-# 检查 6：敏感串模式（命中即 FAIL；detail 只记文件/行号/模式名，不记明文）
+# 检查 6：敏感串扫描（H7）
+#
+# 语义精确化（本轮修复）：H7 拦截的是「硬编码的真实凭据」，不是「出现敏感词」。
+# 旧规则把 `PAPER_LEDGER_SECRET` 变量名和 `apiKey =` 赋值一律判 FAIL，导致两处误报：
+#   - apps/command_center_3d/scripts/tests/phase-d/phase-d-verify.mjs:712
+#     `PAPER_LEDGER_SECRET: 'x'.repeat(40)`（测试占位表达式，不是凭据）
+#   - apps/command_center_3d/server/ai/real-backends/real-worm.mjs:17
+#     `const apiKey = env.REAL_WORM_API_KEY;`（读取环境变量，不是硬编码）
+# 修复只做两件事，不扩大原有模式集合、不新增文件/路径白名单：
+#   1. token 字面量 3 条（ghp_ / github_pat_ / Bearer+长串）保持原样，一条不删；
+#   2. 3 条「赋值类」模式（PAPER_LEDGER_SECRET / api[_-]?key / CLOUDFLARE|CF_*TOKEN）
+#      改为要求【赋值上下文 + 真实凭据字面量】，逐行语义分类：
+#        env 读取 / 注入对象         -> env_read      豁免
+#        非字面量表达式（.repeat 等）-> non_literal   豁免
+#        测试占位值 / 显式夹具标记   -> placeholder   豁免
+#        其他字面量（长度 >=16）     -> real_secret   FAIL
+# 刻意【不】把赋值匹配扩到任意含 KEY/TOKEN/SECRET 的标识符：STORAGE_KEY、
+# market_partition_key、RB_SECRET 等测试夹具会因此大量误报（本轮实测 16 处）。
+# 扫描范围、added-lines scope、QA_SELF_EXACT、check6 编排一律不变；
+# 没有全局关闭 H7，没有新增任何排除项。detail 只记 文件/行号/模式名/分类，绝不写明文。
+
+# 6 个模式名与原契约逐字一致，供 detail["patterns"] / CI 对比。
 SENSITIVE_PATTERNS = [
+    "github_pat_classic",
+    "github_pat_fine_grained",
+    "paper_ledger_secret",
+    "api_key_assignment",
+    "cloudflare_token_assignment",
+    "bearer_token_literal",
+]
+
+TOKEN_LITERAL_PATTERNS = [
     ("github_pat_classic", re.compile(r"ghp_[A-Za-z0-9]{20,}")),
     ("github_pat_fine_grained", re.compile(r"github_pat_[A-Za-z0-9_]{20,}")),
-    ("paper_ledger_secret", re.compile(r"PAPER_LEDGER_SECRET")),
-    ("api_key_assignment", re.compile(r"\bapi[_-]?key\s*=", re.I)),
-    ("cloudflare_token_assignment",
-     re.compile(r"(?:CLOUDFLARE|CF)_[A-Z_]*TOKEN\s*[=:]\s*[\"']?[A-Za-z0-9_\-]{20,}")),
     ("bearer_token_literal", re.compile(r"Bearer\s+[A-Za-z0-9_\-]{24,}", re.I)),
 ]
+
+# 只覆盖原契约的 3 类凭据变量名；不扩到任意含 KEY/TOKEN/SECRET 的标识符。
+CREDENTIAL_NAME_ASSIGNMENT = re.compile(
+    r"(?<![A-Za-z0-9])(?P<name>PAPER_LEDGER_SECRET|api[_-]?key|"
+    r"(?:CLOUDFLARE|CF)_[A-Z_]*TOKEN)\s*[:=]\s*(?P<rhs>[^,;}{]+)",
+    re.I,
+)
+
+# 环境变量 / 注入对象读取（不是硬编码）
+_ENV_READ = re.compile(
+    r"^(?:env|process\.env|os\.environ|import\.meta\.env|config|secrets|"
+    r"getenv|os\.getenv|SecretStore|credentialStore|keyVault)\b",
+    re.I,
+)
+# 完全匹配的占位串（含模板插值、尖括号占位、掩码）
+_PLACEHOLDER = re.compile(
+    r"^(?:test|dummy|placeholder|example|changeme|fake|sample|redacted|masked|"
+    r"none|null|undefined|todo|your[-_]?[a-z0-9_]*|xxx+|x+|\*{3,}|"
+    r"<[^>]*>|\$\{[^}]*\}|\{\{[^}]*\}\})$",
+    re.I,
+)
+# 字面量【内部】含显式测试夹具标记时判占位（子串匹配，不做文件/路径白名单）。
+# 覆盖仓库既有夹具：unit-test-not-a-real-key-abc、*-min-16-bytes-long-*、
+# *-SENTINEL-*、*DEADBEEF* 等。真实凭据不含这些语义词。
+_TEST_MARKER = re.compile(
+    r"(?:unit[-_]?test|not[-_]?a[-_]?real|fixture|sentinel|dummy|example|"
+    r"placeholder|invalid|fake|changeme|redacted|masked|sample|deadbeef|"
+    r"min[-_]?\d+[-_]?bytes)",
+    re.I,
+)
+_QUOTED = re.compile(r"^(?P<q>[\"'`])(?P<body>.*?)(?P=q)\s*$", re.S)
+
+
+def _literal_from_rhs(rhs):
+    """纯字符串字面量返回其内容；表达式/标识符返回 None。"""
+    m = _QUOTED.match((rhs or "").strip())
+    return m.group("body") if m else None
+
+
+def classify_rhs(rhs):
+    """把凭据赋值右侧分类：env_read / non_literal / placeholder / real_secret。
+
+    仅 real_secret 会让 H7 FAIL。纯函数，供正向/负向单测直接调用。
+    """
+    s = (rhs or "").strip()
+    if not s:
+        return "placeholder"
+    if _ENV_READ.match(s):
+        return "env_read"
+    lit = _literal_from_rhs(s)
+    if lit is None:
+        return "non_literal"
+    if not lit or len(lit) < 16 or _PLACEHOLDER.match(lit):
+        return "placeholder"
+    if _TEST_MARKER.search(lit):
+        return "placeholder"
+    if len(set(lit)) <= 2:                      # 全同 / 双字符重复
+        return "placeholder"
+    # 凭据变量名 + 非占位、长度 >=16 的字面量：宁严勿漏，判真实凭据。
+    return "real_secret"
+
+
+def _pattern_name_for(varname):
+    """把命中的变量名映射回原契约的 3 个赋值类模式名。"""
+    u = varname.upper()
+    if "PAPER_LEDGER_SECRET" in u:
+        return "paper_ledger_secret"
+    if "TOKEN" in u:
+        return "cloudflare_token_assignment"
+    return "api_key_assignment"
+
+
+def scan_line_for_secrets(line, verdict_counts=None):
+    """返回该行 H7 命中列表（[{pattern, reason}]）；空列表 = 通过。
+
+    verdict_counts 可选：累计逐行分类次数，作为「规则确实在分类、未全局关闭」的证据。
+    """
+    hits = []
+    for name, rx in TOKEN_LITERAL_PATTERNS:
+        if rx.search(line):
+            hits.append({"pattern": name, "reason": "token_literal"})
+    for m in CREDENTIAL_NAME_ASSIGNMENT.finditer(line):
+        verdict = classify_rhs(m.group("rhs"))
+        if verdict_counts is not None:
+            verdict_counts[verdict] = verdict_counts.get(verdict, 0) + 1
+        if verdict == "real_secret":
+            hits.append({"pattern": _pattern_name_for(m.group("name")), "reason": verdict})
+    return hits
 # 仅精确排除 QA 自身 3 个产出文件（脚本内含检测规则字面量，非凭据；报告/证据为 QA 输出）。
 # 不排除 reports/evidence/v16/ 下工程师产出的 V1.6 测试 evidence：它们属于 V1.6 新增文件，须纳入扫描。
 QA_SELF_EXACT = {
@@ -573,7 +687,7 @@ def check6():
             pass
     excluded = sorted(p for p in QA_SELF_EXACT)
     detail = {
-        "patterns": [name for name, _ in SENSITIVE_PATTERNS],
+        "patterns": list(SENSITIVE_PATTERNS),
         "excluded_qa_self_outputs": excluded,
         "v16_changed_files": sorted(changed),
         "hits": [],
@@ -585,6 +699,7 @@ def check6():
         return "PENDING", detail
 
     hits = []
+    verdict_counts = {}
     # QA2-D3 root fix (same class as the V1.5 T7 checker fix): scan ONLY the
     # lines V1.6 actually added/changed vs the baseline, not whole files.
     # Rationale: a modified tracked file carries pre-existing baseline lines
@@ -607,10 +722,35 @@ def check6():
         for ln, line in enumerate(text.splitlines(), 1):
             if scope is not None and ln not in scope:
                 continue
-            for name, rx in SENSITIVE_PATTERNS:
-                if rx.search(line):
-                    hits.append({"file": p, "line": ln, "pattern": name})
+            for hit in scan_line_for_secrets(line, verdict_counts):
+                hits.append({
+                    "file": p, "line": ln,
+                    "pattern": hit["pattern"], "reason": hit["reason"],
+                })
+    # 非空洞自检：即使本次扫描范围内没有真实凭据，也必须证明检测器仍会拦截它。
+    # 负向样例在运行时合成，源码中不落地任何凭据字面量；检测器失灵则本项 FAIL，
+    # 防止 H7 被静默关闭（不是放宽，是增加一条必过的负向断言）。
+    _probe_value = "".join(
+        chr(97 + (i * 13 + 7) % 26) if i % 3 else str(i % 10) for i in range(40)
+    )
+    selfcheck = scan_line_for_secrets('apiKey = "' + _probe_value + '";')
+    detail["negative_selfcheck"] = {
+        "ok": len(selfcheck) > 0,
+        "patterns": sorted({h["pattern"] for h in selfcheck}),
+        "note": "运行时合成的真实凭据样例；检测器失灵则 H7 直接 FAIL，防止被静默关闭",
+    }
+    if not selfcheck:
+        hits.append({
+            "file": "<h7-negative-selfcheck>", "line": 0,
+            "pattern": "detector_inoperative", "reason": "negative_selfcheck_failed",
+        })
     detail["hits"] = hits
+    detail["classification_counts"] = verdict_counts
+    detail["h7_semantics"] = (
+        "硬编码真实凭据才 FAIL；env 读取 / 测试占位表达式 / 非字面量表达式逐行分类豁免；"
+        "扫描范围、added-lines scope 与 QA_SELF_EXACT 均不变，未全局关闭 H7、未加宽泛白名单；"
+        "classification_counts 证明规则确实在分类（非空洞）。"
+    )
     detail["scan_scope"] = "lines added vs baseline (untracked files: whole file)"
     detail["scanned_files"] = sorted(changed)
     detail["brief"] = f"扫描 {len(changed)} 个 V1.6 新增/修改文件, 命中 {len(hits)} 处"

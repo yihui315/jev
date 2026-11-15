@@ -42,8 +42,17 @@ export const RISK_CODES = Object.freeze({
 
 const MAX_FUTURE_SKEW_MS = 5000;
 
+// C9 (F-16 根因): "verified" 必须绑定真实出网证据。synthetic / 本地测试桩上下文即使标称
+// mark_quality:"verified"，也不构成真实出网核实 —— 禁止解锁真实成交（ENGINE_EXEC）。
+// 仅明确属于 synthetic 的 networkContext 被排除；未声明（网关/历史路径）维持现状（不比当前更弱）。
+const SYNTHETIC_NETWORK_CONTEXTS = Object.freeze(new Set(["local_test_shim", "fixture", "synthetic"]));
+export function isRealEgressNetworkContext(networkContext) {
+  if (networkContext == null) return true; // 网关/历史路径未声明 networkContext：维持现状
+  return !SYNTHETIC_NETWORK_CONTEXTS.has(String(networkContext));
+}
+
 function reject(code, reason, extra = {}) {
-  return { approved: false, code, reason, ...extra };
+  return { approved: false, code, reason, realEgressVerified: false, ...extra };
 }
 
 /** Read a verified market context row by id (D1-shaped db). */
@@ -79,6 +88,7 @@ function normalizeContext(input) {
     price_ts: input.price_ts || input.priceTs || null,
     mark_quality: input.mark_quality || input.markQuality || null,
     expires_at: input.expires_at || input.expiresAt || null,
+    networkContext: input.networkContext == null ? (input.network_context || null) : input.networkContext,
   };
 }
 
@@ -160,6 +170,7 @@ export function riskCheck({ decision, context, nowMs = Date.now(), limits = {} }
     approved: true, code: RISK_CODES.APPROVED,
     reason: "server risk gate approved",
     confidence_ignored: d.confidence,
+    realEgressVerified: isRealEgressNetworkContext(ctx.networkContext),
     evaluated: {
       symbol: d.symbol, action: d.action, order_type: d.orderType,
       quantity: d.quantity, reference_price_usd: referencePrice,

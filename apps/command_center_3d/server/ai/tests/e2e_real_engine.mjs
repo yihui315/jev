@@ -159,7 +159,7 @@ function buildContext(symbol, priceUsd, priceTs) {
 }
 
 async function makeDecision(db, env, opts) {
-  const { strategyId, symbol, priceUsd, desiredAction, minQty, maxQty, runId, seedBase = 0, priceTs } = opts;
+  const { strategyId, symbol, priceUsd, desiredAction, minQty, maxQty, runId, seedBase = 0, priceTs, nowMs } = opts;
   const marketContext = buildContext(symbol, priceUsd, priceTs);
   // Wide search window: the mock action bucket is seed-derived, so we must scan
   // enough seeds to land the desired action AND a quantity the real engine's
@@ -171,7 +171,7 @@ async function makeDecision(db, env, opts) {
     if (minQty != null && (mock.decision.quantity == null || mock.decision.quantity < minQty)) continue;
     if (maxQty != null && (mock.decision.quantity == null || mock.decision.quantity > maxQty)) continue;
     const res = await createDecision({
-      db, env, strategyId, symbol, providerId: MOCK_PROVIDER_ID, dataMode: "mock", marketContext, runId, seedExtra,
+      db, env, strategyId, symbol, providerId: MOCK_PROVIDER_ID, dataMode: "mock", marketContext, runId, seedExtra, nowMs,
     });
     return { ...res, decision: res.decision, quantity: mock.decision.quantity };
   }
@@ -271,14 +271,47 @@ async function scBuyFill(suite, ctx) {
   });
 }
 
+// Deterministic fixture clock for scSellAfterBuy.
+//
+// The mock provider seeds on priceTs (mock-provider.mjs:45), so a wall-clock
+// priceTs re-rolled every quantity on every run, and a BUY drawn from the low
+// end of its USD notional band (mock-provider.mjs:67, targetNotional =
+// 20 + byte%60) left the reduce-only SELL — capped at 0.8 * buyQty — with every
+// one of its 3000 candidates below the 20 USD floor, surfacing as
+// "no mock decision matched action=SELL".
+//
+// Rate: byte%60 is BIASED (256 = 4*60 + 16), so P(b<5) is not 5/60 = 8.33% but
+// 25/256 = 9.77% — b in {0..15} has 5 preimages, b in {16..59} has 4. The
+// boundary is also razor thin: at b=5 the 0.8x SELL clears the floor by only
+// 6.0e-9 after quantityForPrice's 8dp rounding.
+//
+// Pinning priceTs makes the seed reproducible; pinning nowMs is required
+// alongside it because the risk gate rejects a context older than
+// validForSeconds/60s (risk-gate.mjs:126-133), so a bare fixed priceTs would
+// only swap one failure for RISK_CONTEXT_STALE. Both are inputs already
+// supported by createDecision (runtime.mjs:237/248/326) — no assertion, no
+// product code, and no retry loop is touched.
+const FIXED_PRICE_TS = "2026-01-01T00:00:00.000Z";
+const FIXED_NOW_MS = Date.parse("2026-01-01T00:00:00.500Z");
+// Buy >= 40 USD so the 0.8x reduce-only SELL still clears the provider's 20 USD
+// notional floor with LOT_SIZE rounding headroom: 0.8 * 40 = 32 >= 20.
+const FIXED_BUY_MIN_NOTIONAL_USD = 40;
+const FIXED_PRICE_USD = 60000;
+
 async function scSellAfterBuy(suite, ctx) {
   const { db, env, session } = ctx;
-  const buy = await makeDecision(db, env, { strategyId: "e2e-sell", symbol: "BTCUSDT", priceUsd: 60000, desiredAction: "BUY", runId: "r-sell", seedBase: 0 });
+  const buy = await makeDecision(db, env, {
+    strategyId: "e2e-sell", symbol: "BTCUSDT", priceUsd: FIXED_PRICE_USD, desiredAction: "BUY", runId: "r-sell", seedBase: 0,
+    priceTs: FIXED_PRICE_TS, nowMs: FIXED_NOW_MS, minQty: FIXED_BUY_MIN_NOTIONAL_USD / FIXED_PRICE_USD,
+  });
   setBook("BTCUSDT", 60000);
   const exBuy = await executeApprovedDecision({ db, decisionId: buy.decision.decisionId, submitOrder: (p) => submitOrder(env, session.cookie, p) });
   assertEqual(exBuy.ok, true);
   const posQty = (await accountResponse(env, session.cookie)).account.positions["BTCUSDT"].qty;
-  const sell = await makeDecision(db, env, { strategyId: "e2e-sell", symbol: "BTCUSDT", priceUsd: 60000, desiredAction: "SELL", maxQty: posQty * 0.8, runId: "r-sell", seedBase: 200 });
+  const sell = await makeDecision(db, env, {
+    strategyId: "e2e-sell", symbol: "BTCUSDT", priceUsd: FIXED_PRICE_USD, desiredAction: "SELL", maxQty: posQty * 0.8, runId: "r-sell", seedBase: 200,
+    priceTs: FIXED_PRICE_TS, nowMs: FIXED_NOW_MS,
+  });
   await suite.check("SELL decision APPROVED when position exists", async () => {
     assertEqual(sell.decision.action, "SELL");
     assertEqual(sell.risk.approved, true);

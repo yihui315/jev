@@ -23,6 +23,7 @@
 
 import { json, isSameOrigin, requireConfig, readSession, handlePaperSession } from "../../../server/engine/_lib/paper-ledger.mjs";
 import * as engine from "../../../server/engine/_lib/paper-server.mjs";
+import { readFetchBody, BodyTooLargeError } from "../../../server/lib/http-body.mjs";
 
 // The FROZEN engine hardcodes this host (paper-server.mjs:6 API_BASE). It is
 // byte-for-byte unmodified. Measured from the Cloudflare Worker edge:
@@ -531,16 +532,22 @@ async function paperAudit(preq, db, env) {
 }
 
 // ---- router ----------------------------------------------------------------
-function buildEngineRequest(request, pathname, search, bodyText) {
+function buildEngineRequest(request, pathname, search, bodyText, bodyBytes) {
   const url = new URL(request.url);
   const origin = url.origin;
   const headers = { origin, "content-type": "application/json" };
   const cookie = request.headers.get("cookie");
   if (cookie) headers.cookie = cookie;
+  const hasBody = request.method === "POST" || request.method === "PUT";
+  // Prefer the original bytes. `request.text()` is faithful for well-formed
+  // UTF-8, but a string round-trip is lossy for invalid UTF-8, and any
+  // body signature (service-auth sha256 over rawBody) needs the exact bytes.
+  const body = !hasBody ? undefined
+    : (bodyBytes && bodyBytes.byteLength ? bodyBytes : (bodyText || "{}"));
   return new Request(origin + pathname + (search || ""), {
     method: request.method,
     headers,
-    body: request.method === "POST" || request.method === "PUT" ? (bodyText || "{}") : undefined,
+    body,
   });
 }
 
@@ -548,8 +555,27 @@ async function handleApi(request, env, url) {
   const pathname = url.pathname;
   const search = url.search;
   let bodyText = "";
+  let bodyBytes = null;
   if (request.method === "POST" || request.method === "PUT") {
-    bodyText = await request.text();
+    // Bounded in BYTES while streaming, and byte-preserving. Before this, the
+    // body was `await request.text()` with no cap at all: this route sits behind
+    // Basic auth (see onRequest), so it was an authenticated-only unbounded
+    // buffer, not a pre-auth one. The cap is what was missing here; the
+    // per-chunk decode bug was node-facade-only (request.text() decodes once).
+    try {
+      const read = await readFetchBody(request);
+      bodyBytes = read.bytes;
+      bodyText = read.text;
+    } catch (err) {
+      const tooLarge = err instanceof BodyTooLargeError || (err && err.code === "BODY_TOO_LARGE");
+      return envelope({
+        ok: false,
+        error: tooLarge ? "BODY_TOO_LARGE" : "BODY_READ_FAILED",
+        code: tooLarge ? "BODY_TOO_LARGE" : "BODY_READ_FAILED",
+        status: tooLarge ? 413 : 400,
+        ...(tooLarge ? { meta: { max_bytes: err.maxBytes } } : {}),
+      });
+    }
   }
   const db = env.PAPER_DB;
 
@@ -630,7 +656,7 @@ async function handleApi(request, env, url) {
     }
 
     if (pathname === "/api/jev/paper/audit") {
-      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText, bodyBytes);
       const auth = await readSession(preq, env);
       if (auth.error) return auth.error;
       const data = await paperAudit(preq, db, env);
@@ -638,7 +664,7 @@ async function handleApi(request, env, url) {
       return envelope({ data, meta: { source: "authoritative engine D1 (read-only projection, session-scoped)", channel: "SERVER_ENGINE", label: "LIVE", session_scoped: true } });
     }
     if (pathname === "/api/jev/paper/equity") {
-      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText, bodyBytes);
       const auth = await readSession(preq, env);
       // FAIL-CLOSED: no valid session => 401, no schema probe, no rows, and no
       // table_present hint. The old code ignored auth.error and still revealed
@@ -653,7 +679,7 @@ async function handleApi(request, env, url) {
       return envelope({ data: { snapshots: rows, count: rows.length, table_present: !!table, session_scoped: true, equity_curve_synthesized: false }, meta: { source: "paper_equity_snapshots (server-written, read-only)", channel: "SERVER_ENGINE", label: rows.length ? "LIVE" : "NO_DATA" } });
     }
     if (pathname === "/api/jev/paper/orders" && request.method === "GET") {
-      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(request, "/api/paper/account", "", bodyText, bodyBytes);
       const r = await engine.handlePaperAccount(preq, env);
       const body = await r.clone().json().catch(() => null);
       return envelope({
@@ -673,7 +699,7 @@ async function handleApi(request, env, url) {
       "/api/jev/paper/market/tick": (r) => engine.handlePaperMarketTick(r, env),
     };
     if (routes[pathname]) {
-      const preq = buildEngineRequest(request, pathname.replace("/api/jev", "/api"), search, bodyText);
+      const preq = buildEngineRequest(request, pathname.replace("/api/jev", "/api"), search, bodyText, bodyBytes);
       const r = await routes[pathname](preq);
       return engineResponse(r, { route: pathname });
     }

@@ -1,0 +1,107 @@
+{
+  "checks": [
+    {
+      "detail": {
+        "errorCode": "MARKET_MIXING_REJECTED",
+        "provRows": 1,
+        "unknown": 1,
+        "verified": 0
+      },
+      "name": "NEG1_us_plus_global_quotes_rejected",
+      "pass": true
+    },
+    {
+      "detail": {
+        "failure_class": "MARKET_MIXING"
+      },
+      "name": "NEG1_failure_class_market_mixing",
+      "pass": true
+    },
+    {
+      "detail": {
+        "dq": "UNKNOWN"
+      },
+      "name": "NEG1_still_writes_unknown_provenance",
+      "pass": true
+    },
+    {
+      "detail": {
+        "equity": 0,
+        "marks": "{}",
+        "rows": 1
+      },
+      "name": "NEG1_no_fabricated_price",
+      "pass": true
+    },
+    {
+      "detail": {
+        "mark_contracts_json": "{\"1000SATSUSDT\":{\"exchange\":\"Binance Global spot\",\"market\":\"spot\",\"symbol\":\"1000SATSUSDT\",\"base_asset\":\"1000SATS\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 (1000SATS) unit = 1000 SATS\",\"unit_multiplier\":1000,\"status\":\"BLOCKED\",\"reason\":\"GLOBAL_ONLY_IDENTIFIER_NEVER_QUOTED\",\"price_ts\":\"2026-02-02T02:40:00.000Z\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"2026-02-02T02:40:00.000Z\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"45bc16b2aefed22d2c3605be024d86aa7f6e756b456fc8d047beea0e069c0042\",\"data_quality\":\"VERIFIED\"},\"BTCUSDT\":{\"exchange\":\"Binance.US\",\"market\":\"spot\",\"symbol\":\"BTCUSDT\",\"base_asset\":\"BTC\",\"quote_asset\":\"USDT\",\"price_unit\":\"USDT per 1 base_asset unit\",\"unit_multiplier\":1,\"status\":\"SUPPORTED\",\"reason\":null,\"price_ts\":\"2026-02-02T02:40:00.000Z\",\"price_ts_source\":\"exchange_serverTime\",\"source_host\":\"api.binance.us\",\"source_url\":\"https://api.binance.us/api/v3/ticker/price?symbols=%5B%22BTCUSDT%22%5D\",\"network_context\":\"local_test_shim\",\"fetched_at\":\"2026-02-02T02:40:00.000Z\",\"freshness_ms\":0,\"freshness_verdict\":\"FRESH\",\"payload_sha256\":\"45bc16b2aefed22d2c3605be024d86aa7f6e756b456fc8d047beea0e069c0042\",\"data_quality\":\"VERIFIED\"}}"
+      },
+      "name": "NEG1_original_two_market_evidence_preserved",
+      "pass": true
+    },
+    {
+      "detail": {
+        "errorCode": "MARKET_MIXING_REJECTED",
+        "unknown": 1,
+        "verified": 0
+      },
+      "name": "NEG2_us_cycle_rejected_by_prior_global_market",
+      "pass": true
+    },
+    {
+      "detail": {
+        "dq": "UNKNOWN",
+        "fc": "MARKET_MIXING"
+      },
+      "name": "NEG2_rejected_cycle_writes_unknown_provenance",
+      "pass": true
+    },
+    {
+      "detail": {
+        "globalEq": 99000000000000,
+        "peak": 0,
+        "rows": 1
+      },
+      "name": "NEG2_us_snapshot_peak_not_polluted_by_global",
+      "pass": true
+    },
+    {
+      "detail": {
+        "globalEq": 99000000000000,
+        "note": "normal US equity ~1.8e13; sentinel 9.9e13 > 3x that",
+        "threshold": 50000000000000
+      },
+      "name": "NEG2_global_sentinel_exceeds_normal_us_equity_scale",
+      "pass": true
+    },
+    {
+      "detail": {
+        "globalEq": 99000000000000,
+        "peakUS": null
+      },
+      "name": "NEG2_selectHistoryPeak_US_excludes_global_row",
+      "pass": true
+    },
+    {
+      "detail": {
+        "globalEq": 99000000000000,
+        "peakGlobal": 99000000000000
+      },
+      "name": "NEG2_global_row_isolated_in_its_own_partition",
+      "pass": true
+    }
+  ],
+  "extra": {
+    "case1_errorCode": "MARKET_MIXING_REJECTED",
+    "case2_errorCode": "MARKET_MIXING_REJECTED",
+    "globalEq": 99000000000000,
+    "peakGlobal": 99000000000000,
+    "peakUS": null
+  },
+  "meta": {
+    "coverage": "MANDATORY mixing + peak-pollution negatives"
+  },
+  "testId": "v16_negative_mixed_cycle",
+  "verdict": "PASS"
+}

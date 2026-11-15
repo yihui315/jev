@@ -1,7 +1,7 @@
 {
   "overall": "PASS",
-  "generated_utc": "2026-11-09T16:26:38.631Z",
-  "started_utc": "2026-11-09T16:26:38.525Z",
+  "generated_utc": "2026-11-11T04:55:22.079Z",
+  "started_utc": "2026-11-11T04:55:21.980Z",
   "runner": "apps/command_center_3d/server/ai/tests/e2e_real_engine.mjs",
   "environment": {
     "node": "v22.22.2",
@@ -29,7 +29,7 @@
         {
           "name": "execute APPROVED BUY -> REAL engine FILLED (market order)",
           "pass": true,
-          "detail": "orderId=O-2dac3c62-f7d0-47f8-a46d-3a237e8752f2 fills=1"
+          "detail": "orderId=O-112f3bbd-01c9-4f81-9a2a-5525e65f2193 fills=1"
         },
         {
           "name": "REAL engine persisted order+fills+link (not a stub counter)",
@@ -39,7 +39,7 @@
         {
           "name": "equity reconciliation: engine summary.equity = cash + qty*mark",
           "pass": true,
-          "detail": "equity=9999.9179594"
+          "detail": "equity=9999.9319656"
         },
         {
           "name": "scenario scBuyFill",
@@ -124,7 +124,7 @@
         {
           "name": "LIMIT BUY below market -> REAL engine OPEN (not filled)",
           "pass": true,
-          "detail": "orderId=O-2cfdfbae-97c8-4600-83c2-e5a6ac3163d1"
+          "detail": "orderId=O-74e07a03-fe67-46a3-9664-5cd4289af5dd"
         },
         {
           "name": "market tick drops price into limit -> REAL engine FILLS via processLimitOrders",
@@ -139,7 +139,7 @@
         {
           "name": "LIMIT BUY OPEN -> cancel -> REAL engine CANCELED, no position",
           "pass": true,
-          "detail": "orderId=O-d5fab755-fe51-4b52-acdd-9573788e4552"
+          "detail": "orderId=O-720a35d2-c616-402f-856a-932972d6509d"
         },
         {
           "name": "scenario scLimitCancel",
@@ -149,7 +149,7 @@
         {
           "name": "same clientOrderId submitted twice -> 2nd duplicate, same orderId",
           "pass": true,
-          "detail": "orderId=O-b8679049-fe9f-4cda-8246-fd97f24602a3"
+          "detail": "orderId=O-5a8cffe9-a94f-4162-878d-3f0f391ccb21"
         },
         {
           "name": "scenario scOrderIdempotency",

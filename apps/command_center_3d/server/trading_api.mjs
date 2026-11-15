@@ -21,6 +21,9 @@ import { createHash, randomBytes } from "node:crypto";
 import { readFileSync, writeFileSync, existsSync, mkdirSync, appendFileSync, readdirSync } from "node:fs";
 import { resolve, join } from "node:path";
 import { pathToFileURL } from "node:url";
+import {
+  readNodeBodyBytes, resolveMaxBodyBytes, drainThenRespond, BodyTooLargeError,
+} from "./lib/http-body.mjs";
 
 const ROOT = resolve(import.meta.dirname);
 const RUNTIME = join(ROOT, "runtime");
@@ -148,21 +151,58 @@ const SOURCE_LOCAL = {
   label: "VERIFIED", no_synthetic_data: true,
 };
 
-function readBody(req) {
-  return new Promise((resolve) => {
-    let s = "";
-    req.on("data", (c) => { s += c; });
-    req.on("end", () => resolve(s));
+// Body reading lives in ./lib/http-body.mjs, NOT here.
+//
+// The previous local implementation was
+//     let s = ""; req.on("data", (c) => { s += c; }); req.on("end", () => ...)
+// which decodes every chunk SEPARATELY (c is a Buffer), so a multi-byte
+// character split across a TCP segment was rewritten into replacement
+// characters AND the body grew in byte length. Measured on this repo: "你"
+// (3 bytes) split 2+1 came back as 2x U+FFFD = 6 bytes. Two consequences:
+// any non-ASCII payload was silently corrupted, and any HMAC/signature over the
+// raw body (the frozen engine's service-auth.mjs signServiceBody) could never
+// match. The reader now accumulates bytes, caps them in BYTES while streaming,
+// and decodes exactly once at the end.
+//
+// 413 MUST be flushed before the socket is destroyed, otherwise the client gets
+// ECONNRESET instead of the diagnostic. Hence res.end(payload, () => req.destroy()).
+function sendBodyError(req, res, err) {
+  const tooLarge = err instanceof BodyTooLargeError || (err && err.code === "BODY_TOO_LARGE");
+  if (!tooLarge) {
+    // Client aborted: the socket is already gone and there is nobody to answer.
+    try { req.destroy(); } catch (_) { /* already torn down */ }
+    return null;
+  }
+  const payload = JSON.stringify({
+    ok: false,
+    error: "BODY_TOO_LARGE",
+    code: "BODY_TOO_LARGE",
+    status: 413,
+    max_bytes: err.maxBytes,
   });
+  res.statusCode = 413;
+  res.setHeader("content-type", "application/json; charset=utf-8");
+  res.setHeader("cache-control", "no-store");
+  res.setHeader("connection", "close");
+  // Drain first, answer second. Answering first loses the 413 to RST, because
+  // node's own `finish` handler closes the socket while request bytes are still
+  // unread. Draining retains nothing, so the cap still bounds memory.
+  drainThenRespond(req, () => res.end(payload));
+  return null;  // sentinel: the response has already been written
 }
 
-function buildEngineRequest(req, pathname, search, bodyText) {
+function buildEngineRequest(req, pathname, search, bodyText, bodyBytes) {
   const headers = { origin: ORIGIN, "content-type": "application/json" };
   if (req.headers.cookie) headers.cookie = req.headers.cookie;
+  // Forward the ORIGINAL BYTES when we have them: re-serialising the decoded
+  // text is what made the body length drift (3 -> 6 on a split multi-byte char).
+  const hasBody = req.method === "POST" || req.method === "PUT";
+  const body = !hasBody ? undefined
+    : (bodyBytes && bodyBytes.length ? bodyBytes : (bodyText || "{}"));
   return new Request(ORIGIN + pathname + search, {
     method: req.method,
     headers,
-    body: req.method === "POST" || req.method === "PUT" ? (bodyText || "{}") : undefined,
+    body,
   });
 }
 
@@ -377,7 +417,17 @@ async function handle(req, res) {
   const pathname = u.pathname;
   const search = u.search;
   let bodyText = "";
-  if (req.method === "POST" || req.method === "PUT") bodyText = await readBody(req);
+  let bodyBytes = null;
+  if (req.method === "POST" || req.method === "PUT") {
+    // Read BEFORE routing (unchanged), but now bounded in bytes and byte-safe.
+    // On oversize the reader rejects; we answer 413 and only then tear down.
+    try {
+      bodyBytes = await readNodeBodyBytes(req);
+      bodyText = bodyBytes.toString("utf8");
+    } catch (err) {
+      return sendBodyError(req, res, err);
+    }
+  }
 
   try {
     // health (no session needed)
@@ -450,7 +500,7 @@ async function handle(req, res) {
       // fills/events when no valid session is present). Gate first — note we pass
       // the normalized engine Request (preq), not the raw Node request, because
       // the frozen ledger's readSession expects a WHATWG Request (.headers.get).
-      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText, bodyBytes);
       const auth = await ledger.readSession(preq, env);
       if (auth.error) return auth.error;
       return envelope({ data: await paperAudit(preq),
@@ -460,7 +510,7 @@ async function handle(req, res) {
     // Real equity snapshots ONLY. When the table is empty the answer is an
     // empty array (NO DATA), never a synthesized curve.
     if (pathname === "/api/jev/paper/equity") {
-      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText, bodyBytes);
       const auth = await ledger.readSession(preq, env);
       const sid = auth?.session?.sid || null;
       // The frozen engine's first three migrations do not create this table.
@@ -481,7 +531,7 @@ async function handle(req, res) {
     // GET order/trade lists are a server-side projection of the engine's own
     // account state. POST is forwarded verbatim to the frozen order handler.
     if (pathname === "/api/jev/paper/orders" && req.method === "GET") {
-      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText);
+      const preq = buildEngineRequest(req, "/api/paper/account", "", bodyText, bodyBytes);
       const r = await engine.handlePaperAccount(preq, env);
       const body = await r.clone().json().catch(() => null);
       return envelope({
@@ -504,7 +554,7 @@ async function handle(req, res) {
       "/api/jev/paper/market/tick": (r) => engine.handlePaperMarketTick(r, env),
     };
     if (routes[pathname]) {
-      const preq = buildEngineRequest(req, pathname.replace("/api/jev", "/api"), search, bodyText);
+      const preq = buildEngineRequest(req, pathname.replace("/api/jev", "/api"), search, bodyText, bodyBytes);
       const r = await routes[pathname](preq);
       return engineResponse(r, { route: pathname });
     }
@@ -537,6 +587,9 @@ function metaFallback(url) {
 
 const server = createServer((req, res) => {
   handle(req, res).then((response) => {
+    // null === the error path already wrote (or deliberately did not write) the
+    // response itself. Touching `res` again here would throw ERR_STREAM_WRITE_AFTER_END.
+    if (!response) return;
     res.statusCode = response.status;
     // Headers.forEach() joins repeated headers with ", ", which CORRUPTS
     // multiple Set-Cookie values. Forward cookies as an array instead.
@@ -559,5 +612,6 @@ server.listen(PORT, HOST, () => {
   console.log(`[jev-desk-api] engine=${engineUrl}`);
   console.log(`[jev-desk-api] db=${dbPath}`);
   console.log(`[jev-desk-api] market=${VERIFIED_HOST} (REST polling; WebSocket BLOCKED)`);
+  console.log(`[jev-desk-api] max_body_bytes=${resolveMaxBodyBytes()} (byte cap, enforced while reading)`);
 });
 process.on("SIGTERM", () => { adapter.close(); server.close(() => process.exit(0)); });

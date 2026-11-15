@@ -17,6 +17,7 @@ import {
   buildRequest, performRequest, classifyResponse, describeRequest, describeSecret,
   normalizeProvider, DEFAULT_BASE_URLS, ERROR_CODES,
 } from "./provider-adapter.mjs";
+import { CREDENTIAL_DOMAINS, resolveDomainSecret } from "./credential-domain.mjs";
 import { validateDecision, canonicalize, DECISION_SCHEMA_VERSION } from "./decision-schema.mjs";
 import { riskCheck, RISK_ALLOWED_SYMBOLS, loadMarketContext, RISK_CODES } from "./risk-gate.mjs";
 import { toDecisionRow, insertDecision, recordRiskVerdict, recordSubmission, linkOrder, getDecision, listRunDecisions, performanceSummary } from "./decision-store.mjs";
@@ -86,14 +87,15 @@ export function providerRegistryFromEnv(env) {
       modelId: envStr(env, "JEV_AI_OLLAMA_MODEL", "llama3.1"),
       secretRef: "OLLAMA_API_KEY", scope: "local", optionalSecret: true,
     },
-  ];
+  ].map((p) => ({ ...p, domain: CREDENTIAL_DOMAINS.AI_PROVIDER }));
 }
 
 export function resolveSecret(provider, env) {
+  // F-05: 走域限定解析，确保只读取本域允许的凭据名，绝不跨域（见 credential-domain.mjs）。
+  const domain = (provider && provider.domain) || CREDENTIAL_DOMAINS.AI_PROVIDER;
   const ref = provider && provider.secretRef ? String(provider.secretRef) : "";
-  const raw = ref && env ? env[ref] : undefined;
-  const value = typeof raw === "string" ? raw : "";
-  return { present: value.length > 0, value, ref };
+  const r = resolveDomainSecret(domain, ref, env);
+  return { present: r.present, value: r.value, ref: r.name, domain: r.domain, crossDomainBlocked: r.crossDomainBlocked };
 }
 
 /** Status projection. "configured" is a credential fact, never a connectivity claim. */
@@ -112,6 +114,7 @@ export function listProviders(env) {
       modelId: raw.modelId || null,
       secretRef: raw.secretRef,
       scope: raw.scope,
+      domain: raw.domain || CREDENTIAL_DOMAINS.AI_PROVIDER,
       configured,
       credential_present: secret.present,
       last4: secret.present ? describeSecret(secret.value).last4 : null,

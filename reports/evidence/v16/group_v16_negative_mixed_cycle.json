@@ -1,8 +1,8 @@
 {
   "testId": "v16_negative_mixed_cycle",
   "verdict": "PASS",
-  "startedAt": "2026-11-09T13:20:17.632Z",
-  "finishedAt": "2026-11-09T13:20:17.683Z",
+  "startedAt": "2026-11-11T04:55:01.228Z",
+  "finishedAt": "2026-11-11T04:55:01.263Z",
   "meta": {
     "coverage": "MANDATORY mixing + peak-pollution negatives"
   },

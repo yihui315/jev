@@ -1,7 +1,7 @@
 {
   "overall": "PASS",
-  "generated_utc": "2026-11-09T16:31:43.955Z",
-  "started_utc": "2026-11-09T16:31:43.626Z",
+  "generated_utc": "2026-11-11T04:55:25.085Z",
+  "started_utc": "2026-11-11T04:55:24.889Z",
   "runner": "apps/command_center_3d/server/ai/tests/run-all.mjs",
   "environment": {
     "node": "v22.22.2",
@@ -93,7 +93,7 @@
     {
       "id": "t2_provider_errors",
       "title": "Provider adapter: request build, SSRF guard, timeout/error classification",
-      "duration_ms": 3,
+      "duration_ms": 4,
       "passed": 18,
       "failed": 0,
       "checks": [
@@ -192,7 +192,7 @@
     {
       "id": "t3_risk_gate",
       "title": "Risk gate: whitelist, verified context, freshness, notional limits, confidence immunity",
-      "duration_ms": 7,
+      "duration_ms": 3,
       "passed": 13,
       "failed": 0,
       "checks": [
@@ -266,7 +266,7 @@
     {
       "id": "t4_idempotency",
       "title": "Execution idempotency and risk-approval precondition",
-      "duration_ms": 41,
+      "duration_ms": 25,
       "passed": 8,
       "failed": 0,
       "checks": [
@@ -315,7 +315,7 @@
     {
       "id": "t5_data_mode",
       "title": "data_mode isolation: BLOCKED real path, explicit mock path",
-      "duration_ms": 19,
+      "duration_ms": 13,
       "passed": 9,
       "failed": 0,
       "checks": [
@@ -369,7 +369,7 @@
     {
       "id": "t6_persistence_attribution",
       "title": "Persistence, hashes, run projection and attribution via decision_order_links",
-      "duration_ms": 23,
+      "duration_ms": 14,
       "passed": 6,
       "failed": 0,
       "checks": [
@@ -408,14 +408,14 @@
     {
       "id": "t7_redaction",
       "title": "Secret redaction: code, schema columns, status projection, persisted rows",
-      "duration_ms": 93,
+      "duration_ms": 18,
       "passed": 5,
       "failed": 0,
       "checks": [
         {
           "name": "no credential-shaped string in server/ai sources or migrations",
           "pass": true,
-          "detail": "scanned 23 files"
+          "detail": "scanned 30 files"
         },
         {
           "name": "ai_decisions / ai_market_contexts have no secret-bearing column",
@@ -442,7 +442,7 @@
     {
       "id": "t8_role_mapping",
       "title": "Six-role mapping: 6 rows, no code rename, OWNER-DECIDED draft",
-      "duration_ms": 4,
+      "duration_ms": 1,
       "passed": 4,
       "failed": 0,
       "checks": [
@@ -471,7 +471,7 @@
     {
       "id": "t9_gateway_routes",
       "title": "Gateway: AI routes behind red lines + Basic auth, BLOCKED without credentials",
-      "duration_ms": 60,
+      "duration_ms": 47,
       "passed": 7,
       "failed": 0,
       "checks": [
@@ -527,7 +527,7 @@
         {
           "name": "execute APPROVED BUY -> REAL engine FILLED (market order)",
           "pass": true,
-          "detail": "orderId=O-e961c5fe-8091-466a-bea3-69109594976c fills=1"
+          "detail": "orderId=O-32f3bb9d-173a-43f0-8c1b-730f1462c1cd fills=1"
         },
         {
           "name": "REAL engine persisted order+fills+link (not a stub counter)",
@@ -537,7 +537,7 @@
         {
           "name": "equity reconciliation: engine summary.equity = cash + qty*mark",
           "pass": true,
-          "detail": "equity=9999.9199596"
+          "detail": "equity=9999.891946"
         },
         {
           "name": "scenario scBuyFill",
@@ -622,7 +622,7 @@
         {
           "name": "LIMIT BUY below market -> REAL engine OPEN (not filled)",
           "pass": true,
-          "detail": "orderId=O-b252defd-256d-4b60-8d95-f6147c02f47f"
+          "detail": "orderId=O-d39aeaa0-2ef4-445f-960f-382719e60335"
         },
         {
           "name": "market tick drops price into limit -> REAL engine FILLS via processLimitOrders",
@@ -637,7 +637,7 @@
         {
           "name": "LIMIT BUY OPEN -> cancel -> REAL engine CANCELED, no position",
           "pass": true,
-          "detail": "orderId=O-ab0cdf64-5c15-497e-8e79-f77aa6886cd6"
+          "detail": "orderId=O-96db04ab-cd2e-4f5c-b781-e46ee507e7b1"
         },
         {
           "name": "scenario scLimitCancel",
@@ -647,7 +647,7 @@
         {
           "name": "same clientOrderId submitted twice -> 2nd duplicate, same orderId",
           "pass": true,
-          "detail": "orderId=O-7907881e-8d5f-4a23-9efa-7484bcb652c9"
+          "detail": "orderId=O-4f7f396b-0980-4c04-ba12-ecdd52bb4f8a"
         },
         {
           "name": "scenario scOrderIdempotency",
