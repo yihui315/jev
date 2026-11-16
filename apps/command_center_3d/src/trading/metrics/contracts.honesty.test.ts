@@ -135,6 +135,62 @@ describe("deriveCockpitSnapshot — real PAPER account", () => {
     expect(s.metrics.netPnl.value).toBe(0);
   });
 
+  it("NEGATIVE: dailyRoi is N/A when dailyPnl, dayStartEquity and explicit dayRoi are all missing", () => {
+    const raw = realRaw();
+    const acc = structuredClone(raw.account) as Json;
+    const summary = acc["summary"] as Json;
+    const account = acc["account"] as Json;
+    // Strip EVERY candidate path the derivation reads, so N/A is the only
+    // honest outcome. No curve diff / decoy may be substituted as a "daily" return.
+    for (const k of ["dailyPnl", "dayPnl", "dayRoi", "dailyRoi", "roi24h", "dayStartEquity"]) {
+      delete summary[k];
+      delete account[k];
+      delete acc[k];
+    }
+    const s = deriveCockpitSnapshot({ ...raw, account: acc });
+    const m = s.metrics.dailyRoi;
+    expect({ value: m.value, display: m.display, domain: m.domain })
+      .toEqual({ value: null, display: "N/A", domain: "UNAVAILABLE" });
+    expect(m.source).toBe("NOT_AVAILABLE");
+    expect(m.naReason).not.toBeNull();
+    expect(m.naReason).toMatch(/dailyPnl|dayStartEquity|dayRoi/);
+    // Domain separation still holds, and a missing daily field must not
+    // corrupt the independent net P&L / equity metrics.
+    expect(Object.values(s.metrics).every((x) => x.domain !== "REAL")).toBe(true);
+    expect(s.metrics.netPnl.value).toBe(0);
+    expect(s.equity.domain).toBe("PAPER");
+  });
+
+  it("POSITIVE: dailyRoi uses explicit dayRoi, else deterministic dailyPnl/dayStartEquity", () => {
+    const raw = realRaw();
+
+    // (a) explicit server-reported dayRoi wins and is emitted verbatim as PAPER/PCT.
+    const explicit = structuredClone(raw.account) as Json;
+    (explicit["summary"] as Json)["dayRoi"] = 2.5;
+    const s1 = deriveCockpitSnapshot({ ...raw, account: explicit });
+    expect(s1.metrics.dailyRoi.value).toBe(2.5);
+    expect(s1.metrics.dailyRoi.display).toContain("2.5");
+    expect(s1.metrics.dailyRoi.domain).toBe("PAPER");
+    expect(s1.metrics.dailyRoi.unit).toBe("PCT");
+    expect(s1.metrics.dailyRoi.source).toBe("/api/jev/paper/account");
+    expect(s1.metrics.dailyRoi.naReason).toBeNull();
+
+    // (b) no explicit field: 250 / |10000| * 100 = 2.5%, from real-shaped fields.
+    const derived = structuredClone(raw.account) as Json;
+    delete (derived["summary"] as Json)["dayRoi"];
+    (derived["summary"] as Json)["dailyPnl"] = 250;
+    (derived["account"] as Json)["dayStartEquity"] = 10000;
+    const s2 = deriveCockpitSnapshot({ ...raw, account: derived });
+    expect(s2.metrics.dailyRoi.value).toBe(2.5);
+    expect(s2.metrics.dailyRoi.display).toBe("2.50%");
+    expect(s2.metrics.dailyRoi.domain).toBe("PAPER");
+    expect(s2.metrics.dailyRoi.naReason).toBeNull();
+
+    // Neither derivation path may introduce a REAL-domain metric.
+    expect(Object.values(s1.metrics).every((m) => m.domain !== "REAL")).toBe(true);
+    expect(Object.values(s2.metrics).every((m) => m.domain !== "REAL")).toBe(true);
+  });
+
   it("NEGATIVE: equity.snapshots=[] stays N/A even with summary.drawdown / equityPeak decoys", () => {
     const raw = realRaw();
     const eq = structuredClone(raw.equity) as Json;

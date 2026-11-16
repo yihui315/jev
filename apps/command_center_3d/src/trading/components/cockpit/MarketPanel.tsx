@@ -6,6 +6,9 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createChart, ColorType } from "lightweight-charts";
 import { fmtPrice, fmtQty } from "../common";
 import { makeIds, placePaperOrder } from "../../api/client";
+import { COCKPIT_PALETTE as P } from "../../metrics/contracts";
+
+const MONO = "ui-monospace, SFMono-Regular, Consolas, monospace";
 
 // lightweight-charts v4 series/chart handles are kept as `any` (same approach
 // as the existing TradingWorkbench) so the terminal is decoupled from the
@@ -214,6 +217,9 @@ function OrderTicket({ symbol, onPlaced }: { symbol: string; onPlaced: () => voi
       </div>
       {!confirming ? (
         <div className="ck-form">
+          <div style={{ color: P.muted, fontFamily: MONO, fontSize: 10, letterSpacing: 0.4, marginBottom: 5 }}>
+            步骤 1/2 · 填写并校验（尚未下单）
+          </div>
           <div className="ck-toolbar">
             <div className="ck-seg">
               <button className={side === "BUY" ? "on" : ""} onClick={() => setSide("BUY")}>买入</button>
@@ -230,13 +236,19 @@ function OrderTicket({ symbol, onPlaced }: { symbol: string; onPlaced: () => voi
             <div className="ck-field"><label>限价（USDT）</label>
               <input className="ck-input" value={limit} onChange={(e) => setLimit(e.target.value)} inputMode="decimal" /></div>
           ) : null}
-          <button className={`ck-btn ${side === "BUY" ? "buy" : "sell"}`} onClick={beginConfirm}>提交订单 → 人工确认</button>
+          <button className={`ck-btn ${side === "BUY" ? "buy" : "sell"}`} style={{ width: "100%", fontWeight: 700 }} onClick={beginConfirm}>提交订单 → 人工确认</button>
         </div>
       ) : (
-        <div className="ck-form">
+        <div className="ck-form" style={{
+          border: `1px solid ${P.amber}`, background: "rgba(245,181,68,.08)",
+          borderRadius: 6, padding: 10,
+        }}>
+          <div style={{ color: P.amber, fontFamily: MONO, fontSize: 10, fontWeight: 700, letterSpacing: 0.4, marginBottom: 6 }}>
+            步骤 2/2 · 需人工确认（不会自动下单）
+          </div>
           <div className="ck-msg">请人工确认：<b>{side}</b> · {type} · {symbol} · 数量 {qty}{type === "LIMIT" ? ` · 限价 ${limit}` : ""}</div>
           <div className="ck-toolbar">
-            <button className="ck-btn confirm" disabled={busy} onClick={confirm}>{busy ? "提交中…" : "确认下单（服务端撮合）"}</button>
+            <button className="ck-btn confirm" style={{ fontWeight: 700 }} disabled={busy} onClick={confirm}>{busy ? "提交中…" : "确认下单（服务端撮合）"}</button>
             <button className="ck-btn ghost" disabled={busy} onClick={() => setConfirming(false)}>取消</button>
           </div>
         </div>
@@ -279,26 +291,26 @@ export function MarketRightPanel({ symbol, depth, depthStatus, trades, tradesSta
         </div>
         {depthNA ? <div className="ck-na">{depthNA} · 行情不可用</div> : (
           <div className="ck-book">
-            <div className="head row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr" }}>
+            <div className="head row" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", fontFamily: MONO, fontSize: 10, letterSpacing: 0.4, lineHeight: 1.2 }}>
               <span style={{ textAlign: "left" }}>价格</span><span style={{ textAlign: "right" }}>数量</span><span style={{ textAlign: "right" }}>累计</span>
             </div>
             <div className="asks">
               {asks.map((r, i) => {
                 const tot = asks.slice(0, i + 1).reduce((a, b) => a + (Number(b[1]) || 0), 0);
                 return (
-                  <div className="row" key={"a" + i}>
+                  <div className="row" key={"a" + i} style={{ lineHeight: 1.25, fontSize: 11 }}>
                     <span className="bar" style={{ background: "var(--ck-red)", width: `${maxQ ? (Number(r[1]) || 0) / maxQ * 100 : 0}%` }} />
                     <span className="px">{fmtPrice(r[0])}</span><span>{fmtQty(r[1])}</span><span className="tot">{fmtQty(tot)}</span>
                   </div>
                 );
               })}
             </div>
-            <div className="mid">— 买卖中间价 —</div>
+            <div className="mid" style={{ fontFamily: MONO, fontSize: 10, letterSpacing: 0.4 }}>— 买卖中间价 —</div>
             <div className="bids">
               {bids.map((r, i) => {
                 const tot = bids.slice(0, i + 1).reduce((a, b) => a + (Number(b[1]) || 0), 0);
                 return (
-                  <div className="row" key={"b" + i}>
+                  <div className="row" key={"b" + i} style={{ lineHeight: 1.25, fontSize: 11 }}>
                     <span className="bar" style={{ background: "var(--ck-green)", width: `${maxQ ? (Number(r[1]) || 0) / maxQ * 100 : 0}%` }} />
                     <span className="px">{fmtPrice(r[0])}</span><span>{fmtQty(r[1])}</span><span className="tot">{fmtQty(tot)}</span>
                   </div>
@@ -312,11 +324,11 @@ export function MarketRightPanel({ symbol, depth, depthStatus, trades, tradesSta
           <span className="ck-sub">逐笔成交</span><span className={tBadge.cls}>{tBadge.text}</span>
         </div>
         {tradesNA ? <div className="ck-na">{tradesNA}</div> : (
-          <table className="ck-table">
-            <thead><tr><th>价格</th><th>数量</th><th>时间</th></tr></thead>
+          <table className="ck-table" style={{ width: "100%", borderCollapse: "collapse", fontFamily: MONO, fontSize: 11 }}>
+            <thead><tr><th style={{ padding: "3px 6px", color: P.muted, fontWeight: 600, fontSize: 10, textAlign: "left" }}>价格</th><th style={{ padding: "3px 6px", color: P.muted, fontWeight: 600, fontSize: 10, textAlign: "right" }}>数量</th><th style={{ padding: "3px 6px", color: P.muted, fontWeight: 600, fontSize: 10, textAlign: "right" }}>时间</th></tr></thead>
             <tbody>{tradeRows.map((t, i) => (
-              <tr key={i}><td className="ck-up">{fmtPrice(t.price ?? t.p)}</td><td>{fmtQty(t.qty ?? t.q)}</td>
-                <td>{t.time ? new Date(Number(t.time)).toLocaleTimeString("en-US") : "—"}</td></tr>
+              <tr key={i}><td className="ck-up" style={{ padding: "3px 6px" }}>{fmtPrice(t.price ?? t.p)}</td><td style={{ padding: "3px 6px", textAlign: "right" }}>{fmtQty(t.qty ?? t.q)}</td>
+                <td style={{ padding: "3px 6px", textAlign: "right", color: P.muted }}>{t.time ? new Date(Number(t.time)).toLocaleTimeString("en-US") : "—"}</td></tr>
             ))}</tbody>
           </table>
         )}

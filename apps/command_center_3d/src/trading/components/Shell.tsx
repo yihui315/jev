@@ -9,6 +9,28 @@ import type { Label } from "../api/client";
 
 export type PageId = "command" | "workbench" | "universe" | "strategy" | "account" | "team" | "cockpit";
 
+// ---- Line A: professional five-item primary navigation --------------------
+// Independent of the frozen NAV constant below (which QA asserts verbatim and
+// keeps every hash route reachable). PRIMARY_NAV is a PRESENTATION layer only:
+// it re-groups existing pages and, for the two cockpit targets, emits a focus
+// hint before delegating to the same onSelect(page) callback. Keyed by `key`
+// (not `id`) so static NAV assertions that scan `id: "…"` are unaffected.
+export type CommandFocus = "overview" | "performance";
+export interface PrimaryNavItem {
+  key: string;
+  label: string;
+  sub: string;
+  page: PageId;
+  focus?: CommandFocus;
+}
+export const PRIMARY_NAV: PrimaryNavItem[] = [
+  { key: "COMMAND", label: "指挥总览", sub: "资金 / 盈亏 / 风险总览", page: "cockpit", focus: "overview" },
+  { key: "MARKETS", label: "市场交易", sub: "行情 / K线 / 盘口 / 下单", page: "workbench" },
+  { key: "AI ENGINE", label: "AI 决策", sub: "MiniMax / M3 / 阿里百炼决策", page: "command" },
+  { key: "EXECUTION", label: "执行账本", sub: "订单 / 成交 / 持仓 / 撤单", page: "account" },
+  { key: "PERFORMANCE", label: "绩效成本", sub: "收益 / ROI / 胜率 / 回撤 / 成本", page: "cockpit", focus: "performance" },
+];
+
 export const NAV: { id: PageId; num: number; label: string; icon: IconComp }[] = [
   { id: "command", num: 1, label: "AI 交易指挥中心", icon: IconCommand },
   { id: "workbench", num: 2, label: "专业交易工作台", icon: IconChart },
@@ -21,24 +43,57 @@ export const NAV: { id: PageId; num: number; label: string; icon: IconComp }[] =
   { id: "cockpit", num: 7, label: "交易驾驶舱 · Cockpit", icon: IconCommand },
 ];
 
+// Secondary "更多分区" entries — the three pages not covered by PRIMARY_NAV.
+// Derived from the frozen NAV so every one of the seven pages stays reachable.
+const MORE_NAV = NAV.filter((n) => n.id === "universe" || n.id === "strategy" || n.id === "team");
+
 export function Sidebar({ page, onSelect }: { page: PageId; onSelect: (p: PageId) => void }) {
+  const selectPrimary = (item: PrimaryNavItem) => {
+    if (item.focus) {
+      try {
+        sessionStorage.setItem("jev.command.focus", item.focus);
+        window.dispatchEvent(new CustomEvent("jev:commandfocus", { detail: item.focus }));
+      } catch { /* non-browser / storage disabled — navigation still works */ }
+    }
+    onSelect(item.page);
+  };
+
   return (
     <aside className="jev-sidebar">
       <div className="jev-brand">
         <h1>JEV Trading Desk</h1>
-        <div className="sub">V1.0 · 自主增长交易终端</div>
+        <div className="sub">PRO TRADING TERMINAL · PAPER ONLY</div>
       </div>
-      <nav className="jev-nav">
-        {NAV.map((n) => {
-          const I = n.icon;
+      <nav className="jev-nav pn-primary" aria-label="主导航">
+        {PRIMARY_NAV.map((item) => {
+          // COMMAND and PERFORMANCE both target cockpit; both highlight there.
+          const active = item.page === "cockpit" ? page === "cockpit" : page === item.page;
           return (
-            <button key={n.id} className={`jev-nav-item ${page === n.id ? "active" : ""}`} onClick={() => onSelect(n.id)}>
-              <I />
-              <span className="num">{n.num}</span>
-              <span>{n.label}</span>
+            <button
+              key={item.key}
+              className={`pn-item ${active ? "active" : ""}`}
+              aria-current={active ? "page" : undefined}
+              onClick={() => selectPrimary(item)}
+              title={item.sub}
+            >
+              <span className="pn-key">{item.key}</span>
+              <span className="pn-sub">{item.sub}</span>
             </button>
           );
         })}
+      </nav>
+      <nav className="jev-nav pn-more" aria-label="更多分区">
+        <div className="pn-more-label">更多分区 / MORE</div>
+        {MORE_NAV.map((n) => (
+          <button
+            key={n.id}
+            className={`pn-more-item ${page === n.id ? "active" : ""}`}
+            onClick={() => onSelect(n.id)}
+          >
+            <span className="num">{n.num}</span>
+            <span>{n.label}</span>
+          </button>
+        ))}
       </nav>
       <div className="jev-side-foot">
         统一后端数据适配层<br />

@@ -468,3 +468,40 @@ describe("mobile navigation and min-content regression", () => {
     expect(s).toContain("Mobile layout correction — 390px viewport");
   });
 });
+
+
+// Line A five-nav presentation layer, merged on top of the PR8 base. These
+// assertions are ADDITIVE — every contract above (6+1 NAV, 7 routes, frozen
+// byte-identical files, 7-KPI, 390 regression) stays untouched.
+describe("five-nav presentation layer on the PR8 base", () => {
+  it("Shell.tsx exposes the five primary nav keys and the focus handshake", () => {
+    const s = read("src/trading/components/Shell.tsx");
+    expect(s).toContain("PRIMARY_NAV");
+    for (const key of ["COMMAND", "MARKETS", "AI ENGINE", "EXECUTION", "PERFORMANCE"]) {
+      expect(s).toContain(`key: "${key}"`);
+    }
+    expect(s).toContain("MORE_NAV");
+    expect(s).toContain("jev.command.focus");
+    expect(s).toContain("jev:commandfocus");
+  });
+
+  it("styles.css ships the five-nav classes and a 390px top-rail rule for .pn-item", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toContain(".pn-item");
+    expect(s).toContain(".pn-more-item");
+    // The mobile top-rail guard must target the NEW nav classes, not only the
+    // legacy .jev-nav-item — otherwise five fixed-width items blow 390px apart.
+    expect(s).toMatch(/\.jev-nav\.pn-primary[\s\S]{0,400}flex-direction:\s*row/s);
+    expect(s).toMatch(/\.pn-item[\s\S]{0,200}flex:\s*0 0 auto/s);
+    expect(s).toMatch(/\.pn-item[\s\S]{0,200}width:\s*auto/s);
+  });
+
+  it("TradingCockpit keeps the safety Gate ribbon while consuming the focus handshake", () => {
+    const s = read("src/trading/pages/TradingCockpit.tsx");
+    expect(s).toContain('className="ck-terminal-ribbon"');
+    expect(s).toContain("REAL-ORDER GATE");
+    expect(s).toContain("jev:commandfocus");
+    expect(s).toContain("ck-focus-banner");
+    expect(s).toContain("data-focus-label");
+  });
+});

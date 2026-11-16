@@ -1,5 +1,5 @@
 // Pure presentational cost attribution + risk red-line panel.
-// Red-line values are read ONLY from `system`; missing => "红线状态 N/A",
+// Red-line values are read ONLY from `system`; missing => "N/A" in amber,
 // never inferred as "safe". Self-contained inline styles.
 import {
   COCKPIT_PALETTE as P,
@@ -37,23 +37,40 @@ function flagText(v: unknown): string | null {
   return null;
 }
 
-const RED_LINES: { label: string; paths: string[][] }[] = [
+const RED_LINES: { label: string; paths: string[][]; safeNote?: string }[] = [
   {
     label: "真实交易开关 enableRealTrading",
     paths: [
       ["enableRealTrading"], ["realTradingEnabled"], ["allow_real_trading"],
       ["red_lines", "real_money"], ["red_lines", "real_exchange_orders"],
     ],
+    safeNote: "PAPER ONLY",
   },
   {
     label: "买卖开关 allowBuySell",
     paths: [["allowBuySell"], ["allow_buy_sell"], ["trading_allowed"]],
+    safeNote: "PAPER ONLY",
   },
   {
     label: "WebSocket 行情通道",
     paths: [["limits", "websocket"], ["websocket"], ["websocket_status"], ["market_channel"]],
+    safeNote: "非 WS LIVE · REST 轮询",
   },
 ];
+
+// false / BLOCKED = explicitly safe (green, with a PAPER ONLY style note).
+// true / LIVE = dangerous (red). Missing / unknown = amber N/A, never "safe".
+function redLineView(value: string | null, safeNote?: string): { color: string; text: string } {
+  if (value === null) return { color: P.amber, text: "N/A" };
+  const v = value.toLowerCase();
+  if (v === "false" || v === "0" || v === "blocked" || v === "disabled") {
+    return { color: P.up, text: value + (safeNote ? ` · ${safeNote}` : "") };
+  }
+  if (v === "true" || v === "1" || v === "enabled" || v === "live") {
+    return { color: P.down, text: value + " · 真实能力已开启（危险）" };
+  }
+  return { color: P.amber, text: value + " · 需人工核验" };
+}
 
 function CostCell({ label, cell }: { label: string; cell: MetricCell }) {
   return (
@@ -62,12 +79,14 @@ function CostCell({ label, cell }: { label: string; cell: MetricCell }) {
       border: `1px solid ${P.border}`, borderRadius: 8, padding: "10px 12px",
       display: "flex", flexDirection: "column", gap: 5,
     }}>
-      <span style={{ color: P.muted, fontSize: 11 }}>{label}</span>
+      <span style={{ color: P.muted, fontSize: 10.5, textTransform: "uppercase", letterSpacing: 0.5 }}>
+        {label}
+      </span>
       <span
         title={cell.naReason ?? undefined}
         style={{
-          fontFamily: "ui-monospace, Consolas, monospace", fontSize: 18,
-          color: cell.value === null ? P.muted : P.text,
+          fontFamily: "ui-monospace, Consolas, monospace", fontSize: 26, fontWeight: 600,
+          color: cell.value === null ? P.muted : P.text, lineHeight: 1.15,
         }}
       >
         {cell.display}
@@ -88,15 +107,16 @@ export function CostAttribution(props: { snapshot: CockpitSnapshot; system?: unk
       label: rl.label,
       value: hit ? flagText(hit.value) : null,
       field: hit ? hit.hit : null,
+      view: redLineView(hit ? flagText(hit.value) : null, rl.safeNote),
     };
   });
   const anyKnown = redLines.some((r) => r.value !== null);
 
   const costItems: { label: string; cell: MetricCell }[] = [
-    { label: "AI 推理成本", cell: s.metrics.aiInferenceCost },
-    { label: "交易手续费", cell: s.metrics.tradingFees },
-    { label: "滑点成本", cell: s.metrics.slippage },
-    { label: "净利润归因 Net P&L", cell: s.metrics.netPnl },
+    { label: "AI Inference 推理成本", cell: s.metrics.aiInferenceCost },
+    { label: "Trading Fees 手续费", cell: s.metrics.tradingFees },
+    { label: "Slippage 滑点", cell: s.metrics.slippage },
+    { label: "Net P&L 净利润归因", cell: s.metrics.netPnl },
   ];
 
   return (
@@ -114,8 +134,8 @@ export function CostAttribution(props: { snapshot: CockpitSnapshot; system?: unk
         border: `1px solid ${P.amber}`, background: "rgba(245,181,68,.06)",
         borderRadius: 8, padding: "10px 12px",
       }}>
-        <div style={{ color: P.amber, fontSize: 11.5, marginBottom: 8, lineHeight: 1.5 }}>
-          风险告警 · 红线状态（仅展示从 system 读到的真实值，绝不按「安全」处理）
+        <div style={{ color: P.amber, fontSize: 11.5, fontWeight: 600, marginBottom: 8, lineHeight: 1.5 }}>
+          风险告警 · 红线状态（仅展示从 system 读到的真实值，绝不按「安全」推断）
         </div>
         {anyKnown ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 5 }}>
@@ -127,14 +147,14 @@ export function CostAttribution(props: { snapshot: CockpitSnapshot; system?: unk
                 <span style={{ color: P.muted }}>
                   {r.label}{r.field ? ` [${r.field}]` : ""}
                 </span>
-                <span style={{ color: r.value === null ? P.muted : P.amber }}>
-                  {r.value ?? "N/A"}
+                <span style={{ color: r.view.color, fontWeight: 600 }} title={r.field ?? undefined}>
+                  {r.view.text}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <div style={{ color: P.amber, fontSize: 12 }}>红线状态 N/A</div>
+          <div style={{ color: P.amber, fontSize: 12, fontWeight: 600 }}>红线状态 N/A</div>
         )}
         <div style={{ color: P.muted, fontSize: 10.5, marginTop: 8, lineHeight: 1.5 }}>
           取不到的字段一律 N/A；请勿把缺失值推断为「已启用 / 安全」。

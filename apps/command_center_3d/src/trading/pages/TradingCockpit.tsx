@@ -36,9 +36,29 @@ function toStatus(q: QLike, has: (d: unknown) => boolean): SourceStatus {
   return { label: q.meta?.label, unreachable: q.unreachable, error: q.error, loading: q.loading, hasData: has(q.data) };
 }
 
+// ---- Line A: COMMAND (overview) vs PERFORMANCE focus, driven by the Sidebar
+// five-nav presentation layer. Reads/writes the same focus key the nav emits.
+type Focus = "overview" | "performance";
+const FOCUS_KEY = "jev.command.focus";
+function readFocus(): Focus {
+  try { return sessionStorage.getItem(FOCUS_KEY) === "performance" ? "performance" : "overview"; }
+  catch { return "overview"; }
+}
+
 export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   const [symbol, setSymbol] = useState<Sym>("BTCUSDT");
   const [interval, setInterval] = useState("1h");
+  // Line A: focus is presentation-only; never touches data or safety logic.
+  const [focus, setFocus] = useState<Focus>(readFocus);
+
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const detail = (e as CustomEvent<Focus>).detail;
+      setFocus(detail === "performance" ? "performance" : "overview");
+    };
+    window.addEventListener("jev:commandfocus", onFocus);
+    return () => window.removeEventListener("jev:commandfocus", onFocus);
+  }, []);
 
   // HttpOnly+Secure paper session cookie — same pattern as the six pages.
   useEffect(() => {
@@ -154,6 +174,75 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   }
   if (systemQ.unreachable) riskItems.push({ level: "crit", text: "system/status N/A（接口不可用）：风险红线无法核验" });
 
+  // ---- Line A: focus-driven presentation reorder. The safety Gate / ribbon
+  // above is NEVER reordered or weakened; only these three display blocks move.
+  const perf = focus === "performance";
+  const leadCls = perf ? " ck-focus-lead" : "";
+
+  // Region 1 — unified KPI strip (promoted in performance focus).
+  const kpiBlock = (
+    <div className={`ck-focus-block${leadCls}`}>
+      <MetricStrip snapshot={snapshot} />
+    </div>
+  );
+
+  // Regions 2/3/4/5 — resizable market + ledger workspace.
+  const marketBlock = (
+    <div className="cockpit-workspace">
+      <div className="cockpit-vsplit" ref={vContainerRef}>
+        <div className="cockpit-vpane upper" style={{ minHeight: vSplit }}>
+          <div className="cockpit-hsplit" ref={hContainerRef}>
+            <div className="cockpit-hpane left" style={{ flex: `0 0 ${hSplit}%` }}>
+              <KlinePanel symbol={symbol} interval={interval} klines={klinesQ.data} status={klineStatus} />
+            </div>
+            <div className="ck-splitter" onPointerDown={onHDragStart} role="separator" aria-orientation="vertical" />
+            <div className="cockpit-hpane right">
+              <MarketRightPanel
+                symbol={symbol} depth={depthQ.data} depthStatus={depthStatus}
+                trades={tradesQ.data} tradesStatus={tradesStatus} onPlaced={refreshLedger}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="ck-splitter v" onPointerDown={onVDragStart} role="separator" aria-orientation="horizontal" />
+        <div className="cockpit-vpane lower">
+          <ExecutionLedger
+            account={accountQ.data} accountStatus={accountStatus}
+            orders={ordersQ.data} ordersStatus={ordersStatus}
+            events={eventsQ.data} onChanged={refreshLedger}
+          />
+        </div>
+      </div>
+      <div className="cockpit-rail">
+        <ProviderComparison rows={rows} />
+      </div>
+    </div>
+  );
+
+  // Region 6 — cost attribution + risk alerts (promoted in performance focus).
+  const costBlock = (
+    <div className={`ck-focus-block${leadCls}`}>
+      <div className="cockpit-bottom">
+        <CostAttribution snapshot={snapshot} system={systemQ.data} />
+        <section className="cockpit-panel">
+          <div className="ck-head">
+            <span className="ck-title">系统风险告警</span>
+            <span className="ck-spacer" />
+            <DomainBadge domain="SYSTEM" />
+            <span className={sysBadge.cls}>{sysBadge.text}</span>
+          </div>
+          <div className="ck-body">
+            <div className="ck-risk-list">
+              {riskItems.length
+                ? riskItems.map((r, i) => <div key={i} className={`ck-risk ${r.level}`}><span className="dot" />{r.text}</div>)
+                : <div className="ck-na">N/A（接口不可用 / 无告警数据）</div>}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+
   return (
     <>
       {topbar}
@@ -229,62 +318,33 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
             按 <b>?</b> 查看快捷键
           </div>
 
-          {/* Region 1 — unified KPI strip */}
-          <MetricStrip snapshot={snapshot} />
-
-          {/* Regions 2/3/4/5 — resizable workspace */}
-          <div className="cockpit-workspace">
-            <div className="cockpit-vsplit" ref={vContainerRef}>
-              {/* upper: Region 2 (chart) | Region 3 (book + ticket) */}
-              <div className="cockpit-vpane upper" style={{ minHeight: vSplit }}>
-                <div className="cockpit-hsplit" ref={hContainerRef}>
-                  <div className="cockpit-hpane left" style={{ flex: `0 0 ${hSplit}%` }}>
-                    <KlinePanel symbol={symbol} interval={interval} klines={klinesQ.data} status={klineStatus} />
-                  </div>
-                  <div className="ck-splitter" onPointerDown={onHDragStart} role="separator" aria-orientation="vertical" />
-                  <div className="cockpit-hpane right">
-                    <MarketRightPanel
-                      symbol={symbol} depth={depthQ.data} depthStatus={depthStatus}
-                      trades={tradesQ.data} tradesStatus={tradesStatus} onPlaced={refreshLedger}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="ck-splitter v" onPointerDown={onVDragStart} role="separator" aria-orientation="horizontal" />
-              {/* lower: Region 4 (ledger) */}
-              <div className="cockpit-vpane lower">
-                <ExecutionLedger
-                  account={accountQ.data} accountStatus={accountStatus}
-                  orders={ordersQ.data} ordersStatus={ordersStatus}
-                  events={eventsQ.data} onChanged={refreshLedger}
-                />
-              </div>
+          {/* Line A — focus banner: performance promotes KPI + cost to the top */}
+          {perf ? (
+            <div className="ck-focus-banner" data-focus-label="PERFORMANCE · 绩效与成本明细">
+              <span className="ck-focus-tag">PERFORMANCE</span>
+              <span>· 绩效与成本明细 · KPI 与成本归因置顶</span>
+              <span className="ck-spacer" />
+              <DomainBadge domain="PAPER" />
+              <DomainBadge domain="SYSTEM" />
             </div>
-            {/* Region 5 — right analysis rail */}
-            <div className="cockpit-rail">
-              <ProviderComparison rows={rows} />
-            </div>
-          </div>
+          ) : null}
 
-          {/* Region 6 — cost attribution + risk alerts */}
-          <div className="cockpit-bottom">
-            <CostAttribution snapshot={snapshot} system={systemQ.data} />
-            <section className="cockpit-panel">
-              <div className="ck-head">
-                <span className="ck-title">系统风险告警</span>
-                <span className="ck-spacer" />
-                <DomainBadge domain="SYSTEM" />
-                <span className={sysBadge.cls}>{sysBadge.text}</span>
-              </div>
-              <div className="ck-body">
-                <div className="ck-risk-list">
-                  {riskItems.length
-                    ? riskItems.map((r, i) => <div key={i} className={`ck-risk ${r.level}`}><span className="dot" />{r.text}</div>)
-                    : <div className="ck-na">N/A（接口不可用 / 无告警数据）</div>}
-                </div>
-              </div>
-            </section>
-          </div>
+          {/* Line B safety Gate / ribbon stays on top (above). Only these
+              presentation blocks are reordered by focus. */}
+          {perf ? (
+            <>
+              {kpiBlock}
+              {costBlock}
+              <div className="ck-region-label">MARKET / EXECUTION · 行情 · 下单 · 账本</div>
+              {marketBlock}
+            </>
+          ) : (
+            <>
+              {kpiBlock}
+              {marketBlock}
+              {costBlock}
+            </>
+          )}
         </div>
       </div>
 

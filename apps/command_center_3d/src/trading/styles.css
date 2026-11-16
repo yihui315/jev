@@ -614,6 +614,118 @@ body {
 
 
 /* ==========================================================================
+ * LINE A — professional terminal shell (APPENDED overrides; originals intact).
+ * Narrow high-density sidebar, five-item primary nav, performance-focus KPI
+ * promotion. metrics-dev children use inline styles, so scaling is done on the
+ * wrapper (zoom) rather than by touching their internals — no class conflicts.
+ * ========================================================================== */
+.jev-app { grid-template-columns: 210px 1fr; }
+.jev-sidebar { overflow-x: hidden; }
+
+/* brand */
+.jev-brand { padding: 13px 14px 10px; }
+.jev-brand h1 { font-family: var(--mono); font-size: 13px; letter-spacing: .4px; }
+.jev-brand .sub {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .5px;
+  color: var(--accent); text-transform: uppercase; margin-top: 4px;
+}
+
+/* primary nav — uppercase mono, compact, active left-border emphasis */
+.jev-nav.pn-primary { padding: 8px 6px; gap: 3px; }
+.pn-item {
+  display: flex; flex-direction: column; gap: 2px; width: 100%;
+  padding: 7px 9px 7px 10px; border: 1px solid transparent;
+  border-left: 3px solid transparent; border-radius: 5px;
+  background: none; color: var(--muted); text-align: left; cursor: pointer;
+  font-family: var(--mono); min-width: 0;
+}
+.pn-item:hover { background: var(--surface-alt); color: var(--text); }
+.pn-item.active {
+  background: var(--surface-alt); color: var(--text);
+  border-left-color: var(--accent); border-color: var(--border);
+}
+.pn-item .pn-key {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.pn-item.active .pn-key { color: var(--accent); }
+.pn-item .pn-sub {
+  font-size: 9px; color: var(--muted); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* secondary "更多分区" — small, subdued, keeps all 7 pages reachable */
+.jev-nav.pn-more {
+  padding: 6px; gap: 1px; border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.pn-more-label {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px;
+  color: var(--muted); text-transform: uppercase; padding: 4px 9px 5px;
+}
+.pn-more-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 5px 9px; border: none; border-radius: 5px;
+  background: none; color: var(--muted); font-size: 10.5px;
+  text-align: left; cursor: pointer;
+}
+.pn-more-item:hover { background: var(--surface-alt); color: var(--text); }
+.pn-more-item.active { color: var(--text); background: var(--surface-alt); }
+.pn-more-item .num { color: var(--accent); font-family: var(--mono); font-size: 9.5px; }
+
+/* focus banner + region labels */
+.ck-focus-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border: 1px solid var(--ck-border-strong);
+  border-radius: 7px; background: linear-gradient(90deg, rgba(76,141,255,.12), transparent 60%);
+  font-family: var(--mono); font-size: 11px; color: var(--ck-text);
+  letter-spacing: .3px; flex: 0 0 auto;
+}
+.ck-focus-tag {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+  color: var(--ck-blue); padding: 1px 7px;
+  border: 1px solid rgba(76,141,255,.5); border-radius: 3px;
+}
+.ck-focus-banner .ck-spacer { flex: 1; }
+.ck-region-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.6px; text-transform: uppercase; color: var(--ck-muted);
+  padding: 2px 2px 0; flex: 0 0 auto;
+}
+
+/* performance focus — promote & enlarge KPI + cost wrappers via zoom so the
+   inline-styled metrics-dev children scale without class-name conflicts */
+.ck-focus-block { min-width: 0; }
+.ck-focus-block.ck-focus-lead {
+  zoom: 1.12;
+  padding: 6px; border-radius: 10px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(76,141,255,.10), transparent 55%);
+  border: 1px solid var(--ck-border);
+}
+
+/* higher-contrast cockpit typography (section titles already uppercase mono) */
+.cockpit-panel > .ck-head .ck-title { letter-spacing: 1.1px; font-size: 11.5px; }
+.ck-na { font-size: 11.5px; }
+
+/* responsive: 1366×768 / 1440×900 / 1920×1080 — expand existing 1439/1180
+   breakpoints with tighter rails & nav so nothing clips or overflows */
+@media (max-width: 1499px) {
+  .jev-app { grid-template-columns: 196px 1fr; }
+  .cockpit-workspace { grid-template-columns: minmax(0, 1fr) 300px; }
+  .cockpit-bottom { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+@media (max-width: 1366px) {
+  .jev-app { grid-template-columns: 186px 1fr; }
+  .cockpit-workspace { grid-template-columns: minmax(0, 1fr) 270px; }
+  .cockpit-bottom { grid-template-columns: minmax(0, 1fr) 270px; }
+  .pn-item .pn-sub { font-size: 8.5px; }
+}
+@media (min-width: 1700px) {
+  .ck-focus-block.ck-focus-lead { zoom: 1.16; }
+}
+
+
+/* ==========================================================================
  * Mobile layout correction — 390px viewport.
  * The desktop shell reserved a fixed 232px sidebar, while the cockpit's
  * 1fr grid tracks retained min-content width. On phones the navigation moves
@@ -690,6 +802,29 @@ body {
     width: 14px;
     height: 14px;
     flex: 0 0 14px;
+  }
+
+  /* Five-nav presentation layer: Line B's rail fix above only covered the
+     legacy .jev-nav-item. The new primary/more rails and their buttons must
+     ALSO become a horizontally scrollable top rail — otherwise five fixed
+     width .pn-item / .pn-more-item nodes blow the 390px layout apart. */
+  .jev-nav.pn-primary,
+  .jev-nav.pn-more {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .pn-item,
+  .pn-more-item {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
   }
 
   /* Allow the page and every Cockpit grid/flex track to shrink to the viewport. */

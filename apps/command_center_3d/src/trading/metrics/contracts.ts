@@ -16,7 +16,7 @@
 export type DataDomain = "PAPER" | "REAL" | "UNAVAILABLE";
 
 export type MetricKey =
-  | "grossPnl" | "netPnl" | "roi" | "winRate" | "orderAcceptanceRate"
+  | "grossPnl" | "netPnl" | "roi" | "dailyRoi" | "winRate" | "orderAcceptanceRate"
   | "fillRate" | "profitFactor" | "maxDrawdown" | "tradingFees"
   | "slippage" | "aiInferenceCost";
 
@@ -276,11 +276,39 @@ function maxDrawdown(equityRaw: unknown): number | null {
   return maxDD;
 }
 
+// Daily ROI is derived ONLY from real, day-scoped paper fields that actually
+// exist in the payload. Two honest paths, in priority order:
+//   1) an explicit server-reported daily return (dayRoi / dailyRoi / roi24h),
+//      interpreted as an already-computed percentage;
+//   2) deterministic dayPnl / |dayStartEquity| * 100, using the engine's real
+//      summary.dailyPnl and account.dayStartEquity fields.
+// A missing / non-finite / zero-baseline value => null (=> N/A). The equity
+// snapshot curve is NOT used here: its snapshots=[] in the real payload and a
+// synthesized or time-unbounded curve diff must never be labelled "daily".
+function dailyRoi(account: unknown): number | null {
+  const explicit = pickNum(account, [
+    ["summary", "dayRoi"], ["summary", "dailyRoi"], ["summary", "roi24h"],
+    ["account", "summary", "dayRoi"], ["dayRoi"], ["dailyRoi"], ["roi24h"],
+  ]);
+  if (explicit !== null) return explicit;
+  const dayPnl = pickNum(account, [
+    ["summary", "dailyPnl"], ["summary", "dayPnl"],
+    ["account", "summary", "dailyPnl"], ["data", "summary", "dailyPnl"],
+    ["dailyPnl"], ["dayPnl"],
+  ]);
+  const dayStart = pickNum(account, [
+    ["account", "dayStartEquity"], ["dayStartEquity"],
+    ["data", "account", "dayStartEquity"], ["summary", "dayStartEquity"],
+  ]);
+  if (dayPnl === null || dayStart === null || dayStart === 0) return null;
+  return (dayPnl / Math.abs(dayStart)) * 100;
+}
+
 // ---------------------------------------------------------------------------
 // Static maps / constants (must be initialized before EMPTY_* below)
 // ---------------------------------------------------------------------------
 const ALL_KEYS: MetricKey[] = [
-  "grossPnl", "netPnl", "roi", "winRate", "orderAcceptanceRate",
+  "grossPnl", "netPnl", "roi", "dailyRoi", "winRate", "orderAcceptanceRate",
   "fillRate", "profitFactor", "maxDrawdown", "tradingFees",
   "slippage", "aiInferenceCost",
 ];
@@ -289,6 +317,7 @@ const LABEL_MAP: Record<MetricKey, string> = {
   grossPnl: "毛收益 Gross P&L",
   netPnl: "净收益 Net P&L",
   roi: "投资回报率 ROI",
+  dailyRoi: "日收益率 Daily ROI",
   winRate: "策略胜率 Win Rate",
   orderAcceptanceRate: "订单接受率",
   fillRate: "订单成交率 Fill Rate",
@@ -300,7 +329,7 @@ const LABEL_MAP: Record<MetricKey, string> = {
 };
 
 const UNIT_MAP: Record<MetricKey, MetricCell["unit"]> = {
-  grossPnl: "USD", netPnl: "USD", roi: "PCT", winRate: "PCT",
+  grossPnl: "USD", netPnl: "USD", roi: "PCT", dailyRoi: "PCT", winRate: "PCT",
   orderAcceptanceRate: "PCT", fillRate: "PCT", profitFactor: "RATIO",
   maxDrawdown: "PCT", tradingFees: "USD", slippage: "USD", aiInferenceCost: "USD",
 };
@@ -412,6 +441,7 @@ export function deriveCockpitSnapshot(raw: CockpitRaw): CockpitSnapshot {
     if (equity !== null && initialEquity !== null && initialEquity !== 0) {
       roi = ((equity - initialEquity) / Math.abs(initialEquity)) * 100;
     }
+    const dRoi = dailyRoi(account);
     const rates = orderRates(ordersRaw);
     const fees = tradingFees(account, ordersRaw);
     const dd = maxDrawdown(equityRaw);
@@ -431,6 +461,8 @@ export function deriveCockpitSnapshot(raw: CockpitRaw): CockpitSnapshot {
       "paper/account 未提供 summary.totalPnl / realizedPnl 等真实净收益字段");
     setMetric(metrics, "roi", roi, "PAPER", SRC_ACC,
       "缺少 paper/account 的真实初始资金字段（account.initialCash）或当前权益（summary.equity），无法确定性计算 ROI");
+    setMetric(metrics, "dailyRoi", dRoi, "PAPER", SRC_ACC,
+      "缺少 paper/account 的真实日收益字段（summary.dailyPnl 与 account.dayStartEquity）或显式 dayRoi，无法确定性计算日收益率；不使用权益曲线差值冒充日收益");
     // winRate MUST stay N/A: it needs real closed-trade P&L, never API success.
     setMetric(metrics, "winRate", null, "UNAVAILABLE", SRC_STRAT,
       "需要真实已平仓成交序列；strategies/status 返回 NO_DATA，禁止以 API/推理成功率冒充策略胜率");
