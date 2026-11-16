@@ -397,3 +397,111 @@ describe("compliance red lines", () => {
     expect(s).toContain("WebSocket");
   });
 });
+
+
+describe("professional terminal polish — regression contracts", () => {
+  it("shows source provenance and a fail-closed real-order gate", () => {
+    const s = read("src/trading/pages/TradingCockpit.tsx");
+    expect(s).toContain('className="ck-terminal-ribbon"');
+    expect(s).toContain("MARKET DATA");
+    expect(s).toContain("PAPER ACCOUNT");
+    expect(s).toContain("AI PROVIDERS");
+    expect(s).toContain("SYSTEM HEALTH");
+    expect(s).toContain("REAL-ORDER GATE");
+    expect(s).toContain('h.real_money === false && h.real_exchange_orders === false');
+    expect(s).toContain('h.real_money === true || h.real_exchange_orders === true');
+    expect(s).toContain("安全字段不完整");
+    expect(s).toContain("安全 Gate 未通过");
+  });
+
+  it("renders seven headline KPIs from the unified metrics contract", () => {
+    const s = read("src/trading/components/cockpit/MetricStrip.tsx");
+    for (const label of [
+      "账户权益 · EQUITY",
+      "可用现金 · CASH",
+      "净收益 · NET P&L",
+      "投资回报率 · ROI",
+      "策略胜率 · WIN RATE",
+      "订单成交率 · FILL RATE",
+      "最大回撤 · MAX DD",
+    ]) expect(s).toContain(label);
+    for (const field of [
+      "s.equity.display",
+      "s.cash.display",
+      "s.metrics.netPnl",
+      "s.metrics.roi.display",
+      "s.metrics.winRate.display",
+      "s.metrics.fillRate.display",
+      "s.metrics.maxDrawdown.display",
+    ]) expect(s).toContain(field);
+    expect(s).toContain('aria-label="核心绩效指标"');
+    expect(s).toContain('data-domain={props.domain}');
+  });
+
+  it("keeps the terminal ribbon and KPI grid responsive at desktop, tablet and mobile widths", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toContain(".ck-terminal-ribbon");
+    expect(s).toContain(".ck-status-grid");
+    expect(s).toContain(".ck-kpi-strip");
+    expect(s).toContain("@media (max-width: 1600px)");
+    expect(s).toContain("@media (max-width: 1180px)");
+    expect(s).toContain("@media (max-width: 640px)");
+  });
+});
+
+
+describe("mobile navigation and min-content regression", () => {
+  it("collapses the fixed sidebar into a horizontally scrollable top rail on phones", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toContain("@media (max-width: 640px)");
+    expect(s).toMatch(/\.jev-app\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.jev-nav\s*\{[^}]*flex-direction:\s*row/s);
+    expect(s).toMatch(/\.jev-nav\s*\{[^}]*overflow-x:\s*auto/s);
+    expect(s).toMatch(/\.jev-side-foot\s*\{\s*display:\s*none/s);
+  });
+
+  it("removes min-content expansion from the mobile Cockpit workspace and bottom grid", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toMatch(/\.cockpit-workspace\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.cockpit-bottom\s*\{[^}]*grid-template-columns:\s*minmax\(0,\s*1fr\)/s);
+    expect(s).toMatch(/\.cockpit-hsplit\s*\{\s*flex-direction:\s*column/s);
+    expect(s).toContain("Mobile layout correction — 390px viewport");
+  });
+});
+
+
+// Line A five-nav presentation layer, merged on top of the PR8 base. These
+// assertions are ADDITIVE — every contract above (6+1 NAV, 7 routes, frozen
+// byte-identical files, 7-KPI, 390 regression) stays untouched.
+describe("five-nav presentation layer on the PR8 base", () => {
+  it("Shell.tsx exposes the five primary nav keys and the focus handshake", () => {
+    const s = read("src/trading/components/Shell.tsx");
+    expect(s).toContain("PRIMARY_NAV");
+    for (const key of ["COMMAND", "MARKETS", "AI ENGINE", "EXECUTION", "PERFORMANCE"]) {
+      expect(s).toContain(`key: "${key}"`);
+    }
+    expect(s).toContain("MORE_NAV");
+    expect(s).toContain("jev.command.focus");
+    expect(s).toContain("jev:commandfocus");
+  });
+
+  it("styles.css ships the five-nav classes and a 390px top-rail rule for .pn-item", () => {
+    const s = read("src/trading/styles.css");
+    expect(s).toContain(".pn-item");
+    expect(s).toContain(".pn-more-item");
+    // The mobile top-rail guard must target the NEW nav classes, not only the
+    // legacy .jev-nav-item — otherwise five fixed-width items blow 390px apart.
+    expect(s).toMatch(/\.jev-nav\.pn-primary[\s\S]{0,400}flex-direction:\s*row/s);
+    expect(s).toMatch(/\.pn-item[\s\S]{0,200}flex:\s*0 0 auto/s);
+    expect(s).toMatch(/\.pn-item[\s\S]{0,200}width:\s*auto/s);
+  });
+
+  it("TradingCockpit keeps the safety Gate ribbon while consuming the focus handshake", () => {
+    const s = read("src/trading/pages/TradingCockpit.tsx");
+    expect(s).toContain('className="ck-terminal-ribbon"');
+    expect(s).toContain("REAL-ORDER GATE");
+    expect(s).toContain("jev:commandfocus");
+    expect(s).toContain("ck-focus-banner");
+    expect(s).toContain("data-focus-label");
+  });
+});

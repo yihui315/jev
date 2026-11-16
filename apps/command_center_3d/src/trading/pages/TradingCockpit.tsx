@@ -36,9 +36,29 @@ function toStatus(q: QLike, has: (d: unknown) => boolean): SourceStatus {
   return { label: q.meta?.label, unreachable: q.unreachable, error: q.error, loading: q.loading, hasData: has(q.data) };
 }
 
+// ---- Line A: COMMAND (overview) vs PERFORMANCE focus, driven by the Sidebar
+// five-nav presentation layer. Reads/writes the same focus key the nav emits.
+type Focus = "overview" | "performance";
+const FOCUS_KEY = "jev.command.focus";
+function readFocus(): Focus {
+  try { return sessionStorage.getItem(FOCUS_KEY) === "performance" ? "performance" : "overview"; }
+  catch { return "overview"; }
+}
+
 export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   const [symbol, setSymbol] = useState<Sym>("BTCUSDT");
   const [interval, setInterval] = useState("1h");
+  // Line A: focus is presentation-only; never touches data or safety logic.
+  const [focus, setFocus] = useState<Focus>(readFocus);
+
+  useEffect(() => {
+    const onFocus = (e: Event) => {
+      const detail = (e as CustomEvent<Focus>).detail;
+      setFocus(detail === "performance" ? "performance" : "overview");
+    };
+    window.addEventListener("jev:commandfocus", onFocus);
+    return () => window.removeEventListener("jev:commandfocus", onFocus);
+  }, []);
 
   // HttpOnly+Secure paper session cookie — same pattern as the six pages.
   useEffect(() => {
@@ -91,7 +111,13 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   const accountStatus = toStatus(accountQ, hasObject);
   const ordersStatus = toStatus(ordersQ, hasObject);
   const systemStatus = toStatus(systemQ, hasObject);
+  const providersStatus = toStatus(providersQ, hasObject);
+  const healthStatus = toStatus(healthQ, hasObject);
   const sysBadge = statusBadge(systemStatus);
+  const marketBadge = statusBadge(klineStatus);
+  const paperBadge = statusBadge(accountStatus);
+  const providerBadge = statusBadge(providersStatus);
+  const healthBadge = statusBadge(healthStatus);
 
   const refreshLedger = () => {
     accountQ.refetch(); ordersQ.refetch(); eventsQ.refetch(); equityQ.refetch();
@@ -129,10 +155,93 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
   if (lim.strategy_oos && String(lim.strategy_oos).includes("NO_DATA"))
     riskItems.push({ level: "warn", text: "策略 OOS：NO_DATA，无真实样本不生成排名" });
   const h = (healthQ.data ?? {}) as { real_money?: boolean; real_exchange_orders?: boolean };
-  if (healthQ.unreachable || healthQ.error) riskItems.push({ level: "crit", text: "health N/A（接口不可用）：红线状态不明，按不安全处理" });
-  else if (healthQ.data && h.real_money === false)
+  const safetyState = healthQ.unreachable || healthQ.error || !healthQ.data
+    ? { text: "UNKNOWN", cls: "unavailable", note: "health 未核验" }
+    : h.real_money === false && h.real_exchange_orders === false
+      ? { text: "LOCKED", cls: "paper", note: "真实资金 / 交易所下单均关闭" }
+      : h.real_money === true || h.real_exchange_orders === true
+        ? { text: "UNSAFE", cls: "blocked", note: "检测到真实交易权限开启" }
+        : { text: "UNKNOWN", cls: "unavailable", note: "安全字段不完整" };
+
+  if (healthQ.unreachable || healthQ.error || !healthQ.data) {
+    riskItems.push({ level: "crit", text: "health N/A（接口不可用）：真实资金与交易权限无法核验，按不安全处理" });
+  } else if (h.real_money === true || h.real_exchange_orders === true) {
+    riskItems.push({ level: "crit", text: "合规红线：检测到真实资金或真实交易所下单权限开启；停止所有交易动作并关闭权限" });
+  } else if (h.real_money === false && h.real_exchange_orders === false) {
     riskItems.push({ level: "info", text: "合规红线：real_money=false · real_exchange_orders=false（禁止真实资金/真实下单）" });
+  } else {
+    riskItems.push({ level: "crit", text: "合规红线：health 未同时明确返回 real_money=false 与 real_exchange_orders=false；安全 Gate 未通过" });
+  }
   if (systemQ.unreachable) riskItems.push({ level: "crit", text: "system/status N/A（接口不可用）：风险红线无法核验" });
+
+  // ---- Line A: focus-driven presentation reorder. The safety Gate / ribbon
+  // above is NEVER reordered or weakened; only these three display blocks move.
+  const perf = focus === "performance";
+  const leadCls = perf ? " ck-focus-lead" : "";
+
+  // Region 1 — unified KPI strip (promoted in performance focus).
+  const kpiBlock = (
+    <div className={`ck-focus-block${leadCls}`}>
+      <MetricStrip snapshot={snapshot} />
+    </div>
+  );
+
+  // Regions 2/3/4/5 — resizable market + ledger workspace.
+  const marketBlock = (
+    <div className="cockpit-workspace">
+      <div className="cockpit-vsplit" ref={vContainerRef}>
+        <div className="cockpit-vpane upper" style={{ minHeight: vSplit }}>
+          <div className="cockpit-hsplit" ref={hContainerRef}>
+            <div className="cockpit-hpane left" style={{ flex: `0 0 ${hSplit}%` }}>
+              <KlinePanel symbol={symbol} interval={interval} klines={klinesQ.data} status={klineStatus} />
+            </div>
+            <div className="ck-splitter" onPointerDown={onHDragStart} role="separator" aria-orientation="vertical" />
+            <div className="cockpit-hpane right">
+              <MarketRightPanel
+                symbol={symbol} depth={depthQ.data} depthStatus={depthStatus}
+                trades={tradesQ.data} tradesStatus={tradesStatus} onPlaced={refreshLedger}
+              />
+            </div>
+          </div>
+        </div>
+        <div className="ck-splitter v" onPointerDown={onVDragStart} role="separator" aria-orientation="horizontal" />
+        <div className="cockpit-vpane lower">
+          <ExecutionLedger
+            account={accountQ.data} accountStatus={accountStatus}
+            orders={ordersQ.data} ordersStatus={ordersStatus}
+            events={eventsQ.data} onChanged={refreshLedger}
+          />
+        </div>
+      </div>
+      <div className="cockpit-rail">
+        <ProviderComparison rows={rows} />
+      </div>
+    </div>
+  );
+
+  // Region 6 — cost attribution + risk alerts (promoted in performance focus).
+  const costBlock = (
+    <div className={`ck-focus-block${leadCls}`}>
+      <div className="cockpit-bottom">
+        <CostAttribution snapshot={snapshot} system={systemQ.data} />
+        <section className="cockpit-panel">
+          <div className="ck-head">
+            <span className="ck-title">系统风险告警</span>
+            <span className="ck-spacer" />
+            <DomainBadge domain="SYSTEM" />
+            <span className={sysBadge.cls}>{sysBadge.text}</span>
+          </div>
+          <div className="ck-body">
+            <div className="ck-risk-list">
+              {riskItems.length
+                ? riskItems.map((r, i) => <div key={i} className={`ck-risk ${r.level}`}><span className="dot" />{r.text}</div>)
+                : <div className="ck-na">N/A（接口不可用 / 无告警数据）</div>}
+            </div>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -167,68 +276,75 @@ export function TradingCockpit({ topbar }: { topbar: ReactNode }) {
             <button className="ck-btn ghost" onClick={reset} title="重置面板布局">重置布局</button>
           </div>
 
+          <section className="ck-terminal-ribbon" aria-label="交易终端运行状态">
+            <div className="ck-terminal-brand">
+              <span className="ck-eyebrow">JEV / QUANT OPERATIONS</span>
+              <strong>专业交易终端</strong>
+              <span className="ck-terminal-caption">PAPER-FIRST · SERVER-AUTHORITATIVE</span>
+              <small>服务端数据时间：{snapshot.generatedAtUtc ?? "N/A"}</small>
+            </div>
+            <div className="ck-status-grid">
+              <div className="ck-status-cell">
+                <span className="ck-status-label">MARKET DATA</span>
+                <span className={marketBadge.cls}>{marketBadge.text}</span>
+                <small>REST_POLLING · 非 WebSocket LIVE</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">PAPER ACCOUNT</span>
+                <span className={paperBadge.cls}>{paperBadge.text}</span>
+                <small>服务端权威模拟账本</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">AI PROVIDERS</span>
+                <span className={providerBadge.cls}>{providerBadge.text}</span>
+                <small>接口状态不代表策略胜率</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">SYSTEM HEALTH</span>
+                <span className={healthBadge.cls}>{healthBadge.text}</span>
+                <small>{healthQ.error ?? (healthQ.loading ? "正在检查" : "服务端健康状态")}</small>
+              </div>
+              <div className="ck-status-cell">
+                <span className="ck-status-label">REAL-ORDER GATE</span>
+                <span className={"ck-badge " + safetyState.cls}>{safetyState.text}</span>
+                <small>{safetyState.note}</small>
+              </div>
+            </div>
+          </section>
+
           <div style={{ fontSize: 10.5, color: "var(--ck-muted)", lineHeight: 1.5 }}>
             真实公开 REST 行情（Binance.US spot，通道 <b>REST_POLLING</b>，非 WebSocket LIVE）· PAPER 模拟由<b>服务端权威引擎</b>撮合 ·
             客户端不定价 / 不记账 · 真实与 PAPER 指标域由统一指标层分离并标注 · 所有数据源按 meta.label 判定，接口不可用一律 N/A，绝不缓存假数据 ·
             按 <b>?</b> 查看快捷键
           </div>
 
-          {/* Region 1 — unified KPI strip */}
-          <MetricStrip snapshot={snapshot} />
-
-          {/* Regions 2/3/4/5 — resizable workspace */}
-          <div className="cockpit-workspace">
-            <div className="cockpit-vsplit" ref={vContainerRef}>
-              {/* upper: Region 2 (chart) | Region 3 (book + ticket) */}
-              <div className="cockpit-vpane upper" style={{ minHeight: vSplit }}>
-                <div className="cockpit-hsplit" ref={hContainerRef}>
-                  <div className="cockpit-hpane left" style={{ flex: `0 0 ${hSplit}%` }}>
-                    <KlinePanel symbol={symbol} interval={interval} klines={klinesQ.data} status={klineStatus} />
-                  </div>
-                  <div className="ck-splitter" onPointerDown={onHDragStart} role="separator" aria-orientation="vertical" />
-                  <div className="cockpit-hpane right">
-                    <MarketRightPanel
-                      symbol={symbol} depth={depthQ.data} depthStatus={depthStatus}
-                      trades={tradesQ.data} tradesStatus={tradesStatus} onPlaced={refreshLedger}
-                    />
-                  </div>
-                </div>
-              </div>
-              <div className="ck-splitter v" onPointerDown={onVDragStart} role="separator" aria-orientation="horizontal" />
-              {/* lower: Region 4 (ledger) */}
-              <div className="cockpit-vpane lower">
-                <ExecutionLedger
-                  account={accountQ.data} accountStatus={accountStatus}
-                  orders={ordersQ.data} ordersStatus={ordersStatus}
-                  events={eventsQ.data} onChanged={refreshLedger}
-                />
-              </div>
+          {/* Line A — focus banner: performance promotes KPI + cost to the top */}
+          {perf ? (
+            <div className="ck-focus-banner" data-focus-label="PERFORMANCE · 绩效与成本明细">
+              <span className="ck-focus-tag">PERFORMANCE</span>
+              <span>· 绩效与成本明细 · KPI 与成本归因置顶</span>
+              <span className="ck-spacer" />
+              <DomainBadge domain="PAPER" />
+              <DomainBadge domain="SYSTEM" />
             </div>
-            {/* Region 5 — right analysis rail */}
-            <div className="cockpit-rail">
-              <ProviderComparison rows={rows} />
-            </div>
-          </div>
+          ) : null}
 
-          {/* Region 6 — cost attribution + risk alerts */}
-          <div className="cockpit-bottom">
-            <CostAttribution snapshot={snapshot} system={systemQ.data} />
-            <section className="cockpit-panel">
-              <div className="ck-head">
-                <span className="ck-title">系统风险告警</span>
-                <span className="ck-spacer" />
-                <DomainBadge domain="SYSTEM" />
-                <span className={sysBadge.cls}>{sysBadge.text}</span>
-              </div>
-              <div className="ck-body">
-                <div className="ck-risk-list">
-                  {riskItems.length
-                    ? riskItems.map((r, i) => <div key={i} className={`ck-risk ${r.level}`}><span className="dot" />{r.text}</div>)
-                    : <div className="ck-na">N/A（接口不可用 / 无告警数据）</div>}
-                </div>
-              </div>
-            </section>
-          </div>
+          {/* Line B safety Gate / ribbon stays on top (above). Only these
+              presentation blocks are reordered by focus. */}
+          {perf ? (
+            <>
+              {kpiBlock}
+              {costBlock}
+              <div className="ck-region-label">MARKET / EXECUTION · 行情 · 下单 · 账本</div>
+              {marketBlock}
+            </>
+          ) : (
+            <>
+              {kpiBlock}
+              {marketBlock}
+              {costBlock}
+            </>
+          )}
         </div>
       </div>
 

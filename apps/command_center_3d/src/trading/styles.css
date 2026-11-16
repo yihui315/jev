@@ -443,3 +443,440 @@ body {
 /* now that panels are overflow:visible, keep wide nowrap tables from creating
    horizontal document overflow — each body stays a bounded scroll context */
 .cockpit-panel > .ck-body { min-width: 0; max-width: 100%; overflow-x: auto; }
+
+
+/* ==========================================================================
+ * JEV terminal polish — compact institutional information hierarchy.
+ * Additive overrides only: existing chart, order, ledger and safety contracts
+ * remain unchanged. The KPI values are still sourced by MetricStrip.
+ * ========================================================================== */
+.ck-terminal-ribbon {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.85fr) minmax(0, 3.15fr);
+  gap: 12px;
+  align-items: stretch;
+  padding: 12px;
+  border: 1px solid var(--ck-border);
+  border-radius: 9px;
+  background:
+    radial-gradient(90% 140% at 0% 0%, rgba(59,130,246,.10), transparent 60%),
+    linear-gradient(135deg, rgba(17,27,41,.98), rgba(9,15,24,.98));
+}
+.ck-terminal-brand {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  min-width: 0;
+  padding: 2px 8px 2px 4px;
+  border-right: 1px solid var(--ck-border);
+}
+.ck-eyebrow {
+  color: var(--ck-blue);
+  font: 700 9px/1.4 var(--mono);
+  letter-spacing: 1.5px;
+}
+.ck-terminal-brand strong {
+  color: var(--ck-text);
+  font-size: 18px;
+  letter-spacing: .2px;
+}
+.ck-terminal-caption {
+  color: var(--ck-muted);
+  font: 600 9px/1.5 var(--mono);
+  letter-spacing: .7px;
+}
+.ck-terminal-brand small {
+  color: var(--ck-muted);
+  font: 10px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+.ck-status-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 7px;
+  min-width: 0;
+}
+.ck-status-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 5px;
+  min-width: 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(124,141,163,.14);
+  border-radius: 6px;
+  background: rgba(5,10,17,.36);
+}
+.ck-status-label {
+  color: var(--ck-muted);
+  font: 700 9px/1.3 var(--mono);
+  letter-spacing: .8px;
+}
+.ck-status-cell small {
+  color: var(--ck-muted);
+  font-size: 9.5px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.ck-kpi-strip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px;
+  width: 100%;
+}
+.ck-kpi-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  min-height: 102px;
+  padding: 11px 12px 10px;
+  overflow: hidden;
+  border: 1px solid var(--ck-border);
+  border-radius: 8px;
+  background: linear-gradient(160deg, rgba(17,27,41,.96), rgba(10,16,25,.98));
+}
+.ck-kpi-card::before {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  content: "";
+  background: rgba(124,141,163,.26);
+}
+.ck-kpi-card.tone-up::before { background: var(--ck-green); }
+.ck-kpi-card.tone-down::before { background: var(--ck-red); }
+.ck-kpi-card.is-na::before { background: rgba(124,141,163,.2); }
+.ck-kpi-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 6px;
+  min-width: 0;
+}
+.ck-kpi-label {
+  color: var(--ck-muted);
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+.ck-kpi-domain {
+  flex: 0 0 auto;
+  padding: 1px 5px;
+  border: 1px solid var(--ck-border-strong);
+  border-radius: 3px;
+  color: var(--ck-muted);
+  font: 8px/1.5 var(--mono);
+  letter-spacing: .35px;
+}
+.ck-kpi-domain.paper { color: var(--ck-blue); border-color: rgba(76,141,255,.42); }
+.ck-kpi-domain.real { color: var(--ck-green); border-color: rgba(31,209,165,.42); }
+.ck-kpi-domain.unavailable { color: var(--ck-muted); }
+.ck-kpi-value {
+  color: var(--ck-text);
+  font: 600 clamp(17px, 1.25vw, 24px)/1.15 var(--mono);
+  letter-spacing: -.35px;
+  font-variant-numeric: tabular-nums;
+  overflow-wrap: anywhere;
+}
+.ck-kpi-card.tone-up .ck-kpi-value { color: var(--ck-green); }
+.ck-kpi-card.tone-down .ck-kpi-value { color: var(--ck-red); }
+.ck-kpi-card.is-na .ck-kpi-value { color: var(--ck-muted); }
+.ck-kpi-note {
+  min-height: 25px;
+  color: var(--ck-muted);
+  font-size: 9px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+.ck-terminal-ribbon + div[style] { max-width: 100%; }
+@media (max-width: 1600px) {
+  .ck-kpi-strip { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ck-status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 1180px) {
+  .ck-terminal-ribbon { grid-template-columns: 1fr; }
+  .ck-terminal-brand { border-right: 0; border-bottom: 1px solid var(--ck-border); padding: 2px 2px 10px; }
+  .ck-status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ck-kpi-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ck-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ck-kpi-strip { grid-template-columns: 1fr 1fr; }
+  .ck-kpi-card { min-height: 92px; padding: 9px; }
+  .ck-kpi-value { font-size: 17px; }
+}
+
+
+/* ==========================================================================
+ * LINE A — professional terminal shell (APPENDED overrides; originals intact).
+ * Narrow high-density sidebar, five-item primary nav, performance-focus KPI
+ * promotion. metrics-dev children use inline styles, so scaling is done on the
+ * wrapper (zoom) rather than by touching their internals — no class conflicts.
+ * ========================================================================== */
+.jev-app { grid-template-columns: 210px 1fr; }
+.jev-sidebar { overflow-x: hidden; }
+
+/* brand */
+.jev-brand { padding: 13px 14px 10px; }
+.jev-brand h1 { font-family: var(--mono); font-size: 13px; letter-spacing: .4px; }
+.jev-brand .sub {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: .5px;
+  color: var(--accent); text-transform: uppercase; margin-top: 4px;
+}
+
+/* primary nav — uppercase mono, compact, active left-border emphasis */
+.jev-nav.pn-primary { padding: 8px 6px; gap: 3px; }
+.pn-item {
+  display: flex; flex-direction: column; gap: 2px; width: 100%;
+  padding: 7px 9px 7px 10px; border: 1px solid transparent;
+  border-left: 3px solid transparent; border-radius: 5px;
+  background: none; color: var(--muted); text-align: left; cursor: pointer;
+  font-family: var(--mono); min-width: 0;
+}
+.pn-item:hover { background: var(--surface-alt); color: var(--text); }
+.pn-item.active {
+  background: var(--surface-alt); color: var(--text);
+  border-left-color: var(--accent); border-color: var(--border);
+}
+.pn-item .pn-key {
+  font-size: 11px; font-weight: 700; letter-spacing: 1px;
+  text-transform: uppercase; white-space: nowrap;
+}
+.pn-item.active .pn-key { color: var(--accent); }
+.pn-item .pn-sub {
+  font-size: 9px; color: var(--muted); line-height: 1.35;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+/* secondary "更多分区" — small, subdued, keeps all 7 pages reachable */
+.jev-nav.pn-more {
+  padding: 6px; gap: 1px; border-top: 1px solid var(--border);
+  margin-top: 4px;
+}
+.pn-more-label {
+  font-family: var(--mono); font-size: 8.5px; letter-spacing: 1px;
+  color: var(--muted); text-transform: uppercase; padding: 4px 9px 5px;
+}
+.pn-more-item {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  padding: 5px 9px; border: none; border-radius: 5px;
+  background: none; color: var(--muted); font-size: 10.5px;
+  text-align: left; cursor: pointer;
+}
+.pn-more-item:hover { background: var(--surface-alt); color: var(--text); }
+.pn-more-item.active { color: var(--text); background: var(--surface-alt); }
+.pn-more-item .num { color: var(--accent); font-family: var(--mono); font-size: 9.5px; }
+
+/* focus banner + region labels */
+.ck-focus-banner {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  padding: 8px 12px; border: 1px solid var(--ck-border-strong);
+  border-radius: 7px; background: linear-gradient(90deg, rgba(76,141,255,.12), transparent 60%);
+  font-family: var(--mono); font-size: 11px; color: var(--ck-text);
+  letter-spacing: .3px; flex: 0 0 auto;
+}
+.ck-focus-tag {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.4px;
+  color: var(--ck-blue); padding: 1px 7px;
+  border: 1px solid rgba(76,141,255,.5); border-radius: 3px;
+}
+.ck-focus-banner .ck-spacer { flex: 1; }
+.ck-region-label {
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  letter-spacing: 1.6px; text-transform: uppercase; color: var(--ck-muted);
+  padding: 2px 2px 0; flex: 0 0 auto;
+}
+
+/* performance focus — promote & enlarge KPI + cost wrappers via zoom so the
+   inline-styled metrics-dev children scale without class-name conflicts */
+.ck-focus-block { min-width: 0; }
+.ck-focus-block.ck-focus-lead {
+  zoom: 1.12;
+  padding: 6px; border-radius: 10px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(76,141,255,.10), transparent 55%);
+  border: 1px solid var(--ck-border);
+}
+
+/* higher-contrast cockpit typography (section titles already uppercase mono) */
+.cockpit-panel > .ck-head .ck-title { letter-spacing: 1.1px; font-size: 11.5px; }
+.ck-na { font-size: 11.5px; }
+
+/* responsive: 1366×768 / 1440×900 / 1920×1080 — expand existing 1439/1180
+   breakpoints with tighter rails & nav so nothing clips or overflows */
+@media (max-width: 1499px) {
+  .jev-app { grid-template-columns: 196px 1fr; }
+  .cockpit-workspace { grid-template-columns: minmax(0, 1fr) 300px; }
+  .cockpit-bottom { grid-template-columns: minmax(0, 1fr) 300px; }
+}
+@media (max-width: 1366px) {
+  .jev-app { grid-template-columns: 186px 1fr; }
+  .cockpit-workspace { grid-template-columns: minmax(0, 1fr) 270px; }
+  .cockpit-bottom { grid-template-columns: minmax(0, 1fr) 270px; }
+  .pn-item .pn-sub { font-size: 8.5px; }
+}
+@media (min-width: 1700px) {
+  .ck-focus-block.ck-focus-lead { zoom: 1.16; }
+}
+
+
+/* ==========================================================================
+ * Mobile layout correction — 390px viewport.
+ * The desktop shell reserved a fixed 232px sidebar, while the cockpit's
+ * 1fr grid tracks retained min-content width. On phones the navigation moves
+ * to a horizontally scrollable top rail and every content track can shrink.
+ * No data, trading, order-confirmation or safety logic is changed.
+ * ========================================================================== */
+@media (max-width: 1180px) {
+  .cockpit-workspace {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+  .cockpit-bottom {
+    grid-template-columns: minmax(0, 1fr);
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 640px) {
+  html,
+  body,
+  #trading-root {
+    width: 100%;
+    min-width: 0;
+  }
+
+  /* Replace the fixed left rail with a compact top navigation rail. */
+  .jev-app {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    width: 100%;
+    min-width: 0;
+  }
+  .jev-sidebar {
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
+    border-right: 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .jev-brand {
+    padding: 8px 12px 6px;
+  }
+  .jev-brand h1 {
+    font-size: 14px;
+  }
+  .jev-brand .sub,
+  .jev-side-foot {
+    display: none;
+  }
+  .jev-nav {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 6px 8px 8px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .jev-nav-item {
+    flex: 0 0 auto;
+    width: auto;
+    gap: 6px;
+    padding: 7px 9px;
+    white-space: nowrap;
+    font-size: 11px;
+  }
+  .jev-nav-item .ic {
+    width: 14px;
+    height: 14px;
+    flex: 0 0 14px;
+  }
+
+  /* Five-nav presentation layer: Line B's rail fix above only covered the
+     legacy .jev-nav-item. The new primary/more rails and their buttons must
+     ALSO become a horizontally scrollable top rail — otherwise five fixed
+     width .pn-item / .pn-more-item nodes blow the 390px layout apart. */
+  .jev-nav.pn-primary,
+  .jev-nav.pn-more {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+  }
+  .pn-item,
+  .pn-more-item {
+    flex: 0 0 auto;
+    width: auto;
+    white-space: nowrap;
+  }
+
+  /* Allow the page and every Cockpit grid/flex track to shrink to the viewport. */
+  .jev-main,
+  .jev-content,
+  .jev-content.cockpit-content,
+  .cockpit,
+  .cockpit-workspace,
+  .cockpit-bottom,
+  .cockpit-hsplit,
+  .cockpit-hpane,
+  .cockpit-panel,
+  .cockpit-panel > .ck-body {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .jev-main,
+  .jev-content,
+  .jev-content.cockpit-content,
+  .cockpit,
+  .cockpit-workspace,
+  .cockpit-bottom,
+  .cockpit-hsplit,
+  .cockpit-hpane,
+  .cockpit-panel {
+    width: 100%;
+  }
+  .jev-content,
+  .jev-content.cockpit-content {
+    padding: 10px;
+  }
+  .cockpit-workspace,
+  .cockpit-bottom {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .cockpit-hsplit {
+    flex-direction: column;
+  }
+  .cockpit-hpane.left,
+  .cockpit-hpane.right {
+    flex: 1 1 auto;
+    width: 100%;
+  }
+  .ck-toolbar {
+    min-width: 0;
+    max-width: 100%;
+    gap: 6px;
+  }
+  .ck-terminal-ribbon,
+  .ck-status-grid,
+  .ck-kpi-strip {
+    min-width: 0;
+    max-width: 100%;
+  }
+}
